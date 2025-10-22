@@ -2,9 +2,15 @@
 Credit to https://github.com/Pumpkin-MC/Pumpkin/ for this implementation.
 */
 
+use std::{
+    io,
+    pin::Pin,
+    task::{Context, Poll},
+};
+
 use aes::cipher::KeyIvInit;
 use async_compression::tokio::bufread::ZlibDecoder;
-use tokio::io::{AsyncRead, AsyncReadExt, BufReader};
+use tokio::io::{AsyncRead, AsyncReadExt, BufReader, ReadBuf};
 
 use crate::{
     codec::{errors::ReadingError, var_int},
@@ -23,17 +29,17 @@ pub enum DecompressionReader<R: AsyncRead + Unpin> {
 impl<R: AsyncRead + Unpin> AsyncRead for DecompressionReader<R> {
     #[inline]
     fn poll_read(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-        buf: &mut tokio::io::ReadBuf<'_>,
-    ) -> std::task::Poll<std::io::Result<()>> {
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
         match self.get_mut() {
             Self::Decompress(reader) => {
-                let reader = std::pin::Pin::new(reader);
+                let reader = Pin::new(reader);
                 reader.poll_read(cx, buf)
             }
             Self::None(reader) => {
-                let reader = std::pin::Pin::new(reader);
+                let reader = Pin::new(reader);
                 reader.poll_read(cx, buf)
             }
         }
@@ -57,17 +63,17 @@ impl<R: AsyncRead + Unpin> DecryptionReader<R> {
 impl<R: AsyncRead + Unpin> AsyncRead for DecryptionReader<R> {
     #[inline]
     fn poll_read(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-        buf: &mut tokio::io::ReadBuf<'_>,
-    ) -> std::task::Poll<std::io::Result<()>> {
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
         match self.get_mut() {
             Self::Decrypt(reader) => {
-                let reader = std::pin::Pin::new(reader);
+                let reader = Pin::new(reader);
                 reader.poll_read(cx, buf)
             }
             Self::None(reader) => {
-                let reader = std::pin::Pin::new(reader);
+                let reader = Pin::new(reader);
                 reader.poll_read(cx, buf)
             }
         }
@@ -104,37 +110,28 @@ impl<R: AsyncRead + Unpin> TCPNetworkDecoder<R> {
     }
 
     pub async fn get_raw_packet(&mut self) -> Result<RawPacket, PacketReadError> {
-        let packet_len: i32 =
-            var_int::read_async(&mut self.reader)
-                .await
-                .map_err(|err| match err {
-                    ReadingError::CleanEOF(_) => PacketReadError::ConnectionClosed,
-                    err => PacketReadError::MalformedLength(err.to_string()),
-                })?;
+        let packet_len = var_int::read_async(&mut self.reader).await? as usize;
 
-        let packet_len = packet_len as u64;
-
-        if !(0..=MAX_PACKET_SIZE).contains(&packet_len) {
+        if packet_len > MAX_PACKET_SIZE {
             Err(PacketReadError::OutOfBounds)?
         }
 
-        let mut bounded_reader = (&mut self.reader).take(packet_len);
+        let mut bounded_reader = (&mut self.reader).take(packet_len as _);
 
         let mut reader = if let Some(threshold) = self.compression {
-            let decompressed_length: i32 = var_int::read_async(&mut bounded_reader).await?;
-            let raw_packet_length =
-                packet_len - (var_int::written_size(&decompressed_length) as u64);
-            let decompressed_length = decompressed_length as usize;
+            let decompressed_len = var_int::read_async(&mut bounded_reader).await?;
+            let raw_packet_len = packet_len - var_int::written_size(decompressed_len);
+            let decompressed_len = decompressed_len as usize;
 
-            if !(0..=MAX_PACKET_DATA_SIZE).contains(&decompressed_length) {
+            if decompressed_len > MAX_PACKET_DATA_SIZE {
                 Err(PacketReadError::TooLong)?
             }
 
-            if decompressed_length > 0 {
+            if decompressed_len > 0 {
                 DecompressionReader::Decompress(ZlibDecoder::new(BufReader::new(bounded_reader)))
             } else {
                 // Validate that we are not less than the compression threshold
-                if raw_packet_length > threshold as u64 {
+                if raw_packet_len > threshold {
                     Err(PacketReadError::NotCompressed)?
                 }
 
@@ -144,12 +141,7 @@ impl<R: AsyncRead + Unpin> TCPNetworkDecoder<R> {
             DecompressionReader::None(bounded_reader)
         };
 
-        // TODO: Serde is sync so we need to write to a buffer here :(
-        // Is there a way to deserialize in an asynchronous manner?
-
-        let packet_id: i32 = var_int::read_async(&mut reader)
-            .await
-            .map_err(|_| PacketReadError::DecodeID)?;
+        let packet_id = var_int::read_async(&mut reader).await?;
 
         let mut payload = Vec::new();
         reader

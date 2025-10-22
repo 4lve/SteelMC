@@ -2,6 +2,12 @@
 Credit to https://github.com/Pumpkin-MC/Pumpkin/ for this implementation.
 */
 
+use std::{
+    io,
+    pin::Pin,
+    task::{Context, Poll},
+};
+
 use aes::cipher::KeyIvInit;
 use async_compression::{Level, tokio::write::ZlibEncoder};
 use bytes::Bytes;
@@ -38,49 +44,43 @@ impl<W: AsyncWrite + Unpin> EncryptionWriter<W> {
 
 impl<W: AsyncWrite + Unpin> AsyncWrite for EncryptionWriter<W> {
     fn poll_write(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
         buf: &[u8],
-    ) -> std::task::Poll<Result<usize, std::io::Error>> {
+    ) -> Poll<Result<usize, io::Error>> {
         match self.get_mut() {
             Self::Encrypt(writer) => {
-                let writer = std::pin::Pin::new(writer);
+                let writer = Pin::new(writer);
                 writer.poll_write(cx, buf)
             }
             Self::None(writer) => {
-                let writer = std::pin::Pin::new(writer);
+                let writer = Pin::new(writer);
                 writer.poll_write(cx, buf)
             }
         }
     }
 
-    fn poll_flush(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), std::io::Error>> {
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
         match self.get_mut() {
             Self::Encrypt(writer) => {
-                let writer = std::pin::Pin::new(writer);
+                let writer = Pin::new(writer);
                 writer.poll_flush(cx)
             }
             Self::None(writer) => {
-                let writer = std::pin::Pin::new(writer);
+                let writer = Pin::new(writer);
                 writer.poll_flush(cx)
             }
         }
     }
 
-    fn poll_shutdown(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), std::io::Error>> {
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
         match self.get_mut() {
             Self::Encrypt(writer) => {
-                let writer = std::pin::Pin::new(writer);
+                let writer = Pin::new(writer);
                 writer.poll_shutdown(cx)
             }
             Self::None(writer) => {
-                let writer = std::pin::Pin::new(writer);
+                let writer = Pin::new(writer);
                 writer.poll_shutdown(cx)
             }
         }
@@ -152,15 +152,10 @@ impl<W: AsyncWrite + Unpin> TCPNetworkEncoder<W> {
         // We need to write to a buffer here 😔
 
         let data_len = packet_data.len();
+        // We dont need any more size check to convert to i32 as MAX_PACKET_DATA_SIZE < i32::MAX
         if data_len > MAX_PACKET_DATA_SIZE {
             return Err(PacketWriteError::TooLong(data_len));
         }
-
-        let data_len_var_int: i32 = data_len.try_into().map_err(|_| {
-            PacketWriteError::Message(format!(
-                "Packet data length is too large to fit in VarInt! ({data_len})"
-            ))
-        })?;
 
         if let Some((compression_threshold, compression_level)) = self.compression {
             if data_len >= compression_threshold {
@@ -186,27 +181,22 @@ impl<W: AsyncWrite + Unpin> TCPNetworkEncoder<W> {
                     .map_err(|err| PacketWriteError::Message(err.to_string()))?;
                 debug_assert!(!compressed_buf.is_empty());
 
-                let full_packet_len_var_int: i32 = (var_int::written_size(&data_len_var_int)
-                    + compressed_buf.len())
-                .try_into()
-                .map_err(|_| {
-                    PacketWriteError::Message(format!(
-                        "Full packet length is too large to fit in VarInt! ({data_len})"
-                    ))
-                })?;
+                let full_packet_len = (var_int::written_size(data_len as _) + compressed_buf.len())
+                    .try_into()
+                    .map_err(|_| {
+                        PacketWriteError::Message(format!(
+                            "Full packet length is too large to fit in VarInt! ({data_len})"
+                        ))
+                    })?;
 
-                let complete_serialization_length = var_int::written_size(&full_packet_len_var_int)
-                    + full_packet_len_var_int as usize;
-                if complete_serialization_length > MAX_PACKET_SIZE as usize {
-                    return Err(PacketWriteError::TooLong(complete_serialization_length));
+                let complete_len =
+                    var_int::written_size(full_packet_len) + full_packet_len as usize;
+                if complete_len > MAX_PACKET_SIZE as usize {
+                    return Err(PacketWriteError::TooLong(complete_len));
                 }
 
-                var_int::write_async(&full_packet_len_var_int, &mut self.writer)
-                    .await
-                    .map_err(|err| PacketWriteError::Message(err.to_string()))?;
-                var_int::write_async(&data_len_var_int, &mut self.writer)
-                    .await
-                    .map_err(|err| PacketWriteError::Message(err.to_string()))?;
+                var_int::write_async(full_packet_len, &mut self.writer).await?;
+                var_int::write_async(data_len as _, &mut self.writer).await?;
 
                 self.writer
                     .write_all(&compressed_buf)
@@ -217,28 +207,16 @@ impl<W: AsyncWrite + Unpin> TCPNetworkEncoder<W> {
                 // Length of (Data Length) + length of compressed (Packet ID + Data)
                 // 0 to indicate uncompressed
 
-                let data_len_var_int: i32 = 0;
-                let full_packet_len_var_int: i32 = (var_int::written_size(&data_len_var_int)
-                    + data_len)
-                    .try_into()
-                    .map_err(|_| {
-                        PacketWriteError::Message(format!(
-                            "Full packet length is too large to fit in VarInt! ({data_len})"
-                        ))
-                    })?;
+                let full_packet_len = data_len as i32;
 
-                let complete_serialization_length = var_int::written_size(&full_packet_len_var_int)
-                    + full_packet_len_var_int as usize;
-                if complete_serialization_length > MAX_PACKET_SIZE as usize {
-                    return Err(PacketWriteError::TooLong(complete_serialization_length));
+                let complete_serialization_len =
+                    var_int::written_size(full_packet_len) + full_packet_len as usize;
+                if complete_serialization_len > MAX_PACKET_SIZE as usize {
+                    return Err(PacketWriteError::TooLong(complete_serialization_len));
                 }
 
-                var_int::write_async(&full_packet_len_var_int, &mut self.writer)
-                    .await
-                    .map_err(|err| PacketWriteError::Message(err.to_string()))?;
-                var_int::write_async(&data_len_var_int, &mut self.writer)
-                    .await
-                    .map_err(|err| PacketWriteError::Message(err.to_string()))?;
+                var_int::write_async(full_packet_len, &mut self.writer).await?;
+                var_int::write_async(0, &mut self.writer).await?;
                 self.writer
                     .write_all(&packet_data)
                     .await
@@ -248,17 +226,12 @@ impl<W: AsyncWrite + Unpin> TCPNetworkEncoder<W> {
             // Pushed before data:
             // Length of Packet ID + Data
 
-            let full_packet_len_var_int: i32 = data_len_var_int;
-
-            let complete_serialization_length =
-                var_int::written_size(&full_packet_len_var_int) + full_packet_len_var_int as usize;
-            if complete_serialization_length > MAX_PACKET_SIZE as usize {
-                return Err(PacketWriteError::TooLong(complete_serialization_length));
+            let complete_len = var_int::written_size(data_len as _) + data_len;
+            if complete_len > MAX_PACKET_SIZE as usize {
+                return Err(PacketWriteError::TooLong(complete_len));
             }
 
-            var_int::write_async(&full_packet_len_var_int, &mut self.writer)
-                .await
-                .map_err(|err| PacketWriteError::Message(err.to_string()))?;
+            var_int::write_async(data_len as _, &mut self.writer).await?;
             self.writer
                 .write_all(&packet_data)
                 .await

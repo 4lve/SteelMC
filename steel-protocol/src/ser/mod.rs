@@ -194,7 +194,7 @@ impl<W: Write> NetworkWriteExt for W {
     }
 
     fn write_var_int(&mut self, data: i32) -> Result<(), WritingError> {
-        var_int::write(&data, self)
+        var_int::write(data, self)
     }
 
     fn write_var_uint(&mut self, data: u32) -> Result<(), WritingError> {

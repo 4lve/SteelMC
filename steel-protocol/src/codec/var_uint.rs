@@ -1,12 +1,9 @@
-use std::{
-    io::{Read, Write},
-    num::NonZeroUsize,
-};
+use std::io::{Read, Write};
 
 use crate::codec::errors::{ReadingError, WritingError};
 use crate::ser::{NetworkReadExt, NetworkWriteExt};
 
-const MAX_SIZE: NonZeroUsize = NonZeroUsize::new(5).unwrap();
+const MAX_SIZE: usize = 5;
 
 /// Returns the exact number of bytes this VarUInt will write when
 /// [`Encode::encode`] is called, assuming no error occurs.
@@ -32,7 +29,7 @@ pub fn write(int: &u32, write: &mut impl Write) -> Result<(), WritingError> {
 
 pub fn read(read: &mut impl Read) -> Result<u32, ReadingError> {
     let mut val = 0;
-    for i in 0..MAX_SIZE.get() {
+    for i in 0..MAX_SIZE {
         let byte = read.get_u8()?;
         val |= (u32::from(byte) & 0x7F) << (i * 7);
         if byte & 0x80 == 0 {

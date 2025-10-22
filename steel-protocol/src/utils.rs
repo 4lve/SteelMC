@@ -1,4 +1,5 @@
 use std::{
+    io,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -8,7 +9,7 @@ use bytes::Bytes;
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-use crate::codec::errors::ReadingError;
+use crate::codec::errors::{ReadingError, WritingError};
 
 pub type Aes128Cfb8Enc = cfb8::Encryptor<aes::Aes128>;
 pub type Aes128Cfb8Dec = cfb8::Decryptor<aes::Aes128>;
@@ -26,8 +27,8 @@ pub type CompressionThreshold = usize;
 /// increase CPU usage.
 pub type CompressionLevel = u32;
 
-pub const MAX_PACKET_SIZE: u64 = 2097152;
-pub const MAX_PACKET_DATA_SIZE: usize = 8388608;
+pub const MAX_PACKET_SIZE: usize = 2_097_152;
+pub const MAX_PACKET_DATA_SIZE: usize = 8_388_608;
 
 pub struct RawPacket {
     pub id: i32,
@@ -44,18 +45,16 @@ pub enum PacketWriteError {
     Message(String),
 }
 
-impl From<crate::codec::errors::WritingError> for PacketWriteError {
-    fn from(err: crate::codec::errors::WritingError) -> Self {
+impl From<WritingError> for PacketWriteError {
+    fn from(err: WritingError) -> Self {
         match err {
-            crate::codec::errors::WritingError::IoError(io_err) => {
+            WritingError::IoError(io_err) => {
                 PacketWriteError::Message(format!("IO error: {}", io_err))
             }
-            crate::codec::errors::WritingError::Serde(msg) => {
+            WritingError::Serde(msg) => {
                 PacketWriteError::Message(format!("Serialization error: {}", msg))
             }
-            crate::codec::errors::WritingError::Message(msg) => {
-                PacketWriteError::Message(msg)
-            }
+            WritingError::Message(msg) => PacketWriteError::Message(msg),
         }
     }
 }
@@ -82,7 +81,11 @@ pub enum PacketReadError {
 
 impl From<ReadingError> for PacketReadError {
     fn from(value: ReadingError) -> Self {
-        Self::FailedDecompression(value.to_string())
+        match value {
+            ReadingError::CleanEOF(_) => Self::ConnectionClosed,
+            ReadingError::TooLarge(e) => Self::MalformedLength(e.to_string()),
+            _ => Self::FailedDecompression(value.to_string()),
+        }
     }
 }
 
@@ -109,7 +112,7 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for StreamEncryptor<W> {
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
-    ) -> Poll<Result<usize, std::io::Error>> {
+    ) -> Poll<Result<usize, io::Error>> {
         let ref_self = self.get_mut();
         let cipher = &mut ref_self.cipher;
 
@@ -155,16 +158,13 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for StreamEncryptor<W> {
         Poll::Ready(Ok(total_written))
     }
 
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), std::io::Error>> {
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
         let ref_self = self.get_mut();
         let write = Pin::new(&mut ref_self.write);
         write.poll_flush(cx)
     }
 
-    fn poll_shutdown(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<(), std::io::Error>> {
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
         let ref_self = self.get_mut();
         let write = Pin::new(&mut ref_self.write);
         write.poll_shutdown(cx)
@@ -190,7 +190,7 @@ impl<R: AsyncRead + Unpin> AsyncRead for StreamDecryptor<R> {
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
-    ) -> Poll<std::io::Result<()>> {
+    ) -> Poll<io::Result<()>> {
         let ref_self = self.get_mut();
         let read = Pin::new(&mut ref_self.read);
         let cipher = &mut ref_self.cipher;
