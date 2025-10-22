@@ -1,9 +1,12 @@
 use std::io::{Read, Write};
 
 use crate::codec::{
+    VarInt, VarUint,
     errors::{ReadingError, WritingError},
-    var_int, var_uint,
 };
+
+pub mod prefixed_read;
+pub mod prefixed_write;
 
 pub trait NetworkReadExt {
     fn get_i8(&mut self) -> Result<i8, ReadingError>;
@@ -110,11 +113,11 @@ impl<R: Read> NetworkReadExt for R {
     }
 
     fn get_var_int(&mut self) -> Result<i32, ReadingError> {
-        var_int::read(self)
+        VarInt::read(self)
     }
 
     fn get_var_uint(&mut self) -> Result<u32, ReadingError> {
-        var_uint::read(self)
+        VarUint::read(self)
     }
 
     fn get_string_bounded(&mut self, bound: usize) -> Result<String, ReadingError> {
@@ -194,11 +197,11 @@ impl<W: Write> NetworkWriteExt for W {
     }
 
     fn write_var_int(&mut self, data: i32) -> Result<(), WritingError> {
-        var_int::write(data, self)
+        VarInt(data).write(self)
     }
 
     fn write_var_uint(&mut self, data: u32) -> Result<(), WritingError> {
-        var_uint::write(&data, self)
+        VarUint(data).write(self)
     }
 
     fn write_string_bounded(&mut self, data: &str, bound: usize) -> Result<(), WritingError> {

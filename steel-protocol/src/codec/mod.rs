@@ -1,3 +1,6 @@
 pub mod errors;
-pub mod var_int;
-pub mod var_uint;
+mod var_int;
+mod var_uint;
+
+pub use var_int::VarInt;
+pub use var_uint::VarUint;

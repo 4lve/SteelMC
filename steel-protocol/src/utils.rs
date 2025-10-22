@@ -85,6 +85,12 @@ impl From<WritingError> for PacketWriteError {
     }
 }
 
+impl From<io::Error> for PacketWriteError {
+    fn from(err: io::Error) -> Self {
+        Self::Message(err.to_string())
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum PacketReadError {
     #[error("failed to decode packet ID")]

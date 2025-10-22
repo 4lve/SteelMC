@@ -5,10 +5,54 @@ use crate::{
     utils::{PacketReadError, PacketWriteError},
 };
 
+const DEFAULT_BOUND: usize = i32::MAX as _;
+
 pub trait PacketRead {
     fn read_packet(data: &mut impl Read) -> Result<Self, PacketReadError>
     where
         Self: Sized;
+}
+pub trait PacketWrite {
+    fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketWriteError>;
+}
+
+pub trait PrefixedRead {
+    fn read_prefixed_bound<P: TryFrom<usize> + TryInto<usize> + PacketRead>(
+        data: &mut impl Read,
+        bound: usize,
+    ) -> Result<Self, PacketReadError>
+    where
+        Self: Sized;
+
+    fn read_prefixed<P: TryFrom<usize> + TryInto<usize> + PacketRead>(
+        &self,
+        data: &mut impl Read,
+    ) -> Result<Self, PacketReadError>
+    where
+        Self: Sized,
+    {
+        Self::read_prefixed_bound::<P>(data, DEFAULT_BOUND)
+    }
+}
+
+pub trait PrefixedWrite {
+    fn write_prefixed_bound<P: TryFrom<usize> + TryInto<usize> + PacketWrite>(
+        &self,
+        writer: &mut impl Write,
+        bound: usize,
+    ) -> Result<(), PacketWriteError>
+    where
+        Self: Sized;
+
+    fn write_prefixed<P: TryFrom<usize> + TryInto<usize> + PacketWrite>(
+        &self,
+        writer: &mut impl Write,
+    ) -> Result<(), PacketWriteError>
+    where
+        Self: Sized,
+    {
+        self.write_prefixed_bound::<P>(writer, DEFAULT_BOUND)
+    }
 }
 
 impl PacketRead for i32 {
@@ -23,20 +67,10 @@ impl PacketRead for u16 {
     }
 }
 
-impl PacketRead for f32 {
+impl PacketRead for u8 {
     fn read_packet(data: &mut impl Read) -> Result<Self, PacketReadError> {
-        Ok(data.get_f32_be()?)
+        Ok(data.get_u8()?)
     }
-}
-
-impl PacketRead for i64 {
-    fn read_packet(data: &mut impl Read) -> Result<Self, PacketReadError> {
-        Ok(data.get_i64_be()?)
-    }
-}
-
-pub trait PacketWrite {
-    fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketWriteError>;
 }
 
 impl PacketWrite for i32 {

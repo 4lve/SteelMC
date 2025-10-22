@@ -15,7 +15,7 @@ use thiserror::Error;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use crate::{
-    codec::var_int,
+    codec::VarInt,
     utils::{
         Aes128Cfb8Enc, CompressionLevel, CompressionThreshold, MAX_PACKET_DATA_SIZE,
         MAX_PACKET_SIZE, PacketWriteError, StreamEncryptor,
@@ -23,7 +23,6 @@ use crate::{
 };
 
 // raw -> compress -> encrypt
-
 pub enum EncryptionWriter<W: AsyncWrite + Unpin> {
     Encrypt(Box<StreamEncryptor<W>>),
     None(W),
@@ -177,7 +176,7 @@ impl<W: AsyncWrite + Unpin> TCPNetworkEncoder<W> {
                     .map_err(|err| PacketWriteError::Message(err.to_string()))?;
                 debug_assert!(!compressed_buf.is_empty());
 
-                let full_packet_len = (var_int::written_size(data_len as _) + compressed_buf.len())
+                let full_packet_len = (VarInt::written_size(data_len as _) + compressed_buf.len())
                     .try_into()
                     .map_err(|_| {
                         PacketWriteError::Message(format!(
@@ -185,14 +184,15 @@ impl<W: AsyncWrite + Unpin> TCPNetworkEncoder<W> {
                         ))
                     })?;
 
-                let complete_len =
-                    var_int::written_size(full_packet_len) + full_packet_len as usize;
+                let complete_len = VarInt::written_size(full_packet_len) + full_packet_len as usize;
                 if complete_len > MAX_PACKET_SIZE {
                     return Err(PacketWriteError::TooLong(complete_len));
                 }
 
-                var_int::write_async(full_packet_len, &mut self.writer).await?;
-                var_int::write_async(data_len as _, &mut self.writer).await?;
+                VarInt(full_packet_len)
+                    .write_async(&mut self.writer)
+                    .await?;
+                VarInt(data_len as _).write_async(&mut self.writer).await?;
 
                 self.writer
                     .write_all(&compressed_buf)
@@ -206,13 +206,16 @@ impl<W: AsyncWrite + Unpin> TCPNetworkEncoder<W> {
                 let full_packet_len = data_len as i32;
 
                 let complete_serialization_len =
-                    var_int::written_size(full_packet_len) + full_packet_len as usize;
+                    VarInt::written_size(full_packet_len) + full_packet_len as usize;
                 if complete_serialization_len > MAX_PACKET_SIZE {
                     return Err(PacketWriteError::TooLong(complete_serialization_len));
                 }
 
-                var_int::write_async(full_packet_len, &mut self.writer).await?;
-                var_int::write_async(0, &mut self.writer).await?;
+                VarInt(full_packet_len)
+                    .write_async(&mut self.writer)
+                    .await?;
+                VarInt(0).write_async(&mut self.writer).await?;
+
                 self.writer
                     .write_all(&packet_data)
                     .await
@@ -222,12 +225,12 @@ impl<W: AsyncWrite + Unpin> TCPNetworkEncoder<W> {
             // Pushed before data:
             // Length of Packet ID + Data
 
-            let complete_len = var_int::written_size(data_len as _) + data_len;
+            let complete_len = VarInt::written_size(data_len as _) + data_len;
             if complete_len > MAX_PACKET_SIZE {
                 return Err(PacketWriteError::TooLong(complete_len));
             }
 
-            var_int::write_async(data_len as _, &mut self.writer).await?;
+            VarInt(data_len as _).write_async(&mut self.writer).await?;
             self.writer
                 .write_all(&packet_data)
                 .await

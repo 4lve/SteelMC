@@ -13,7 +13,7 @@ use async_compression::tokio::bufread::ZlibDecoder;
 use tokio::io::{AsyncRead, AsyncReadExt, BufReader, ReadBuf};
 
 use crate::{
-    codec::var_int,
+    codec::VarInt,
     utils::{
         Aes128Cfb8Dec, CompressionThreshold, MAX_PACKET_DATA_SIZE, MAX_PACKET_SIZE,
         PacketReadError, RawPacket, StreamDecryptor,
@@ -110,7 +110,7 @@ impl<R: AsyncRead + Unpin> TCPNetworkDecoder<R> {
     }
 
     pub async fn get_raw_packet(&mut self) -> Result<RawPacket, PacketReadError> {
-        let packet_len = var_int::read_async(&mut self.reader).await? as usize;
+        let packet_len = VarInt::read_async(&mut self.reader).await? as usize;
 
         if packet_len > MAX_PACKET_SIZE {
             Err(PacketReadError::OutOfBounds)?
@@ -119,8 +119,8 @@ impl<R: AsyncRead + Unpin> TCPNetworkDecoder<R> {
         let mut bounded_reader = (&mut self.reader).take(packet_len as _);
 
         let mut reader = if let Some(threshold) = self.compression {
-            let decompressed_len = var_int::read_async(&mut bounded_reader).await?;
-            let raw_packet_len = packet_len - var_int::written_size(decompressed_len);
+            let decompressed_len = VarInt::read_async(&mut bounded_reader).await?;
+            let raw_packet_len = packet_len - VarInt::written_size(decompressed_len);
             let decompressed_len = decompressed_len as usize;
 
             if decompressed_len > MAX_PACKET_DATA_SIZE {
@@ -141,7 +141,7 @@ impl<R: AsyncRead + Unpin> TCPNetworkDecoder<R> {
             DecompressionReader::None(bounded_reader)
         };
 
-        let packet_id = var_int::read_async(&mut reader).await?;
+        let packet_id = VarInt::read_async(&mut reader).await?;
 
         let mut payload = Vec::new();
         reader
