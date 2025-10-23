@@ -12,17 +12,17 @@ use steel_protocol::{
             ClientBoundConfiguration, ClientBoundLogin, ClientBoundPlay, ClientBoundStatus,
             ClientPacket,
         },
-        common::clientbound_disconnect_packet::ClientboundDisconnectPacket,
+        common::c_disconnect_packet::CDisconnectPacket,
         handshake::ClientIntent,
-        login::clientbound_login_disconnect_packet::ClientboundLoginDisconnectPacket,
+        login::c_login_disconnect_packet::CLoginDisconnectPacket,
         serverbound::{
             ServerBoundConfiguration, ServerBoundHandshake, ServerBoundLogin, ServerBoundPlay,
             ServerBoundStatus, ServerPacket,
         },
         status::{
-            clientbound_pong_response_packet::ClientboundPongResponsePacket,
-            clientbound_status_response_packet::{
-                ClientboundStatusResponsePacket, Players, Status, Version,
+            c_pong_response_packet::CPongResponsePacket,
+            c_status_response_packet::{
+                CStatusResponsePacket, Players, Status, Version,
             },
         },
     },
@@ -390,7 +390,7 @@ impl JavaTcpClient {
 
         match packet {
             ServerBoundStatus::StatusRequest(_) => {
-                let packet = ClientboundStatusResponsePacket::new(Status {
+                let packet = CStatusResponsePacket::new(Status {
                     description: "A Minecraft Server".to_string(),
                     players: Some(Players {
                         max: 10,
@@ -410,7 +410,7 @@ impl JavaTcpClient {
                 .await;
             }
             ServerBoundStatus::PingRequest(packet) => {
-                let packet = ClientboundPongResponsePacket::new(packet.time);
+                let packet = CPongResponsePacket::new(packet.time);
                 log::info!(
                     "Sending pong response packet to client {}: {}",
                     self.id,
@@ -445,21 +445,21 @@ impl JavaTcpClient {
     pub async fn kick(&self, reason: TextComponent) {
         match self.connection_protocol.load() {
             ConnectionProtocol::LOGIN => {
-                let packet = ClientboundLoginDisconnectPacket::new(reason.0);
+                let packet = CLoginDisconnectPacket::new(reason.0);
                 self.send_packet_now(&ClientPacket::Login(
                     ClientBoundLogin::LoginDisconnectPacket(packet),
                 ))
                 .await;
             }
             ConnectionProtocol::CONFIGURATION => {
-                let packet = ClientboundDisconnectPacket::new(reason.0);
+                let packet = CDisconnectPacket::new(reason.0);
                 self.send_packet_now(&ClientPacket::Configuration(
                     ClientBoundConfiguration::Disconnect(packet),
                 ))
                 .await;
             }
             ConnectionProtocol::PLAY => {
-                let packet = ClientboundDisconnectPacket::new(reason.0);
+                let packet = CDisconnectPacket::new(reason.0);
                 self.send_packet_now(&ClientPacket::Play(ClientBoundPlay::Disconnect(packet)))
                     .await;
             }

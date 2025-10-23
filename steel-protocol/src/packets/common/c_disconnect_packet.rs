@@ -2,11 +2,11 @@ use steel_macros::PacketWrite;
 use steel_utils::text::TextComponentBase;
 
 #[derive(PacketWrite, Clone, Debug)]
-pub struct ClientboundDisconnectPacket {
+pub struct CDisconnectPacket {
     pub reason: TextComponentBase,
 }
 
-impl ClientboundDisconnectPacket {
+impl CDisconnectPacket {
     pub fn new(reason: TextComponentBase) -> Self {
         Self { reason }
     }

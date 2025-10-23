@@ -1,9 +1,9 @@
 use steel_macros::PacketRead;
 
 #[derive(PacketRead, Clone, Debug)]
-pub struct ServerboundStatusRequestPacket {}
+pub struct SStatusRequestPacket {}
 
-impl ServerboundStatusRequestPacket {
+impl SStatusRequestPacket {
     pub fn new() -> Self {
         Self {}
     }

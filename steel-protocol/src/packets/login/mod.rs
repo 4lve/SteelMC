@@ -1,1 +1,1 @@
-pub mod clientbound_login_disconnect_packet;
+pub mod c_login_disconnect_packet;

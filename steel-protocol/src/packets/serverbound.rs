@@ -6,8 +6,8 @@ use crate::{
     packets::{
         handshake::ClientIntentionPacket,
         status::{
-            serverbound_ping_request_packet::ServerboundPingRequestPacket,
-            serverbound_status_request_packet::ServerboundStatusRequestPacket,
+            s_ping_request_packet::SPingRequestPacket,
+            s_status_request_packet::SStatusRequestPacket,
         },
     },
     utils::{ConnectionProtocol, PacketError, RawPacket},
@@ -69,8 +69,8 @@ impl ServerBoundConfiguration {
 
 #[derive(Clone, Debug)]
 pub enum ServerBoundStatus {
-    StatusRequest(ServerboundStatusRequestPacket),
-    PingRequest(ServerboundPingRequestPacket),
+    StatusRequest(SStatusRequestPacket),
+    PingRequest(SPingRequestPacket),
 }
 
 impl ServerBoundStatus {
@@ -78,12 +78,12 @@ impl ServerBoundStatus {
         match raw_packet.id {
             status::SERVERBOUND_STATUS_REQUEST => {
                 let packet =
-                    ServerboundStatusRequestPacket::read_packet(&mut raw_packet.payload.reader())?;
+                    SStatusRequestPacket::read_packet(&mut raw_packet.payload.reader())?;
                 Ok(Self::StatusRequest(packet))
             }
             status::SERVERBOUND_PING_REQUEST => {
                 let packet =
-                    ServerboundPingRequestPacket::read_packet(&mut raw_packet.payload.reader())?;
+                    SPingRequestPacket::read_packet(&mut raw_packet.payload.reader())?;
                 Ok(Self::PingRequest(packet))
             }
             _ => Err(PacketError::MalformedValue(format!(

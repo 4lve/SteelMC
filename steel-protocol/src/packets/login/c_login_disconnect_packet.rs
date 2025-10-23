@@ -2,12 +2,12 @@ use steel_macros::PacketWrite;
 use steel_utils::text::TextComponentBase;
 
 #[derive(PacketWrite, Clone, Debug)]
-pub struct ClientboundLoginDisconnectPacket {
+pub struct CLoginDisconnectPacket {
     #[write_as(as = "json")]
     pub reason: TextComponentBase,
 }
 
-impl ClientboundLoginDisconnectPacket {
+impl CLoginDisconnectPacket {
     pub fn new(reason: TextComponentBase) -> Self {
         Self { reason }
     }

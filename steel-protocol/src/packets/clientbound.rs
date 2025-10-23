@@ -3,11 +3,11 @@ use std::io::Write;
 use crate::{
     packet_traits::PacketWrite,
     packets::{
-        common::clientbound_disconnect_packet::ClientboundDisconnectPacket,
-        login::clientbound_login_disconnect_packet::ClientboundLoginDisconnectPacket,
+        common::c_disconnect_packet::CDisconnectPacket,
+        login::c_login_disconnect_packet::CLoginDisconnectPacket,
         status::{
-            clientbound_pong_response_packet::ClientboundPongResponsePacket,
-            clientbound_status_response_packet::ClientboundStatusResponsePacket,
+            c_pong_response_packet::CPongResponsePacket,
+            c_status_response_packet::CStatusResponsePacket,
         },
     },
     utils::PacketError,
@@ -22,7 +22,7 @@ When adding a common packet search up .addPacket(CommonPacketTypes.CLIENTBOUND_D
 
 #[derive(Clone, Debug)]
 pub enum ClientBoundLogin {
-    LoginDisconnectPacket(ClientboundLoginDisconnectPacket),
+    LoginDisconnectPacket(CLoginDisconnectPacket),
 }
 
 impl ClientBoundLogin {
@@ -41,7 +41,7 @@ impl ClientBoundLogin {
 
 #[derive(Clone, Debug)]
 pub enum ClientBoundConfiguration {
-    Disconnect(ClientboundDisconnectPacket),
+    Disconnect(CDisconnectPacket),
 }
 
 impl ClientBoundConfiguration {
@@ -60,8 +60,8 @@ impl ClientBoundConfiguration {
 
 #[derive(Clone, Debug)]
 pub enum ClientBoundStatus {
-    StatusResponse(ClientboundStatusResponsePacket),
-    Pong(ClientboundPongResponsePacket),
+    StatusResponse(CStatusResponsePacket),
+    Pong(CPongResponsePacket),
 }
 
 impl ClientBoundStatus {
@@ -82,7 +82,7 @@ impl ClientBoundStatus {
 
 #[derive(Clone, Debug)]
 pub enum ClientBoundPlay {
-    Disconnect(ClientboundDisconnectPacket),
+    Disconnect(CDisconnectPacket),
 }
 
 impl ClientBoundPlay {
