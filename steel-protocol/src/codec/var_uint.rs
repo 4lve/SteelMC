@@ -1,6 +1,9 @@
 use std::io::{Read, Write};
 
-use crate::{codec::errors::{ReadingError, WritingError}, packet_traits::{WriteTo, ReadFrom}};
+use crate::{
+    codec::errors::{ReadingError, WritingError},
+    packet_traits::{ReadFrom, WriteTo},
+};
 
 pub struct VarUint(pub u32);
 

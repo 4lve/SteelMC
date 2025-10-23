@@ -111,3 +111,15 @@ impl Into<usize> for VarInt {
         self.0 as _
     }
 }
+
+impl From<i32> for VarInt {
+    fn from(value: i32) -> Self {
+        Self(value as _)
+    }
+}
+
+impl Into<i32> for VarInt {
+    fn into(self) -> i32 {
+        self.0 as _
+    }
+}

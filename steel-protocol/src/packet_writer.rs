@@ -257,7 +257,6 @@ mod tests {
     use super::*;
     use crate::java::client::status::CStatusResponse;
     use crate::packet::Packet;
-    use crate::ser::{NetworkReadExt, NetworkWriteExt};
     use crate::{ClientPacket, ReadingError};
     use aes::Aes128;
     use cfb8::Decryptor as Cfb8Decryptor;

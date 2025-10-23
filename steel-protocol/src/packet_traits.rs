@@ -26,12 +26,12 @@ pub trait WriteTo {
 }
 
 pub trait PrefixedRead: Sized {
-    fn read_prefixed_bound<P: TryFrom<usize> + TryInto<usize> + ReadFrom>(
+    fn read_prefixed_bound<P: TryInto<usize> + ReadFrom>(
         data: &mut impl Read,
         bound: usize,
     ) -> Result<Self, Error>;
 
-    fn read_prefixed<P: TryFrom<usize> + TryInto<usize> + ReadFrom>(
+    fn read_prefixed<P: TryInto<usize> + ReadFrom>(
         &self,
         data: &mut impl Read,
     ) -> Result<Self, Error> {

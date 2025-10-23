@@ -162,8 +162,6 @@ mod tests {
 
     use std::io::Write;
 
-    use crate::ser::NetworkWriteExt;
-
     use super::*;
     use aes::Aes128;
     use cfb8::Encryptor as Cfb8Encryptor;
