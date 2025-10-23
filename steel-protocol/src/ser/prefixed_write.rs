@@ -1,31 +1,44 @@
-use std::io::Write;
+use std::io;
 
-use crate::{
-    packet_traits::{PacketWrite, PrefixedWrite},
-    utils::PacketWriteError,
-};
+use crate::packet_traits::{PrefixedWrite, Write};
 
 impl PrefixedWrite for String {
-    fn write_prefixed_bound<P: TryFrom<usize> + TryInto<usize> + PacketWrite>(
+    fn write_prefixed_bound<P: TryFrom<usize> + Write>(
         &self,
-        writer: &mut impl Write,
+        writer: &mut impl io::Write,
         bound: usize,
-    ) -> Result<(), PacketWriteError>
-    where
-        Self: Sized,
-    {
+    ) -> Result<(), io::Error> {
         if self.len() > bound {
-            return Err(PacketWriteError::TooLong(self.len()));
+            return Err(io::Error::other("To long"));
         }
 
         let len: P = self
             .len()
             .try_into()
-            .map_err(|_| PacketWriteError::Message("This cant fail!".to_string()))?;
-        len.write_packet(writer)?;
+            .map_err(|_| io::Error::other("This cant happen"))?;
+        len.write(writer)?;
 
-        writer
-            .write_all(self.as_bytes())
-            .map_err(PacketWriteError::from)
+        writer.write_all(self.as_bytes())
+    }
+}
+
+impl PrefixedWrite for Vec<u8> {
+    fn write_prefixed_bound<P: TryFrom<usize> + Write>(
+        &self,
+        writer: &mut impl io::Write,
+        bound: usize,
+    ) -> Result<(), io::Error> {
+        if self.len() > bound {
+            return Err(io::Error::other("To long"));
+        }
+
+        let len: P = self
+            .len()
+            .try_into()
+            .map_err(|_| io::Error::other("This cant happen"))?;
+
+        len.write(writer)?;
+
+        writer.write_all(&self)
     }
 }

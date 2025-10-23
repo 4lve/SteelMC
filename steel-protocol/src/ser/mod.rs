@@ -4,9 +4,9 @@ use crate::codec::{
     VarInt, VarUint,
     errors::{ReadingError, WritingError},
 };
-
 pub mod prefixed_read;
 pub mod prefixed_write;
+pub mod read;
 
 pub trait NetworkReadExt {
     fn get_i8(&mut self) -> Result<i8, ReadingError>;
@@ -113,7 +113,7 @@ impl<R: Read> NetworkReadExt for R {
     }
 
     fn get_var_int(&mut self) -> Result<i32, ReadingError> {
-        VarInt::read(self)
+        VarInt::read(self).map_err(|e| ReadingError::Message(e.to_string()))
     }
 
     fn get_var_uint(&mut self) -> Result<u32, ReadingError> {

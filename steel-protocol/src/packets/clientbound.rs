@@ -1,7 +1,8 @@
-use std::io::Write;
+use std::io;
 
 use crate::{
     packet_traits::PacketWrite,
+    packet_traits::Write,
     packets::{
         common::clientbound_disconnect_packet::ClientboundDisconnectPacket,
         login::clientbound_login_disconnect_packet::ClientboundLoginDisconnectPacket,
@@ -32,7 +33,7 @@ impl ClientBoundLogin {
         }
     }
 
-    pub fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketWriteError> {
+    pub fn write_packet(&self, writer: &mut (impl io::Write + Write)) -> Result<(), PacketWriteError> {
         match self {
             Self::LoginDisconnectPacket(packet) => packet.write_packet(writer),
         }
@@ -51,7 +52,7 @@ impl ClientBoundConfiguration {
         }
     }
 
-    pub fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketWriteError> {
+    pub fn write_packet(&self, writer: &mut impl io::Write) -> Result<(), PacketWriteError> {
         match self {
             Self::Disconnect(packet) => packet.write_packet(writer),
         }
@@ -92,7 +93,7 @@ impl ClientBoundPlay {
         }
     }
 
-    pub fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketWriteError> {
+    pub fn write_packet(&self, writer: &mut impl io::Write) -> Result<(), PacketWriteError> {
         match self {
             Self::Disconnect(packet) => packet.write_packet(writer),
         }
@@ -117,7 +118,7 @@ impl ClientBoundPacket {
         }
     }
 
-    pub fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketWriteError> {
+    pub fn write_packet(&self, writer: &mut (impl io::Write + Write)) -> Result<(), PacketWriteError> {
         match self {
             Self::Status(status) => status.write_packet(writer),
             Self::Login(login) => login.write_packet(writer),

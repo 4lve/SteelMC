@@ -1,102 +1,55 @@
-use std::io::{Read, Write};
+use std::io;
 
-use crate::{
-    ser::{NetworkReadExt, NetworkWriteExt},
-    utils::{PacketReadError, PacketWriteError},
-};
+use crate::utils::{PacketReadError, PacketWriteError};
 
 const DEFAULT_BOUND: usize = i32::MAX as _;
 
-pub trait PacketRead {
-    fn read_packet(data: &mut impl Read) -> Result<Self, PacketReadError>
-    where
-        Self: Sized;
+// These are the network read/write traits
+pub trait PacketRead: Read {
+    fn read_packet(data: &mut impl io::Read) -> Result<Self, PacketReadError> {
+        Self::read(data).map_err(PacketReadError::from)
+    }
 }
-pub trait PacketWrite {
-    fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketWriteError>;
+pub trait PacketWrite: Write {
+    fn write_packet(&self, writer: &mut impl io::Write) -> Result<(), PacketWriteError> {
+        self.write(writer).map_err(PacketWriteError::from)
+    }
 }
 
-pub trait PrefixedRead {
-    fn read_prefixed_bound<P: TryFrom<usize> + TryInto<usize> + PacketRead>(
-        data: &mut impl Read,
+// These are the general read/write traits with io::error
+// Todo! find a better but not longer name, because this conflicts with io::read/write
+pub trait Read: Sized {
+    fn read(data: &mut impl io::Read) -> Result<Self, io::Error>;
+}
+pub trait Write {
+    fn write(&self, writer: &mut impl io::Write) -> Result<(), io::Error>;
+}
+
+pub trait PrefixedRead: Sized {
+    fn read_prefixed_bound<P: TryFrom<usize> + TryInto<usize> + Read>(
+        data: &mut impl io::Read,
         bound: usize,
-    ) -> Result<Self, PacketReadError>
-    where
-        Self: Sized;
+    ) -> Result<Self, io::Error>;
 
-    fn read_prefixed<P: TryFrom<usize> + TryInto<usize> + PacketRead>(
+    fn read_prefixed<P: TryFrom<usize> + TryInto<usize> + Read>(
         &self,
-        data: &mut impl Read,
-    ) -> Result<Self, PacketReadError>
-    where
-        Self: Sized,
-    {
+        data: &mut impl io::Read,
+    ) -> Result<Self, io::Error> {
         Self::read_prefixed_bound::<P>(data, DEFAULT_BOUND)
     }
 }
 
 pub trait PrefixedWrite {
-    fn write_prefixed_bound<P: TryFrom<usize> + TryInto<usize> + PacketWrite>(
+    fn write_prefixed_bound<P: TryFrom<usize> + Write>(
         &self,
-        writer: &mut impl Write,
+        writer: &mut impl io::Write,
         bound: usize,
-    ) -> Result<(), PacketWriteError>
-    where
-        Self: Sized;
+    ) -> Result<(), io::Error>;
 
-    fn write_prefixed<P: TryFrom<usize> + TryInto<usize> + PacketWrite>(
+    fn write_prefixed<P: TryFrom<usize> + Write>(
         &self,
-        writer: &mut impl Write,
-    ) -> Result<(), PacketWriteError>
-    where
-        Self: Sized,
-    {
+        writer: &mut impl io::Write,
+    ) -> Result<(), io::Error> {
         self.write_prefixed_bound::<P>(writer, DEFAULT_BOUND)
-    }
-}
-
-impl PacketRead for i32 {
-    fn read_packet(data: &mut impl Read) -> Result<Self, PacketReadError> {
-        Ok(data.get_i32_be()?)
-    }
-}
-
-impl PacketRead for u16 {
-    fn read_packet(data: &mut impl Read) -> Result<Self, PacketReadError> {
-        Ok(data.get_u16_be()?)
-    }
-}
-
-impl PacketRead for u8 {
-    fn read_packet(data: &mut impl Read) -> Result<Self, PacketReadError> {
-        Ok(data.get_u8()?)
-    }
-}
-
-impl PacketWrite for i32 {
-    fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketWriteError> {
-        writer.write_i32_be(*self)?;
-        Ok(())
-    }
-}
-
-impl PacketWrite for i64 {
-    fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketWriteError> {
-        writer.write_i64_be(*self)?;
-        Ok(())
-    }
-}
-
-impl PacketWrite for String {
-    fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketWriteError> {
-        writer.write_string(self)?;
-        Ok(())
-    }
-}
-
-impl PacketWrite for f32 {
-    fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketWriteError> {
-        writer.write_f32_be(*self)?;
-        Ok(())
     }
 }

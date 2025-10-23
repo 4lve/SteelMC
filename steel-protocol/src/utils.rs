@@ -121,6 +121,12 @@ impl From<ReadingError> for PacketReadError {
     }
 }
 
+impl From<io::Error> for PacketReadError {
+    fn from(value: io::Error) -> Self {
+        Self::MalformedValue(value.to_string())
+    }
+}
+
 ///NOTE: This makes lots of small writes; make sure there is a buffer somewhere down the line
 pub struct StreamEncryptor<W: AsyncWrite + Unpin> {
     cipher: Aes128Cfb8Enc,
