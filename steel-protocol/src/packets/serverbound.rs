@@ -77,13 +77,11 @@ impl ServerBoundStatus {
     pub fn from_raw_packet(raw_packet: RawPacket) -> Result<Self, PacketError> {
         match raw_packet.id {
             status::SERVERBOUND_STATUS_REQUEST => {
-                let packet =
-                    SStatusRequestPacket::read_packet(&mut raw_packet.payload.reader())?;
+                let packet = SStatusRequestPacket::read_packet(&mut raw_packet.payload.reader())?;
                 Ok(Self::StatusRequest(packet))
             }
             status::SERVERBOUND_PING_REQUEST => {
-                let packet =
-                    SPingRequestPacket::read_packet(&mut raw_packet.payload.reader())?;
+                let packet = SPingRequestPacket::read_packet(&mut raw_packet.payload.reader())?;
                 Ok(Self::PingRequest(packet))
             }
             _ => Err(PacketError::MalformedValue(format!(

@@ -21,9 +21,7 @@ use steel_protocol::{
         },
         status::{
             c_pong_response_packet::CPongResponsePacket,
-            c_status_response_packet::{
-                CStatusResponsePacket, Players, Status, Version,
-            },
+            c_status_response_packet::{CStatusResponsePacket, Players, Status, Version},
         },
     },
     utils::{ConnectionProtocol, PacketError, RawPacket},
