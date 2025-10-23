@@ -7,6 +7,7 @@ use crate::codec::{
 pub mod prefixed_read;
 pub mod prefixed_write;
 pub mod read;
+pub mod write;
 
 pub trait NetworkReadExt {
     fn get_i8(&mut self) -> Result<i8, ReadingError>;

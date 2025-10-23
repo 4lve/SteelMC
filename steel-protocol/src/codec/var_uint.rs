@@ -1,7 +1,6 @@
 use std::io::{Read, Write};
 
-use crate::codec::errors::{ReadingError, WritingError};
-use crate::ser::{NetworkReadExt, NetworkWriteExt};
+use crate::{codec::errors::{ReadingError, WritingError}, packet_traits::{WriteTo, ReadFrom}};
 
 pub struct VarUint(pub u32);
 
@@ -22,7 +21,7 @@ impl VarUint {
             if val != 0 {
                 byte |= 0x80;
             }
-            write.write_u8(byte)?;
+            byte.write(write).map_err(|e| WritingError::IoError(e))?;
             if val == 0 {
                 break;
             }
@@ -33,7 +32,7 @@ impl VarUint {
     pub fn read(read: &mut impl Read) -> Result<u32, ReadingError> {
         let mut val = 0;
         for i in 0..Self::MAX_SIZE {
-            let byte = read.get_u8()?;
+            let byte = u8::read(read).map_err(|e| ReadingError::Message(e.to_string()))?;
             val |= (u32::from(byte) & 0x7F) << (i * 7);
             if byte & 0x80 == 0 {
                 return Ok(val);

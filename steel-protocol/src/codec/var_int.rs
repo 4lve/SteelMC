@@ -1,8 +1,7 @@
-use std::io::{self, ErrorKind};
+use std::io::{self, Error, ErrorKind, Read, Write};
 
 use crate::codec::errors::{ReadingError, WritingError};
-use crate::packet_traits::{Read, Write};
-use crate::ser::{NetworkReadExt, NetworkWriteExt};
+use crate::packet_traits::{ReadFrom, WriteTo};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 pub struct VarInt(pub i32);
@@ -19,12 +18,19 @@ impl VarInt {
         }
     }
 
-    pub fn write(self, write: &mut impl io::Write) -> Result<(), WritingError> {
+    pub fn write(self, writer: &mut impl Write) -> Result<(), WritingError> {
         let mut val = self.0;
         loop {
             let b: u8 = val as u8 & 0x7F;
             val >>= 7;
-            write.write_u8(if val == 0 { b } else { b | 0x80 })?;
+            if val == 0 {
+                b.write(writer).map_err(|e| WritingError::IoError(e))?;
+                break;
+            } else {
+                (b | 0x80)
+                    .write(writer)
+                    .map_err(|e| WritingError::IoError(e))?;
+            }
             if val == 0 {
                 break;
             }
@@ -32,7 +38,7 @@ impl VarInt {
         Ok(())
     }
 
-    pub fn read(read: &mut impl io::Read) -> Result<i32, io::Error> {
+    pub fn read(read: &mut impl Read) -> Result<i32, Error> {
         let mut val = 0;
         for i in 0..Self::MAX_SIZE {
             let byte = u8::read(read)?;
@@ -82,14 +88,14 @@ impl VarInt {
     }
 }
 
-impl Read for VarInt {
-    fn read(_: &mut impl io::Read) -> Result<Self, io::Error> {
+impl ReadFrom for VarInt {
+    fn read(_: &mut impl Read) -> Result<Self, Error> {
         unreachable!()
     }
 }
 
-impl Write for VarInt {
-    fn write(&self, _: &mut impl io::Write) -> Result<(), io::Error> {
+impl WriteTo for VarInt {
+    fn write(&self, _: &mut impl Write) -> Result<(), Error> {
         unreachable!()
     }
 }

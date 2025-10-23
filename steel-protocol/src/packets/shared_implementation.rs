@@ -1,11 +1,11 @@
-use std::io;
+use std::io::{self, Write};
 
 use steel_utils::text::TextComponentBase;
 
-use crate::packet_traits::Write;
+use crate::packet_traits::WriteTo;
 
-impl Write for TextComponentBase {
-    fn write(&self, _: &mut impl io::Write) -> Result<(), io::Error> {
+impl WriteTo for TextComponentBase {
+    fn write(&self, _: &mut impl Write) -> Result<(), io::Error> {
         //TODO: Implement
         todo!()
     }

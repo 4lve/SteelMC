@@ -90,7 +90,7 @@ pub fn packet_read_derive(input: TokenStream) -> TokenStream {
 
             let expanded = quote! {
                 #[automatically_derived]
-                impl crate::packet_traits::Read for #name {
+                impl crate::packet_traits::ReadFrom for #name {
                     fn read(data: &mut impl std::io::Read) -> Result<Self, std::io::Error>{
                         #(#readers)*
 
@@ -165,7 +165,7 @@ pub fn packet_read_derive(input: TokenStream) -> TokenStream {
 
             TokenStream::from(quote! {
                 #[automatically_derived]
-                impl crate::packet_traits::Read for #name {
+                impl crate::packet_traits::ReadFrom for #name {
                     fn read(data: &mut impl std::io::Read) -> Result<Self, std::io::Error> {
                         Ok(match { #read_discriminant } {
                             #(#readers)*
@@ -272,7 +272,7 @@ pub fn packet_write_derive(input: TokenStream) -> TokenStream {
 
             let expanded = quote! {
                 #[automatically_derived]
-                impl crate::packet_traits::Write for #name {
+                impl crate::packet_traits::WriteTo for #name {
                     fn write(&self, writer: &mut impl std::io::Write) -> Result<(), std::io::Error> {
                         #(#writers)*
 
@@ -335,7 +335,7 @@ pub fn packet_write_derive(input: TokenStream) -> TokenStream {
             };
             TokenStream::from(quote! {
                 #[automatically_derived]
-                impl crate::packet_traits::Write for #name {
+                impl crate::packet_traits::WriteTo for #name {
                     fn write(&self, writer: &mut impl std::io::Write) -> Result<(), std::io::Error> {
                         #writer
 

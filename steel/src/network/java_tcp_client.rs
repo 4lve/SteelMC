@@ -3,7 +3,10 @@ use std::{io::Write, net::SocketAddr, sync::Arc};
 use bytes::Bytes;
 use crossbeam::atomic::AtomicCell;
 use steel_protocol::{
-    packet_reader::TCPNetworkDecoder, packet_traits::Write, packet_writer::TCPNetworkEncoder, packets::{
+    codec::VarInt,
+    packet_reader::TCPNetworkDecoder,
+    packet_writer::TCPNetworkEncoder,
+    packets::{
         clientbound::{
             ClientBoundConfiguration, ClientBoundLogin, ClientBoundPacket, ClientBoundPlay,
             ClientBoundStatus,
@@ -22,7 +25,6 @@ use steel_protocol::{
             },
         },
     },
-    ser::NetworkWriteExt,
     utils::{ConnectionProtocol, PacketReadError, PacketWriteError, RawPacket},
 };
 use steel_utils::text::TextComponent;
@@ -223,10 +225,10 @@ impl JavaTcpClient {
     pub fn write_prefixed_packet(
         &self,
         packet: &ClientBoundPacket,
-        writer: &mut (impl io::Write + Write),
+        writer: &mut impl Write,
     ) -> Result<(), PacketWriteError> {
         let packet_id = packet.get_id();
-        writer.write_var_int(packet_id)?;
+        VarInt(packet_id).write(writer)?;
         packet.write_packet(writer)?;
         Ok(())
     }

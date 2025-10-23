@@ -1,4 +1,3 @@
-use crate::packet_traits::PacketRead;
 use steel_macros::PacketRead;
 
 #[derive(Clone, Copy, PartialEq, Eq, PacketRead, Debug)]

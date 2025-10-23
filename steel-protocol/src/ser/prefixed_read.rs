@@ -1,18 +1,18 @@
-use std::io;
+use std::io::{Error, Read};
 
-use crate::packet_traits::{PrefixedRead, Read};
+use crate::packet_traits::{PrefixedRead, ReadFrom};
 
 impl PrefixedRead for String {
-    fn read_prefixed_bound<P: TryFrom<usize> + TryInto<usize> + Read>(
-        data: &mut impl io::Read,
+    fn read_prefixed_bound<P: TryFrom<usize> + TryInto<usize> + ReadFrom>(
+        data: &mut impl Read,
         bound: usize,
-    ) -> Result<Self, io::Error> {
+    ) -> Result<Self, Error> {
         let len: usize = P::read(data)?
             .try_into()
-            .map_err(|_| io::Error::other("Invalid Prefix"))?;
+            .map_err(|_| Error::other("Invalid Prefix"))?;
 
         if len > bound {
-            return Result::Err(io::Error::other("To long"));
+            return Result::Err(Error::other("To long"));
         }
 
         let mut buf = vec![0; len];
@@ -22,15 +22,15 @@ impl PrefixedRead for String {
 }
 
 impl PrefixedRead for Vec<u8> {
-    fn read_prefixed_bound<P: TryFrom<usize> + TryInto<usize> + Read>(
-        data: &mut impl io::Read,
+    fn read_prefixed_bound<P: TryFrom<usize> + TryInto<usize> + ReadFrom>(
+        data: &mut impl Read,
         bound: usize,
-    ) -> Result<Self, io::Error> {
+    ) -> Result<Self, Error> {
         let len: usize = P::read(data)?
             .try_into()
-            .map_err(|_| io::Error::other("Invalid Prefix"))?;
+            .map_err(|_| Error::other("Invalid Prefix"))?;
         if len > bound {
-            return Result::Err(io::Error::other("To long"));
+            return Result::Err(Error::other("To long"));
         }
         let mut buf = vec![0; len];
         data.read_exact(&mut buf)?;

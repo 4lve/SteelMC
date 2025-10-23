@@ -1,8 +1,6 @@
 use serde::Serialize;
 use steel_macros::PacketWrite;
 
-use crate::packet_traits::PacketWrite;
-
 #[derive(Serialize, Clone, Debug)]
 pub struct Sample {
     /// The player's name.
