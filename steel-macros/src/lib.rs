@@ -62,7 +62,7 @@ pub fn packet_read_derive(input: TokenStream) -> TokenStream {
 
                 match read_strategy.as_deref() {
                     Some("var_int") => quote! {
-                        let #field_name = crate::codec::VarInt::read(data)? as #field_type;
+                        let #field_name = crate::codec::VarInt::read(data)?.0 as #field_type;
                     },
                     Some("string") | Some("vec") => {
                         let prefix =
@@ -149,7 +149,7 @@ pub fn packet_read_derive(input: TokenStream) -> TokenStream {
 
             let read_discriminant = match read_strategy.as_deref() {
                 // Specialized implementation: read a VarInt (i32)
-                None | Some("var_int") => quote! { crate::codec::VarInt::read(data)? },
+                None | Some("var_int") => quote! { crate::codec::VarInt::read(data)?.into() },
                 // Simple implementation: read as a primitive numeric type
                 Some(s) => {
                     if !ALLOWED_TYPES.contains(&s) {

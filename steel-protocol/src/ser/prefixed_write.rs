@@ -39,6 +39,6 @@ impl PrefixedWrite for Vec<u8> {
 
         len.write(writer)?;
 
-        writer.write_all(&self)
+        writer.write_all(self)
     }
 }

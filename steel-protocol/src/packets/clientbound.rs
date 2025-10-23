@@ -10,7 +10,7 @@ use crate::{
             clientbound_status_response_packet::ClientboundStatusResponsePacket,
         },
     },
-    utils::PacketWriteError,
+    utils::PacketError,
 };
 use steel_registry::packets::clientbound::{config, login, play, status};
 
@@ -32,7 +32,7 @@ impl ClientBoundLogin {
         }
     }
 
-    pub fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketWriteError> {
+    pub fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketError> {
         match self {
             Self::LoginDisconnectPacket(packet) => packet.write_packet(writer),
         }
@@ -51,7 +51,7 @@ impl ClientBoundConfiguration {
         }
     }
 
-    pub fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketWriteError> {
+    pub fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketError> {
         match self {
             Self::Disconnect(packet) => packet.write_packet(writer),
         }
@@ -72,7 +72,7 @@ impl ClientBoundStatus {
         }
     }
 
-    pub fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketWriteError> {
+    pub fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketError> {
         match self {
             Self::StatusResponse(packet) => packet.write_packet(writer),
             Self::Pong(packet) => packet.write_packet(writer),
@@ -92,7 +92,7 @@ impl ClientBoundPlay {
         }
     }
 
-    pub fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketWriteError> {
+    pub fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketError> {
         match self {
             Self::Disconnect(packet) => packet.write_packet(writer),
         }
@@ -100,14 +100,14 @@ impl ClientBoundPlay {
 }
 
 #[derive(Clone, Debug)]
-pub enum ClientBoundPacket {
+pub enum ClientPacket {
     Status(ClientBoundStatus),
     Login(ClientBoundLogin),
     Configuration(ClientBoundConfiguration),
     Play(ClientBoundPlay),
 }
 
-impl ClientBoundPacket {
+impl ClientPacket {
     pub fn get_id(&self) -> i32 {
         match self {
             Self::Status(status) => status.get_id(),
@@ -117,7 +117,7 @@ impl ClientBoundPacket {
         }
     }
 
-    pub fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketWriteError> {
+    pub fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketError> {
         match self {
             Self::Status(status) => status.write_packet(writer),
             Self::Login(login) => login.write_packet(writer),

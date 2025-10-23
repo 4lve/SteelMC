@@ -9,8 +9,6 @@ use bytes::Bytes;
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-use crate::codec::errors::{ReadingError, WritingError};
-
 pub type Aes128Cfb8Enc = cfb8::Encryptor<aes::Aes128>;
 pub type Aes128Cfb8Dec = cfb8::Decryptor<aes::Aes128>;
 
@@ -62,41 +60,11 @@ pub struct RawPacket {
 }
 
 #[derive(Error, Debug)]
-pub enum PacketWriteError {
-    #[error("Packet exceeds maximum length: {0}")]
-    TooLong(usize),
-    #[error("Compression failed {0}")]
-    CompressionFailed(String),
-    #[error("Writing packet failed: {0}")]
-    Message(String),
-}
-
-impl From<WritingError> for PacketWriteError {
-    fn from(err: WritingError) -> Self {
-        match err {
-            WritingError::IoError(io_err) => {
-                PacketWriteError::Message(format!("IO error: {}", io_err))
-            }
-            WritingError::Serde(msg) => {
-                PacketWriteError::Message(format!("Serialization error: {}", msg))
-            }
-            WritingError::Message(msg) => PacketWriteError::Message(msg),
-        }
-    }
-}
-
-impl From<io::Error> for PacketWriteError {
-    fn from(err: io::Error) -> Self {
-        Self::Message(err.to_string())
-    }
-}
-
-#[derive(Error, Debug)]
-pub enum PacketReadError {
+pub enum PacketError {
     #[error("failed to decode packet ID")]
     DecodeID,
-    #[error("packet exceeds maximum length")]
-    TooLong,
+    #[error("packet length {0} exceeds maximum length")]
+    TooLong(usize),
     #[error("packet length is out of bounds")]
     OutOfBounds,
     #[error("malformed packet length VarInt: {0}")]
@@ -104,25 +72,26 @@ pub enum PacketReadError {
     #[error("malformed packet value: {0}")]
     MalformedValue(String),
     #[error("failed to decompress packet: {0}")]
-    FailedDecompression(String), // Updated to include error details
+    DecompressionFailed(String),
+    #[error("failed to compress packet: {0}")]
+    CompressionFailed(String),
     #[error("packet is uncompressed but greater than the threshold")]
     NotCompressed,
+    #[error("failed to decrypt packet: {0}")]
+    DecryptionFailed(String),
+    #[error("failed to encrypt packet: {0}")]
+    EncryptionFailed(String),
     #[error("the connection has closed")]
     ConnectionClosed,
+    #[error("{0}")]
+    SendError(String),
+    #[error("Error: {0}")]
+    Other(String),
 }
 
-impl From<ReadingError> for PacketReadError {
-    fn from(value: ReadingError) -> Self {
-        match value {
-            ReadingError::CleanEOF(_) => Self::ConnectionClosed,
-            ReadingError::TooLarge(e) => Self::MalformedLength(e.to_string()),
-            _ => Self::FailedDecompression(value.to_string()),
-        }
-    }
-}
-
-impl From<io::Error> for PacketReadError {
+impl From<io::Error> for PacketError {
     fn from(value: io::Error) -> Self {
+        //Todo! Define & Handle all cases
         Self::MalformedValue(value.to_string())
     }
 }

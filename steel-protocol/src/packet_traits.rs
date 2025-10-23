@@ -1,18 +1,18 @@
 use std::io::{Error, Read, Write};
 
-use crate::utils::{PacketReadError, PacketWriteError};
+use crate::utils::PacketError;
 
 const DEFAULT_BOUND: usize = i32::MAX as _;
 
 // These are the network read/write traits
 pub trait PacketRead: ReadFrom {
-    fn read_packet(data: &mut impl Read) -> Result<Self, PacketReadError> {
-        Self::read(data).map_err(PacketReadError::from)
+    fn read_packet(data: &mut impl Read) -> Result<Self, PacketError> {
+        Self::read(data).map_err(PacketError::from)
     }
 }
 pub trait PacketWrite: WriteTo {
-    fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketWriteError> {
-        self.write(writer).map_err(PacketWriteError::from)
+    fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketError> {
+        self.write(writer).map_err(PacketError::from)
     }
 }
 

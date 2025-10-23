@@ -15,8 +15,8 @@ use tokio::io::{AsyncRead, AsyncReadExt, BufReader, ReadBuf};
 use crate::{
     codec::VarInt,
     utils::{
-        Aes128Cfb8Dec, CompressionThreshold, MAX_PACKET_DATA_SIZE, MAX_PACKET_SIZE,
-        PacketReadError, RawPacket, StreamDecryptor,
+        Aes128Cfb8Dec, CompressionThreshold, MAX_PACKET_DATA_SIZE, MAX_PACKET_SIZE, PacketError,
+        RawPacket, StreamDecryptor,
     },
 };
 
@@ -109,11 +109,13 @@ impl<R: AsyncRead + Unpin> TCPNetworkDecoder<R> {
         take_mut::take(&mut self.reader, |decoder| decoder.upgrade(cipher));
     }
 
-    pub async fn get_raw_packet(&mut self) -> Result<RawPacket, PacketReadError> {
+    pub async fn get_raw_packet(&mut self) -> Result<RawPacket, PacketError> {
+        println!("get len");
         let packet_len = VarInt::read_async(&mut self.reader).await? as usize;
+        println!("len: {}", packet_len);
 
         if packet_len > MAX_PACKET_SIZE {
-            Err(PacketReadError::OutOfBounds)?
+            Err(PacketError::OutOfBounds)?
         }
 
         let mut bounded_reader = (&mut self.reader).take(packet_len as _);
@@ -124,7 +126,7 @@ impl<R: AsyncRead + Unpin> TCPNetworkDecoder<R> {
             let decompressed_len = decompressed_len as usize;
 
             if decompressed_len > MAX_PACKET_DATA_SIZE {
-                Err(PacketReadError::TooLong)?
+                Err(PacketError::TooLong(decompressed_len))?
             }
 
             if decompressed_len > 0 {
@@ -132,7 +134,7 @@ impl<R: AsyncRead + Unpin> TCPNetworkDecoder<R> {
             } else {
                 // Validate that we are not less than the compression threshold
                 if raw_packet_len > threshold {
-                    Err(PacketReadError::NotCompressed)?
+                    Err(PacketError::NotCompressed)?
                 }
 
                 DecompressionReader::None(bounded_reader)
@@ -147,7 +149,7 @@ impl<R: AsyncRead + Unpin> TCPNetworkDecoder<R> {
         reader
             .read_to_end(&mut payload)
             .await
-            .map_err(|err| PacketReadError::FailedDecompression(err.to_string()))?;
+            .map_err(|e| PacketError::DecompressionFailed(e.to_string()))?;
 
         Ok(RawPacket {
             id: packet_id,

@@ -1,6 +1,10 @@
 // Wrapper types making it harder to accidentaly use the wrong underlying type.
 
-use std::{borrow::Cow, str::FromStr};
+use std::{
+    borrow::Cow,
+    fmt::{self, Display},
+    str::FromStr,
+};
 
 use crate::math::{vector2::Vector2, vector3::Vector3};
 
@@ -69,9 +73,9 @@ impl ResourceLocation {
     }
 }
 
-impl ToString for ResourceLocation {
-    fn to_string(&self) -> String {
-        format!("{}:{}", self.namespace, self.path)
+impl Display for ResourceLocation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}", self.namespace, self.path)
     }
 }
 

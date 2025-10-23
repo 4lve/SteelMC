@@ -1,4 +1,3 @@
-pub mod errors;
 mod var_int;
 mod var_uint;
 
