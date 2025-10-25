@@ -1,7 +1,14 @@
 // Wrapper types making it harder to accidentaly use the wrong underlying type.
 
 use std::{
-    borrow::Cow, fmt::{self, Display}, io, mem::MaybeUninit, ops::{Deref, DerefMut}, pin::Pin, str::FromStr, task::{Context, Poll}
+    borrow::Cow,
+    fmt::{self, Display},
+    io,
+    mem::MaybeUninit,
+    ops::{Deref, DerefMut},
+    pin::Pin,
+    str::FromStr,
+    task::{Context, Poll},
 };
 
 use tokio::io::AsyncWrite;
