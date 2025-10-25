@@ -12,6 +12,8 @@ pub mod network;
 pub mod server;
 pub mod steel_config;
 
+pub const MC_VERSION: &str = "1.21.10";
+
 pub static STEEL_CONFIG: LazyLock<SteelConfig> =
     LazyLock::new(|| SteelConfig::load_or_create(Path::new("config/steel_config.json5")));
 

@@ -93,12 +93,18 @@ impl<T: WriteTo> PrefixedWrite for [T] {
 }
 
 impl<T: WriteTo, const N: usize> PrefixedWrite for [T; N] {
-    fn write_prefixed_bound<P: TryFrom<usize> + WriteTo>(&self, writer: &mut impl Write, bound: usize) -> Result<()> {
+    fn write_prefixed_bound<P: TryFrom<usize> + WriteTo>(
+        &self,
+        writer: &mut impl Write,
+        bound: usize,
+    ) -> Result<()> {
         if N > bound {
             Err(Error::other("To long"))?
         }
 
-        P::try_from(N).map_err(|_| Error::other("This cant happen"))?.write(writer)?;
+        P::try_from(N)
+            .map_err(|_| Error::other("This cant happen"))?
+            .write(writer)?;
 
         for i in self {
             i.write(writer)?;

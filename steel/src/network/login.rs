@@ -17,9 +17,7 @@ use crate::{
 };
 
 pub fn is_valid_player_name(name: &str) -> bool {
-    name.len() >= 3
-        && name.len() <= 16
-        && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    (3..=16).contains(&name.len()) && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 pub fn offline_uuid(username: &str) -> Result<Uuid, uuid::Error> {

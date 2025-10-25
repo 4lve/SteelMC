@@ -18,7 +18,7 @@ pub struct Players {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Version {
-    pub name: String,
+    pub name: &'static str,
     pub protocol: i32,
 }
 

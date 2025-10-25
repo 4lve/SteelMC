@@ -10,7 +10,7 @@ use steel_protocol::packets::{
     },
 };
 
-use crate::{STEEL_CONFIG, network::java_tcp_client::JavaTcpClient};
+use crate::{MC_VERSION, STEEL_CONFIG, network::java_tcp_client::JavaTcpClient};
 
 pub async fn handle_status_request(tcp_client: &JavaTcpClient, _packet: &SStatusRequestPacket) {
     // Checks if this funciton has already been called this connection. If not it sets has_requested_status to true. If it has been called before compare_exchange fails.
@@ -34,7 +34,7 @@ pub async fn handle_status_request(tcp_client: &JavaTcpClient, _packet: &SStatus
         enforce_secure_chat: STEEL_CONFIG.enforce_secure_chat,
         favicon: STEEL_CONFIG.load_favicon(),
         version: Some(Version {
-            name: "1.21.10".to_string(),
+            name: MC_VERSION,
             protocol: steel_registry::packets::CURRENT_MC_PROTOCOL as i32,
         }),
     });
