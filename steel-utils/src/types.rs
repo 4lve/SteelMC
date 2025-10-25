@@ -194,7 +194,6 @@ impl AsyncWrite for FrontVec {
         _: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<Result<usize, io::Error>> {
-        // Zugriff auf das gepinnte Self
         let this = self.get_mut();
         this.extend_from_slice(buf);
         Poll::Ready(Ok(buf.len()))

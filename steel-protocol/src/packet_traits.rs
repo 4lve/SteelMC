@@ -156,7 +156,7 @@ impl EncodedPacket {
             let mut compressor = ZlibEncoder::with_quality(&mut buf, Level::Precise(level));
 
             compressor
-                .write_all(packet_data.as_slice())
+                .write_all(&packet_data)
                 .await
                 .map_err(|e| PacketError::CompressionFailed(e.to_string()))?;
             compressor
