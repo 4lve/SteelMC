@@ -56,8 +56,8 @@ pub async fn handle_hello(tcp_client: &JavaTcpClient, packet: &SHelloPacket) {
         tcp_client
             .send_packet_now(CBoundPacket::Login(CBoundLogin::Hello(CHelloPacket::new(
                 "".to_string(),
-                tcp_client.server.key_store.public_key_der.to_vec(),
-                challenge.to_vec(),
+                tcp_client.server.key_store.public_key_der.clone(),
+                challenge,
                 true,
             ))))
             .await;
@@ -79,7 +79,6 @@ pub async fn handle_key(tcp_client: &JavaTcpClient, packet: &SKeyPacket) {
             .await;
     }
     let challenge = challenge.unwrap();
-    let challenge = challenge.to_vec();
 
     let Ok(challenge_response) = tcp_client
         .server
@@ -91,7 +90,7 @@ pub async fn handle_key(tcp_client: &JavaTcpClient, packet: &SKeyPacket) {
         return;
     };
 
-    if challenge_response != challenge {
+    if &challenge_response != &challenge {
         tcp_client
             .kick(TextComponent::text("Invalid challenge response"))
             .await;

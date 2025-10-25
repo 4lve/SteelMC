@@ -5,17 +5,17 @@ pub struct CHelloPacket {
     #[write_as(as = "string", bound = 20)]
     pub server_id: String,
     #[write_as(as = "vec")]
-    pub public_key: Vec<u8>,
+    pub public_key: Box<[u8]>,
     #[write_as(as = "vec")]
-    pub challenge: Vec<u8>,
+    pub challenge: [u8; 4],
     pub should_authenticate: bool,
 }
 
 impl CHelloPacket {
     pub fn new(
         server_id: String,
-        public_key: Vec<u8>,
-        challenge: Vec<u8>,
+        public_key: Box<[u8]>,
+        challenge: [u8; 4],
         should_authenticate: bool,
     ) -> Self {
         Self {

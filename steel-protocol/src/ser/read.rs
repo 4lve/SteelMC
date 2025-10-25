@@ -1,4 +1,7 @@
-use std::io::{Read, Result};
+use std::{
+    io::{Read, Result},
+    mem::{self, MaybeUninit},
+};
 
 use crate::packet_traits::ReadFrom;
 
@@ -86,5 +89,17 @@ impl ReadFrom for f64 {
         let mut buf = [0; size_of::<Self>()];
         data.read_exact(&mut buf)?;
         Ok(Self::from_be_bytes(buf))
+    }
+}
+
+impl<T: ReadFrom, const N: usize> ReadFrom for [T; N] {
+    fn read(data: &mut impl Read) -> Result<Self> {
+        let mut buf: [T; N] = unsafe { MaybeUninit::uninit().assume_init() };
+
+        for i in &mut buf {
+            mem::forget(mem::replace(i, T::read(data)?));
+        }
+
+        Ok(buf)
     }
 }
