@@ -112,3 +112,18 @@ impl<T: WriteTo, const N: usize> PrefixedWrite for [T; N] {
         Ok(())
     }
 }
+
+impl<T: PrefixedWrite> PrefixedWrite for Option<T> {
+    fn write_prefixed_bound<P: TryFrom<usize> + WriteTo>(
+        &self,
+        writer: &mut impl Write,
+        bound: usize,
+    ) -> Result<()> {
+        if let Some(value) = self {
+            true.write(writer)?;
+            value.write_prefixed_bound::<P>(writer, bound)
+        } else {
+            false.write(writer)
+        }
+    }
+}

@@ -40,3 +40,16 @@ impl<T: ReadFrom> PrefixedRead for Vec<T> {
         Ok(items)
     }
 }
+
+impl<T: PrefixedRead> PrefixedRead for Option<T> {
+    fn read_prefixed_bound<P: TryInto<usize> + ReadFrom>(
+        data: &mut impl Read,
+        bound: usize,
+    ) -> Result<Self> {
+        if bool::read(data)? {
+            Ok(Some(T::read_prefixed_bound::<P>(data, bound)?))
+        } else {
+            Ok(None)
+        }
+    }
+}

@@ -7,6 +7,7 @@ pub struct Property {
     pub name: String,
     #[write_as(as = "string")]
     pub value: String,
+    #[write_as(as = "string")]
     pub signature: Option<String>,
 }
 

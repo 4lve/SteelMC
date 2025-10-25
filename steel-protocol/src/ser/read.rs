@@ -92,6 +92,16 @@ impl ReadFrom for f64 {
     }
 }
 
+impl<T: ReadFrom> ReadFrom for Option<T> {
+    fn read(data: &mut impl Read) -> Result<Self> {
+        if bool::read(data)? {
+            Ok(Some(T::read(data)?))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
 impl<T: ReadFrom, const N: usize> ReadFrom for [T; N] {
     fn read(data: &mut impl Read) -> Result<Self> {
         let mut buf: [T; N] = unsafe { MaybeUninit::uninit().assume_init() };
