@@ -37,7 +37,7 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for EncryptionWriter<W> {
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
-    ) -> Poll<Result<usize, io::Error>> {
+    ) -> Poll<io::Result<usize>> {
         match self.get_mut() {
             Self::Encrypt(writer) => {
                 let writer = Pin::new(writer);
@@ -50,7 +50,7 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for EncryptionWriter<W> {
         }
     }
 
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         match self.get_mut() {
             Self::Encrypt(writer) => {
                 let writer = Pin::new(writer);
@@ -63,7 +63,7 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for EncryptionWriter<W> {
         }
     }
 
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         match self.get_mut() {
             Self::Encrypt(writer) => {
                 let writer = Pin::new(writer);

@@ -1,4 +1,4 @@
-use std::io::{Error, Write};
+use std::io::{Error, Write, Result};
 
 use crate::packet_traits::{PrefixedWrite, WriteTo};
 
@@ -7,9 +7,9 @@ impl PrefixedWrite for String {
         &self,
         writer: &mut impl Write,
         bound: usize,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         if self.len() > bound {
-            return Err(Error::other("To long"));
+            Err(Error::other("To long"))?
         }
 
         let len: P = self
@@ -27,9 +27,9 @@ impl<T: WriteTo> PrefixedWrite for Vec<T> {
         &self,
         writer: &mut impl Write,
         bound: usize,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         if self.len() > bound {
-            return Err(Error::other("To long"));
+            Err(Error::other("To long"))?
         }
 
         let len: P = self

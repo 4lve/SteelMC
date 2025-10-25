@@ -118,7 +118,7 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for StreamEncryptor<W> {
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
-    ) -> Poll<Result<usize, io::Error>> {
+    ) -> Poll<io::Result<usize>> {
         let ref_self = self.get_mut();
         let cipher = &mut ref_self.cipher;
 
@@ -164,13 +164,13 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for StreamEncryptor<W> {
         Poll::Ready(Ok(total_written))
     }
 
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let ref_self = self.get_mut();
         let write = Pin::new(&mut ref_self.write);
         write.poll_flush(cx)
     }
 
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let ref_self = self.get_mut();
         let write = Pin::new(&mut ref_self.write);
         write.poll_shutdown(cx)

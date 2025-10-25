@@ -167,9 +167,10 @@ impl EncodedPacket {
             // compressed data cant be larger so we dont need to check the size again
             let varint_size = VarInt::written_size(data_len as _);
             let full_len = varint_size + buf.len();
+            let full_varint_size = VarInt::written_size(full_len as _);
 
             VarInt(data_len as _).set_in_front(&mut buf, varint_size);
-            VarInt(full_len as _).set_in_front(&mut buf, VarInt::written_size(full_len as _));
+            VarInt(full_len as _).set_in_front(&mut buf, full_varint_size);
 
             Ok(Self {
                 encoded_data: Arc::new(packet_data),

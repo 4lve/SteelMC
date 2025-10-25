@@ -90,7 +90,7 @@ pub fn packet_read_derive(input: TokenStream) -> TokenStream {
             let expanded = quote! {
                 #[automatically_derived]
                 impl crate::packet_traits::ReadFrom for #name {
-                    fn read(data: &mut impl std::io::Read) -> Result<Self, std::io::Error>{
+                    fn read(data: &mut impl std::io::Read) -> std::io::Result<Self>{
                         use crate::packet_traits::PrefixedRead;
 
                         #(#readers)*
@@ -167,7 +167,7 @@ pub fn packet_read_derive(input: TokenStream) -> TokenStream {
             TokenStream::from(quote! {
                 #[automatically_derived]
                 impl crate::packet_traits::ReadFrom for #name {
-                    fn read(data: &mut impl std::io::Read) -> Result<Self, std::io::Error> {
+                    fn read(data: &mut impl std::io::Read) -> std::io::Result<Self> {
                         Ok(match { #read_discriminant } {
                             #(#readers)*
                             _ => {
@@ -276,7 +276,7 @@ pub fn packet_write_derive(input: TokenStream) -> TokenStream {
             let expanded = quote! {
                 #[automatically_derived]
                 impl crate::packet_traits::WriteTo for #name {
-                    fn write(&self, writer: &mut impl std::io::Write) -> Result<(), std::io::Error> {
+                    fn write(&self, writer: &mut impl std::io::Write) -> std::io::Result<()> {
                         #(#writers)*
 
                         Ok(())
@@ -339,7 +339,7 @@ pub fn packet_write_derive(input: TokenStream) -> TokenStream {
             TokenStream::from(quote! {
                 #[automatically_derived]
                 impl crate::packet_traits::WriteTo for #name {
-                    fn write(&self, writer: &mut impl std::io::Write) -> Result<(), std::io::Error> {
+                    fn write(&self, writer: &mut impl std::io::Write) -> std::io::Result<()> {
                         #writer
 
                         Ok(())
