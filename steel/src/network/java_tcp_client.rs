@@ -58,6 +58,12 @@ pub enum EnqueuedPacket {
     EncodedPacket(EncodedPacket),
 }
 
+#[derive(Clone, Debug)]
+pub enum ConnectionUpdate {
+    EnableEncryption([u8; 16]),
+    EnableCompression(CompressionInfo),
+}
+
 pub struct JavaTcpClient {
     pub id: u64,
     /// The client's game profile information.
@@ -82,10 +88,12 @@ pub struct JavaTcpClient {
     network_writer: Option<TCPNetworkEncoder<BufWriter<OwnedWriteHalf>>>,
     /// The packet decoder for incoming packets.
     network_reader: Option<TCPNetworkDecoder<BufReader<OwnedReadHalf>>>,
-    compression_info: Arc<AtomicCell<Option<CompressionInfo>>>,
+    pub(crate) compression_info: Arc<AtomicCell<Option<CompressionInfo>>>,
     pub(crate) has_requested_status: AtomicBool,
     pub server: Arc<Server>,
     pub challenge: AtomicCell<Option<[u8; 4]>>,
+
+    pub(crate) connection_updates: Arc<Sender<ConnectionUpdate>>,
 }
 
 impl JavaTcpClient {
@@ -98,6 +106,7 @@ impl JavaTcpClient {
     ) -> Self {
         let (read, write) = tcp_stream.into_split();
         let (send, recv) = broadcast::channel(128);
+        let (connection_updates_send, _) = broadcast::channel(128);
 
         let (packet_recv_sender, packet_receiver) = broadcast::channel(128);
 
@@ -119,6 +128,7 @@ impl JavaTcpClient {
             compression_info: Arc::new(AtomicCell::new(None)),
             server: server,
             challenge: AtomicCell::new(None),
+            connection_updates: Arc::new(connection_updates_send),
         }
     }
 
@@ -200,14 +210,18 @@ impl JavaTcpClient {
             .expect("This was set in the new fn");
         let id = self.id;
         let compression_info = self.compression_info.clone();
+        let mut connection_updates_recv = self.connection_updates.subscribe();
 
         self.tasks.spawn(async move {
             let cancel_token_clone = cancel_token.clone();
 
-            cancel_token
-                .run_until_cancelled(async move {
-                    loop {
-                        match sender_recv.recv().await {
+            loop {
+                tokio::select! {
+                    _ = cancel_token_clone.cancelled() => {
+                        break;
+                    }
+                    packet = sender_recv.recv() => {
+                        match packet {
                             Ok(packet) => {
                                 let encoded_packet = match packet {
                                     EnqueuedPacket::EncodedPacket(packet) => packet,
@@ -232,15 +246,30 @@ impl JavaTcpClient {
                                 );
                                 cancel_token_clone.cancel();
                             }
+
                         }
                     }
-                })
-                .await;
+                    connection_update = connection_updates_recv.recv() => {
+                        match connection_update {
+                            Ok(connection_update) => {
+                                match connection_update {
+                                    ConnectionUpdate::EnableEncryption(key) => {
+                                        writer.set_encryption(&key);
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            Err(err) => {
+                                log::warn!("Internal connection_updates_recv channel closed for client {}: {}", id, err);
+                                cancel_token_clone.cancel();
+                            }
+                        }
+                    }
+                }
+            }
         });
     }
-}
 
-impl JavaTcpClient {
     pub fn start_incoming_packet_task(&mut self) {
         let mut network_reader = self
             .network_reader
@@ -250,16 +279,19 @@ impl JavaTcpClient {
         let id = self.id;
         let packet_recv_sender = self.packet_recv_sender.clone();
         let connection_protocol = self.connection_protocol.clone();
+        let mut connection_updates_recv = self.connection_updates.subscribe();
 
         self.tasks.spawn(async move {
             let cancel_token_clone = cancel_token.clone();
-            cancel_token
-                .run_until_cancelled(async move {
-                    loop {
-                        let packet = network_reader.get_raw_packet().await;
+            loop {
+                tokio::select! {
+                    _ = cancel_token_clone.cancelled() => {
+                        break;
+                    }
+                    packet = network_reader.get_raw_packet() => {
                         match packet {
                             Ok(packet) => {
-                                log::info!("Received packet: {:?}", packet.id);
+                                log::info!("Received packet: {:?}, data: {:?}, protocol: {:?}", packet.id, packet.payload, connection_protocol.load());
                                 match SBoundPacket::from_raw_packet(
                                     packet,
                                     connection_protocol.load(),
@@ -271,7 +303,7 @@ impl JavaTcpClient {
                                         log::warn!(
                                             "Failed to get packet from client {}: {}",
                                             id,
-                                            err
+                                            err,
                                         );
                                         cancel_token_clone.cancel();
                                     }
@@ -286,8 +318,26 @@ impl JavaTcpClient {
                             }
                         }
                     }
-                })
-                .await;
+                    connection_update = connection_updates_recv.recv() => {
+                        match connection_update {
+                            Ok(connection_update) => {
+                                match connection_update {
+                                    ConnectionUpdate::EnableEncryption(key) => {
+                                        network_reader.set_encryption(&key);
+                                    }
+                                    ConnectionUpdate::EnableCompression(compression) => {
+                                        network_reader.set_compression(compression.threshold);
+                                    }
+                                }
+                            }
+                            Err(err) => {
+                                log::warn!("Internal connection_updates_recv channel closed for client {}: {}", id, err);
+                                cancel_token_clone.cancel();
+                            }
+                        }
+                    }
+                }
+            }
         });
     }
 
@@ -331,6 +381,7 @@ impl JavaTcpClient {
         if !self.assert_protocol(ConnectionProtocol::HANDSHAKING) {
             return;
         }
+        log::info!("Handling handshake: {:?}", packet);
         match packet {
             SBoundHandshake::Intention(packet) => {
                 let intent = match packet.intention {

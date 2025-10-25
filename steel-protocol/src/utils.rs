@@ -39,7 +39,7 @@ pub const MAX_PACKET_DATA_SIZE: usize = 8_388_608;
 /// server and client respectively.
 ///
 /// Every packet must correspond to exactly one protocol.
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ConnectionProtocol {
     /// The handshake protocol. This is the initial protocol, in which the client tells the server its intention (i.e. which protocol it wants to use).
     HANDSHAKING,
@@ -53,6 +53,7 @@ pub enum ConnectionProtocol {
     CONFIGURATION,
 }
 
+#[derive(Debug)]
 pub struct RawPacket {
     pub id: i32,
     pub payload: Box<[u8]>,
