@@ -11,7 +11,6 @@ steel-registry = { path = "../steel-registry" }
 steel-protocol = { path = "../steel-protocol" }
 tokio.workspace = true
 scc.workspace = true
-bytes.workspace = true
 tokio-util.workspace = true
 crossbeam.workspace = true
 serde.workspace = true

@@ -8,4 +8,3 @@ tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 num-traits = "0.2.19"
-bytes.workspace = true

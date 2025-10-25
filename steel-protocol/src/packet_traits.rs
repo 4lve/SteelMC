@@ -1,8 +1,11 @@
-use std::io::{Error, Read, Write};
+use std::{
+    io::{Error, Read, Write},
+    sync::Arc,
+};
 
 use async_compression::{Level, tokio::write::ZlibEncoder};
-use bytes::Bytes;
 use serde::Deserialize;
+use steel_utils::FrontVec;
 use tokio::io::AsyncWriteExt;
 
 use crate::{
@@ -114,47 +117,46 @@ impl Default for CompressionInfo {
 /// 1. Compression is enabled via Set Compression packet
 /// 2. The uncompressed data length meets/exceeds the threshold
 /// 3. The threshold is non-negative
+#[derive(Clone)]
 pub struct EncodedPacket {
-    pub encoded_data: Bytes,
+    // This is optimized for reduces allocation
+    pub encoded_data: Arc<FrontVec>,
 }
 
 impl EncodedPacket {
-    async fn from_packet_data_no_compression(packet_data: Bytes) -> Result<Self, PacketError> {
-        let mut buf: Vec<u8> = Vec::new();
+    fn from_data_no_compression(mut packet_data: FrontVec) -> Result<Self, PacketError> {
         let data_len = packet_data.len();
+        let varint_size = VarInt::written_size(data_len as _);
 
-        let complete_len = VarInt::written_size(data_len as _) + data_len;
+        let complete_len = varint_size + data_len;
         if complete_len > MAX_PACKET_SIZE {
             return Err(PacketError::TooLong(complete_len));
         }
 
-        VarInt(data_len as _).write(&mut buf)?;
-        std::io::Write::write_all(&mut buf, &packet_data)
-            .map_err(|e| PacketError::EncryptionFailed(e.to_string()))?;
+        VarInt(data_len as _).set_in_front(&mut packet_data, varint_size);
 
         Ok(Self {
-            encoded_data: buf.into(),
+            encoded_data: Arc::new(packet_data),
         })
     }
 
     async fn from_packet_data(
-        packet_data: Bytes,
+        mut packet_data: FrontVec,
         threshold: usize,
         level: i32,
     ) -> Result<Self, PacketError> {
-        let mut buf: Vec<u8> = Vec::new();
         let data_len = packet_data.len();
         // We dont need any more size check to convert to i32 as MAX_PACKET_DATA_SIZE < i32::MAX
-        if data_len > MAX_PACKET_DATA_SIZE {
-            return Err(PacketError::TooLong(data_len));
+        if data_len + VarInt::MAX_SIZE * 2 > MAX_PACKET_DATA_SIZE {
+            Err(PacketError::TooLong(data_len))?
         }
 
         if data_len >= threshold {
-            let mut compressed_buf = Vec::new();
-            let mut compressor =
-                ZlibEncoder::with_quality(&mut compressed_buf, Level::Precise(level));
+            let mut buf = FrontVec::new(10);
+            let mut compressor = ZlibEncoder::with_quality(&mut buf, Level::Precise(level));
+
             compressor
-                .write_all(&packet_data)
+                .write_all(packet_data.as_slice())
                 .await
                 .map_err(|e| PacketError::CompressionFailed(e.to_string()))?;
             compressor
@@ -162,50 +164,37 @@ impl EncodedPacket {
                 .await
                 .map_err(|e| PacketError::CompressionFailed(e.to_string()))?;
 
-            let full_packet_len: i32 = (VarInt::written_size(data_len as _) + compressed_buf.len())
-                .try_into()
-                .map_err(|_| PacketError::TooLong(data_len))?;
+            // compressed data cant be larger so we dont need to check the size again
+            let varint_size = VarInt::written_size(data_len as _);
+            let full_len = varint_size + buf.len();
 
-            let complete_len = VarInt::written_size(full_packet_len) + full_packet_len as usize;
-            if complete_len > MAX_PACKET_SIZE {
-                return Err(PacketError::TooLong(complete_len));
-            }
+            VarInt(data_len as _).set_in_front(&mut buf, varint_size);
+            VarInt(full_len as _).set_in_front(&mut buf, VarInt::written_size(full_len as _));
 
-            VarInt(full_packet_len).write(&mut buf)?;
-            VarInt(data_len as _).write(&mut buf)?;
-
-            std::io::Write::write_all(&mut buf, &compressed_buf)
-                .map_err(|e| PacketError::CompressionFailed(e.to_string()))?;
+            Ok(Self {
+                encoded_data: Arc::new(packet_data),
+            })
         } else {
             // Pushed before data:
             // Length of (Data Length) + length of compressed (Packet ID + Data)
             // 0 to indicate uncompressed
 
-            let full_packet_len = data_len as i32;
+            let varint_size = VarInt::written_size(data_len as _);
 
-            let complete_serialization_len =
-                VarInt::written_size(full_packet_len) + full_packet_len as usize;
-            if complete_serialization_len > MAX_PACKET_SIZE {
-                return Err(PacketError::TooLong(complete_serialization_len));
-            }
+            VarInt(0).set_in_front(&mut packet_data, 1);
+            VarInt(data_len as _).set_in_front(&mut packet_data, varint_size);
 
-            VarInt(full_packet_len).write(&mut buf)?;
-            VarInt(0).write(&mut buf)?;
-
-            std::io::Write::write_all(&mut buf, &packet_data)
-                .map_err(|e| PacketError::EncryptionFailed(e.to_string()))?;
+            Ok(Self {
+                encoded_data: Arc::new(packet_data),
+            })
         }
-
-        Ok(Self {
-            encoded_data: buf.into(),
-        })
     }
 
     pub async fn from_packet(
         packet: &CBoundPacket,
         compression_info: Option<CompressionInfo>,
     ) -> Result<Self, PacketError> {
-        let mut buf = Vec::new();
+        let mut buf = FrontVec::new(6);
         let packet_id = packet.get_id();
         VarInt(packet_id).write(&mut buf)?;
         packet.write_packet(&mut buf)?;
@@ -217,7 +206,7 @@ impl EncodedPacket {
             )
             .await
         } else {
-            Self::from_packet_data_no_compression(buf.into()).await
+            Self::from_data_no_compression(buf)
         }
     }
 }

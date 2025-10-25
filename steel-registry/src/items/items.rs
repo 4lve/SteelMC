@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use steel_utils::types::ResourceLocation;
+use steel_utils::ResourceLocation;
 
 use crate::{blocks::blocks::BlockRef, data_components::DataComponentMap};
 

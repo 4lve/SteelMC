@@ -95,7 +95,7 @@ pub(crate) fn build() -> TokenStream {
             vanilla_blocks,
             items::items::{Item, ItemRegistry},
         };
-        use steel_utils::types::ResourceLocation;
+        use steel_utils::ResourceLocation;
         use std::sync::LazyLock;
     });
 

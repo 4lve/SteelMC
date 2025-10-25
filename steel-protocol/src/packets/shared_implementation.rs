@@ -17,7 +17,7 @@ impl ReadFrom for Uuid {
         let most_significant_bits = u64::read(data)?;
         let least_significant_bits = u64::read(data)?;
 
-        Ok(uuid::Uuid::from_u64_pair(
+        Ok(Uuid::from_u64_pair(
             most_significant_bits,
             least_significant_bits,
         ))

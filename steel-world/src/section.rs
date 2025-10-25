@@ -1,6 +1,6 @@
 use std::{fmt::Debug, hash::Hash};
 
-use steel_utils::types::BlockStateId;
+use steel_utils::BlockStateId;
 
 /// 3d array indexed by y,z,x
 type AbstractCube<T, const DIM: usize> = [[[T; DIM]; DIM]; DIM];

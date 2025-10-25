@@ -1,6 +1,6 @@
 use std::{collections::HashMap, marker::PhantomData};
 
-use steel_utils::types::ResourceLocation;
+use steel_utils::ResourceLocation;
 
 use crate::data_components::vanilla_components::{
     ATTRIBUTE_MODIFIERS, BREAK_SOUND, ENCHANTMENTS, LORE, MAX_STACK_SIZE, RARITY, REPAIR_COST,

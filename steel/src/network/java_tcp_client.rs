@@ -55,7 +55,7 @@ pub enum EncryptionError {
 #[derive(Clone)]
 pub enum EnqueuedPacket {
     Packet(CBoundPacket),
-    EncodedPacket(Arc<EncodedPacket>),
+    EncodedPacket(EncodedPacket),
 }
 
 pub struct JavaTcpClient {
@@ -213,7 +213,7 @@ impl JavaTcpClient {
         Ok(())
     }
 
-    pub fn enqueue_encoded_packet(&self, packet: Arc<EncodedPacket>) -> Result<(), PacketError> {
+    pub fn enqueue_encoded_packet(&self, packet: EncodedPacket) -> Result<(), PacketError> {
         self.outgoing_queue
             .send(EnqueuedPacket::EncodedPacket(packet))
             .map_err(|e| {
@@ -225,16 +225,16 @@ impl JavaTcpClient {
         Ok(())
     }
 
-    pub async fn create_encoded_packet(
+    pub async fn encode_packet(
         packet: CBoundPacket,
         compression_info: Option<CompressionInfo>,
-    ) -> Result<Arc<EncodedPacket>, PacketError> {
+    ) -> Result<EncodedPacket, PacketError> {
         let encoded_packet = EncodedPacket::from_packet(&packet, compression_info)
             .await
             .map_err(|e| {
                 PacketError::SendError(format!("Failed to create encoded packet: {}", e))
             })?;
-        Ok(Arc::new(encoded_packet))
+        Ok(encoded_packet)
     }
 
     /// Starts a task that will send packets to the client from the outgoing packet queue.
@@ -260,7 +260,7 @@ impl JavaTcpClient {
                                 let encoded_packet = match packet {
                                     EnqueuedPacket::EncodedPacket(packet) => packet,
                                     EnqueuedPacket::Packet(packet) => {
-                                        Self::create_encoded_packet(packet, compression_info.load())
+                                        Self::encode_packet(packet, compression_info.load())
                                             .await
                                             .unwrap()
                                     }

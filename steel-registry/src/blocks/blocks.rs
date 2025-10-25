@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use steel_utils::types::{BlockStateId, ResourceLocation};
+use steel_utils::{BlockStateId, ResourceLocation};
 
 use crate::blocks::behaviour::BlockBehaviourProperties;
 use crate::blocks::properties::{DynProperty, Property};

@@ -5,7 +5,6 @@ use std::{
 };
 
 use aes::cipher::{BlockDecryptMut, BlockEncryptMut, BlockSizeUser, generic_array::GenericArray};
-use bytes::Bytes;
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
@@ -56,7 +55,7 @@ pub enum ConnectionProtocol {
 
 pub struct RawPacket {
     pub id: i32,
-    pub payload: Bytes,
+    pub payload: Box<[u8]>,
 }
 
 #[derive(Error, Debug)]

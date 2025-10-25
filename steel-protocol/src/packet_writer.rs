@@ -112,9 +112,7 @@ impl<W: AsyncWrite + Unpin> TCPNetworkEncoder<W> {
         self.writer
             .flush()
             .await
-            .map_err(|e| PacketError::EncryptionFailed(e.to_string()))?;
-
-        Ok(())
+            .map_err(|e| PacketError::EncryptionFailed(e.to_string()))
     }
 }
 

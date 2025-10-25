@@ -1,4 +1,5 @@
-use bytes::Buf;
+use std::io::Cursor;
+
 use steel_registry::packets::serverbound::{handshake, login, status};
 
 use crate::{
@@ -27,9 +28,11 @@ pub enum SBoundHandshake {
 
 impl SBoundHandshake {
     pub fn from_raw_packet(raw_packet: RawPacket) -> Result<Self, PacketError> {
+        let mut data = Cursor::new(raw_packet.payload);
+
         match raw_packet.id {
             handshake::SERVERBOUND_INTENTION => {
-                let packet = ClientIntentionPacket::read_packet(&mut raw_packet.payload.reader())?;
+                let packet = ClientIntentionPacket::read_packet(&mut data)?;
                 Ok(Self::Intention(packet))
             }
             _ => Err(PacketError::MalformedValue(format!(
@@ -48,13 +51,15 @@ pub enum SBoundLogin {
 
 impl SBoundLogin {
     pub fn from_raw_packet(raw_packet: RawPacket) -> Result<Self, PacketError> {
+        let mut data = Cursor::new(raw_packet.payload);
+
         match raw_packet.id {
             login::SERVERBOUND_HELLO => {
-                let packet = SHelloPacket::read_packet(&mut raw_packet.payload.reader())?;
+                let packet = SHelloPacket::read_packet(&mut data)?;
                 Ok(Self::Hello(packet))
             }
             login::SERVERBOUND_KEY => {
-                let packet = SKeyPacket::read_packet(&mut raw_packet.payload.reader())?;
+                let packet = SKeyPacket::read_packet(&mut data)?;
                 Ok(Self::Key(packet))
             }
             _ => Err(PacketError::MalformedValue(format!(
@@ -85,13 +90,15 @@ pub enum SBoundStatus {
 
 impl SBoundStatus {
     pub fn from_raw_packet(raw_packet: RawPacket) -> Result<Self, PacketError> {
+        let mut data = Cursor::new(raw_packet.payload);
+
         match raw_packet.id {
             status::SERVERBOUND_STATUS_REQUEST => {
-                let packet = SStatusRequestPacket::read_packet(&mut raw_packet.payload.reader())?;
+                let packet = SStatusRequestPacket::read_packet(&mut data)?;
                 Ok(Self::StatusRequest(packet))
             }
             status::SERVERBOUND_PING_REQUEST => {
-                let packet = SPingRequestPacket::read_packet(&mut raw_packet.payload.reader())?;
+                let packet = SPingRequestPacket::read_packet(&mut data)?;
                 Ok(Self::PingRequest(packet))
             }
             _ => Err(PacketError::MalformedValue(format!(

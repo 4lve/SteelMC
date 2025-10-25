@@ -1,6 +1,7 @@
-use std::io::{Error, Read, Write};
+use std::io::{Cursor, Error, Read, Write};
 
 use crate::packet_traits::{ReadFrom, WriteTo};
+use steel_utils::FrontVec;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 pub struct VarInt(pub i32);
@@ -45,6 +46,15 @@ impl VarInt {
             }
         }
         Ok(())
+    }
+
+    // We could just get the writen size in place,
+    // but in our use case its already calculated
+    pub fn set_in_front(&self, vec: &mut FrontVec, varint_size: usize) {
+        // No heap allocation :)
+        let mut buf = [0; Self::MAX_SIZE];
+        self.write(&mut Cursor::new(&mut buf[..])).unwrap();
+        vec.set_in_front(&buf[..varint_size]);
     }
 }
 

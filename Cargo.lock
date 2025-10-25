@@ -858,7 +858,6 @@ name = "steel"
 version = "0.0.0"
 dependencies = [
  "base64",
- "bytes",
  "crossbeam",
  "log",
  "rand",
@@ -894,7 +893,6 @@ version = "0.0.0"
 dependencies = [
  "aes",
  "async-compression",
- "bytes",
  "cfb8",
  "crossbeam",
  "serde",
@@ -924,7 +922,6 @@ dependencies = [
 name = "steel-utils"
 version = "0.0.0"
 dependencies = [
- "bytes",
  "num-traits",
  "serde",
  "serde_json",

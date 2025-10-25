@@ -301,7 +301,7 @@ pub(crate) fn build() -> TokenStream {
             blocks::{behaviour::{BlockBehaviourProperties, PushReaction}, blocks::{Block, offset}, blocks::BlockRegistry},
             blocks::properties::{self, BlockStateProperties, NoteBlockInstrument}
         };
-        use steel_utils::types::ResourceLocation;
+        use steel_utils::ResourceLocation;
     });
 
     // Create default properties for comparison

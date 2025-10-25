@@ -1,6 +1,5 @@
 use std::ops::{Add, AddAssign, Div, Mul, Sub};
 
-use bytes::BufMut;
 use num_traits::{Float, Num};
 
 use crate::{math::vector2::Vector2, types::BlockPos};
@@ -377,45 +376,5 @@ impl<'de> serde::Deserialize<'de> for Vector3<f64> {
         }
 
         deserializer.deserialize_seq(Vector3Visitor)
-    }
-}
-
-impl serde::Serialize for Vector3<f32> {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut buf = Vec::new();
-        buf.put_f32(self.x);
-        buf.put_f32(self.y);
-        buf.put_f32(self.z);
-        serializer.serialize_bytes(&buf)
-    }
-}
-
-impl serde::Serialize for Vector3<f64> {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut buf = Vec::new();
-        buf.put_f64(self.x);
-        buf.put_f64(self.y);
-        buf.put_f64(self.z);
-        serializer.serialize_bytes(&buf)
-    }
-}
-
-impl serde::Serialize for Vector3<i16> {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut buf = Vec::new();
-        buf.put_i16(self.x);
-        buf.put_i16(self.y);
-        buf.put_i16(self.z);
-        serializer.serialize_bytes(&buf)
-    }
-}
-
-impl serde::Serialize for Vector3<i32> {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut buf = Vec::new();
-        buf.put_i32(self.x);
-        buf.put_i32(self.y);
-        buf.put_i32(self.z);
-        serializer.serialize_bytes(&buf)
     }
 }
