@@ -24,9 +24,9 @@ It focuses on clean code, performance, extensibility, and ease of use.
 
 1. Find a feature you'd like to add or an issue to work on.  
 2. Decompile the latest version of Minecraft using Parchment mappings  
-   *(the `main` branch currently targets Minecraft **1.21.10**).*  
+   *(the `master` branch currently targets Minecraft **1.21.10**).*  
    Alternatively, you may use [GitCraft](https://github.com/OrnitheMC/gitcraft) for this task.  
-3. Fork the `main` branch of this repository.  
+3. Fork the `master` branch of this repository.  
 4. Examine the vanilla implementation and translate it into Rust as cleanly and efficiently as possible.  
 5. Commit your changes to your fork and open a pull request.
 
