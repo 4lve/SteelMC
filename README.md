@@ -1,8 +1,13 @@
-# Steel
+<div align="center">
+   # Steel
+
+   <p align="center" width="66%">
+     <img src="https://minecraft.wiki/images/Flint_and_Steel_JE4_BE2.png?1aaaf&format=original" alt="Logo" width="66%">
+   </p>
 
 Steel is a lightweight Rust implementation of the Minecraft server, partially based on [Pumpkin](https://github.com/4lve/pumpkin).  
 It focuses on clean code, performance, extensibility, and ease of use.
-
+</div>
 ---
 
 ## 🔗 Links
