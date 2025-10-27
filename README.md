@@ -7,7 +7,7 @@
 # Steel
 
    <p align="center" width="66%">
-     <img src="https://minecraft.wiki/images/Flint_and_Steel_JE4_BE2.png?1aaaf&format=original" alt="Logo" width="66%">
+     <img src="https://i.imgur.com/lFQ6jH2.png" alt="Logo" width="66%">
    </p>
 
 Steel is a lightweight Rust implementation of the Minecraft server, partially based on [Pumpkin](https://github.com/Pumpkin-MC/Pumpkin).  
@@ -29,7 +29,10 @@ It focuses on clean code, performance, extensibility, and ease of use.
 1. Find a feature you'd like to add or an issue to work on.  
 2. Decompile the latest version of Minecraft using Parchment mappings  
    *(the `master` branch currently targets Minecraft **1.21.10**).*  
-   Alternatively, you may use [GitCraft](https://github.com/WinPlay02/GitCraft) for this task.  
+   Alternatively, you may use [GitCraft](https://github.com/WinPlay02/GitCraft) for this task.
+
+   If you choose using GitCraft run the command `./gradlew run --args="--mappings=mojmap_parchment --only-stable"`
+   in the GitCraft directory and keep in mind that you *may* have to implement this [change](https://github.com/WinPlay02/GitCraft/pull/29).
 3. Fork the `master` branch of this repository.  
 4. Examine the vanilla implementation and translate it into Rust as cleanly and efficiently as possible.  
 5. Commit your changes to your fork and open a pull request.
