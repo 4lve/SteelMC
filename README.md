@@ -1,5 +1,5 @@
 [![SteelMC](https://dcbadge.limes.pink/api/server/INVITE?style=social)](https://discord.gg/MwChEHnAbh)
-![image]({https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white})
+![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=for-the-badge&logo=rust&logoColor=white)
 
 <div align="center">
 
@@ -19,7 +19,7 @@ It focuses on clean code, performance, extensibility, and ease of use.
 
 - [Discord](https://discord.gg/MwChEHnAbh)
 - [Parchment Mappings Tutorial](https://parchmentmc.org/docs/getting-started)
-- [GitCraft](https://github.com/OrnitheMC/gitcraft)
+- [GitCraft](https://github.com/WinPlay02/GitCraft)
 
 ---
 
