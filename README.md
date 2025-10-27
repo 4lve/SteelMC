@@ -26,7 +26,8 @@ It focuses on clean code, performance, extensibility, and ease of use.
 
 ## How to Contribute
 
-1. Find a feature you'd like to add or an issue to work on.  
+1. Find a feature you'd like to add or an issue to work on.
+   You should always create a post in the channel [feature-discussion](https://canary.discord.com/channels/1428487339759370322/1429074039015473272) when considering adding a major feature.
 2. Decompile the latest version of Minecraft using Parchment mappings  
    *(the `master` branch currently targets Minecraft **1.21.10**).*  
    Alternatively, you may use [GitCraft](https://github.com/WinPlay02/GitCraft) for this task.
