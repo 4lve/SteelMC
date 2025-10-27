@@ -1,5 +1,5 @@
 ![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=for-the-badge&logo=rust&logoColor=white)
-![License](https://img.shields.io/github/license/4lve/SteelMC?style=for-the-badge)
+![License](https://img.shields.io/github/license/4lve/SteelMC?style=plastic)
 [![SteelMC](https://dcbadge.limes.pink/api/server/MwChEHnAbh?style=social)](https://discord.gg/MwChEHnAbh)
 
 <div align="center">
