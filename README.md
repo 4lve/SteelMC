@@ -1,4 +1,4 @@
-[![Test](https://dcbadge.limes.pink/api/server/INVITE)](https://discord.gg/MwChEHnAbh)
+[![SteelMC](https://dcbadge.limes.pink/api/server/INVITE?style=social)](https://discord.gg/MwChEHnAbh)
 
 <div align="center">
 
