@@ -31,7 +31,7 @@ It focuses on clean code, performance, extensibility, and ease of use.
    *(the `master` branch currently targets Minecraft **1.21.10**).*  
    Alternatively, you may use [GitCraft](https://github.com/WinPlay02/GitCraft) for this task.
 
-   If you choose using GitCraft run the command `./gradlew run --args="--mappings=mojmap_parchment --only-stable"`
+   If you choose to use GitCraft, run the command `./gradlew run --args="--mappings=mojmap_parchment --only-stable"`
    in the GitCraft directory and keep in mind that you *may* have to implement this [change](https://github.com/WinPlay02/GitCraft/pull/29).
 3. Fork the `master` branch of this repository.  
 4. Examine the vanilla implementation and translate it into Rust as cleanly and efficiently as possible.  
