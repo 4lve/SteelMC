@@ -1,5 +1,6 @@
 [![SteelMC](https://dcbadge.limes.pink/api/server/INVITE?style=social)](https://discord.gg/MwChEHnAbh)
 ![image]({https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white})
+
 <div align="center">
 
 # Steel
