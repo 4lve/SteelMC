@@ -1,3 +1,5 @@
+[![Test](https://dcbadge.limes.pink/api/server/INVITE)](https://discord.gg/MwChEHnAbh)
+
 <div align="center">
 
 # Steel
