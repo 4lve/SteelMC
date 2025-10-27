@@ -1,4 +1,4 @@
-[![SteelMC](https://dcbadge.limes.pink/api/server/INVITE?style=social)](https://discord.gg/MwChEHnAbh)
+[![SteelMC](https://dcbadge.limes.pink/api/server/MwChEHnAbh?style=social)](https://discord.gg/MwChEHnAbh)
 ![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=for-the-badge&logo=rust&logoColor=white)
 
 <div align="center">
