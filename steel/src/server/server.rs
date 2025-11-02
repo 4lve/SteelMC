@@ -10,11 +10,13 @@ use steel_world::world::world::World;
 use tokio::time::Instant;
 
 use crate::STEEL_CONFIG;
+use crate::network::registry_cache::RegistryCache;
 use crate::server::key_store::KeyStore;
 
 pub struct Server {
     pub key_store: KeyStore,
     pub registry: Arc<Registry>,
+    pub registry_cache: Arc<RegistryCache>,
     pub worlds: Vec<Arc<World>>,
 }
 
@@ -31,10 +33,14 @@ impl Server {
         registry.freeze();
         log::info!("Vanilla registry loaded in {:?}", start.elapsed());
 
+        let registry = Arc::new(registry);
+        let registry_cache = Arc::new(RegistryCache::new(&registry));
+
         Server {
             key_store: KeyStore::new(),
-            registry: Arc::new(registry),
+            registry,
             worlds: vec![Arc::new(World::new())],
+            registry_cache,
         }
     }
 }

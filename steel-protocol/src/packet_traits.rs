@@ -238,3 +238,21 @@ impl EncodedPacket {
 pub trait CBoundPacket: PacketWrite + WriteTo {
     fn get_id(&self, protocol: ConnectionProtocol) -> Option<i32>;
 }
+
+impl<T: CBoundPacket> CBoundPacket for Arc<T> {
+    fn get_id(&self, protocol: ConnectionProtocol) -> Option<i32> {
+        (**self).get_id(protocol)
+    }
+}
+
+impl<T: PacketWrite> PacketWrite for Arc<T> {
+    fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketError> {
+        (**self).write_packet(writer)
+    }
+}
+
+impl<T: WriteTo> WriteTo for Arc<T> {
+    fn write(&self, writer: &mut impl Write) -> Result<(), Error> {
+        (**self).write(writer)
+    }
+}

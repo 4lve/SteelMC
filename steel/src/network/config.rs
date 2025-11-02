@@ -1,34 +1,21 @@
-use std::collections::HashMap;
-
-use steel_protocol::codec::VarInt;
 use steel_protocol::packets::common::c_custom_payload_packet::CCustomPayloadPacket;
-use steel_protocol::packets::common::c_update_tags_packet::CUpdateTagsPacket;
 use steel_protocol::packets::common::{
     s_client_information_packet::SClientInformationPacket,
     s_custom_payload_packet::SCustomPayloadPacket,
 };
 use steel_protocol::packets::configuration::c_finish_configuration_packet::CFinishConfigurationPacket;
-use steel_protocol::packets::configuration::c_registry_data_packet::{
-    CRegistryDataPacket, RegistryEntry,
-};
+
 use steel_protocol::packets::configuration::c_select_known_packs::CSelectKnownPacks;
 use steel_protocol::packets::configuration::s_finish_configuration_packet::SFinishConfigurationPacket;
 use steel_protocol::packets::configuration::s_select_known_packs::SSelectKnownPacks;
 use steel_protocol::packets::shared_implementation::KnownPack;
 use steel_protocol::utils::ConnectionProtocol;
-use steel_registry::{
-    BANNER_PATTERN_REGISTRY, BIOMES_REGISTRY, BLOCKS_REGISTRY, CAT_VARIANT_REGISTRY,
-    CHAT_TYPE_REGISTRY, CHICKEN_VARIANT_REGISTRY, COW_VARIANT_REGISTRY, DAMAGE_TYPE_REGISTRY,
-    DIMENSION_TYPE_REGISTRY, FROG_VARIANT_REGISTRY, INSTRUMENT_REGISTRY, ITEMS_REGISTRY,
-    JUKEBOX_SONG_REGISTRY, PAINTING_VARIANT_REGISTRY, PIG_VARIANT_REGISTRY, TRIM_MATERIAL_REGISTRY,
-    TRIM_PATTERN_REGISTRY, WOLF_SOUND_VARIANT_REGISTRY, WOLF_VARIANT_REGISTRY,
-};
+
 use steel_utils::ResourceLocation;
 use steel_world::player::player::Player;
 use steel_world::server::server::WorldServer;
 
 use crate::network::java_tcp_client::JavaTcpClient;
-use crate::server::server::Server;
 
 pub async fn handle_custom_payload(_tcp_client: &JavaTcpClient, packet: &SCustomPayloadPacket) {
     println!("Custom payload packet: {:?}", packet);
@@ -62,198 +49,17 @@ pub async fn start_configuration(tcp_client: &JavaTcpClient) {
 
 pub async fn handle_select_known_packs(tcp_client: &JavaTcpClient, packet: &SSelectKnownPacks) {
     println!("Select known packs packet: {:?}", packet);
-    let registry = &tcp_client.server.registry;
 
-    let mut registry_data = Vec::new();
-
-    //TODO: For non vanilla entries we need to encode the data into nbt
-
-    registry_data.push((
-        BIOMES_REGISTRY,
-        registry
-            .biomes
-            .iter()
-            .map(|(_, biome)| RegistryEntry::new(biome.key.clone(), None))
-            .collect::<Vec<RegistryEntry>>(),
-    ));
-    registry_data.push((
-        CHAT_TYPE_REGISTRY,
-        registry
-            .chat_types
-            .iter()
-            .map(|(_, chat_type)| RegistryEntry::new(chat_type.key.clone(), None))
-            .collect::<Vec<RegistryEntry>>(),
-    ));
-    registry_data.push((
-        TRIM_PATTERN_REGISTRY,
-        registry
-            .trim_patterns
-            .iter()
-            .map(|(_, trim_pattern)| RegistryEntry::new(trim_pattern.key.clone(), None))
-            .collect::<Vec<RegistryEntry>>(),
-    ));
-    registry_data.push((
-        TRIM_MATERIAL_REGISTRY,
-        registry
-            .trim_materials
-            .iter()
-            .map(|(_, trim_material)| RegistryEntry::new(trim_material.key.clone(), None))
-            .collect::<Vec<RegistryEntry>>(),
-    ));
-    registry_data.push((
-        WOLF_VARIANT_REGISTRY,
-        registry
-            .wolf_variants
-            .iter()
-            .map(|(_, wolf_variant)| RegistryEntry::new(wolf_variant.key.clone(), None))
-            .collect::<Vec<RegistryEntry>>(),
-    ));
-    registry_data.push((
-        WOLF_SOUND_VARIANT_REGISTRY,
-        registry
-            .wolf_sound_variants
-            .iter()
-            .map(|(_, wolf_sound_variant)| RegistryEntry::new(wolf_sound_variant.key.clone(), None))
-            .collect::<Vec<RegistryEntry>>(),
-    ));
-    registry_data.push((
-        PIG_VARIANT_REGISTRY,
-        registry
-            .pig_variants
-            .iter()
-            .map(|(_, pig_variant)| RegistryEntry::new(pig_variant.key.clone(), None))
-            .collect::<Vec<RegistryEntry>>(),
-    ));
-    registry_data.push((
-        FROG_VARIANT_REGISTRY,
-        registry
-            .frog_variants
-            .iter()
-            .map(|(_, frog_variant)| RegistryEntry::new(frog_variant.key.clone(), None))
-            .collect::<Vec<RegistryEntry>>(),
-    ));
-    registry_data.push((
-        CAT_VARIANT_REGISTRY,
-        registry
-            .cat_variants
-            .iter()
-            .map(|(_, cat_variant)| RegistryEntry::new(cat_variant.key.clone(), None))
-            .collect::<Vec<RegistryEntry>>(),
-    ));
-    registry_data.push((
-        COW_VARIANT_REGISTRY,
-        registry
-            .cow_variants
-            .iter()
-            .map(|(_, cow_variant)| RegistryEntry::new(cow_variant.key.clone(), None))
-            .collect::<Vec<RegistryEntry>>(),
-    ));
-    registry_data.push((
-        CHICKEN_VARIANT_REGISTRY,
-        registry
-            .chicken_variants
-            .iter()
-            .map(|(_, chicken_variant)| RegistryEntry::new(chicken_variant.key.clone(), None))
-            .collect::<Vec<RegistryEntry>>(),
-    ));
-    registry_data.push((
-        PAINTING_VARIANT_REGISTRY,
-        registry
-            .painting_variants
-            .iter()
-            .map(|(_, painting_variant)| RegistryEntry::new(painting_variant.key.clone(), None))
-            .collect::<Vec<RegistryEntry>>(),
-    ));
-    registry_data.push((
-        DIMENSION_TYPE_REGISTRY,
-        registry
-            .dimension_types
-            .iter()
-            .map(|(_, dimension_type)| RegistryEntry::new(dimension_type.key.clone(), None))
-            .collect::<Vec<RegistryEntry>>(),
-    ));
-    registry_data.push((
-        DAMAGE_TYPE_REGISTRY,
-        registry
-            .damage_types
-            .iter()
-            .map(|(_, damage_type)| RegistryEntry::new(damage_type.key.clone(), None))
-            .collect::<Vec<RegistryEntry>>(),
-    ));
-    registry_data.push((
-        BANNER_PATTERN_REGISTRY,
-        registry
-            .banner_patterns
-            .iter()
-            .map(|(_, banner_pattern)| RegistryEntry::new(banner_pattern.key.clone(), None))
-            .collect::<Vec<RegistryEntry>>(),
-    ));
-    // TODO: Add enchantments when implemented in the registry
-    /*
-    registry_data.push((
-        ResourceLocation::vanilla_static("enchantments"),
-        registry
-            .enchantments
-            .iter()
-            .map(|(_, enchantment)| RegistryEntry::new(enchantment.key.clone(), None))
-            .collect::<Vec<RegistryEntry>>(),
-    ));
-    */
-    registry_data.push((
-        JUKEBOX_SONG_REGISTRY,
-        registry
-            .jukebox_songs
-            .iter()
-            .map(|(_, jukebox_song)| RegistryEntry::new(jukebox_song.key.clone(), None))
-            .collect::<Vec<RegistryEntry>>(),
-    ));
-    registry_data.push((
-        INSTRUMENT_REGISTRY,
-        registry
-            .instruments
-            .iter()
-            .map(|(_, instrument)| RegistryEntry::new(instrument.key.clone(), None))
-            .collect::<Vec<RegistryEntry>>(),
-    ));
-
-    // Now send the CRegistryDataPacket for each registry as part of configuration
-    for (registry_key, entries) in registry_data.into_iter() {
+    let registry_cache = &tcp_client.server.registry_cache;
+    for registry_packet in &registry_cache.registry_packets {
         tcp_client
-            .send_packet_now(CRegistryDataPacket::new(registry_key, entries))
+            .send_packet_now(registry_packet.clone())
             .await;
     }
 
-    // Send tags
-    let mut tags_by_registry: HashMap<ResourceLocation, HashMap<ResourceLocation, Vec<VarInt>>> =
-        HashMap::new();
-
-    // Build block tags
-    let mut block_tags: HashMap<ResourceLocation, Vec<VarInt>> = HashMap::new();
-    for tag_key in registry.blocks.tag_keys() {
-        let mut block_ids = Vec::new();
-        for block in registry.blocks.iter_tag(tag_key) {
-            let block_id = *registry.blocks.get_id(block);
-            block_ids.push(VarInt(block_id as i32));
-        }
-        block_tags.insert(tag_key.clone(), block_ids);
-    }
-    tags_by_registry.insert(BLOCKS_REGISTRY, block_tags);
-
-    // Build item tags
-    let mut item_tags: HashMap<ResourceLocation, Vec<VarInt>> = HashMap::new();
-    for tag_key in registry.items.tag_keys() {
-        let mut item_ids = Vec::new();
-        for item in registry.items.iter_tag(tag_key) {
-            let item_id = *registry.items.get_id(item);
-            item_ids.push(VarInt(item_id as i32));
-        }
-        item_tags.insert(tag_key.clone(), item_ids);
-    }
-    tags_by_registry.insert(ITEMS_REGISTRY, item_tags);
-
-    // Send the tags packet
+    // Send the packet for tags
     tcp_client
-        .send_packet_now(CUpdateTagsPacket::new(tags_by_registry))
+        .send_packet_now(registry_cache.tags_by_registry.clone())
         .await;
 
     // Finish configuration with CFinishConfigurationPacket
