@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use steel_protocol::{codec::VarInt, packets::{common::c_update_tags_packet::CUpdateTagsPacket,  configuration::c_registry_data_packet::{CRegistryDataPacket, RegistryEntry}}};
+use steel_protocol::{codec::VarInt, packet_traits::CBoundPacket, packets::{common::c_update_tags_packet::CUpdateTagsPacket,  configuration::c_registry_data_packet::{CRegistryDataPacket, RegistryEntry}}, utils::ConnectionProtocol};
 use steel_registry::{
     Registry, BANNER_PATTERN_REGISTRY, BIOMES_REGISTRY, BLOCKS_REGISTRY, CAT_VARIANT_REGISTRY,
     CHAT_TYPE_REGISTRY, CHICKEN_VARIANT_REGISTRY, COW_VARIANT_REGISTRY, DAMAGE_TYPE_REGISTRY,
@@ -10,24 +10,26 @@ use steel_registry::{
     WOLF_VARIANT_REGISTRY,
 };
 use steel_utils::ResourceLocation;
+use steel_protocol::packet_traits::EncodedPacket;
+
+use crate::STEEL_CONFIG;
 
 pub struct RegistryCache {
-    pub registry_packets: Vec<Arc<CRegistryDataPacket>>,
-    pub tags_by_registry: Arc<CUpdateTagsPacket>,
+    pub compressed_registry_packets: Arc<Vec<EncodedPacket>>,
+    pub compressed_tags_packet: Arc<EncodedPacket>,
 }
 
 impl RegistryCache {
-    pub fn new(registry: &Registry) -> Self {
-        let registry_packets = Self::build_registry_packets(registry)
-            .into_iter()
-            .map(Arc::new)
-            .collect();
+    pub async fn new(registry: &Registry) -> Self {
+        let registry_packets = Self::build_registry_packets(registry);
+        let tags_by_registry_packet = Self::build_tags_packet(registry);
 
-        let tags_by_registry = Arc::new(Self::build_tags_packet(registry));
-        
+        let (compressed_registry_packets, compressed_tags_packet) =
+            build_compressed_packets(registry_packets, tags_by_registry_packet).await;
+
         Self {
-            registry_packets,
-            tags_by_registry,
+            compressed_registry_packets: Arc::new(compressed_registry_packets),
+            compressed_tags_packet: Arc::new(compressed_tags_packet),
         }
     }
 
@@ -114,3 +116,35 @@ impl RegistryCache {
     }
 }
 
+pub async fn convert_into_compressed_packet<P: CBoundPacket>(
+    packet: P,
+) -> Result<EncodedPacket, ()> {
+    let compression_info = STEEL_CONFIG.compression;
+
+    let encoded_packet = EncodedPacket::from_packet(
+        &packet,
+        compression_info,
+        ConnectionProtocol::CONFIGURATION,
+    )
+    .await
+    .map_err(|_| {
+        log::error!(
+            "Failed to encode packet: {:?}",
+            packet.get_id(ConnectionProtocol::CONFIGURATION)
+        );
+    })?;
+
+    Ok(encoded_packet)
+}
+
+pub async fn build_compressed_packets(registry_packets: Vec<CRegistryDataPacket>, tags_packet: CUpdateTagsPacket) -> (Vec<EncodedPacket>, EncodedPacket) {
+    let mut compressed_registry_packets = Vec::new();
+
+    for packet in registry_packets {
+        compressed_registry_packets.push(convert_into_compressed_packet(packet).await.unwrap());
+    };
+
+    let compressed_tags_packet = convert_into_compressed_packet(tags_packet).await.unwrap();
+
+    (compressed_registry_packets, compressed_tags_packet)
+}

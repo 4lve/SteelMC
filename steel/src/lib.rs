@@ -28,7 +28,7 @@ impl SteelServer {
     pub async fn new() -> Self {
         log::info!("Starting Steel Server");
 
-        let server = Server::new();
+        let server = Server::new().await;
 
         Self {
             tcp_listener: TcpListener::bind(STEEL_CONFIG.server_address)
@@ -42,6 +42,7 @@ impl SteelServer {
 
     pub async fn start(&mut self) {
         log::info!("Started Steel Server");
+
         let tasks = TaskTracker::new();
 
         loop {

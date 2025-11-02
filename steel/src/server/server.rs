@@ -20,21 +20,15 @@ pub struct Server {
     pub worlds: Vec<Arc<World>>,
 }
 
-impl Default for Server {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Server {
-    pub fn new() -> Self {
+    pub async fn new() -> Self {
         let start = Instant::now();
         let mut registry = Registry::new_vanilla();
         registry.freeze();
         log::info!("Vanilla registry loaded in {:?}", start.elapsed());
 
         let registry = Arc::new(registry);
-        let registry_cache = Arc::new(RegistryCache::new(&registry));
+        let registry_cache = Arc::new(RegistryCache::new(&registry).await);
 
         Server {
             key_store: KeyStore::new(),

@@ -166,6 +166,24 @@ impl JavaTcpClient {
         }
     }
 
+    pub async fn send_encoded_packet_now(&self, packet: &EncodedPacket) {
+        if let Err(err) = self
+            .network_writer
+            .lock()
+            .await
+            .write_encoded_packet(packet)
+            .await
+        {
+            // It is expected that the packet will fail if we are cancelled
+            if !self.cancel_token.is_cancelled() {
+                log::warn!("Failed to send packet to client {}: {}", self.id, err);
+                // We now need to close the connection to the client since the stream is in an
+                // unknown state
+                self.close();
+            }
+        }
+    }
+
     pub fn enqueue_packet<P: CBoundPacket>(&self, packet: P) -> Result<(), PacketError> {
         let connection_protocol = self.connection_protocol.load();
         let buf = EncodedPacket::data_from_packet(&packet, connection_protocol)?;
