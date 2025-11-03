@@ -83,6 +83,7 @@ pub struct JavaTcpClient {
 }
 
 impl JavaTcpClient {
+    #[allow(clippy::type_complexity)]
     pub fn new(
         tcp_stream: TcpStream,
         address: SocketAddr,

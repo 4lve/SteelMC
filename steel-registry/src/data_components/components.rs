@@ -63,7 +63,7 @@ impl DataComponentRegistry {
         self.components_by_key.insert(component.key.clone(), id);
     }
 
-    pub fn get_id<T: 'static>(&self, component: &DataComponentType<T>) -> Option<usize> {
+    pub fn get_id<T: 'static>(&self, component: DataComponentType<T>) -> Option<usize> {
         self.components_by_key.get(&component.key).copied()
     }
 }
@@ -124,15 +124,13 @@ impl DataComponentMap {
     ) {
         if let Some(data) = data {
             self.map.push((component.key.clone(), Box::new(data)));
-        } else {
-            if let Some(index) = self
+        } else if let Some(index) = self
                 .map
                 .iter()
                 .position(|(res_loc, _)| *res_loc == component.key)
             {
                 self.map.swap_remove(index);
             }
-        }
     }
 
     pub fn get<T: 'static>(&self, component: DataComponentType<T>) -> Option<&T> {
