@@ -133,7 +133,7 @@ pub async fn handle_key(tcp_client: &JavaTcpClient, packet: &SKeyPacket) {
         return;
     };
 
-    tcp_client.connection_update_enabled.notified().await;
+    tcp_client.connection_updated.notified().await;
 
     let mut gameprofile = tcp_client.gameprofile.lock().await;
 
@@ -186,7 +186,7 @@ pub async fn finish_login(tcp_client: &JavaTcpClient, profile: &GameProfile) {
             .unwrap();
     }
     tcp_client.can_process_next_packet.notify_waiters();
-    tcp_client.connection_update_enabled.notified().await;
+    tcp_client.connection_updated.notified().await;
 
     tcp_client
         .send_packet_now(CLoginFinishedPacket::new(

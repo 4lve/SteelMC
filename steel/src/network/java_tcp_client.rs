@@ -64,7 +64,7 @@ pub struct JavaTcpClient {
     /// A token to cancel the client's operations. Called when the connection is closed. Or client is removed.
     pub cancel_token: CancellationToken,
 
-    pub packet_recv_sender: Sender<Arc<SBoundPacket>>,
+    pub packet_recv_sender: Sender<Box<SBoundPacket>>,
 
     /// A queue of serialized packets to send to the network
     pub outgoing_queue: UnboundedSender<EnqueuedPacket>,
@@ -77,7 +77,7 @@ pub struct JavaTcpClient {
     pub challenge: AtomicCell<Option<[u8; 4]>>,
 
     pub(crate) connection_updates: Sender<ConnectionUpdate>,
-    pub(crate) connection_update_enabled: Arc<Notify>,
+    pub(crate) connection_updated: Arc<Notify>,
 
     pub(crate) can_process_next_packet: Arc<Notify>,
 }
@@ -94,7 +94,7 @@ impl JavaTcpClient {
         Self,
         UnboundedReceiver<EnqueuedPacket>,
         TCPNetworkDecoder<BufReader<OwnedReadHalf>>,
-        Receiver<Arc<SBoundPacket>>,
+        Receiver<Box<SBoundPacket>>,
     ) {
         let (read, write) = tcp_stream.into_split();
         let (outgoing_queue, recv) = mpsc::unbounded_channel();
@@ -119,7 +119,7 @@ impl JavaTcpClient {
                 server,
                 challenge: AtomicCell::new(None),
                 connection_updates,
-                connection_update_enabled: Arc::new(Notify::new()),
+                connection_updated: Arc::new(Notify::new()),
                 can_process_next_packet: Arc::new(Notify::new()),
             },
             recv,
@@ -215,7 +215,7 @@ impl JavaTcpClient {
         let id = self.id;
         let compression_info = self.compression_info.clone();
         let mut connection_updates_recv = self.connection_updates.subscribe();
-        let connection_update_enabled = self.connection_update_enabled.clone();
+        let connection_updated = self.connection_updated.clone();
 
         self.tasks.spawn(async move {
             let cancel_token_clone = cancel_token.clone();
@@ -257,7 +257,7 @@ impl JavaTcpClient {
                             Ok(connection_update) => {
                                 if let ConnectionUpdate::EnableEncryption(key) = connection_update {
                                     network_writer.lock().await.set_encryption(&key);
-                                    connection_update_enabled.notify_waiters();
+                                    connection_updated.notify_waiters();
                                 }
                             }
                             Err(err) => {
@@ -281,7 +281,7 @@ impl JavaTcpClient {
         let connection_protocol = self.connection_protocol.clone();
         let mut connection_updates_recv = self.connection_updates.subscribe();
         let can_process_next_packet = self.can_process_next_packet.clone();
-        let connection_update_enabled = self.connection_update_enabled.clone();
+        let connection_updated = self.connection_updated.clone();
 
         self.tasks.spawn(async move {
             let cancel_token_clone = cancel_token.clone();
@@ -299,7 +299,7 @@ impl JavaTcpClient {
                                     connection_protocol.load(),
                                 ) {
                                     Ok(packet) => {
-                                        packet_recv_sender.send(Arc::new(packet)).unwrap();
+                                        packet_recv_sender.send(Box::new(packet)).unwrap();
                                         can_process_next_packet.notified().await;
                                     }
                                     Err(err) => {
@@ -331,7 +331,7 @@ impl JavaTcpClient {
                                     }
                                     ConnectionUpdate::EnableCompression(compression) => {
                                         net_reader.set_compression(compression.threshold);
-                                        connection_update_enabled.notify_waiters();
+                                        connection_updated.notify_waiters();
                                     }
                                 }
                             }
@@ -348,7 +348,7 @@ impl JavaTcpClient {
 
     pub async fn process_packets(
         self: &Arc<Self>,
-        mut packet_receiver: Receiver<Arc<SBoundPacket>>,
+        mut packet_receiver: Receiver<Box<SBoundPacket>>,
     ) {
         let can_process_next_packet = self.can_process_next_packet.clone();
 
