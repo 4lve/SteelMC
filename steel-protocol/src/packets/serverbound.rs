@@ -6,22 +6,17 @@ use crate::{
     packet_traits::PacketRead,
     packets::{
         common::{
-            s_client_information_packet::SClientInformationPacket,
-            s_custom_payload_packet::SCustomPayloadPacket,
+            s_client_information::SClientInformationPacket, s_custom_payload::SCustomPayloadPacket,
         },
         configuration::{
-            s_finish_configuration_packet::SFinishConfigurationPacket,
-            s_select_known_packs::SSelectKnownPacks,
+            s_finish_configuration::SFinishConfigurationPacket, s_select_known::SSelectKnownPacks,
         },
         handshake::ClientIntentionPacket,
         login::{
-            s_hello_packet::SHelloPacket, s_key_packet::SKeyPacket,
-            s_login_acknowledged_packet::SLoginAcknowledgedPacket,
+            s_hello::SHelloPacket, s_key::SKeyPacket,
+            s_login_acknowledged::SLoginAcknowledgedPacket,
         },
-        status::{
-            s_ping_request_packet::SPingRequestPacket,
-            s_status_request_packet::SStatusRequestPacket,
-        },
+        status::{s_ping_request::SPingRequestPacket, s_status_request::SStatusRequestPacket},
     },
     utils::{ConnectionProtocol, PacketError, RawPacket},
 };

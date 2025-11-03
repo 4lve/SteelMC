@@ -187,15 +187,15 @@ pub fn packet_read_derive(input: TokenStream) -> TokenStream {
     }
 }
 
-#[proc_macro_derive(PacketWrite, attributes(write_as))]
-pub fn packet_write_derive(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(WriteTo, attributes(write_as))]
+pub fn write_to_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
 
     match input.data {
         Data::Struct(s) => {
             let Fields::Named(fields) = s.fields else {
-                panic!("PacketWrite only supports structs with named fields");
+                panic!("Write only supports structs with named fields");
             };
 
             let mut json_count = 0;
@@ -306,9 +306,6 @@ pub fn packet_write_derive(input: TokenStream) -> TokenStream {
                         Ok(())
                     }
                 }
-
-                #[automatically_derived]
-                impl crate::packet_traits::PacketWrite for #name {}
             };
 
             TokenStream::from(expanded)
@@ -338,7 +335,7 @@ pub fn packet_write_derive(input: TokenStream) -> TokenStream {
                     panic!("{WRONG_FORMAT}");
                 }
             } else {
-                panic!("PacketWrite enums requires the \"write_as\" attribute")
+                panic!("Write enums requires the \"write_as\" attribute")
             }
 
             let writer = match write_strategy.as_deref() {
@@ -369,17 +366,14 @@ pub fn packet_write_derive(input: TokenStream) -> TokenStream {
                         Ok(())
                     }
                 }
-
-                #[automatically_derived]
-                impl crate::packet_traits::PacketWrite for #name {}
             })
         }
-        _ => panic!("PacketWrite can only be derived for structs and enums"),
+        _ => panic!("Write can only be derived for structs and enums"),
     }
 }
 
-#[proc_macro_derive(CBoundPacket, attributes(packet_id))]
-pub fn cbound_packet_derive(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(ClientPacket, attributes(packet_id))]
+pub fn client_packet_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
 
@@ -427,7 +421,7 @@ pub fn cbound_packet_derive(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         #[automatically_derived]
-        impl crate::packet_traits::CBoundPacket for #name {
+        impl crate::packet_traits::ClientPacket for #name {
             fn get_id(&self, protocol: crate::utils::ConnectionProtocol) -> Option<i32> {
                 match protocol {
                     #(#match_arms)*

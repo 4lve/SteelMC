@@ -92,7 +92,7 @@ pub(crate) fn build() -> TokenStream {
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {
-        use crate::dialog::dialog::{
+        use crate::dialog::{
             Dialog, DialogList, ServerLinks, DialogRegistry, ExitAction,
         };
         use steel_utils::ResourceLocation;
@@ -155,7 +155,7 @@ pub(crate) fn build() -> TokenStream {
         let dialog_name_str = dialog_name.clone();
         let key = quote! { ResourceLocation::vanilla_static(#dialog_name_str) };
         register_stream.extend(quote! {
-            registry.register(#key, &#dialog_ident);
+            registry.register(#key, #dialog_ident);
         });
     }
 

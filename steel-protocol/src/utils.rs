@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use std::{
     io,
     pin::Pin,

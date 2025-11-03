@@ -108,7 +108,7 @@ pub(crate) fn build() -> TokenStream {
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {
-        use crate::chicken_variant::chicken_variant::{
+        use crate::chicken_variant::{
             ChickenVariant, ChickenVariantRegistry, ChickenModelType, SpawnConditionEntry, BiomeCondition,
         };
         use steel_utils::ResourceLocation;
@@ -151,7 +151,7 @@ pub(crate) fn build() -> TokenStream {
             Span::call_site(),
         );
         register_stream.extend(quote! {
-            registry.register(&#chicken_variant_ident);
+            registry.register(#chicken_variant_ident);
         });
     }
 

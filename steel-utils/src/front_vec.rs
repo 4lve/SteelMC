@@ -50,6 +50,10 @@ impl FrontVec {
         self.buf.len() - self.front_space
     }
 
+    pub const fn is_empty(&self) -> bool {
+        (self.buf.len() - self.front_space) == 0
+    }
+
     pub fn push(&mut self, value: u8) {
         self.buf.push(value);
     }

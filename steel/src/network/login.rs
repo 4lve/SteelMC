@@ -4,9 +4,9 @@ use sha1::Sha1;
 use sha2::{Digest, Sha256};
 use steel_protocol::{
     packets::login::{
-        c_hello_packet::CHelloPacket, c_login_compression_packet::CLoginCompressionPacket,
-        c_login_finished_packet::CLoginFinishedPacket, s_hello_packet::SHelloPacket,
-        s_key_packet::SKeyPacket, s_login_acknowledged_packet::SLoginAcknowledgedPacket,
+        c_hello::CHelloPacket, c_login_compression::CLoginCompressionPacket,
+        c_login_finished::CLoginFinishedPacket, s_hello::SHelloPacket, s_key::SKeyPacket,
+        s_login_acknowledged::SLoginAcknowledgedPacket,
     },
     utils::ConnectionProtocol,
 };

@@ -29,5 +29,5 @@ sha1 = "0.10.6"
 num-bigint = "0.4.6"
 reqwest = { version = "0.12.24", features = [
     "json",
-    "default-tls",
+    "rustls-tls",
 ], default-features = false }

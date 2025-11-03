@@ -119,7 +119,7 @@ pub(crate) fn build() -> TokenStream {
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {
-        use crate::chat_type::chat_type::{
+        use crate::chat_type::{
             ChatType, ChatTypeDecoration, ChatTypeRegistry, ChatStyle,
         };
         use steel_utils::ResourceLocation;
@@ -148,7 +148,7 @@ pub(crate) fn build() -> TokenStream {
     for (chat_type_name, _) in &chat_types {
         let chat_type_ident = Ident::new(&chat_type_name.to_shouty_snake_case(), Span::call_site());
         register_stream.extend(quote! {
-            registry.register(&#chat_type_ident);
+            registry.register(#chat_type_ident);
         });
     }
 

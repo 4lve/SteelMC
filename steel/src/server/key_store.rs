@@ -7,6 +7,7 @@ pub struct KeyStore {
 
 impl KeyStore {
     #[must_use]
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         log::debug!("Creating encryption keys...");
         let private_key = Self::generate_private_key();

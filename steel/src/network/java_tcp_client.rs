@@ -6,12 +6,12 @@ use std::{
 use crossbeam::atomic::AtomicCell;
 use steel_protocol::{
     packet_reader::TCPNetworkDecoder,
-    packet_traits::{CBoundPacket, CompressionInfo, EncodedPacket},
+    packet_traits::{ClientPacket, CompressionInfo, EncodedPacket},
     packet_writer::TCPNetworkEncoder,
     packets::{
-        common::c_disconnect_packet::CDisconnectPacket,
+        common::c_disconnect::CDisconnectPacket,
         handshake::ClientIntent,
-        login::c_login_disconnect_packet::CLoginDisconnectPacket,
+        login::c_login_disconnect::CLoginDisconnectPacket,
         serverbound::{
             SBoundConfiguration, SBoundHandshake, SBoundLogin, SBoundPacket, SBoundPlay,
             SBoundStatus,
@@ -43,7 +43,7 @@ use crate::{
         play,
         status::{handle_ping_request, handle_status_request},
     },
-    server::server::Server,
+    server::Server,
 };
 
 #[derive(Error, Debug)]
@@ -142,18 +142,17 @@ impl JavaTcpClient {
         self.tasks.wait().await;
     }
 
-    pub async fn send_packet_now<P: CBoundPacket>(&self, packet: P) {
+    pub async fn send_packet_now<P: ClientPacket>(&self, packet: P) {
         let compression_info = self.compression_info.load();
         let connection_protocol = self.connection_protocol.load();
-        let encoded_packet =
-            EncodedPacket::from_packet(&packet, compression_info, connection_protocol)
-                .await
-                .unwrap();
+        let packet = EncodedPacket::from_packet(packet, compression_info, connection_protocol)
+            .await
+            .unwrap();
         if let Err(err) = self
             .network_writer
             .lock()
             .await
-            .write_encoded_packet(&encoded_packet)
+            .write_encoded_packet(&packet)
             .await
         {
             // It is expected that the packet will fail if we are cancelled
@@ -184,9 +183,9 @@ impl JavaTcpClient {
         }
     }
 
-    pub fn enqueue_packet<P: CBoundPacket>(&self, packet: P) -> Result<(), PacketError> {
+    pub fn enqueue_packet<P: ClientPacket>(&self, packet: P) -> Result<(), PacketError> {
         let connection_protocol = self.connection_protocol.load();
-        let buf = EncodedPacket::data_from_packet(&packet, connection_protocol)?;
+        let buf = EncodedPacket::write_packet(packet, connection_protocol)?;
         self.outgoing_queue
             .send(EnqueuedPacket::RawData(buf))
             .map_err(|e| {

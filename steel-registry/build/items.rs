@@ -93,7 +93,7 @@ pub(crate) fn build() -> TokenStream {
         use crate::{
             data_components::{vanilla_components, DataComponentMap},
             vanilla_blocks,
-            items::items::{Item, ItemRegistry},
+            items::{Item, ItemRegistry},
         };
         use steel_utils::ResourceLocation;
         use std::sync::LazyLock;

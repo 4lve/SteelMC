@@ -1,19 +1,18 @@
-use steel_protocol::packets::common::c_custom_payload_packet::CCustomPayloadPacket;
+use steel_protocol::packets::common::c_custom_payload::CCustomPayloadPacket;
 use steel_protocol::packets::common::{
-    s_client_information_packet::SClientInformationPacket,
-    s_custom_payload_packet::SCustomPayloadPacket,
+    s_client_information::SClientInformationPacket, s_custom_payload::SCustomPayloadPacket,
 };
-use steel_protocol::packets::configuration::c_finish_configuration_packet::CFinishConfigurationPacket;
+use steel_protocol::packets::configuration::c_finish_configuration::CFinishConfigurationPacket;
 
-use steel_protocol::packets::configuration::c_select_known_packs::CSelectKnownPacks;
-use steel_protocol::packets::configuration::s_finish_configuration_packet::SFinishConfigurationPacket;
-use steel_protocol::packets::configuration::s_select_known_packs::SSelectKnownPacks;
+use steel_protocol::packets::configuration::c_select_known::CSelectKnownPacks;
+use steel_protocol::packets::configuration::s_finish_configuration::SFinishConfigurationPacket;
+use steel_protocol::packets::configuration::s_select_known::SSelectKnownPacks;
 use steel_protocol::packets::shared_implementation::KnownPack;
 use steel_protocol::utils::ConnectionProtocol;
 
 use steel_utils::ResourceLocation;
-use steel_world::player::player::Player;
-use steel_world::server::server::WorldServer;
+use steel_world::player::Player;
+use steel_world::server::WorldServer;
 
 use crate::network::java_tcp_client::JavaTcpClient;
 
@@ -62,7 +61,7 @@ pub async fn handle_select_known_packs(tcp_client: &JavaTcpClient, packet: &SSel
 
     // Finish configuration with CFinishConfigurationPacket
     tcp_client
-        .send_packet_now(CFinishConfigurationPacket::new())
+        .send_packet_now(CFinishConfigurationPacket {})
         .await;
 }
 

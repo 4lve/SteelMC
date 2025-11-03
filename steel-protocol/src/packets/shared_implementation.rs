@@ -4,7 +4,7 @@ use std::{
 };
 
 use simdnbt::owned::NbtTag;
-use steel_macros::{PacketRead, PacketWrite};
+use steel_macros::{PacketRead, WriteTo};
 use steel_utils::{ResourceLocation, text::TextComponent};
 use uuid::Uuid;
 
@@ -14,7 +14,7 @@ use crate::{
 };
 
 impl WriteTo for TextComponent {
-    fn write(&self, writer: &mut impl Write) -> Result<()> {
+    fn write(&self, _writer: &mut impl Write) -> Result<()> {
         todo!()
     }
 }
@@ -54,7 +54,7 @@ impl WriteTo for ResourceLocation {
     }
 }
 
-#[derive(Clone, Debug, PacketWrite, PacketRead)]
+#[derive(Clone, Debug, WriteTo, PacketRead)]
 pub struct KnownPack {
     #[write_as(as = "string")]
     #[read_as(as = "string")]

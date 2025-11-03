@@ -52,7 +52,7 @@ pub(crate) fn build() -> TokenStream {
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {
-        use crate::wolf_sound_variant::wolf_sound_variant::{
+        use crate::wolf_sound_variant::{
             WolfSoundVariant, WolfSoundVariantRegistry,
         };
         use steel_utils::ResourceLocation;
@@ -96,7 +96,7 @@ pub(crate) fn build() -> TokenStream {
             Span::call_site(),
         );
         register_stream.extend(quote! {
-            registry.register(&#wolf_sound_variant_ident);
+            registry.register(#wolf_sound_variant_ident);
         });
     }
 

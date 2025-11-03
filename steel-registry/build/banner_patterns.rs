@@ -48,7 +48,7 @@ pub(crate) fn build() -> TokenStream {
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {
-        use crate::banner_pattern::banner_pattern::{BannerPattern, BannerPatternRegistry};
+        use crate::banner_pattern::{BannerPattern, BannerPatternRegistry};
         use steel_utils::ResourceLocation;
         use std::borrow::Cow;
     });
@@ -82,7 +82,7 @@ pub(crate) fn build() -> TokenStream {
             Span::call_site(),
         );
         register_stream.extend(quote! {
-            registry.register(&#banner_pattern_ident);
+            registry.register(#banner_pattern_ident);
         });
     }
 

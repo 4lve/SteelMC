@@ -1,10 +1,10 @@
 use std::sync::atomic::Ordering;
 
 use steel_protocol::packets::status::{
-    c_pong_response_packet::CPongResponsePacket,
-    c_status_response_packet::{CStatusResponsePacket, Players, Status, Version},
-    s_ping_request_packet::SPingRequestPacket,
-    s_status_request_packet::SStatusRequestPacket,
+    c_pong_response::CPongResponsePacket,
+    c_status_response::{CStatusResponsePacket, Players, Status, Version},
+    s_ping_request::SPingRequestPacket,
+    s_status_request::SStatusRequestPacket,
 };
 
 use crate::{MC_VERSION, STEEL_CONFIG, network::java_tcp_client::JavaTcpClient};

@@ -120,7 +120,7 @@ pub(crate) fn build() -> TokenStream {
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {
-        use crate::items::items::ItemRegistry;
+        use crate::items::ItemRegistry;
         use steel_utils::ResourceLocation;
     });
 

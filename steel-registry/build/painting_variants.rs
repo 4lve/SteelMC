@@ -112,7 +112,7 @@ pub(crate) fn build() -> TokenStream {
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {
-        use crate::painting_variant::painting_variant::{
+        use crate::painting_variant::{
             PaintingVariant, PaintingVariantRegistry,
         };
         use steel_utils::ResourceLocation;
@@ -156,7 +156,7 @@ pub(crate) fn build() -> TokenStream {
             Span::call_site(),
         );
         register_stream.extend(quote! {
-            registry.register(&#painting_variant_ident);
+            registry.register(#painting_variant_ident);
         });
     }
 

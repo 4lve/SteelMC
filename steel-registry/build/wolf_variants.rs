@@ -105,7 +105,7 @@ pub(crate) fn build() -> TokenStream {
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {
-        use crate::wolf_variant::wolf_variant::{
+        use crate::wolf_variant::{
             WolfVariant, WolfVariantRegistry, WolfAssetInfo, SpawnConditionEntry, BiomeCondition,
         };
         use steel_utils::ResourceLocation;
@@ -148,7 +148,7 @@ pub(crate) fn build() -> TokenStream {
         let wolf_variant_ident =
             Ident::new(&wolf_variant_name.to_shouty_snake_case(), Span::call_site());
         register_stream.extend(quote! {
-            registry.register(&#wolf_variant_ident);
+            registry.register(#wolf_variant_ident);
         });
     }
 

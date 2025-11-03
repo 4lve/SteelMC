@@ -1,12 +1,11 @@
 use std::{collections::HashMap, sync::Arc};
 
-use steel_protocol::packet_traits::EncodedPacket;
+use steel_protocol::packet_traits::{ClientPacket, EncodedPacket};
 use steel_protocol::{
     codec::VarInt,
-    packet_traits::CBoundPacket,
     packets::{
-        common::c_update_tags_packet::CUpdateTagsPacket,
-        configuration::c_registry_data_packet::{CRegistryDataPacket, RegistryEntry},
+        common::c_update_tags::CUpdateTagsPacket,
+        configuration::c_registry_data::{CRegistryDataPacket, RegistryEntry},
     },
     utils::ConnectionProtocol,
 };
@@ -125,19 +124,17 @@ impl RegistryCache {
     }
 }
 
-pub async fn convert_into_compressed_packet<P: CBoundPacket>(
+pub async fn convert_into_compressed_packet<P: ClientPacket>(
     packet: P,
 ) -> Result<EncodedPacket, ()> {
     let compression_info = STEEL_CONFIG.compression;
+    let id = packet.get_id(ConnectionProtocol::CONFIGURATION);
 
     let encoded_packet =
-        EncodedPacket::from_packet(&packet, compression_info, ConnectionProtocol::CONFIGURATION)
+        EncodedPacket::from_packet(packet, compression_info, ConnectionProtocol::CONFIGURATION)
             .await
             .map_err(|_| {
-                log::error!(
-                    "Failed to encode packet: {:?}",
-                    packet.get_id(ConnectionProtocol::CONFIGURATION)
-                );
+                log::error!("Failed to encode packet: {:?}", id);
             })?;
 
     Ok(encoded_packet)

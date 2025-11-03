@@ -61,7 +61,7 @@ pub(crate) fn build() -> TokenStream {
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {
-        use crate::instrument::instrument::{
+        use crate::instrument::{
             Instrument, InstrumentRegistry,
         };
         use steel_utils::ResourceLocation;
@@ -98,7 +98,7 @@ pub(crate) fn build() -> TokenStream {
         let instrument_ident =
             Ident::new(&instrument_name.to_shouty_snake_case(), Span::call_site());
         register_stream.extend(quote! {
-            registry.register(&#instrument_ident);
+            registry.register(#instrument_ident);
         });
     }
 

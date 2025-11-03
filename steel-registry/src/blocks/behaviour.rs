@@ -146,3 +146,9 @@ impl BlockBehaviourProperties {
         self
     }
 }
+
+impl Default for BlockBehaviourProperties {
+    fn default() -> Self {
+        Self::new()
+    }
+}

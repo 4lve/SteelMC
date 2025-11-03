@@ -37,7 +37,7 @@ impl BlockPos {
         let y = self.0.y as i64;
         let z = self.0.z as i64;
         ((x & Self::PACKED_X_MASK) << Self::X_OFFSET)
-            | ((y & Self::PACKED_Y_MASK) << 0)
+            | (y & Self::PACKED_Y_MASK)
             | ((z & Self::PACKED_Z_MASK) << Self::Z_OFFSET)
     }
 }

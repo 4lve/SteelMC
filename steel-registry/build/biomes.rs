@@ -95,31 +95,21 @@ pub struct SpawnCost {
     charge: f64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum TemperatureModifier {
+    #[default]
     None,
     Frozen,
 }
 
-impl Default for TemperatureModifier {
-    fn default() -> Self {
-        TemperatureModifier::None
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum GrassColorModifier {
+    #[default]
     None,
     DarkForest,
     Swamp,
-}
-
-impl Default for GrassColorModifier {
-    fn default() -> Self {
-        GrassColorModifier::None
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -196,7 +186,7 @@ where
     }
 }
 
-fn generate_vec<T, F>(vec: &Vec<T>, f: F) -> TokenStream
+fn generate_vec<T, F>(vec: &[T], f: F) -> TokenStream
 where
     F: Fn(&T) -> TokenStream,
 {
@@ -392,7 +382,7 @@ pub(crate) fn build() -> TokenStream {
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {
-        use crate::biome::biome::{
+        use crate::biome::{
             Biome, BiomeEffects, BiomeRegistry, TemperatureModifier, GrassColorModifier,
             SpawnerData, SpawnCost, WeightedMusic, Music, AdditionsSound, MoodSound,
             Particle, ParticleOptions,

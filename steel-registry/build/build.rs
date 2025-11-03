@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{fs, path::Path, process::Command};
 
 mod banner_patterns;
 mod biomes;
@@ -24,98 +24,76 @@ mod trim_patterns;
 mod wolf_sound_variants;
 mod wolf_variants;
 
-pub const OUT_DIR: &str = "src/generated";
+const FMT: bool = true;
+
+const OUT_DIR: &str = "src/generated";
+
+const BLOCKS: &str = "blocks";
+const BLOCK_TAGS: &str = "block_tags";
+const ITEMS: &str = "items";
+const ITEM_TAGS: &str = "item_tags";
+const PACKETS: &str = "packets";
+const BANNER_PATTERNS: &str = "banner_patterns";
+const BIOMES: &str = "biomes";
+const CHAT_TYPES: &str = "chat_types";
+const TRIM_PATTERNS: &str = "trim_patterns";
+const TRIM_MATERIALS: &str = "trim_materials";
+const WOLF_VARIANTS: &str = "wolf_variants";
+const WOLF_SOUNDS: &str = "wolf_sound_variants";
+const PIG_VARIANTS: &str = "pig_variants";
+const FROG_VARIANTS: &str = "frog_variants";
+const CAT_VARIANTS: &str = "cat_variants";
+const COW_VARIANTS: &str = "cow_variants";
+const CHICKEN_VARIANTS: &str = "chicken_variants";
+const PAINTING_VARIANTS: &str = "painting_variants";
+const DIMENSIONS: &str = "dimension_types";
+const DAMAGE_TYPES: &str = "damage_types";
+const JUKEBOX_SONGS: &str = "jukebox_songs";
+const INSTRUMENTS: &str = "instruments";
+const DIALOGS: &str = "dialogs";
 
 pub fn main() {
     if !Path::new(OUT_DIR).exists() {
         fs::create_dir(OUT_DIR).unwrap();
     }
 
-    let blocks = blocks::build().to_string();
-    let block_tags = block_tags::build().to_string();
-    let items = items::build().to_string();
-    let item_tags = item_tags::build().to_string();
-    let packets = packets::build().to_string();
-    let banner_patterns = banner_patterns::build().to_string();
-    let biomes = biomes::build().to_string();
-    let chat_types = chat_types::build().to_string();
-    let trim_patterns = trim_patterns::build().to_string();
-    let trim_materials = trim_materials::build().to_string();
-    let wolf_variants = wolf_variants::build().to_string();
-    let wolf_sound_variants = wolf_sound_variants::build().to_string();
-    let pig_variants = pig_variants::build().to_string();
-    let frog_variants = frog_variants::build().to_string();
-    let cat_variants = cat_variants::build().to_string();
-    let cow_variants = cow_variants::build().to_string();
-    let chicken_variants = chicken_variants::build().to_string();
-    let painting_variants = painting_variants::build().to_string();
-    let dimension_types = dimension_types::build().to_string();
-    let damage_types = damage_types::build().to_string();
-    let jukebox_songs = jukebox_songs::build().to_string();
-    let instruments = instruments::build().to_string();
-    let dialogs = dialogs::build().to_string();
+    let vanilla_builds = [
+        (blocks::build(), BLOCKS),
+        (block_tags::build(), BLOCK_TAGS),
+        (items::build(), ITEMS),
+        (item_tags::build(), ITEM_TAGS),
+        (packets::build(), PACKETS),
+        (banner_patterns::build(), BANNER_PATTERNS),
+        (biomes::build(), BIOMES),
+        (chat_types::build(), CHAT_TYPES),
+        (trim_patterns::build(), TRIM_PATTERNS),
+        (trim_materials::build(), TRIM_MATERIALS),
+        (wolf_variants::build(), WOLF_VARIANTS),
+        (wolf_sound_variants::build(), WOLF_SOUNDS),
+        (pig_variants::build(), PIG_VARIANTS),
+        (frog_variants::build(), FROG_VARIANTS),
+        (cat_variants::build(), CAT_VARIANTS),
+        (cow_variants::build(), COW_VARIANTS),
+        (chicken_variants::build(), CHICKEN_VARIANTS),
+        (painting_variants::build(), PAINTING_VARIANTS),
+        (dimension_types::build(), DIMENSIONS),
+        (damage_types::build(), DAMAGE_TYPES),
+        (jukebox_songs::build(), JUKEBOX_SONGS),
+        (instruments::build(), INSTRUMENTS),
+        (dialogs::build(), DIALOGS),
+    ];
 
-    fs::write(format!("{}/vanilla_blocks.rs", OUT_DIR), blocks).unwrap();
-    fs::write(format!("{}/vanilla_block_tags.rs", OUT_DIR), block_tags).unwrap();
-    fs::write(format!("{}/vanilla_items.rs", OUT_DIR), items).unwrap();
-    fs::write(format!("{}/vanilla_item_tags.rs", OUT_DIR), item_tags).unwrap();
-    fs::write(format!("{}/packets.rs", OUT_DIR), packets).unwrap();
-    fs::write(
-        format!("{}/vanilla_banner_patterns.rs", OUT_DIR),
-        banner_patterns,
-    )
-    .unwrap();
-    fs::write(format!("{}/vanilla_biomes.rs", OUT_DIR), biomes).unwrap();
-    fs::write(format!("{}/vanilla_chat_types.rs", OUT_DIR), chat_types).unwrap();
-    fs::write(
-        format!("{}/vanilla_trim_patterns.rs", OUT_DIR),
-        trim_patterns,
-    )
-    .unwrap();
-    fs::write(
-        format!("{}/vanilla_trim_materials.rs", OUT_DIR),
-        trim_materials,
-    )
-    .unwrap();
-    fs::write(
-        format!("{}/vanilla_wolf_variants.rs", OUT_DIR),
-        wolf_variants,
-    )
-    .unwrap();
-    fs::write(
-        format!("{}/vanilla_wolf_sound_variants.rs", OUT_DIR),
-        wolf_sound_variants,
-    )
-    .unwrap();
-    fs::write(format!("{}/vanilla_pig_variants.rs", OUT_DIR), pig_variants).unwrap();
-    fs::write(
-        format!("{}/vanilla_frog_variants.rs", OUT_DIR),
-        frog_variants,
-    )
-    .unwrap();
-    fs::write(format!("{}/vanilla_cat_variants.rs", OUT_DIR), cat_variants).unwrap();
-    fs::write(format!("{}/vanilla_cow_variants.rs", OUT_DIR), cow_variants).unwrap();
-    fs::write(
-        format!("{}/vanilla_chicken_variants.rs", OUT_DIR),
-        chicken_variants,
-    )
-    .unwrap();
-    fs::write(
-        format!("{}/vanilla_painting_variants.rs", OUT_DIR),
-        painting_variants,
-    )
-    .unwrap();
-    fs::write(
-        format!("{}/vanilla_dimension_types.rs", OUT_DIR),
-        dimension_types,
-    )
-    .unwrap();
-    fs::write(format!("{}/vanilla_damage_types.rs", OUT_DIR), damage_types).unwrap();
-    fs::write(
-        format!("{}/vanilla_jukebox_songs.rs", OUT_DIR),
-        jukebox_songs,
-    )
-    .unwrap();
-    fs::write(format!("{}/vanilla_instruments.rs", OUT_DIR), instruments).unwrap();
-    fs::write(format!("{}/vanilla_dialogs.rs", OUT_DIR), dialogs).unwrap();
+    for (content, file_name) in vanilla_builds {
+        fs::write(
+            format!("{OUT_DIR}/vanilla_{file_name}.rs"),
+            content.to_string(),
+        )
+        .unwrap();
+    }
+
+    if FMT && let Ok(entries) = fs::read_dir(OUT_DIR) {
+        for entry in entries.flatten() {
+            let _ = Command::new("rustfmt").arg(entry.path()).output();
+        }
+    }
 }

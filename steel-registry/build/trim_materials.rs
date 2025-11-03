@@ -80,7 +80,7 @@ pub(crate) fn build() -> TokenStream {
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {
-        use crate::trim_material::trim_material::{
+        use crate::trim_material::{
             TrimMaterial, TrimMaterialRegistry, StyledTextComponent,
         };
         use steel_utils::ResourceLocation;

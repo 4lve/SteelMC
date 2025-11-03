@@ -54,7 +54,7 @@ pub(crate) fn build() -> TokenStream {
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {
-        use crate::trim_pattern::trim_pattern::{
+        use crate::trim_pattern::{
             TrimPattern, TrimPatternRegistry,
         };
         use steel_utils::ResourceLocation;
@@ -89,7 +89,7 @@ pub(crate) fn build() -> TokenStream {
         let trim_pattern_ident =
             Ident::new(&trim_pattern_name.to_shouty_snake_case(), Span::call_site());
         register_stream.extend(quote! {
-            registry.register(&#trim_pattern_ident);
+            registry.register(#trim_pattern_ident);
         });
     }
 

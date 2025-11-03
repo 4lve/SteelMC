@@ -24,9 +24,10 @@ pub enum DamageScalingJson {
     Never,
 }
 
-#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum DamageEffectsJson {
+    #[default]
     Hurt,
     Thorns,
     Drowning,
@@ -35,24 +36,13 @@ pub enum DamageEffectsJson {
     Freezing,
 }
 
-impl Default for DamageEffectsJson {
-    fn default() -> Self {
-        DamageEffectsJson::Hurt
-    }
-}
-
-#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum DeathMessageTypeJson {
+    #[default]
     Default,
     FallVariants,
     IntentionalGameDesign,
-}
-
-impl Default for DeathMessageTypeJson {
-    fn default() -> Self {
-        DeathMessageTypeJson::Default
-    }
 }
 
 fn generate_damage_scaling(scaling: DamageScalingJson) -> TokenStream {
@@ -115,7 +105,7 @@ pub(crate) fn build() -> TokenStream {
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {
-        use crate::damage_type::damage_type::{
+        use crate::damage_type::{
             DamageType, DamageTypeRegistry, DamageScaling, DamageEffects, DeathMessageType,
         };
         use steel_utils::ResourceLocation;
@@ -152,7 +142,7 @@ pub(crate) fn build() -> TokenStream {
         let damage_type_ident =
             Ident::new(&damage_type_name.to_shouty_snake_case(), Span::call_site());
         register_stream.extend(quote! {
-            registry.register(&#damage_type_ident);
+            registry.register(#damage_type_ident);
         });
     }
 

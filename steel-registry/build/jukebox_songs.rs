@@ -61,7 +61,7 @@ pub(crate) fn build() -> TokenStream {
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {
-        use crate::jukebox_song::jukebox_song::{
+        use crate::jukebox_song::{
             JukeboxSong, JukeboxSongRegistry,
         };
         use steel_utils::ResourceLocation;
@@ -111,7 +111,7 @@ pub(crate) fn build() -> TokenStream {
             Ident::new(&jukebox_song_name.to_shouty_snake_case(), Span::call_site())
         };
         register_stream.extend(quote! {
-            registry.register(&#jukebox_song_ident);
+            registry.register(#jukebox_song_ident);
         });
     }
 

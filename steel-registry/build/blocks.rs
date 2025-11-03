@@ -1,3 +1,6 @@
+#![allow(unused)]
+// Todo! Remove this^
+
 use core::panic;
 use std::{borrow::Cow, fs};
 
@@ -298,7 +301,7 @@ pub(crate) fn build() -> TokenStream {
 
     stream.extend(quote! {
         use crate::{
-            blocks::{behaviour::{BlockBehaviourProperties, PushReaction}, blocks::{Block, offset}, blocks::BlockRegistry},
+            blocks::{behaviour::{BlockBehaviourProperties, PushReaction}, Block, offset, BlockRegistry},
             blocks::properties::{self, BlockStateProperties, NoteBlockInstrument}
         };
         use steel_utils::ResourceLocation;

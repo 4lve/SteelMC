@@ -21,10 +21,11 @@ pub trait PacketRead: ReadFrom {
         Self::read(data).map_err(PacketError::from)
     }
 }
-pub trait PacketWrite: WriteTo {
+pub trait ClientPacket: WriteTo {
     fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketError> {
         self.write(writer).map_err(PacketError::from)
     }
+    fn get_id(&self, protocol: ConnectionProtocol) -> Option<i32>;
 }
 
 // These are the general read/write traits with io::error
@@ -198,17 +199,17 @@ impl EncodedPacket {
         }
     }
 
-    pub async fn from_packet<P: CBoundPacket>(
-        packet: &P,
+    pub async fn from_packet<P: ClientPacket>(
+        packet: P,
         compression_info: Option<CompressionInfo>,
         connection_protocol: ConnectionProtocol,
     ) -> Result<Self, PacketError> {
-        let buf = Self::data_from_packet(packet, connection_protocol)?;
+        let buf = Self::write_packet(packet, connection_protocol)?;
         Self::from_data(buf, compression_info).await
     }
 
-    pub fn data_from_packet<P: CBoundPacket>(
-        packet: &P,
+    pub fn write_packet<P: ClientPacket>(
+        packet: P,
         connection_protocol: ConnectionProtocol,
     ) -> Result<FrontVec, PacketError> {
         let mut buf = FrontVec::new(6);
@@ -233,8 +234,4 @@ impl EncodedPacket {
             Self::from_data_no_compression(buf)
         }
     }
-}
-
-pub trait CBoundPacket: PacketWrite + WriteTo {
-    fn get_id(&self, protocol: ConnectionProtocol) -> Option<i32>;
 }

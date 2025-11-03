@@ -10,27 +10,27 @@
 use steel_utils::ResourceLocation;
 
 use crate::{
-    banner_pattern::banner_pattern::BannerPatternRegistry,
-    biome::biome::BiomeRegistry,
-    blocks::blocks::BlockRegistry,
-    cat_variant::cat_variant::CatVariantRegistry,
-    chat_type::chat_type::ChatTypeRegistry,
-    chicken_variant::chicken_variant::ChickenVariantRegistry,
-    cow_variant::cow_variant::CowVariantRegistry,
-    damage_type::damage_type::DamageTypeRegistry,
+    banner_pattern::BannerPatternRegistry,
+    biome::BiomeRegistry,
+    blocks::BlockRegistry,
+    cat_variant::CatVariantRegistry,
+    chat_type::ChatTypeRegistry,
+    chicken_variant::ChickenVariantRegistry,
+    cow_variant::CowVariantRegistry,
+    damage_type::DamageTypeRegistry,
     data_components::{DataComponentRegistry, vanilla_components},
-    dialog::dialog::DialogRegistry,
-    dimension_type::dimension_type::DimensionTypeRegistry,
-    frog_variant::frog_variant::FrogVariantRegistry,
-    instrument::instrument::InstrumentRegistry,
-    items::items::ItemRegistry,
-    jukebox_song::jukebox_song::JukeboxSongRegistry,
-    painting_variant::painting_variant::PaintingVariantRegistry,
-    pig_variant::pig_variant::PigVariantRegistry,
-    trim_material::trim_material::TrimMaterialRegistry,
-    trim_pattern::trim_pattern::TrimPatternRegistry,
-    wolf_sound_variant::wolf_sound_variant::WolfSoundVariantRegistry,
-    wolf_variant::wolf_variant::WolfVariantRegistry,
+    dialog::DialogRegistry,
+    dimension_type::DimensionTypeRegistry,
+    frog_variant::FrogVariantRegistry,
+    instrument::InstrumentRegistry,
+    items::ItemRegistry,
+    jukebox_song::JukeboxSongRegistry,
+    painting_variant::PaintingVariantRegistry,
+    pig_variant::PigVariantRegistry,
+    trim_material::TrimMaterialRegistry,
+    trim_pattern::TrimPatternRegistry,
+    wolf_sound_variant::WolfSoundVariantRegistry,
+    wolf_variant::WolfVariantRegistry,
 };
 pub mod banner_pattern;
 pub mod biome;
@@ -54,96 +54,96 @@ pub mod trim_pattern;
 pub mod wolf_sound_variant;
 pub mod wolf_variant;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_blocks.rs"]
 pub mod vanilla_blocks;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_block_tags.rs"]
 pub mod vanilla_block_tags;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_banner_patterns.rs"]
 pub mod vanilla_banner_patterns;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_items.rs"]
 pub mod vanilla_items;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_item_tags.rs"]
 pub mod vanilla_item_tags;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_biomes.rs"]
 pub mod vanilla_biomes;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_chat_types.rs"]
 pub mod vanilla_chat_types;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_trim_patterns.rs"]
 pub mod vanilla_trim_patterns;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_trim_materials.rs"]
 pub mod vanilla_trim_materials;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_wolf_variants.rs"]
 pub mod vanilla_wolf_variants;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_wolf_sound_variants.rs"]
 pub mod vanilla_wolf_sound_variants;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_pig_variants.rs"]
 pub mod vanilla_pig_variants;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_frog_variants.rs"]
 pub mod vanilla_frog_variants;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_cat_variants.rs"]
 pub mod vanilla_cat_variants;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_cow_variants.rs"]
 pub mod vanilla_cow_variants;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_chicken_variants.rs"]
 pub mod vanilla_chicken_variants;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_painting_variants.rs"]
 pub mod vanilla_painting_variants;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_dimension_types.rs"]
 pub mod vanilla_dimension_types;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_damage_types.rs"]
 pub mod vanilla_damage_types;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_jukebox_songs.rs"]
 pub mod vanilla_jukebox_songs;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_instruments.rs"]
 pub mod vanilla_instruments;
 
-//#[rustfmt::skip]
+#[rustfmt::skip]
 #[path = "generated/vanilla_dialogs.rs"]
 pub mod vanilla_dialogs;
 
-//#[rustfmt::skip]
-#[path = "generated/packets.rs"]
+#[rustfmt::skip]
+#[path = "generated/vanilla_packets.rs"]
 pub mod packets;
 
 pub trait RegistryExt {
