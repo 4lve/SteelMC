@@ -5,296 +5,296 @@ use crate::data_components::{DataComponentRegistry, DataComponentType};
 pub type TODO = ();
 
 // Basic data components
-pub const CUSTOM_DATA: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("custom_data"));
+pub const CUSTOM_DATA: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("custom_data"));
 
-pub const MAX_STACK_SIZE: &DataComponentType<i32> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("max_stack_size"));
+pub const MAX_STACK_SIZE: DataComponentType<i32> =
+    DataComponentType::new(ResourceLocation::vanilla_static("max_stack_size"));
 
-pub const MAX_DAMAGE: &DataComponentType<i32> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("max_damage"));
+pub const MAX_DAMAGE: DataComponentType<i32> =
+    DataComponentType::new(ResourceLocation::vanilla_static("max_damage"));
 
-pub const DAMAGE: &DataComponentType<i32> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("damage"));
+pub const DAMAGE: DataComponentType<i32> =
+    DataComponentType::new(ResourceLocation::vanilla_static("damage"));
 
-pub const UNBREAKABLE: &DataComponentType<()> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("unbreakable"));
+pub const UNBREAKABLE: DataComponentType<()> =
+    DataComponentType::new(ResourceLocation::vanilla_static("unbreakable"));
 
-pub const CUSTOM_NAME: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("custom_name"));
+pub const CUSTOM_NAME: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("custom_name"));
 
-pub const ITEM_NAME: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("item_name"));
+pub const ITEM_NAME: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("item_name"));
 
-pub const ITEM_MODEL: &DataComponentType<ResourceLocation> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("item_model"));
+pub const ITEM_MODEL: DataComponentType<ResourceLocation> =
+    DataComponentType::new(ResourceLocation::vanilla_static("item_model"));
 
-pub const LORE: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("lore"));
+pub const LORE: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("lore"));
 
-pub const RARITY: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("rarity"));
+pub const RARITY: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("rarity"));
 
-pub const ENCHANTMENTS: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("enchantments"));
+pub const ENCHANTMENTS: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("enchantments"));
 
-pub const CAN_PLACE_ON: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("can_place_on"));
+pub const CAN_PLACE_ON: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("can_place_on"));
 
-pub const CAN_BREAK: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("can_break"));
+pub const CAN_BREAK: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("can_break"));
 
-pub const ATTRIBUTE_MODIFIERS: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("attribute_modifiers"));
+pub const ATTRIBUTE_MODIFIERS: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("attribute_modifiers"));
 
-pub const CUSTOM_MODEL_DATA: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("custom_model_data"));
+pub const CUSTOM_MODEL_DATA: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("custom_model_data"));
 
-pub const TOOLTIP_DISPLAY: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("tooltip_display"));
+pub const TOOLTIP_DISPLAY: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("tooltip_display"));
 
-pub const REPAIR_COST: &DataComponentType<i32> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("repair_cost"));
+pub const REPAIR_COST: DataComponentType<i32> =
+    DataComponentType::new(ResourceLocation::vanilla_static("repair_cost"));
 
-pub const CREATIVE_SLOT_LOCK: &DataComponentType<()> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("creative_slot_lock"));
+pub const CREATIVE_SLOT_LOCK: DataComponentType<()> =
+    DataComponentType::new(ResourceLocation::vanilla_static("creative_slot_lock"));
 
-pub const ENCHANTMENT_GLINT_OVERRIDE: &DataComponentType<bool> = &DataComponentType::new(
+pub const ENCHANTMENT_GLINT_OVERRIDE: DataComponentType<bool> = DataComponentType::new(
     ResourceLocation::vanilla_static("enchantment_glint_override"),
 );
 
-pub const INTANGIBLE_PROJECTILE: &DataComponentType<()> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("intangible_projectile"));
+pub const INTANGIBLE_PROJECTILE: DataComponentType<()> =
+    DataComponentType::new(ResourceLocation::vanilla_static("intangible_projectile"));
 
-pub const FOOD: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("food"));
+pub const FOOD: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("food"));
 
-pub const CONSUMABLE: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("consumable"));
+pub const CONSUMABLE: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("consumable"));
 
-pub const USE_REMAINDER: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("use_remainder"));
+pub const USE_REMAINDER: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("use_remainder"));
 
-pub const USE_COOLDOWN: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("use_cooldown"));
+pub const USE_COOLDOWN: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("use_cooldown"));
 
-pub const DAMAGE_RESISTANT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("damage_resistant"));
+pub const DAMAGE_RESISTANT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("damage_resistant"));
 
-pub const TOOL: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("tool"));
+pub const TOOL: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("tool"));
 
-pub const WEAPON: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("weapon"));
+pub const WEAPON: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("weapon"));
 
-pub const ENCHANTABLE: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("enchantable"));
+pub const ENCHANTABLE: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("enchantable"));
 
-pub const EQUIPPABLE: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("equippable"));
+pub const EQUIPPABLE: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("equippable"));
 
-pub const REPAIRABLE: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("repairable"));
+pub const REPAIRABLE: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("repairable"));
 
-pub const GLIDER: &DataComponentType<()> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("glider"));
+pub const GLIDER: DataComponentType<()> =
+    DataComponentType::new(ResourceLocation::vanilla_static("glider"));
 
-pub const TOOLTIP_STYLE: &DataComponentType<ResourceLocation> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("tooltip_style"));
+pub const TOOLTIP_STYLE: DataComponentType<ResourceLocation> =
+    DataComponentType::new(ResourceLocation::vanilla_static("tooltip_style"));
 
-pub const DEATH_PROTECTION: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("death_protection"));
+pub const DEATH_PROTECTION: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("death_protection"));
 
-pub const BLOCKS_ATTACKS: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("blocks_attacks"));
+pub const BLOCKS_ATTACKS: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("blocks_attacks"));
 
-pub const STORED_ENCHANTMENTS: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("stored_enchantments"));
+pub const STORED_ENCHANTMENTS: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("stored_enchantments"));
 
-pub const DYED_COLOR: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("dyed_color"));
+pub const DYED_COLOR: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("dyed_color"));
 
-pub const MAP_COLOR: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("map_color"));
+pub const MAP_COLOR: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("map_color"));
 
-pub const MAP_ID: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("map_id"));
+pub const MAP_ID: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("map_id"));
 
-pub const MAP_DECORATIONS: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("map_decorations"));
+pub const MAP_DECORATIONS: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("map_decorations"));
 
-pub const MAP_POST_PROCESSING: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("map_post_processing"));
+pub const MAP_POST_PROCESSING: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("map_post_processing"));
 
-pub const CHARGED_PROJECTILES: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("charged_projectiles"));
+pub const CHARGED_PROJECTILES: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("charged_projectiles"));
 
-pub const BUNDLE_CONTENTS: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("bundle_contents"));
+pub const BUNDLE_CONTENTS: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("bundle_contents"));
 
-pub const POTION_CONTENTS: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("potion_contents"));
+pub const POTION_CONTENTS: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("potion_contents"));
 
-pub const POTION_DURATION_SCALE: &DataComponentType<f32> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("potion_duration_scale"));
+pub const POTION_DURATION_SCALE: DataComponentType<f32> =
+    DataComponentType::new(ResourceLocation::vanilla_static("potion_duration_scale"));
 
-pub const SUSPICIOUS_STEW_EFFECTS: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("suspicious_stew_effects"));
+pub const SUSPICIOUS_STEW_EFFECTS: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("suspicious_stew_effects"));
 
-pub const WRITABLE_BOOK_CONTENT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("writable_book_content"));
+pub const WRITABLE_BOOK_CONTENT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("writable_book_content"));
 
-pub const WRITTEN_BOOK_CONTENT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("written_book_content"));
+pub const WRITTEN_BOOK_CONTENT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("written_book_content"));
 
-pub const TRIM: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("trim"));
+pub const TRIM: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("trim"));
 
-pub const DEBUG_STICK_STATE: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("debug_stick_state"));
+pub const DEBUG_STICK_STATE: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("debug_stick_state"));
 
-pub const ENTITY_DATA: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("entity_data"));
+pub const ENTITY_DATA: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("entity_data"));
 
-pub const BUCKET_ENTITY_DATA: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("bucket_entity_data"));
+pub const BUCKET_ENTITY_DATA: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("bucket_entity_data"));
 
-pub const BLOCK_ENTITY_DATA: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("block_entity_data"));
+pub const BLOCK_ENTITY_DATA: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("block_entity_data"));
 
-pub const INSTRUMENT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("instrument"));
+pub const INSTRUMENT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("instrument"));
 
-pub const PROVIDES_TRIM_MATERIAL: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("provides_trim_material"));
+pub const PROVIDES_TRIM_MATERIAL: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("provides_trim_material"));
 
-pub const OMINOUS_BOTTLE_AMPLIFIER: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("ominous_bottle_amplifier"));
+pub const OMINOUS_BOTTLE_AMPLIFIER: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("ominous_bottle_amplifier"));
 
-pub const JUKEBOX_PLAYABLE: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("jukebox_playable"));
+pub const JUKEBOX_PLAYABLE: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("jukebox_playable"));
 
-pub const PROVIDES_BANNER_PATTERNS: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("provides_banner_patterns"));
+pub const PROVIDES_BANNER_PATTERNS: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("provides_banner_patterns"));
 
-pub const RECIPES: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("recipes"));
+pub const RECIPES: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("recipes"));
 
-pub const LODESTONE_TRACKER: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("lodestone_tracker"));
+pub const LODESTONE_TRACKER: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("lodestone_tracker"));
 
-pub const FIREWORK_EXPLOSION: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("firework_explosion"));
+pub const FIREWORK_EXPLOSION: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("firework_explosion"));
 
-pub const FIREWORKS: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("fireworks"));
+pub const FIREWORKS: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("fireworks"));
 
-pub const PROFILE: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("profile"));
+pub const PROFILE: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("profile"));
 
-pub const NOTE_BLOCK_SOUND: &DataComponentType<ResourceLocation> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("note_block_sound"));
+pub const NOTE_BLOCK_SOUND: DataComponentType<ResourceLocation> =
+    DataComponentType::new(ResourceLocation::vanilla_static("note_block_sound"));
 
-pub const BANNER_PATTERNS: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("banner_patterns"));
+pub const BANNER_PATTERNS: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("banner_patterns"));
 
-pub const BASE_COLOR: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("base_color"));
+pub const BASE_COLOR: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("base_color"));
 
-pub const POT_DECORATIONS: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("pot_decorations"));
+pub const POT_DECORATIONS: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("pot_decorations"));
 
-pub const CONTAINER: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("container"));
+pub const CONTAINER: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("container"));
 
-pub const BLOCK_STATE: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("block_state"));
+pub const BLOCK_STATE: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("block_state"));
 
-pub const BEES: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("bees"));
+pub const BEES: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("bees"));
 
-pub const LOCK: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("lock"));
+pub const LOCK: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("lock"));
 
-pub const CONTAINER_LOOT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("container_loot"));
+pub const CONTAINER_LOOT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("container_loot"));
 
-pub const BREAK_SOUND: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("break_sound"));
+pub const BREAK_SOUND: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("break_sound"));
 
 // Entity variant components
-pub const VILLAGER_VARIANT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("villager/variant"));
+pub const VILLAGER_VARIANT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("villager/variant"));
 
-pub const WOLF_VARIANT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("wolf/variant"));
+pub const WOLF_VARIANT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("wolf/variant"));
 
-pub const WOLF_SOUND_VARIANT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("wolf/sound_variant"));
+pub const WOLF_SOUND_VARIANT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("wolf/sound_variant"));
 
-pub const WOLF_COLLAR: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("wolf/collar"));
+pub const WOLF_COLLAR: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("wolf/collar"));
 
-pub const FOX_VARIANT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("fox/variant"));
+pub const FOX_VARIANT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("fox/variant"));
 
-pub const SALMON_SIZE: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("salmon/size"));
+pub const SALMON_SIZE: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("salmon/size"));
 
-pub const PARROT_VARIANT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("parrot/variant"));
+pub const PARROT_VARIANT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("parrot/variant"));
 
-pub const TROPICAL_FISH_PATTERN: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("tropical_fish/pattern"));
+pub const TROPICAL_FISH_PATTERN: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("tropical_fish/pattern"));
 
-pub const TROPICAL_FISH_BASE_COLOR: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("tropical_fish/base_color"));
+pub const TROPICAL_FISH_BASE_COLOR: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("tropical_fish/base_color"));
 
-pub const TROPICAL_FISH_PATTERN_COLOR: &DataComponentType<TODO> = &DataComponentType::new(
+pub const TROPICAL_FISH_PATTERN_COLOR: DataComponentType<TODO> = DataComponentType::new(
     ResourceLocation::vanilla_static("tropical_fish/pattern_color"),
 );
 
-pub const MOOSHROOM_VARIANT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("mooshroom/variant"));
+pub const MOOSHROOM_VARIANT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("mooshroom/variant"));
 
-pub const RABBIT_VARIANT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("rabbit/variant"));
+pub const RABBIT_VARIANT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("rabbit/variant"));
 
-pub const PIG_VARIANT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("pig/variant"));
+pub const PIG_VARIANT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("pig/variant"));
 
-pub const COW_VARIANT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("cow/variant"));
+pub const COW_VARIANT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("cow/variant"));
 
-pub const CHICKEN_VARIANT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("chicken/variant"));
+pub const CHICKEN_VARIANT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("chicken/variant"));
 
-pub const FROG_VARIANT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("frog/variant"));
+pub const FROG_VARIANT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("frog/variant"));
 
-pub const HORSE_VARIANT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("horse/variant"));
+pub const HORSE_VARIANT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("horse/variant"));
 
-pub const PAINTING_VARIANT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("painting/variant"));
+pub const PAINTING_VARIANT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("painting/variant"));
 
-pub const LLAMA_VARIANT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("llama/variant"));
+pub const LLAMA_VARIANT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("llama/variant"));
 
-pub const AXOLOTL_VARIANT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("axolotl/variant"));
+pub const AXOLOTL_VARIANT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("axolotl/variant"));
 
-pub const CAT_VARIANT: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("cat/variant"));
+pub const CAT_VARIANT: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("cat/variant"));
 
-pub const CAT_COLLAR: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("cat/collar"));
+pub const CAT_COLLAR: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("cat/collar"));
 
-pub const SHEEP_COLOR: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("sheep/color"));
+pub const SHEEP_COLOR: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("sheep/color"));
 
-pub const SHULKER_COLOR: &DataComponentType<TODO> =
-    &DataComponentType::new(ResourceLocation::vanilla_static("shulker/color"));
+pub const SHULKER_COLOR: DataComponentType<TODO> =
+    DataComponentType::new(ResourceLocation::vanilla_static("shulker/color"));
 
 pub fn register_vanilla_data_components(registry: &mut DataComponentRegistry) {
     // Basic components

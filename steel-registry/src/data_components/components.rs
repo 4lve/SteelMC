@@ -1,4 +1,4 @@
-use std::{collections::HashMap, marker::PhantomData};
+use std::{any::Any, collections::HashMap, fmt::Debug, marker::PhantomData};
 
 use steel_utils::ResourceLocation;
 
@@ -10,12 +10,12 @@ use crate::{
     },
 };
 
-pub trait ComponentValue: std::fmt::Debug + Send + Sync {
-    fn as_any(&self) -> &dyn std::any::Any;
+pub trait ComponentValue: Debug + Send + Sync {
+    fn as_any(&self) -> &dyn Any;
 }
 
-impl<T: 'static + Send + Sync + std::fmt::Debug> ComponentValue for T {
-    fn as_any(&self) -> &dyn std::any::Any {
+impl<T: 'static + Send + Sync + Debug> ComponentValue for T {
+    fn as_any(&self) -> &dyn Any {
         self
     }
 }
@@ -54,7 +54,7 @@ impl DataComponentRegistry {
         }
     }
 
-    pub fn register<T: 'static>(&mut self, component: &'static DataComponentType<T>) {
+    pub fn register<T: 'static>(&mut self, component: DataComponentType<T>) {
         if !self.allows_registering {
             panic!("Cannot register data components after the registry has been frozen");
         }
@@ -77,7 +77,7 @@ impl RegistryExt for DataComponentRegistry {
 
 #[derive(Debug)]
 pub struct DataComponentMap {
-    map: HashMap<ResourceLocation, Box<dyn ComponentValue>>,
+    map: Vec<(ResourceLocation, Box<dyn ComponentValue>)>,
 }
 
 impl Default for DataComponentMap {
@@ -87,28 +87,30 @@ impl Default for DataComponentMap {
 }
 
 impl DataComponentMap {
-    pub fn new() -> Self {
-        Self {
-            map: HashMap::new(),
-        }
+    pub const fn new() -> Self {
+        Self { map: Vec::new() }
     }
 
     pub fn common_item_components() -> Self {
         //TODO: Some components stil have todo values, we should implement them
-        Self::new()
-            .builder_set(MAX_STACK_SIZE, Some(64))
-            .builder_set(LORE, Some(()))
-            .builder_set(ENCHANTMENTS, Some(()))
-            .builder_set(REPAIR_COST, Some(0))
-            .builder_set(ATTRIBUTE_MODIFIERS, Some(()))
-            .builder_set(RARITY, Some(()))
-            .builder_set(BREAK_SOUND, Some(()))
-            .builder_set(TOOLTIP_DISPLAY, Some(()))
+
+        Self {
+            map: vec![
+                (MAX_STACK_SIZE.key.clone(), Box::new(64)),
+                (LORE.key.clone(), Box::new(())),
+                (ENCHANTMENTS.key.clone(), Box::new(())),
+                (REPAIR_COST.key.clone(), Box::new(0)),
+                (ATTRIBUTE_MODIFIERS.key.clone(), Box::new(())),
+                (RARITY.key.clone(), Box::new(())),
+                (BREAK_SOUND.key.clone(), Box::new(())),
+                (TOOLTIP_DISPLAY.key.clone(), Box::new(())),
+            ],
+        }
     }
 
     pub fn builder_set<T: 'static + ComponentValue>(
         mut self,
-        component: &DataComponentType<T>,
+        component: DataComponentType<T>,
         data: Option<T>,
     ) -> Self {
         self.set(component, data);
@@ -117,23 +119,33 @@ impl DataComponentMap {
 
     pub fn set<T: 'static + ComponentValue>(
         &mut self,
-        component: &DataComponentType<T>,
+        component: DataComponentType<T>,
         data: Option<T>,
     ) {
         if let Some(data) = data {
-            self.map.insert(component.key.clone(), Box::new(data));
+            self.map.push((component.key.clone(), Box::new(data)));
         } else {
-            self.map.remove(&component.key);
+            if let Some(index) = self
+                .map
+                .iter()
+                .position(|(res_loc, _)| *res_loc == component.key)
+            {
+                self.map.swap_remove(index);
+            }
         }
     }
 
-    pub fn get<T: 'static>(&self, component: &DataComponentType<T>) -> Option<&T> {
-        self.map
-            .get(&component.key)
-            .and_then(|data| data.as_any().downcast_ref::<T>())
+    pub fn get<T: 'static>(&self, component: DataComponentType<T>) -> Option<&T> {
+        let index = self
+            .map
+            .iter()
+            .position(|(res_loc, _)| *res_loc == component.key)?;
+        self.map[index].as_any().downcast_ref::<T>()
     }
 
-    pub fn has<T: 'static>(&self, component: &DataComponentType<T>) -> bool {
-        self.map.contains_key(&component.key)
+    pub fn has<T: 'static>(&self, component: DataComponentType<T>) -> bool {
+        self.map
+            .iter()
+            .any(|(res_loc, _)| *res_loc == component.key)
     }
 }
