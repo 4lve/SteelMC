@@ -1,5 +1,5 @@
 use reqwest::StatusCode;
-use steel_world::player::game_profile::GameProfile;
+use steel_world::player::GameProfile;
 use thiserror::Error;
 
 const MOJANG_AUTHENTICATION_URL: &str = "https://sessionserver.mojang.com/session/minecraft/hasJoined?username={username}&serverId={server_hash}";

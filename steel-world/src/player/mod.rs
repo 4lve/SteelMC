@@ -1,11 +1,11 @@
-pub mod game_profile;
+mod game_profile;
 pub mod networking;
+
+pub use game_profile::GameProfile;
 
 use steel_protocol::utils::EnqueuedPacket;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
-
-use crate::player::game_profile::GameProfile;
 
 #[derive(Debug, Clone)]
 pub struct Player {

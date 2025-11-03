@@ -14,7 +14,7 @@ use steel_utils::ResourceLocation;
 use steel_world::player::Player;
 use steel_world::server::WorldServer;
 
-use crate::network::java_tcp_client::JavaTcpClient;
+use crate::network::JavaTcpClient;
 
 pub async fn handle_custom_payload(_tcp_client: &JavaTcpClient, packet: &SCustomPayloadPacket) {
     println!("Custom payload packet: {:?}", packet);

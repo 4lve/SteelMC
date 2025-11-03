@@ -11,7 +11,7 @@ use steel_protocol::{
     utils::ConnectionProtocol,
 };
 use steel_utils::text::TextComponent;
-use steel_world::player::game_profile::GameProfile;
+use steel_world::player::GameProfile;
 use uuid::Uuid;
 
 use crate::{

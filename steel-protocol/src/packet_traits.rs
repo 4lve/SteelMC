@@ -22,7 +22,11 @@ pub trait PacketRead: ReadFrom {
     }
 }
 pub trait ClientPacket: WriteTo {
-    fn write_packet(&self, writer: &mut impl Write, protocol: ConnectionProtocol) -> Result<(), PacketError> {
+    fn write_packet(
+        &self,
+        writer: &mut impl Write,
+        protocol: ConnectionProtocol,
+    ) -> Result<(), PacketError> {
         let packet_id = self
             .get_id(protocol)
             .ok_or(PacketError::InvalidProtocol(format!(

@@ -124,9 +124,7 @@ impl RegistryCache {
     }
 }
 
-pub async fn compress_packet<P: ClientPacket>(
-    packet: P,
-) -> Result<EncodedPacket, ()> {
+pub async fn compress_packet<P: ClientPacket>(packet: P) -> Result<EncodedPacket, ()> {
     let compression_info = STEEL_CONFIG.compression;
     let id = packet.get_id(ConnectionProtocol::CONFIGURATION);
 

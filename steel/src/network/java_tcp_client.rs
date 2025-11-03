@@ -20,8 +20,7 @@ use steel_protocol::{
     utils::{ConnectionProtocol, EnqueuedPacket, PacketError},
 };
 use steel_utils::text::TextComponent;
-use steel_world::player::game_profile::GameProfile;
-use thiserror::Error;
+use steel_world::player::GameProfile;
 use tokio::{
     io::{BufReader, BufWriter},
     net::{
@@ -31,7 +30,7 @@ use tokio::{
     sync::{
         Mutex, Notify,
         broadcast::{self, Receiver, Sender},
-        mpsc,
+        mpsc::{self, UnboundedReceiver, UnboundedSender},
     },
 };
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
@@ -46,14 +45,6 @@ use crate::{
     server::Server,
 };
 
-#[derive(Error, Debug)]
-pub enum EncryptionError {
-    #[error("failed to decrypt shared secret")]
-    FailedDecrypt,
-    #[error("shared secret has the wrong length")]
-    SharedWrongLength,
-}
-
 #[derive(Clone, Debug)]
 pub enum ConnectionUpdate {
     EnableEncryption([u8; 16]),
@@ -67,7 +58,7 @@ pub struct JavaTcpClient {
     /// The current connection state of the client (e.g., Handshaking, Status, Play).
     pub connection_protocol: Arc<AtomicCell<ConnectionProtocol>>,
     /// The client's IP address.
-    pub address: Mutex<SocketAddr>,
+    pub address: SocketAddr,
     /// A collection of tasks associated with this client. The tasks await completion when removing the client.
     tasks: TaskTracker,
     /// A token to cancel the client's operations. Called when the connection is closed. Or client is removed.
@@ -77,15 +68,12 @@ pub struct JavaTcpClient {
     pub packet_recv_sender: Arc<Sender<Arc<SBoundPacket>>>,
 
     /// A queue of serialized packets to send to the network
-    pub outgoing_queue: mpsc::UnboundedSender<EnqueuedPacket>,
-    /// A queue of serialized packets to send to the network
-    outgoing_queue_recv: Option<mpsc::UnboundedReceiver<EnqueuedPacket>>,
+    pub outgoing_queue: UnboundedSender<EnqueuedPacket>,
     /// The packet encoder for outgoing packets.
     network_writer: Arc<Mutex<TCPNetworkEncoder<BufWriter<OwnedWriteHalf>>>>,
-    /// The packet decoder for incoming packets.
-    network_reader: Option<TCPNetworkDecoder<BufReader<OwnedReadHalf>>>,
     pub(crate) compression_info: Arc<AtomicCell<Option<CompressionInfo>>>,
     pub(crate) has_requested_status: AtomicBool,
+    
     pub server: Arc<Server>,
     pub challenge: AtomicCell<Option<[u8; 4]>>,
 
@@ -102,35 +90,41 @@ impl JavaTcpClient {
         id: u64,
         cancel_token: CancellationToken,
         server: Arc<Server>,
-    ) -> Self {
+    ) -> (
+        Self,
+        UnboundedReceiver<EnqueuedPacket>,
+        TCPNetworkDecoder<BufReader<OwnedReadHalf>>,
+    ) {
         let (read, write) = tcp_stream.into_split();
-        let (send, recv) = tokio::sync::mpsc::unbounded_channel();
+        let (send, recv) = mpsc::unbounded_channel();
         let (connection_updates_send, _) = broadcast::channel(128);
 
         let (packet_recv_sender, packet_receiver) = broadcast::channel(128);
 
-        Self {
-            id,
-            gameprofile: Mutex::new(None),
-            address: Mutex::new(address),
-            connection_protocol: Arc::new(AtomicCell::new(ConnectionProtocol::HANDSHAKING)),
-            tasks: TaskTracker::new(),
-            cancel_token,
+        (
+            Self {
+                id,
+                gameprofile: Mutex::new(None),
+                address,
+                connection_protocol: Arc::new(AtomicCell::new(ConnectionProtocol::HANDSHAKING)),
+                tasks: TaskTracker::new(),
+                cancel_token,
 
-            packet_receiver: Mutex::new(Some(packet_receiver)),
-            packet_recv_sender: Arc::new(packet_recv_sender),
-            outgoing_queue: send,
-            outgoing_queue_recv: Some(recv),
-            network_writer: Arc::new(Mutex::new(TCPNetworkEncoder::new(BufWriter::new(write)))),
-            network_reader: Some(TCPNetworkDecoder::new(BufReader::new(read))),
-            has_requested_status: AtomicBool::new(false),
-            compression_info: Arc::new(AtomicCell::new(None)),
-            server,
-            challenge: AtomicCell::new(None),
-            connection_updates: Arc::new(connection_updates_send),
-            connection_update_enabled: Arc::new(Notify::new()),
-            can_process_next_packet: Arc::new(Notify::new()),
-        }
+                packet_receiver: Mutex::new(Some(packet_receiver)),
+                packet_recv_sender: Arc::new(packet_recv_sender),
+                outgoing_queue: send,
+                network_writer: Arc::new(Mutex::new(TCPNetworkEncoder::new(BufWriter::new(write)))),
+                has_requested_status: AtomicBool::new(false),
+                compression_info: Arc::new(AtomicCell::new(None)),
+                server,
+                challenge: AtomicCell::new(None),
+                connection_updates: Arc::new(connection_updates_send),
+                connection_update_enabled: Arc::new(Notify::new()),
+                can_process_next_packet: Arc::new(Notify::new()),
+            },
+            recv,
+            TCPNetworkDecoder::new(BufReader::new(read)),
+        )
     }
 
     pub fn close(&self) {
@@ -211,11 +205,10 @@ impl JavaTcpClient {
 
     /// Starts a task that will send packets to the client from the outgoing packet queue.
     /// This task will run until the client is closed or the cancellation token is cancelled.
-    pub fn start_outgoing_packet_task(&mut self) {
-        let mut sender_recv = self
-            .outgoing_queue_recv
-            .take()
-            .expect("This was set in the new fn");
+    pub fn start_outgoing_packet_task(
+        &mut self,
+        mut sender_recv: UnboundedReceiver<EnqueuedPacket>,
+    ) {
         let cancel_token = self.cancel_token.clone();
         let network_writer = self.network_writer.clone();
         let id = self.id;
@@ -277,11 +270,10 @@ impl JavaTcpClient {
         });
     }
 
-    pub fn start_incoming_packet_task(&mut self) {
-        let mut network_reader = self
-            .network_reader
-            .take()
-            .expect("This was set in the new fn");
+    pub fn start_incoming_packet_task(
+        &mut self,
+        mut net_reader: TCPNetworkDecoder<BufReader<OwnedReadHalf>>,
+    ) {
         let cancel_token = self.cancel_token.clone();
         let id = self.id;
         let packet_recv_sender = self.packet_recv_sender.clone();
@@ -297,7 +289,7 @@ impl JavaTcpClient {
                     _ = cancel_token_clone.cancelled() => {
                         break;
                     }
-                    packet = network_reader.get_raw_packet() => {
+                    packet = net_reader.get_raw_packet() => {
                         match packet {
                             Ok(packet) => {
                                 log::info!("Received packet: {:?}, protocol: {:?}", packet.id, connection_protocol.load());
@@ -334,10 +326,10 @@ impl JavaTcpClient {
                             Ok(connection_update) => {
                                 match connection_update {
                                     ConnectionUpdate::EnableEncryption(key) => {
-                                        network_reader.set_encryption(&key);
+                                        net_reader.set_encryption(&key);
                                     }
                                     ConnectionUpdate::EnableCompression(compression) => {
-                                        network_reader.set_compression(compression.threshold);
+                                        net_reader.set_compression(compression.threshold);
                                         connection_update_enabled.notify_waiters();
                                     }
                                 }

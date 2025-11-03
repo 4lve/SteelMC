@@ -7,7 +7,7 @@ use steel_protocol::packets::status::{
     s_status_request::SStatusRequestPacket,
 };
 
-use crate::{MC_VERSION, STEEL_CONFIG, network::java_tcp_client::JavaTcpClient};
+use crate::{MC_VERSION, STEEL_CONFIG, network::JavaTcpClient};
 
 pub async fn handle_status_request(tcp_client: &JavaTcpClient, _packet: &SStatusRequestPacket) {
     // Checks if this funciton has already been called this connection. If not it sets has_requested_status to true. If it has been called before compare_exchange fails.
