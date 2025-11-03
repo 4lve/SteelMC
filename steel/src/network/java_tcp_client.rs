@@ -184,8 +184,8 @@ impl JavaTcpClient {
     }
 
     pub fn enqueue_packet<P: ClientPacket>(&self, packet: P) -> Result<(), PacketError> {
-        let connection_protocol = self.connection_protocol.load();
-        let buf = EncodedPacket::write_packet(packet, connection_protocol)?;
+        let protocol = self.connection_protocol.load();
+        let buf = EncodedPacket::write_vec(packet, protocol)?;
         self.outgoing_queue
             .send(EnqueuedPacket::RawData(buf))
             .map_err(|e| {

@@ -1,9 +1,7 @@
 pub mod game_profile;
+pub mod networking;
 
-use steel_protocol::{
-    packet_traits::{ClientPacket, EncodedPacket},
-    utils::{ConnectionProtocol, EnqueuedPacket},
-};
+use steel_protocol::utils::EnqueuedPacket;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
@@ -27,12 +25,5 @@ impl Player {
             outgoing_packets,
             cancel_token,
         }
-    }
-
-    pub fn enqueue_packet<P: ClientPacket>(&self, packet: P) {
-        let buf = EncodedPacket::write_packet(packet, ConnectionProtocol::PLAY).unwrap();
-        self.outgoing_packets
-            .send(EnqueuedPacket::RawData(buf))
-            .unwrap();
     }
 }

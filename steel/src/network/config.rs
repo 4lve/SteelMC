@@ -50,13 +50,13 @@ pub async fn handle_select_known_packs(tcp_client: &JavaTcpClient, packet: &SSel
     println!("Select known packs packet: {:?}", packet);
 
     let registry_cache = tcp_client.server.registry_cache.clone();
-    for encoded_packet in registry_cache.compressed_registry_packets.iter() {
+    for encoded_packet in registry_cache.registry_packets.iter() {
         tcp_client.send_encoded_packet_now(encoded_packet).await;
     }
 
     // Send the packet for tags
     tcp_client
-        .send_encoded_packet_now(&registry_cache.compressed_tags_packet)
+        .send_encoded_packet_now(&registry_cache.tags_packet)
         .await;
 
     // Finish configuration with CFinishConfigurationPacket

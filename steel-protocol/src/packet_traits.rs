@@ -22,7 +22,14 @@ pub trait PacketRead: ReadFrom {
     }
 }
 pub trait ClientPacket: WriteTo {
-    fn write_packet(&self, writer: &mut impl Write) -> Result<(), PacketError> {
+    fn write_packet(&self, writer: &mut impl Write, protocol: ConnectionProtocol) -> Result<(), PacketError> {
+        let packet_id = self
+            .get_id(protocol)
+            .ok_or(PacketError::InvalidProtocol(format!(
+                "Invalid protocol {:?}",
+                protocol
+            )))?;
+        VarInt(packet_id).write(writer)?;
         self.write(writer).map_err(PacketError::from)
     }
     fn get_id(&self, protocol: ConnectionProtocol) -> Option<i32>;
@@ -202,25 +209,18 @@ impl EncodedPacket {
     pub async fn from_packet<P: ClientPacket>(
         packet: P,
         compression_info: Option<CompressionInfo>,
-        connection_protocol: ConnectionProtocol,
+        protocol: ConnectionProtocol,
     ) -> Result<Self, PacketError> {
-        let buf = Self::write_packet(packet, connection_protocol)?;
+        let buf = Self::write_vec(packet, protocol)?;
         Self::from_data(buf, compression_info).await
     }
 
-    pub fn write_packet<P: ClientPacket>(
+    pub fn write_vec<P: ClientPacket>(
         packet: P,
-        connection_protocol: ConnectionProtocol,
+        protocol: ConnectionProtocol,
     ) -> Result<FrontVec, PacketError> {
         let mut buf = FrontVec::new(6);
-        let packet_id = packet
-            .get_id(connection_protocol)
-            .ok_or(PacketError::InvalidProtocol(format!(
-                "Invalid protocol {:?}",
-                connection_protocol
-            )))?;
-        VarInt(packet_id).write(&mut buf)?;
-        packet.write_packet(&mut buf)?;
+        packet.write_packet(&mut buf, protocol)?;
         Ok(buf)
     }
 

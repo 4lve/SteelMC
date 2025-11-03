@@ -22,8 +22,8 @@ use steel_utils::ResourceLocation;
 use crate::STEEL_CONFIG;
 
 pub struct RegistryCache {
-    pub compressed_registry_packets: Arc<Vec<EncodedPacket>>,
-    pub compressed_tags_packet: Arc<EncodedPacket>,
+    pub registry_packets: Arc<[EncodedPacket]>,
+    pub tags_packet: Arc<EncodedPacket>,
 }
 
 impl RegistryCache {
@@ -31,12 +31,12 @@ impl RegistryCache {
         let registry_packets = Self::build_registry_packets(registry);
         let tags_by_registry_packet = Self::build_tags_packet(registry);
 
-        let (compressed_registry_packets, compressed_tags_packet) =
+        let (registry_packets, tags_packet) =
             build_compressed_packets(registry_packets, tags_by_registry_packet).await;
 
         Self {
-            compressed_registry_packets: Arc::new(compressed_registry_packets),
-            compressed_tags_packet: Arc::new(compressed_tags_packet),
+            registry_packets,
+            tags_packet: Arc::new(tags_packet),
         }
     }
 
@@ -124,7 +124,7 @@ impl RegistryCache {
     }
 }
 
-pub async fn convert_into_compressed_packet<P: ClientPacket>(
+pub async fn compress_packet<P: ClientPacket>(
     packet: P,
 ) -> Result<EncodedPacket, ()> {
     let compression_info = STEEL_CONFIG.compression;
@@ -143,14 +143,14 @@ pub async fn convert_into_compressed_packet<P: ClientPacket>(
 pub async fn build_compressed_packets(
     registry_packets: Vec<CRegistryDataPacket>,
     tags_packet: CUpdateTagsPacket,
-) -> (Vec<EncodedPacket>, EncodedPacket) {
-    let mut compressed_registry_packets = Vec::new();
+) -> (Arc<[EncodedPacket]>, EncodedPacket) {
+    let mut compressed_packets = Vec::new();
 
     for packet in registry_packets {
-        compressed_registry_packets.push(convert_into_compressed_packet(packet).await.unwrap());
+        compressed_packets.push(compress_packet(packet).await.unwrap());
     }
 
-    let compressed_tags_packet = convert_into_compressed_packet(tags_packet).await.unwrap();
+    let compressed_tags_packet = compress_packet(tags_packet).await.unwrap();
 
-    (compressed_registry_packets, compressed_tags_packet)
+    (compressed_packets.into(), compressed_tags_packet)
 }
