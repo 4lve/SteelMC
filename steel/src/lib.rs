@@ -55,14 +55,14 @@ impl SteelServer {
                     if let Err(e) = connection.set_nodelay(true) {
                         log::warn!("Failed to set TCP_NODELAY: {e}");
                     }
-                    let (mut java_client, sender_recv, net_reader) = JavaTcpClient::new(connection, address, self.client_id, cancellation_token_clone.child_token(), self.server.clone());
+                    let (mut java_client, sender_recv, net_reader, packet_receiver) = JavaTcpClient::new(connection, address, self.client_id, cancellation_token_clone.child_token(), self.server.clone());
                     self.client_id += 1;
                     log::info!("Accepted connection from Java Edition: {address} (id {})", self.client_id);
                     java_client.start_incoming_packet_task(net_reader);
                     java_client.start_outgoing_packet_task(sender_recv);
                     let java_client = Arc::new(java_client);
                     tasks.spawn(async move {
-                        java_client.process_packets().await;
+                        java_client.process_packets(packet_receiver).await;
                         java_client.close();
                         java_client.await_tasks().await;
                     });

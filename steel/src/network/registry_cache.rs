@@ -142,7 +142,7 @@ pub async fn build_compressed_packets(
     registry_packets: Vec<CRegistryDataPacket>,
     tags_packet: CUpdateTagsPacket,
 ) -> (Arc<[EncodedPacket]>, EncodedPacket) {
-    let mut compressed_packets = Vec::new();
+    let mut compressed_packets = Vec::with_capacity(registry_packets.len());
 
     for packet in registry_packets {
         compressed_packets.push(compress_packet(packet).await.unwrap());

@@ -64,8 +64,7 @@ pub struct JavaTcpClient {
     /// A token to cancel the client's operations. Called when the connection is closed. Or client is removed.
     pub cancel_token: CancellationToken,
 
-    packet_receiver: Mutex<Option<Receiver<Arc<SBoundPacket>>>>,
-    pub packet_recv_sender: Arc<Sender<Arc<SBoundPacket>>>,
+    pub packet_recv_sender: Sender<Arc<SBoundPacket>>,
 
     /// A queue of serialized packets to send to the network
     pub outgoing_queue: UnboundedSender<EnqueuedPacket>,
@@ -73,11 +72,11 @@ pub struct JavaTcpClient {
     network_writer: Arc<Mutex<TCPNetworkEncoder<BufWriter<OwnedWriteHalf>>>>,
     pub(crate) compression_info: Arc<AtomicCell<Option<CompressionInfo>>>,
     pub(crate) has_requested_status: AtomicBool,
-    
+
     pub server: Arc<Server>,
     pub challenge: AtomicCell<Option<[u8; 4]>>,
 
-    pub(crate) connection_updates: Arc<Sender<ConnectionUpdate>>,
+    pub(crate) connection_updates: Sender<ConnectionUpdate>,
     pub(crate) connection_update_enabled: Arc<Notify>,
 
     pub(crate) can_process_next_packet: Arc<Notify>,
@@ -94,10 +93,11 @@ impl JavaTcpClient {
         Self,
         UnboundedReceiver<EnqueuedPacket>,
         TCPNetworkDecoder<BufReader<OwnedReadHalf>>,
+        Receiver<Arc<SBoundPacket>>,
     ) {
         let (read, write) = tcp_stream.into_split();
-        let (send, recv) = mpsc::unbounded_channel();
-        let (connection_updates_send, _) = broadcast::channel(128);
+        let (outgoing_queue, recv) = mpsc::unbounded_channel();
+        let (connection_updates, _) = broadcast::channel(128);
 
         let (packet_recv_sender, packet_receiver) = broadcast::channel(128);
 
@@ -110,20 +110,20 @@ impl JavaTcpClient {
                 tasks: TaskTracker::new(),
                 cancel_token,
 
-                packet_receiver: Mutex::new(Some(packet_receiver)),
-                packet_recv_sender: Arc::new(packet_recv_sender),
-                outgoing_queue: send,
+                packet_recv_sender,
+                outgoing_queue,
                 network_writer: Arc::new(Mutex::new(TCPNetworkEncoder::new(BufWriter::new(write)))),
                 has_requested_status: AtomicBool::new(false),
                 compression_info: Arc::new(AtomicCell::new(None)),
                 server,
                 challenge: AtomicCell::new(None),
-                connection_updates: Arc::new(connection_updates_send),
+                connection_updates,
                 connection_update_enabled: Arc::new(Notify::new()),
                 can_process_next_packet: Arc::new(Notify::new()),
             },
             recv,
             TCPNetworkDecoder::new(BufReader::new(read)),
+            packet_receiver,
         )
     }
 
@@ -345,13 +345,10 @@ impl JavaTcpClient {
         });
     }
 
-    pub async fn process_packets(self: &Arc<Self>) {
-        let mut packet_receiver = self
-            .packet_receiver
-            .lock()
-            .await
-            .take()
-            .expect("This was set in the new fn or the function was called twice");
+    pub async fn process_packets(
+        self: &Arc<Self>,
+        mut packet_receiver: Receiver<Arc<SBoundPacket>>,
+    ) {
         let can_process_next_packet = self.can_process_next_packet.clone();
 
         self.cancel_token
