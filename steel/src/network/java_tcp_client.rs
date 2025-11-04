@@ -94,27 +94,25 @@ impl JavaTcpClient {
         let (outgoing_queue, recv) = mpsc::unbounded_channel();
         let (connection_updates, _) = broadcast::channel(128);
 
-        (
-            Self {
-                id,
-                gameprofile: Mutex::new(None),
-                address,
-                connection_protocol: Arc::new(AtomicCell::new(ConnectionProtocol::HANDSHAKE)),
-                tasks: TaskTracker::new(),
-                cancel_token,
+        let client = Self {
+            id,
+            gameprofile: Mutex::new(None),
+            address,
+            connection_protocol: Arc::new(AtomicCell::new(ConnectionProtocol::HANDSHAKE)),
+            tasks: TaskTracker::new(),
+            cancel_token,
 
-                outgoing_queue,
-                network_writer: Arc::new(Mutex::new(TCPNetworkEncoder::new(BufWriter::new(write)))),
-                has_requested_status: AtomicBool::new(false),
-                compression_info: Arc::new(AtomicCell::new(None)),
-                server,
-                challenge: AtomicCell::new(None),
-                connection_updates,
-                connection_updated: Arc::new(Notify::new()),
-            },
-            recv,
-            TCPNetworkDecoder::new(BufReader::new(read)),
-        )
+            outgoing_queue,
+            network_writer: Arc::new(Mutex::new(TCPNetworkEncoder::new(BufWriter::new(write)))),
+            has_requested_status: AtomicBool::new(false),
+            compression_info: Arc::new(AtomicCell::new(None)),
+            server,
+            challenge: AtomicCell::new(None),
+            connection_updates,
+            connection_updated: Arc::new(Notify::new()),
+        };
+
+        (client, recv, TCPNetworkDecoder::new(BufReader::new(read)))
     }
 
     pub fn close(&self) {
