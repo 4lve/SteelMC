@@ -1,7 +1,7 @@
 use std::{
     io::Cursor,
     net::SocketAddr,
-    sync::{Arc, atomic::AtomicBool},
+    sync::Arc,
 };
 
 use crossbeam::atomic::AtomicCell;
@@ -38,7 +38,6 @@ use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 use crate::{
     network::{
-        config as co, login as l, play as p,
         status::{handle_ping_request, handle_status_request},
     },
     server::Server,
@@ -68,7 +67,6 @@ pub struct JavaTcpClient {
     /// The packet encoder for outgoing packets.
     network_writer: Arc<Mutex<TCPNetworkEncoder<BufWriter<OwnedWriteHalf>>>>,
     pub(crate) compression_info: Arc<AtomicCell<Option<CompressionInfo>>>,
-    pub(crate) has_requested_status: AtomicBool,
 
     pub server: Arc<Server>,
     pub challenge: AtomicCell<Option<[u8; 4]>>,
@@ -104,7 +102,6 @@ impl JavaTcpClient {
 
             outgoing_queue,
             network_writer: Arc::new(Mutex::new(TCPNetworkEncoder::new(BufWriter::new(write)))),
-            has_requested_status: AtomicBool::new(false),
             compression_info: Arc::new(AtomicCell::new(None)),
             server,
             challenge: AtomicCell::new(None),
@@ -119,12 +116,7 @@ impl JavaTcpClient {
         self.cancel_token.cancel();
     }
 
-    pub async fn await_tasks(&self) {
-        self.tasks.close();
-        self.tasks.wait().await;
-    }
-
-    pub async fn send_packet_now<P: ClientPacket>(&self, packet: P) {
+    pub async fn send_bare_packet_now<P: ClientPacket>(&self, packet: P) {
         let compression_info = self.compression_info.load();
         let connection_protocol = self.connection_protocol.load();
         let packet = EncodedPacket::from_packet(packet, compression_info, connection_protocol)
@@ -147,7 +139,7 @@ impl JavaTcpClient {
         }
     }
 
-    pub async fn send_encoded_packet_now(&self, packet: &EncodedPacket) {
+    pub async fn send_packet_now(&self, packet: &EncodedPacket) {
         if let Err(err) = self
             .network_writer
             .lock()
@@ -165,7 +157,7 @@ impl JavaTcpClient {
         }
     }
 
-    pub fn enqueue_packet<P: ClientPacket>(&self, packet: P) -> Result<(), PacketError> {
+    pub fn send_bare_packet<P: ClientPacket>(&self, packet: P) -> Result<(), PacketError> {
         let protocol = self.connection_protocol.load();
         let buf = EncodedPacket::write_vec(packet, protocol)?;
         self.outgoing_queue
@@ -179,7 +171,7 @@ impl JavaTcpClient {
         Ok(())
     }
 
-    pub fn enqueue_encoded_packet(&self, packet: EncodedPacket) -> Result<(), PacketError> {
+    pub fn send_packet(&self, packet: EncodedPacket) -> Result<(), PacketError> {
         self.outgoing_queue
             .send(EnqueuedPacket::EncodedPacket(packet))
             .map_err(|e| {
@@ -331,22 +323,11 @@ impl JavaTcpClient {
             ConnectionProtocol::CONFIG => self.handle_config(packet).await,
             ConnectionProtocol::PLAY => self.handle_play(packet).await,
         }
-        Ok(())
     }
 
-    fn assert_protocol(&self, protocol: ConnectionProtocol) -> bool {
-        if self.connection_protocol.load() != protocol {
-            self.close();
-            return false;
-        }
-        true
-    }
-
-    pub async fn handle_handshake(&self, packet: RawPacket) {
-        if !self.assert_protocol(ConnectionProtocol::HANDSHAKE) {
-            return;
-        }
+    pub async fn handle_handshake(&self, packet: RawPacket) -> Result<(), PacketError> {
         let data = &mut Cursor::new(packet.payload);
+
         match packet.id {
             handshake::S_INTENTION => {
                 let intent = match SClientIntention::read_packet(data).unwrap().intention {
@@ -360,86 +341,77 @@ impl JavaTcpClient {
                     //TODO: Handle client version being too low or high
                 }
             }
-            _ => panic!(),
+            _ => unreachable!(),
         }
+        Ok(())
     }
 
-    pub async fn handle_status(&self, packet: RawPacket) {
-        if !self.assert_protocol(ConnectionProtocol::STATUS) {
-            return;
-        }
-
+    pub async fn handle_status(&self, packet: RawPacket) -> Result<(), PacketError> {
         let data = &mut Cursor::new(packet.payload);
 
         match packet.id {
             status::S_STATUS_REQUEST => {
-                handle_status_request(self, SStatusRequest::read_packet(data).unwrap()).await
+                handle_status_request(self, SStatusRequest::read_packet(data)?).await
             }
             status::S_PING_REQUEST => {
                 handle_ping_request(self, SPingRequest::read_packet(data).unwrap()).await
             }
-            _ => panic!(),
+            _ => unreachable!(),
         }
+        Ok(())
     }
 
-    pub async fn handle_login(&self, packet: RawPacket) {
-        if !self.assert_protocol(ConnectionProtocol::LOGIN) {
-            return;
-        }
-
+    pub async fn handle_login(&self, packet: RawPacket) -> Result<(), PacketError> {
         let data = &mut Cursor::new(packet.payload);
 
         match packet.id {
-            login::S_HELLO => l::handle_hello(self, SHello::read_packet(data).unwrap()).await,
-            login::S_KEY => l::handle_key(self, SKey::read_packet(data).unwrap()).await,
+            login::S_HELLO => self.handle_hello(SHello::read_packet(data)?).await,
+            login::S_KEY => self.handle_key(SKey::read_packet(data)?).await,
             login::S_LOGIN_ACKNOWLEDGED => {
-                l::handle_login_acknowledged(self, SLoginAcknowledged::read_packet(data).unwrap())
+                self.handle_login_acknowledged(SLoginAcknowledged::read_packet(data)?)
                     .await
             }
-            _ => panic!(),
+            _ => unreachable!(),
         }
+        Ok(())
     }
 
-    pub async fn handle_config(&self, packet: RawPacket) {
-        if !self.assert_protocol(ConnectionProtocol::CONFIG) {
-            return;
-        }
+    pub async fn handle_config(&self, packet: RawPacket) -> Result<(), PacketError> {
         let data = &mut Cursor::new(packet.payload);
+
         match packet.id {
             config::S_CUSTOM_PAYLOAD => {
-                co::handle_custom_payload(self, SCustomPayload::read_packet(data).unwrap()).await
+                self.handle_config_custom_payload(SCustomPayload::read_packet(data)?).await
             }
             config::S_CLIENT_INFORMATION => {
-                co::handle_client_information(self, SClientInformation::read_packet(data).unwrap())
+                self.handle_client_information(SClientInformation::read_packet(data)?)
                     .await
             }
             config::S_SELECT_KNOWN_PACKS => {
-                co::handle_select_known_packs(self, SSelectKnownPacks::read_packet(data).unwrap())
+                self.handle_select_known_packs(SSelectKnownPacks::read_packet(data)?)
                     .await
             }
             config::S_FINISH_CONFIGURATION => {
-                co::handle_finish_configuration(
-                    self,
-                    SFinishConfiguration::read_packet(data).unwrap(),
+                self.handle_finish_configuration(
+                    SFinishConfiguration::read_packet(data)?,
                 )
                 .await
             }
-            _ => panic!(),
+            _ => unreachable!(),
         }
+        Ok(())
     }
 
-    pub async fn handle_play(&self, packet: RawPacket) {
-        if !self.assert_protocol(ConnectionProtocol::PLAY) {
-            return;
-        }
+    pub async fn handle_play(&self, packet: RawPacket) -> Result<(), PacketError> {
         let data = &mut Cursor::new(packet.payload);
 
         match packet.id {
             play::C_CUSTOM_PAYLOAD => {
-                p::handle_custom_payload(self, SCustomPayload::read_packet(data).unwrap())
+                self.handle_custom_payload(SCustomPayload::read_packet(data)?)
             }
             id => log::info!("play packet id {} is not known", id),
         }
+        Ok(())
     }
 }
 
@@ -448,15 +420,15 @@ impl JavaTcpClient {
         match self.connection_protocol.load() {
             ConnectionProtocol::LOGIN => {
                 let packet = CLoginDisconnect::new(reason);
-                self.send_packet_now(packet).await;
+                self.send_bare_packet_now(packet).await;
             }
             ConnectionProtocol::CONFIG => {
                 let packet = CDisconnect::new(reason);
-                self.send_packet_now(packet).await;
+                self.send_bare_packet_now(packet).await;
             }
             ConnectionProtocol::PLAY => {
                 let packet = CDisconnect::new(reason);
-                self.send_packet_now(packet).await;
+                self.send_bare_packet_now(packet).await;
             }
             _ => {}
         }

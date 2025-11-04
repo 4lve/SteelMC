@@ -66,7 +66,8 @@ pub enum ConnectionProtocol {
 #[derive(Debug)]
 pub struct RawPacket {
     pub id: i32,
-    pub payload: Box<[u8]>,
+    /// Could be a Box<[u8]> but that requires a realloc if cap != len
+    pub payload: Vec<u8>,
 }
 
 #[derive(Error, Debug)]

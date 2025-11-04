@@ -151,7 +151,7 @@ impl<R: AsyncRead + Unpin> TCPNetworkDecoder<R> {
 
         Ok(RawPacket {
             id: packet_id,
-            payload: payload.into(),
+            payload,
         })
     }
 }

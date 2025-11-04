@@ -15,61 +15,65 @@ use steel_world::server::WorldServer;
 use crate::MC_VERSION;
 use crate::network::JavaTcpClient;
 
-pub async fn handle_custom_payload(_tcp_client: &JavaTcpClient, packet: SCustomPayload) {
-    println!("Custom payload packet: {:?}", packet);
-}
-
-pub async fn handle_client_information(_tcp_client: &JavaTcpClient, packet: SClientInformation) {
-    println!("Client information packet: {:?}", packet);
-}
-
 const BRAND_PAYLOAD: &[u8; 5] = b"Steel";
 
-pub async fn start_configuration(tcp_client: &JavaTcpClient) {
-    tcp_client
-        .send_packet_now(CCustomPayload::new(
-            ResourceLocation::vanilla_static("brand"),
-            Box::new(*BRAND_PAYLOAD),
-        ))
-        .await;
-
-    tcp_client
-        .send_packet_now(CSelectKnownPacks::new(vec![KnownPack::new(
-            "minecraft".to_string(),
-            "core".to_string(),
-            MC_VERSION.to_string(),
-        )]))
-        .await;
-}
-
-pub async fn handle_select_known_packs(tcp_client: &JavaTcpClient, packet: SSelectKnownPacks) {
-    println!("Select known packs packet: {:?}", packet);
-
-    let registry_cache = tcp_client.server.registry_cache.registry_packets.clone();
-    for encoded_packet in registry_cache.iter() {
-        tcp_client.send_encoded_packet_now(encoded_packet).await;
+impl JavaTcpClient {
+    pub async fn handle_config_custom_payload(&self, packet: SCustomPayload) {
+        println!("Custom payload packet: {:?}", packet);
     }
-
-    // Send the packet for tags
-    tcp_client
-        .send_encoded_packet_now(&tcp_client.server.registry_cache.tags_packet)
-        .await;
-
-    // Finish configuration with CFinishConfigurationPacket
-    tcp_client.send_packet_now(CFinishConfiguration {}).await;
+    
+    pub async fn handle_client_information(&self, packet: SClientInformation) {
+        println!("Client information packet: {:?}", packet);
+    }
+    
+    
+    pub async fn start_configuration(&self) {
+        self
+            .send_bare_packet_now(CCustomPayload::new(
+                ResourceLocation::vanilla_static("brand"),
+                Box::new(*BRAND_PAYLOAD),
+            ))
+            .await;
+    
+        self
+            .send_bare_packet_now(CSelectKnownPacks::new(vec![KnownPack::new(
+                "minecraft".to_string(),
+                "core".to_string(),
+                MC_VERSION.to_string(),
+            )]))
+            .await;
+    }
+    
+    pub async fn handle_select_known_packs(&self, packet: SSelectKnownPacks) {
+        println!("Select known packs packet: {:?}", packet);
+    
+        let registry_cache = self.server.registry_cache.registry_packets.clone();
+        for encoded_packet in registry_cache.iter() {
+            self.send_packet_now(encoded_packet).await;
+        }
+    
+        // Send the packet for tags
+        self
+            .send_packet_now(&self.server.registry_cache.tags_packet)
+            .await;
+    
+        // Finish configuration with CFinishConfigurationPacket
+        self.send_bare_packet_now(CFinishConfiguration {}).await;
+    }
+    
+    pub async fn handle_finish_configuration(
+        &self,
+        _packet: SFinishConfiguration,
+    ) {
+        self
+            .connection_protocol
+            .store(ConnectionProtocol::PLAY);
+    
+        self.server.add_player(Player::new(
+            self.gameprofile.lock().await.clone().unwrap(),
+            self.outgoing_queue.clone(),
+            self.cancel_token.clone(),
+        ));
+    }
 }
 
-pub async fn handle_finish_configuration(
-    tcp_client: &JavaTcpClient,
-    _packet: SFinishConfiguration,
-) {
-    tcp_client
-        .connection_protocol
-        .store(ConnectionProtocol::PLAY);
-
-    tcp_client.server.add_player(Player::new(
-        tcp_client.gameprofile.lock().await.clone().unwrap(),
-        tcp_client.outgoing_queue.clone(),
-        tcp_client.cancel_token.clone(),
-    ));
-}
