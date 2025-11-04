@@ -87,9 +87,51 @@ pub(crate) fn build() -> TokenStream {
     let item_assets: Items =
         serde_json::from_str(&fs::read_to_string("build_assets/items.json").unwrap()).unwrap();
 
-    let mut stream = TokenStream::new();
+    let mut item_definitions = TokenStream::new();
+    let mut item_construction = TokenStream::new();
 
-    stream.extend(quote! {
+    for item in &item_assets.items {
+        let item_ident = Ident::new(&item.name, Span::call_site());
+        let item_name_str = item.name.clone();
+
+        item_definitions.extend(quote! {
+           pub #item_ident: Item,
+        });
+
+        if let Some(block_name) = &item.block_item {
+            let block_ident = Ident::new(&block_name.to_shouty_snake_case(), Span::call_site());
+
+            if block_name != &item.name {
+                item_construction.extend(quote! {
+                    #item_ident: Item::from_block_custom_name(vanilla_blocks::#block_ident, #item_name_str),
+                });
+            } else {
+                item_construction.extend(quote! {
+                    #item_ident: Item::from_block(vanilla_blocks::#block_ident),
+                });
+            }
+        } else {
+            let builder_calls = generate_builder_calls(item);
+
+            item_construction.extend(quote! {
+                #item_ident: Item {
+                    key: ResourceLocation::vanilla_static(#item_name_str),
+                    components: DataComponentMap::common_item_components()
+                        #(#builder_calls)*,
+                },
+            });
+        }
+    }
+
+    let mut register_stream = TokenStream::new();
+    for item in &item_assets.items {
+        let item_name = Ident::new(&item.name, Span::call_site());
+        register_stream.extend(quote! {
+            registry.register(&ITEMS.#item_name);
+        });
+    }
+
+    quote! {
         use crate::{
             data_components::{vanilla_components, DataComponentMap},
             vanilla_blocks,
@@ -97,51 +139,23 @@ pub(crate) fn build() -> TokenStream {
         };
         use steel_utils::ResourceLocation;
         use std::sync::LazyLock;
-    });
 
-    for item in &item_assets.items {
-        let item_name_upper = item.name.to_shouty_snake_case();
-        let item_ident = Ident::new(&item_name_upper, Span::call_site());
-        let item_name_str = item.name.clone();
+        pub static ITEMS: LazyLock<Items> = LazyLock::new(Items::init);
 
-        if let Some(block_name) = &item.block_item {
-            let block_ident = Ident::new(&block_name.to_shouty_snake_case(), Span::call_site());
-
-            if block_name != &item.name {
-                stream.extend(quote! {
-                    pub static #item_ident: LazyLock<Item> = LazyLock::new(|| Item::from_block_custom_name(vanilla_blocks::#block_ident, #item_name_str));
-                });
-            } else {
-                stream.extend(quote! {
-                    pub static #item_ident: LazyLock<Item> = LazyLock::new(|| Item::from_block(vanilla_blocks::#block_ident));
-                });
-            }
-        } else {
-            let builder_calls = generate_builder_calls(item);
-
-            stream.extend(quote! {
-                pub static #item_ident: LazyLock<Item> = LazyLock::new(|| Item {
-                    key: ResourceLocation::vanilla_static(#item_name_str),
-                    components: DataComponentMap::common_item_components()
-                        #(#builder_calls)*,
-                });
-            });
+        pub struct Items {
+            #item_definitions
         }
-    }
 
-    let mut register_stream = TokenStream::new();
-    for item in &item_assets.items {
-        let item_name = Ident::new(&item.name.to_shouty_snake_case(), Span::call_site());
-        register_stream.extend(quote! {
-            registry.register(&#item_name);
-        });
-    }
+        impl Items {
+            fn init() -> Self {
+                Self {
+                    #item_construction
+                }
+            }
+        }
 
-    stream.extend(quote! {
         pub fn register_items(registry: &mut ItemRegistry) {
             #register_stream
         }
-    });
-
-    stream
+    }
 }
