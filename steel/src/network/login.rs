@@ -170,6 +170,8 @@ impl JavaTcpClient {
                 .unwrap();
         }
 
+        //TODO: Here compression isn't awaited, if this becomes a problem in the future look here.
+
         self.send_bare_packet_now(CLoginFinished::new(
             profile.id,
             profile.name.clone(),
