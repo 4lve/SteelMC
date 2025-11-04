@@ -2,22 +2,22 @@ use steel_macros::{ReadFrom, ServerPacket};
 
 #[derive(ReadFrom, Clone, Debug)]
 pub enum ChatVisiblity {
-    FULL = 0,
-    SYSTEM = 1,
-    HIDDEN = 2,
+    Full = 0,
+    System = 1,
+    Hidden = 2,
 }
 
 #[derive(ReadFrom, Clone, Debug)]
 pub enum HumanoidArm {
-    LEFT = 0,
-    RIGHT = 1,
+    Left = 0,
+    Right = 1,
 }
 
 #[derive(ReadFrom, Clone, Debug)]
 pub enum ParticleStatus {
-    ALL = 0,
-    DECREASED = 1,
-    MINIMAL = 2,
+    All = 0,
+    Depraced = 1,
+    Minimal = 2,
 }
 
 #[derive(ReadFrom, ServerPacket, Clone, Debug)]
