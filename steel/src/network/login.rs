@@ -29,17 +29,15 @@ pub fn offline_uuid(username: &str) -> Result<Uuid, uuid::Error> {
 impl JavaTcpClient {
     pub async fn handle_hello(&self, packet: SHello) {
         if !is_valid_player_name(&packet.name) {
-            self
-                .kick(TextComponent::text("Invalid player name"))
-                .await;
+            self.kick(TextComponent::text("Invalid player name")).await;
         }
-    
+
         let id = if STEEL_CONFIG.online_mode {
             packet.profile_id
         } else {
             offline_uuid(&packet.name).expect("This is very not safe and bad")
         };
-    
+
         {
             let mut gameprofile = self.gameprofile.lock().await;
             *gameprofile = Some(GameProfile {
@@ -49,41 +47,36 @@ impl JavaTcpClient {
                 profile_actions: None,
             });
         }
-    
+
         if STEEL_CONFIG.encryption {
             let challenge: [u8; 4] = rand::random();
             self.challenge.store(Some(challenge));
-    
-            self
-                .send_bare_packet_now(CHello::new(
-                    "".to_string(),
-                    self.server.key_store.public_key_der.clone(),
-                    challenge,
-                    true,
-                ))
-                .await;
+
+            self.send_bare_packet_now(CHello::new(
+                "".to_string(),
+                self.server.key_store.public_key_der.clone(),
+                challenge,
+                true,
+            ))
+            .await;
         } else {
-            self.finish_login(
-                &GameProfile {
-                    id,
-                    name: packet.name.clone(),
-                    properties: vec![],
-                    profile_actions: None,
-                },
-            )
+            self.finish_login(&GameProfile {
+                id,
+                name: packet.name.clone(),
+                properties: vec![],
+                profile_actions: None,
+            })
             .await;
         }
     }
-    
+
     pub async fn handle_key(&self, packet: SKey) {
         let challenge = self.challenge.load();
         if challenge.is_none() {
-            self
-                .kick(TextComponent::text("No challenge found"))
-                .await;
+            self.kick(TextComponent::text("No challenge found")).await;
         }
         let challenge = challenge.unwrap();
-    
+
         let Ok(challenge_response) = self
             .server
             .key_store
@@ -93,14 +86,13 @@ impl JavaTcpClient {
             self.kick(TextComponent::text("Invalid key")).await;
             return;
         };
-    
+
         if challenge_response != challenge {
-            self
-                .kick(TextComponent::text("Invalid challenge response"))
+            self.kick(TextComponent::text("Invalid challenge response"))
                 .await;
             return;
         }
-    
+
         let Ok(secret_key) = self
             .server
             .key_store
@@ -110,7 +102,7 @@ impl JavaTcpClient {
             self.kick(TextComponent::text("Invalid key")).await;
             return;
         };
-    
+
         let secret_key: [u8; 16] = match secret_key.try_into() {
             Ok(secret_key) => secret_key,
             Err(_) => {
@@ -118,84 +110,77 @@ impl JavaTcpClient {
                 return;
             }
         };
-    
+
         let Ok(_) = self
             .connection_updates
             .send(ConnectionUpdate::EnableEncryption(secret_key))
         else {
-            self
-                .kick(TextComponent::text("Failed to send connection update"))
+            self.kick(TextComponent::text("Failed to send connection update"))
                 .await;
             return;
         };
-    
+
         self.connection_updated.notified().await;
-    
+
         let mut gameprofile = self.gameprofile.lock().await;
-    
+
         let Some(profile) = gameprofile.as_mut() else {
             self.kick(TextComponent::text("No GameProfile")).await;
             return;
         };
-    
+
         if STEEL_CONFIG.online_mode {
             let server_hash = &Sha1::new()
                 .chain_update(secret_key)
                 .chain_update(&self.server.key_store.public_key_der)
                 .finalize();
-    
+
             let server_hash = BigInt::from_signed_bytes_be(server_hash).to_str_radix(16);
-    
+
             match mojang_authenticate(&profile.name, &server_hash).await {
                 Ok(new_profile) => *profile = new_profile,
                 Err(error) => {
-                    self
-                        .kick(match error {
-                            AuthError::FailedResponse => {
-                                TextComponent::translate("multiplayer.disconnect.authservers_down", [])
-                            }
-                            AuthError::UnverifiedUsername => TextComponent::translate(
-                                "multiplayer.disconnect.unverified_username",
-                                [],
-                            ),
-                            e => TextComponent::text(e.to_string()),
-                        })
-                        .await;
+                    self.kick(match error {
+                        AuthError::FailedResponse => {
+                            TextComponent::translate("multiplayer.disconnect.authservers_down", [])
+                        }
+                        AuthError::UnverifiedUsername => TextComponent::translate(
+                            "multiplayer.disconnect.unverified_username",
+                            [],
+                        ),
+                        e => TextComponent::text(e.to_string()),
+                    })
+                    .await;
                 }
             }
         }
-    
+
         //TODO: Check for duplicate player UUID or name
-    
+
         self.finish_login(profile).await;
     }
-    
+
     pub async fn finish_login(&self, profile: &GameProfile) {
         if let Some(compression) = STEEL_CONFIG.compression {
-            self
-                .send_bare_packet_now(CLoginCompression::new(compression.threshold as i32))
+            self.send_bare_packet_now(CLoginCompression::new(compression.threshold as i32))
                 .await;
             self.compression_info.store(Some(compression));
-            self
-                .connection_updates
+            self.connection_updates
                 .send(ConnectionUpdate::EnableCompression(compression))
                 .unwrap();
         }
-    
-        self
-            .send_bare_packet_now(CLoginFinished::new(
-                profile.id,
-                profile.name.clone(),
-                profile.properties.clone(),
-            ))
-            .await;
+
+        self.send_bare_packet_now(CLoginFinished::new(
+            profile.id,
+            profile.name.clone(),
+            profile.properties.clone(),
+        ))
+        .await;
     }
-    
+
     pub async fn handle_login_acknowledged(&self, _packet: SLoginAcknowledged) {
-        self
-            .connection_protocol
-            .store(ConnectionProtocol::CONFIG);
-    
+        self.connection_protocol.store(ConnectionProtocol::CONFIG);
+
         self.start_configuration().await;
     }
 }

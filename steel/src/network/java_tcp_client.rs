@@ -1,8 +1,4 @@
-use std::{
-    io::Cursor,
-    net::SocketAddr,
-    sync::Arc,
-};
+use std::{io::Cursor, net::SocketAddr, sync::Arc};
 
 use crossbeam::atomic::AtomicCell;
 use steel_protocol::{
@@ -37,9 +33,7 @@ use tokio::{
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 use crate::{
-    network::{
-        status::{handle_ping_request, handle_status_request},
-    },
+    network::status::{handle_ping_request, handle_status_request},
     server::Server,
 };
 
@@ -381,7 +375,8 @@ impl JavaTcpClient {
 
         match packet.id {
             config::S_CUSTOM_PAYLOAD => {
-                self.handle_config_custom_payload(SCustomPayload::read_packet(data)?).await
+                self.handle_config_custom_payload(SCustomPayload::read_packet(data)?)
+                    .await
             }
             config::S_CLIENT_INFORMATION => {
                 self.handle_client_information(SClientInformation::read_packet(data)?)
@@ -392,10 +387,8 @@ impl JavaTcpClient {
                     .await
             }
             config::S_FINISH_CONFIGURATION => {
-                self.handle_finish_configuration(
-                    SFinishConfiguration::read_packet(data)?,
-                )
-                .await
+                self.handle_finish_configuration(SFinishConfiguration::read_packet(data)?)
+                    .await
             }
             _ => unreachable!(),
         }

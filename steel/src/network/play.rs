@@ -7,4 +7,3 @@ impl JavaTcpClient {
         println!("Custom payload packet: {:?}", packet);
     }
 }
-
