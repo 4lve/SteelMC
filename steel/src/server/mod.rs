@@ -18,7 +18,7 @@ use crate::server::key_store::KeyStore;
 pub struct Server {
     pub key_store: KeyStore,
     pub registry: Arc<Registry>,
-    pub registry_cache: Arc<RegistryCache>,
+    pub registry_cache: RegistryCache,
     pub worlds: Vec<Arc<World>>,
 }
 
@@ -30,7 +30,7 @@ impl Server {
         log::info!("Vanilla registry loaded in {:?}", start.elapsed());
 
         let registry = Arc::new(registry);
-        let registry_cache = Arc::new(RegistryCache::new(&registry).await);
+        let registry_cache = RegistryCache::new(&registry).await;
 
         Server {
             key_store: KeyStore::new(),
