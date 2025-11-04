@@ -119,10 +119,10 @@ impl RegistryCache {
 
 pub async fn compress_packet<P: ClientPacket>(packet: P) -> Result<EncodedPacket, ()> {
     let compression_info = STEEL_CONFIG.compression;
-    let id = packet.get_id(ConnectionProtocol::CONFIG);
+    let id = packet.get_id(ConnectionProtocol::Config);
 
     let encoded_packet =
-        EncodedPacket::from_packet(packet, compression_info, ConnectionProtocol::CONFIG)
+        EncodedPacket::from_packet(packet, compression_info, ConnectionProtocol::Config)
             .await
             .map_err(|_| {
                 log::error!("Failed to encode packet: {:?}", id);

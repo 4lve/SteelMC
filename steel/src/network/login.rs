@@ -179,7 +179,7 @@ impl JavaTcpClient {
     }
 
     pub async fn handle_login_acknowledged(&self, _packet: SLoginAcknowledged) {
-        self.connection_protocol.store(ConnectionProtocol::CONFIG);
+        self.connection_protocol.store(ConnectionProtocol::Config);
 
         self.start_configuration().await;
     }

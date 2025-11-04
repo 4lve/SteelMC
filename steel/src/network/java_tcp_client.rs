@@ -89,7 +89,7 @@ impl JavaTcpClient {
             id,
             gameprofile: Mutex::new(None),
             address,
-            connection_protocol: Arc::new(AtomicCell::new(ConnectionProtocol::HANDSHAKE)),
+            connection_protocol: Arc::new(AtomicCell::new(ConnectionProtocol::Handshake)),
             tasks: TaskTracker::new(),
             cancel_token,
 
@@ -310,11 +310,11 @@ impl JavaTcpClient {
 
     async fn process_packet(self: &Arc<Self>, packet: RawPacket) -> Result<(), PacketError> {
         match self.connection_protocol.load() {
-            ConnectionProtocol::HANDSHAKE => self.handle_handshake(packet).await,
-            ConnectionProtocol::STATUS => self.handle_status(packet).await,
-            ConnectionProtocol::LOGIN => self.handle_login(packet).await,
-            ConnectionProtocol::CONFIG => self.handle_config(packet).await,
-            ConnectionProtocol::PLAY => self.handle_play(packet).await,
+            ConnectionProtocol::Handshake => self.handle_handshake(packet).await,
+            ConnectionProtocol::Status => self.handle_status(packet).await,
+            ConnectionProtocol::Login => self.handle_login(packet).await,
+            ConnectionProtocol::Config => self.handle_config(packet).await,
+            ConnectionProtocol::Play => self.handle_play(packet).await,
         }
     }
 
@@ -324,13 +324,13 @@ impl JavaTcpClient {
         match packet.id {
             handshake::S_INTENTION => {
                 let intent = match SClientIntention::read_packet(data).unwrap().intention {
-                    ClientIntent::LOGIN => ConnectionProtocol::LOGIN,
-                    ClientIntent::STATUS => ConnectionProtocol::STATUS,
-                    ClientIntent::TRANSFER => ConnectionProtocol::LOGIN,
+                    ClientIntent::LOGIN => ConnectionProtocol::Login,
+                    ClientIntent::STATUS => ConnectionProtocol::Status,
+                    ClientIntent::TRANSFER => ConnectionProtocol::Login,
                 };
                 self.connection_protocol.store(intent);
 
-                if intent != ConnectionProtocol::STATUS {
+                if intent != ConnectionProtocol::Status {
                     //TODO: Handle client version being too low or high
                 }
             }
@@ -410,15 +410,15 @@ impl JavaTcpClient {
 impl JavaTcpClient {
     pub async fn kick(&self, reason: TextComponent) {
         match self.connection_protocol.load() {
-            ConnectionProtocol::LOGIN => {
+            ConnectionProtocol::Login => {
                 let packet = CLoginDisconnect::new(reason);
                 self.send_bare_packet_now(packet).await;
             }
-            ConnectionProtocol::CONFIG => {
+            ConnectionProtocol::Config => {
                 let packet = CDisconnect::new(reason);
                 self.send_bare_packet_now(packet).await;
             }
-            ConnectionProtocol::PLAY => {
+            ConnectionProtocol::Play => {
                 let packet = CDisconnect::new(reason);
                 self.send_bare_packet_now(packet).await;
             }

@@ -39,7 +39,7 @@ impl WriteTo for (ResourceLocation, BlockPos) {
 }
 
 #[derive(ClientPacket, WriteTo, Clone, Debug)]
-#[packet_id(PLAY = "C_LOGIN")]
+#[packet_id(Play = "C_LOGIN")]
 pub struct CLogin {
     pub player_id: i32,
     pub hardcore: bool,

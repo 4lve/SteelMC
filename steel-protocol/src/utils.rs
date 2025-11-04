@@ -52,15 +52,15 @@ pub const MAX_PACKET_DATA_SIZE: usize = 8_388_608;
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ConnectionProtocol {
     /// The handshake protocol. This is the initial protocol, in which the client tells the server its intention (i.e. which protocol it wants to use).
-    HANDSHAKE,
+    Handshake,
     /// The play protocol. This is the main protocol that is used while "in game" and most normal packets reside in here.
-    PLAY,
+    Play,
     /// The status protocol. This protocol is used when a client pings a server while on the multiplayer screen.
-    STATUS,
+    Status,
     /// The login protocol. This is the first protocol the client switches to to join a server. It handles authentication with the mojang servers. After it is complete, the connection is switched to the PLAY protocol.
-    LOGIN,
+    Login,
     /// The configuration protocol. Used for syncing regestered registries.
-    CONFIG,
+    Config,
 }
 
 #[derive(Debug)]

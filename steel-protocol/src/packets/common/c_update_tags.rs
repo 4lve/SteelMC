@@ -7,7 +7,7 @@ use steel_utils::ResourceLocation;
 use crate::codec::VarInt;
 
 #[derive(ClientPacket, WriteTo)]
-#[packet_id(CONFIG = "C_UPDATE_TAGS", PLAY = "PLAY_C_UPDATE_TAGS")]
+#[packet_id(Config = "C_UPDATE_TAGS", Play = "PLAY_C_UPDATE_TAGS")]
 pub struct CUpdateTags {
     pub tags: HashMap<ResourceLocation, HashMap<ResourceLocation, Vec<VarInt>>>,
 }
