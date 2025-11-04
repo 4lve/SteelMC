@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use steel_protocol::packets::login::c_login_finished::GameProfileProperty;
+use steel_protocol::packets::login::GameProfileProperty;
 use uuid::Uuid;
 
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]

@@ -1,27 +1,27 @@
-use steel_macros::PacketRead;
+use steel_macros::{ReadFrom, ServerPacket};
 
-#[derive(PacketRead, Clone, Debug)]
+#[derive(ReadFrom, Clone, Debug)]
 pub enum ChatVisiblity {
     FULL = 0,
     SYSTEM = 1,
     HIDDEN = 2,
 }
 
-#[derive(PacketRead, Clone, Debug)]
+#[derive(ReadFrom, Clone, Debug)]
 pub enum HumanoidArm {
     LEFT = 0,
     RIGHT = 1,
 }
 
-#[derive(PacketRead, Clone, Debug)]
+#[derive(ReadFrom, Clone, Debug)]
 pub enum ParticleStatus {
     ALL = 0,
     DECREASED = 1,
     MINIMAL = 2,
 }
 
-#[derive(PacketRead, Clone, Debug)]
-pub struct SClientInformationPacket {
+#[derive(ReadFrom, ServerPacket, Clone, Debug)]
+pub struct SClientInformation {
     #[read_as(as = "string", bound = 16)]
     pub language: String,
     #[read_as(as = "var_int")]

@@ -1,21 +1,18 @@
 use std::collections::HashMap;
 use steel_macros::{ClientPacket, WriteTo};
-use steel_registry::packets::clientbound::config::CLIENTBOUND_UPDATE_TAGS;
-use steel_registry::packets::clientbound::play::CLIENTBOUND_UPDATE_TAGS as PLAY_CLIENTBOUND_UPDATE_TAGS;
+use steel_registry::packets::config::C_UPDATE_TAGS;
+use steel_registry::packets::play::C_UPDATE_TAGS as PLAY_C_UPDATE_TAGS;
 use steel_utils::ResourceLocation;
 
 use crate::codec::VarInt;
 
 #[derive(ClientPacket, WriteTo)]
-#[packet_id(
-    CONFIGURATION = "CLIENTBOUND_UPDATE_TAGS",
-    PLAY = "PLAY_CLIENTBOUND_UPDATE_TAGS"
-)]
-pub struct CUpdateTagsPacket {
+#[packet_id(CONFIG = "C_UPDATE_TAGS", PLAY = "PLAY_C_UPDATE_TAGS")]
+pub struct CUpdateTags {
     pub tags: HashMap<ResourceLocation, HashMap<ResourceLocation, Vec<VarInt>>>,
 }
 
-impl CUpdateTagsPacket {
+impl CUpdateTags {
     pub fn new(tags: HashMap<ResourceLocation, HashMap<ResourceLocation, Vec<VarInt>>>) -> Self {
         Self { tags }
     }

@@ -1,9 +1,9 @@
 use steel_macros::{ClientPacket, WriteTo};
-use steel_registry::packets::clientbound::login::CLIENTBOUND_HELLO;
+use steel_registry::packets::login::C_HELLO;
 
 #[derive(ClientPacket, WriteTo, Clone, Debug)]
-#[packet_id(LOGIN = "CLIENTBOUND_HELLO")]
-pub struct CHelloPacket {
+#[packet_id(LOGIN = "C_HELLO")]
+pub struct CHello {
     #[write_as(as = "string", bound = 20)]
     pub server_id: String,
     #[write_as(as = "vec")]
@@ -13,7 +13,7 @@ pub struct CHelloPacket {
     pub should_authenticate: bool,
 }
 
-impl CHelloPacket {
+impl CHello {
     pub fn new(
         server_id: String,
         public_key: Box<[u8]>,

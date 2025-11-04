@@ -1,6 +1,6 @@
-use steel_macros::PacketRead;
+use steel_macros::{ReadFrom, ServerPacket};
 
-#[derive(Clone, Copy, PartialEq, Eq, PacketRead, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, ReadFrom, Debug)]
 #[read_as(as = "var_int")]
 pub enum ClientIntent {
     STATUS = 1,
@@ -8,8 +8,8 @@ pub enum ClientIntent {
     TRANSFER = 3,
 }
 
-#[derive(PacketRead, Clone, Debug)]
-pub struct ClientIntentionPacket {
+#[derive(ReadFrom, ServerPacket, Clone, Debug)]
+pub struct SClientIntention {
     #[read_as(as = "var_int")]
     pub protocol_version: i32,
     #[read_as(as = "string", bound = 255)]
@@ -18,7 +18,7 @@ pub struct ClientIntentionPacket {
     pub intention: ClientIntent,
 }
 
-impl ClientIntentionPacket {
+impl SClientIntention {
     pub fn new(
         protocol_version: i32,
         hostname: String,

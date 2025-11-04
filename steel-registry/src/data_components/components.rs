@@ -125,12 +125,12 @@ impl DataComponentMap {
         if let Some(data) = data {
             self.map.push((component.key.clone(), Box::new(data)));
         } else if let Some(index) = self
-                .map
-                .iter()
-                .position(|(res_loc, _)| *res_loc == component.key)
-            {
-                self.map.swap_remove(index);
-            }
+            .map
+            .iter()
+            .position(|(res_loc, _)| *res_loc == component.key)
+        {
+            self.map.swap_remove(index);
+        }
     }
 
     pub fn get<T: 'static>(&self, component: DataComponentType<T>) -> Option<&T> {

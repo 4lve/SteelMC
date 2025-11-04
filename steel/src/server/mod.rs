@@ -2,7 +2,7 @@ pub mod key_store;
 
 use std::sync::Arc;
 
-use steel_protocol::packets::game::c_login::{CLoginPacket, CommonPlayerSpawnInfo};
+use steel_protocol::packets::game::{CLogin, CommonPlayerSpawnInfo};
 use steel_registry::Registry;
 use steel_utils::ResourceLocation;
 use steel_utils::types::GameType;
@@ -43,7 +43,7 @@ impl Server {
 
 impl WorldServer for Server {
     fn add_player(&self, player: Player) {
-        player.enqueue_packet(CLoginPacket {
+        player.enqueue_packet(CLogin {
             player_id: 0,
             hardcore: false,
             levels: vec![ResourceLocation::vanilla_static("overworld")],

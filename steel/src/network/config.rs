@@ -1,12 +1,10 @@
-use steel_protocol::packets::common::c_custom_payload::CCustomPayloadPacket;
-use steel_protocol::packets::common::{
-    s_client_information::SClientInformationPacket, s_custom_payload::SCustomPayloadPacket,
-};
-use steel_protocol::packets::configuration::c_finish_configuration::CFinishConfigurationPacket;
+use steel_protocol::packets::common::CCustomPayload;
+use steel_protocol::packets::common::{SClientInformation, SCustomPayload};
+use steel_protocol::packets::config::CFinishConfiguration;
 
-use steel_protocol::packets::configuration::c_select_known::CSelectKnownPacks;
-use steel_protocol::packets::configuration::s_finish_configuration::SFinishConfigurationPacket;
-use steel_protocol::packets::configuration::s_select_known::SSelectKnownPacks;
+use steel_protocol::packets::config::CSelectKnownPacks;
+use steel_protocol::packets::config::SFinishConfiguration;
+use steel_protocol::packets::config::SSelectKnownPacks;
 use steel_protocol::packets::shared_implementation::KnownPack;
 use steel_protocol::utils::ConnectionProtocol;
 
@@ -14,16 +12,14 @@ use steel_utils::ResourceLocation;
 use steel_world::player::Player;
 use steel_world::server::WorldServer;
 
+use crate::MC_VERSION;
 use crate::network::JavaTcpClient;
 
-pub async fn handle_custom_payload(_tcp_client: &JavaTcpClient, packet: &SCustomPayloadPacket) {
+pub async fn handle_custom_payload(_tcp_client: &JavaTcpClient, packet: SCustomPayload) {
     println!("Custom payload packet: {:?}", packet);
 }
 
-pub async fn handle_client_information(
-    _tcp_client: &JavaTcpClient,
-    packet: &SClientInformationPacket,
-) {
+pub async fn handle_client_information(_tcp_client: &JavaTcpClient, packet: SClientInformation) {
     println!("Client information packet: {:?}", packet);
 }
 
@@ -31,7 +27,7 @@ const BRAND_PAYLOAD: &[u8; 5] = b"Steel";
 
 pub async fn start_configuration(tcp_client: &JavaTcpClient) {
     tcp_client
-        .send_packet_now(CCustomPayloadPacket::new(
+        .send_packet_now(CCustomPayload::new(
             ResourceLocation::vanilla_static("brand"),
             Box::new(*BRAND_PAYLOAD),
         ))
@@ -41,12 +37,12 @@ pub async fn start_configuration(tcp_client: &JavaTcpClient) {
         .send_packet_now(CSelectKnownPacks::new(vec![KnownPack::new(
             "minecraft".to_string(),
             "core".to_string(),
-            "1.21.10".to_string(),
+            MC_VERSION.to_string(),
         )]))
         .await;
 }
 
-pub async fn handle_select_known_packs(tcp_client: &JavaTcpClient, packet: &SSelectKnownPacks) {
+pub async fn handle_select_known_packs(tcp_client: &JavaTcpClient, packet: SSelectKnownPacks) {
     println!("Select known packs packet: {:?}", packet);
 
     let registry_cache = tcp_client.server.registry_cache.clone();
@@ -60,14 +56,12 @@ pub async fn handle_select_known_packs(tcp_client: &JavaTcpClient, packet: &SSel
         .await;
 
     // Finish configuration with CFinishConfigurationPacket
-    tcp_client
-        .send_packet_now(CFinishConfigurationPacket {})
-        .await;
+    tcp_client.send_packet_now(CFinishConfiguration {}).await;
 }
 
 pub async fn handle_finish_configuration(
     tcp_client: &JavaTcpClient,
-    _packet: &SFinishConfigurationPacket,
+    _packet: SFinishConfiguration,
 ) {
     tcp_client
         .connection_protocol

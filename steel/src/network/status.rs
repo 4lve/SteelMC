@@ -1,15 +1,12 @@
 use std::sync::atomic::Ordering;
 
 use steel_protocol::packets::status::{
-    c_pong_response::CPongResponsePacket,
-    c_status_response::{CStatusResponsePacket, Players, Status, Version},
-    s_ping_request::SPingRequestPacket,
-    s_status_request::SStatusRequestPacket,
+    CPongResponse, SPingRequest, SStatusRequest, {CStatusResponse, Players, Status, Version},
 };
 
 use crate::{MC_VERSION, STEEL_CONFIG, network::JavaTcpClient};
 
-pub async fn handle_status_request(tcp_client: &JavaTcpClient, _packet: &SStatusRequestPacket) {
+pub async fn handle_status_request(tcp_client: &JavaTcpClient, _packet: SStatusRequest) {
     // Checks if this funciton has already been called this connection. If not it sets has_requested_status to true. If it has been called before compare_exchange fails.
     if tcp_client
         .has_requested_status
@@ -20,7 +17,7 @@ pub async fn handle_status_request(tcp_client: &JavaTcpClient, _packet: &SStatus
         return;
     }
 
-    let res_packet = CStatusResponsePacket::new(Status {
+    let res_packet = CStatusResponse::new(Status {
         description: STEEL_CONFIG.motd.clone(),
         players: Some(Players {
             max: STEEL_CONFIG.max_players as i32,
@@ -38,9 +35,9 @@ pub async fn handle_status_request(tcp_client: &JavaTcpClient, _packet: &SStatus
     tcp_client.send_packet_now(res_packet).await;
 }
 
-pub async fn handle_ping_request(tcp_client: &JavaTcpClient, packet: &SPingRequestPacket) {
+pub async fn handle_ping_request(tcp_client: &JavaTcpClient, packet: SPingRequest) {
     tcp_client
-        .send_packet_now(CPongResponsePacket::new(packet.time))
+        .send_packet_now(CPongResponse::new(packet.time))
         .await;
     tcp_client.close();
 }

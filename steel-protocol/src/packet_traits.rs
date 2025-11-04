@@ -16,7 +16,7 @@ use crate::{
 const DEFAULT_BOUND: usize = i32::MAX as _;
 
 // These are the network read/write traits
-pub trait PacketRead: ReadFrom {
+pub trait ServerPacket: ReadFrom {
     fn read_packet(data: &mut impl Read) -> Result<Self, PacketError> {
         Self::read(data).map_err(PacketError::from)
     }

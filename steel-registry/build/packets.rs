@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, fs};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fs,
+};
 
 use heck::ToSnakeCase;
 use proc_macro2::{Ident, Span, TokenStream};
@@ -18,53 +21,57 @@ pub(crate) fn build() -> TokenStream {
     let packets: Packets =
         serde_json::from_str(&fs::read_to_string("build_assets/packets.json").unwrap())
             .expect("Failed to parse packets.json");
+
+    let mut phases: HashMap<String, TokenStream> = HashMap::new();
+
     let version = packets.version;
-    let serverbound_consts = parse_packets(
-        packets.serverbound,
-        Ident::new("Serverbound", Span::call_site()),
-    );
-    let clientbound_consts = parse_packets(
+    parse_packets(
         packets.clientbound,
-        Ident::new("Clientbound", Span::call_site()),
+        Ident::new("C", Span::call_site()),
+        &mut phases,
     );
+    parse_packets(
+        packets.serverbound,
+        Ident::new("S", Span::call_site()),
+        &mut phases,
+    );
+
+    let consts: TokenStream = phases
+        .iter()
+        .map(|(p, entries)| {
+            let phase = Ident::new(p, Span::call_site());
+            quote! {
+                pub mod #phase {
+                    #entries
+                }
+            }
+        })
+        .collect();
 
     quote!(
         /// The current Minecraft protocol version. This changes only when the protocol itself is modified.
         pub const CURRENT_MC_PROTOCOL: u32 = #version;
 
-        pub mod serverbound {
-            #serverbound_consts
-        }
-
-        pub mod clientbound {
-            #clientbound_consts
-        }
+        #consts
     )
 }
 
 pub(crate) fn parse_packets(
     packets: BTreeMap<String, Vec<String>>,
-    prefix_ident: Ident,
-) -> proc_macro2::TokenStream {
-    let mut consts = TokenStream::new();
-
+    prefix: Ident,
+    phases: &mut HashMap<String, TokenStream>,
+) {
     for packet in packets {
-        let phase = Ident::new(&packet.0.to_snake_case(), Span::call_site());
-        let mut inner = TokenStream::new();
+        let inner = phases.entry(packet.0.to_snake_case()).or_default();
+
         for (id, packet_name) in packet.1.iter().enumerate() {
             let packet_id = id as i32;
             let packet_name = packet_name.replace("/", "_");
-            let name = format!("{prefix_ident}_{packet_name}").to_uppercase();
+            let name = format!("{prefix}_{packet_name}").to_uppercase();
             let name = format_ident!("{}", name);
             inner.extend([quote! {
                 pub const #name: i32 = #packet_id;
             }]);
         }
-        consts.extend([quote! {
-            pub mod #phase {
-                #inner
-            }
-        }]);
     }
-    consts
 }

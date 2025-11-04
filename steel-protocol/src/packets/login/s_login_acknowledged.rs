@@ -1,4 +1,4 @@
-use steel_macros::PacketRead;
+use steel_macros::{ReadFrom, ServerPacket};
 
-#[derive(Debug, Clone, PacketRead)]
-pub struct SLoginAcknowledgedPacket {}
+#[derive(Debug, Clone, ReadFrom, ServerPacket)]
+pub struct SLoginAcknowledged {}

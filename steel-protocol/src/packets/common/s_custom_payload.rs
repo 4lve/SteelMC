@@ -1,12 +1,12 @@
 use std::io::Read;
 
-use steel_macros::PacketRead;
+use steel_macros::{ReadFrom, ServerPacket};
 use steel_utils::ResourceLocation;
 
 use crate::packet_traits::ReadFrom;
 
-#[derive(PacketRead, Clone, Debug)]
-pub struct SCustomPayloadPacket {
+#[derive(ReadFrom, ServerPacket, Clone, Debug)]
+pub struct SCustomPayload {
     pub resource_location: ResourceLocation,
     //#[read_as(as = "vec")]
     pub payload: Payload,

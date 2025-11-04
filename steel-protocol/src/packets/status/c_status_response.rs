@@ -1,6 +1,6 @@
 use serde::Serialize;
 use steel_macros::{ClientPacket, WriteTo};
-use steel_registry::packets::clientbound::status::CLIENTBOUND_STATUS_RESPONSE;
+use steel_registry::packets::status::C_STATUS_RESPONSE;
 
 #[derive(Serialize, Clone, Debug)]
 pub struct Sample {
@@ -33,13 +33,13 @@ pub struct Status {
 }
 
 #[derive(ClientPacket, WriteTo, Clone, Debug)]
-#[packet_id(STATUS = "CLIENTBOUND_STATUS_RESPONSE")]
-pub struct CStatusResponsePacket {
+#[packet_id(STATUS = "C_STATUS_RESPONSE")]
+pub struct CStatusResponse {
     #[write_as(as = "json")]
     status: Status,
 }
 
-impl CStatusResponsePacket {
+impl CStatusResponse {
     pub fn new(status: Status) -> Self {
         Self { status }
     }

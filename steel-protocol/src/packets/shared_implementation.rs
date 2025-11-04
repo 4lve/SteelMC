@@ -4,7 +4,7 @@ use std::{
 };
 
 use simdnbt::owned::NbtTag;
-use steel_macros::{PacketRead, WriteTo};
+use steel_macros::{ReadFrom, WriteTo};
 use steel_utils::{ResourceLocation, text::TextComponent};
 use uuid::Uuid;
 
@@ -54,7 +54,7 @@ impl WriteTo for ResourceLocation {
     }
 }
 
-#[derive(Clone, Debug, WriteTo, PacketRead)]
+#[derive(Clone, Debug, WriteTo, ReadFrom)]
 pub struct KnownPack {
     #[write_as(as = "string")]
     #[read_as(as = "string")]

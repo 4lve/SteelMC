@@ -1,8 +1,8 @@
-use steel_macros::PacketRead;
+use steel_macros::{ReadFrom, ServerPacket};
 use uuid::Uuid;
 
-#[derive(PacketRead, Clone, Debug)]
-pub struct SHelloPacket {
+#[derive(ReadFrom, ServerPacket, Clone, Debug)]
+pub struct SHello {
     #[read_as(as = "string", bound = 16)]
     pub name: String,
     pub profile_id: Uuid,

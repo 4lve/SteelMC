@@ -1,4 +1,5 @@
 use std::{
+    io::Cursor,
     net::SocketAddr,
     sync::{Arc, atomic::AtomicBool},
 };
@@ -6,19 +7,18 @@ use std::{
 use crossbeam::atomic::AtomicCell;
 use steel_protocol::{
     packet_reader::TCPNetworkDecoder,
-    packet_traits::{ClientPacket, CompressionInfo, EncodedPacket},
+    packet_traits::{ClientPacket, CompressionInfo, EncodedPacket, ServerPacket},
     packet_writer::TCPNetworkEncoder,
     packets::{
-        common::c_disconnect::CDisconnectPacket,
-        handshake::ClientIntent,
-        login::c_login_disconnect::CLoginDisconnectPacket,
-        serverbound::{
-            SBoundConfiguration, SBoundHandshake, SBoundLogin, SBoundPacket, SBoundPlay,
-            SBoundStatus,
-        },
+        common::{CDisconnect, SClientInformation, SCustomPayload},
+        config::{SFinishConfiguration, SSelectKnownPacks},
+        handshake::{ClientIntent, SClientIntention},
+        login::{CLoginDisconnect, SHello, SKey, SLoginAcknowledged},
+        status::{SPingRequest, SStatusRequest},
     },
-    utils::{ConnectionProtocol, EnqueuedPacket, PacketError},
+    utils::{ConnectionProtocol, EnqueuedPacket, PacketError, RawPacket},
 };
+use steel_registry::packets::{config, handshake, login, play, status};
 use steel_utils::text::TextComponent;
 use steel_world::player::GameProfile;
 use tokio::{
@@ -27,9 +27,10 @@ use tokio::{
         TcpStream,
         tcp::{OwnedReadHalf, OwnedWriteHalf},
     },
+    select,
     sync::{
         Mutex, Notify,
-        broadcast::{self, Receiver, Sender},
+        broadcast::{self, Sender, error::RecvError},
         mpsc::{self, UnboundedReceiver, UnboundedSender},
     },
 };
@@ -37,9 +38,7 @@ use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 use crate::{
     network::{
-        config,
-        login::{self},
-        play,
+        config as co, login as l, play as p,
         status::{handle_ping_request, handle_status_request},
     },
     server::Server,
@@ -64,8 +63,6 @@ pub struct JavaTcpClient {
     /// A token to cancel the client's operations. Called when the connection is closed. Or client is removed.
     pub cancel_token: CancellationToken,
 
-    pub packet_recv_sender: Sender<Box<SBoundPacket>>,
-
     /// A queue of serialized packets to send to the network
     pub outgoing_queue: UnboundedSender<EnqueuedPacket>,
     /// The packet encoder for outgoing packets.
@@ -78,8 +75,6 @@ pub struct JavaTcpClient {
 
     pub(crate) connection_updates: Sender<ConnectionUpdate>,
     pub(crate) connection_updated: Arc<Notify>,
-
-    pub(crate) can_process_next_packet: Arc<Notify>,
 }
 
 impl JavaTcpClient {
@@ -94,24 +89,20 @@ impl JavaTcpClient {
         Self,
         UnboundedReceiver<EnqueuedPacket>,
         TCPNetworkDecoder<BufReader<OwnedReadHalf>>,
-        Receiver<Box<SBoundPacket>>,
     ) {
         let (read, write) = tcp_stream.into_split();
         let (outgoing_queue, recv) = mpsc::unbounded_channel();
         let (connection_updates, _) = broadcast::channel(128);
-
-        let (packet_recv_sender, packet_receiver) = broadcast::channel(128);
 
         (
             Self {
                 id,
                 gameprofile: Mutex::new(None),
                 address,
-                connection_protocol: Arc::new(AtomicCell::new(ConnectionProtocol::HANDSHAKING)),
+                connection_protocol: Arc::new(AtomicCell::new(ConnectionProtocol::HANDSHAKE)),
                 tasks: TaskTracker::new(),
                 cancel_token,
 
-                packet_recv_sender,
                 outgoing_queue,
                 network_writer: Arc::new(Mutex::new(TCPNetworkEncoder::new(BufWriter::new(write)))),
                 has_requested_status: AtomicBool::new(false),
@@ -120,11 +111,9 @@ impl JavaTcpClient {
                 challenge: AtomicCell::new(None),
                 connection_updates,
                 connection_updated: Arc::new(Notify::new()),
-                can_process_next_packet: Arc::new(Notify::new()),
             },
             recv,
             TCPNetworkDecoder::new(BufReader::new(read)),
-            packet_receiver,
         )
     }
 
@@ -207,7 +196,7 @@ impl JavaTcpClient {
     /// Starts a task that will send packets to the client from the outgoing packet queue.
     /// This task will run until the client is closed or the cancellation token is cancelled.
     pub fn start_outgoing_packet_task(
-        &mut self,
+        self: &Arc<Self>,
         mut sender_recv: UnboundedReceiver<EnqueuedPacket>,
     ) {
         let cancel_token = self.cancel_token.clone();
@@ -218,11 +207,9 @@ impl JavaTcpClient {
         let connection_updated = self.connection_updated.clone();
 
         self.tasks.spawn(async move {
-            let cancel_token_clone = cancel_token.clone();
-
             loop {
-                tokio::select! {
-                    _ = cancel_token_clone.cancelled() => {
+                select! {
+                    _ = cancel_token.cancelled() => {
                         break;
                     }
                     packet = sender_recv.recv() => {
@@ -239,7 +226,7 @@ impl JavaTcpClient {
                                 if let Err(err) = network_writer.lock().await.write_encoded_packet(&encoded_packet).await
                                 {
                                     log::warn!("Failed to send packet to client {}: {}", id, err);
-                                    cancel_token_clone.cancel();
+                                    cancel_token.cancel();
                                 }
                             }
                             None => {
@@ -247,7 +234,7 @@ impl JavaTcpClient {
                                     "Internal packet_sender_recv channel closed for client {}",
                                     id,
                                 );
-                                cancel_token_clone.cancel();
+                                cancel_token.cancel();
                             }
 
                         }
@@ -261,63 +248,52 @@ impl JavaTcpClient {
                                 }
                             }
                             Err(err) => {
-                                log::warn!("Internal connection_updates_recv channel closed for client {}: {}", id, err);
-                                cancel_token_clone.cancel();
+                                if err != RecvError::Closed {
+                                    log::warn!("Internal connection_updates_recv channel closed for client {}: {}", id, err);
+                                }
+                                cancel_token.cancel();
                             }
                         }
                     }
                 }
             }
+            log::info!("outgoing_loop_exit")
         });
     }
 
     pub fn start_incoming_packet_task(
-        &mut self,
+        self: &Arc<Self>,
         mut net_reader: TCPNetworkDecoder<BufReader<OwnedReadHalf>>,
     ) {
         let cancel_token = self.cancel_token.clone();
         let id = self.id;
-        let packet_recv_sender = self.packet_recv_sender.clone();
         let connection_protocol = self.connection_protocol.clone();
         let mut connection_updates_recv = self.connection_updates.subscribe();
-        let can_process_next_packet = self.can_process_next_packet.clone();
         let connection_updated = self.connection_updated.clone();
 
+        let this = self.clone();
+
         self.tasks.spawn(async move {
-            let cancel_token_clone = cancel_token.clone();
             loop {
-                tokio::select! {
-                    _ = cancel_token_clone.cancelled() => {
+                select! {
+                    _ = cancel_token.cancelled() => {
                         break;
                     }
                     packet = net_reader.get_raw_packet() => {
                         match packet {
                             Ok(packet) => {
                                 log::info!("Received packet: {:?}, protocol: {:?}", packet.id, connection_protocol.load());
-                                match SBoundPacket::from_raw_packet(
-                                    packet,
-                                    connection_protocol.load(),
-                                ) {
-                                    Ok(packet) => {
-                                        packet_recv_sender.send(Box::new(packet)).unwrap();
-                                        can_process_next_packet.notified().await;
-                                    }
-                                    Err(err) => {
-                                        log::warn!(
-                                            "Failed to get packet from client {}: {}",
-                                            id,
-                                            err,
-                                        );
-                                        //cancel_token_clone.cancel();
-                                    }
+                                if let Err(err) = this.process_packet(packet).await {
+                                    log::warn!(
+                                        "Failed to get packet from client {}: {}",
+                                        id,
+                                        err,
+                                    );
                                 }
                             }
                             Err(err) => {
-                                if cancel_token_clone.is_cancelled() {
-                                    break;
-                                }
                                 log::info!("Failed to get raw packet from client {}: {}", id, err);
-                                cancel_token_clone.cancel();
+                                cancel_token.cancel();
                             }
                         }
                     }
@@ -336,39 +312,28 @@ impl JavaTcpClient {
                                 }
                             }
                             Err(err) => {
-                                log::warn!("Internal connection_updates_recv channel closed for client {}: {}", id, err);
-                                cancel_token_clone.cancel();
+                                if err != RecvError::Closed {
+                                    log::warn!("Internal connection_updates_recv channel closed for client {}: {}", id, err);
+                                }
+                                cancel_token.cancel();
                             }
                         }
                     }
                 }
             }
+            log::info!("incoming_loop_exit");
         });
     }
 
-    pub async fn process_packets(
-        self: &Arc<Self>,
-        mut packet_receiver: Receiver<Box<SBoundPacket>>,
-    ) {
-        let can_process_next_packet = self.can_process_next_packet.clone();
-
-        self.cancel_token
-            .run_until_cancelled(async move {
-                loop {
-                    let packet = packet_receiver.recv().await.unwrap();
-                    match &*packet {
-                        SBoundPacket::Handshake(packet) => self.handle_handshake(packet).await,
-                        SBoundPacket::Status(packet) => self.handle_status(packet).await,
-                        SBoundPacket::Login(packet) => self.handle_login(packet).await,
-                        SBoundPacket::Configuration(packet) => {
-                            self.handle_configuration(packet).await
-                        }
-                        SBoundPacket::Play(packet) => self.handle_play(packet).await,
-                    }
-                    can_process_next_packet.notify_waiters();
-                }
-            })
-            .await;
+    async fn process_packet(self: &Arc<Self>, packet: RawPacket) -> Result<(), PacketError> {
+        match self.connection_protocol.load() {
+            ConnectionProtocol::HANDSHAKE => self.handle_handshake(packet).await,
+            ConnectionProtocol::STATUS => self.handle_status(packet).await,
+            ConnectionProtocol::LOGIN => self.handle_login(packet).await,
+            ConnectionProtocol::CONFIG => self.handle_config(packet).await,
+            ConnectionProtocol::PLAY => self.handle_play(packet).await,
+        }
+        Ok(())
     }
 
     fn assert_protocol(&self, protocol: ConnectionProtocol) -> bool {
@@ -379,13 +344,14 @@ impl JavaTcpClient {
         true
     }
 
-    pub async fn handle_handshake(&self, packet: &SBoundHandshake) {
-        if !self.assert_protocol(ConnectionProtocol::HANDSHAKING) {
+    pub async fn handle_handshake(&self, packet: RawPacket) {
+        if !self.assert_protocol(ConnectionProtocol::HANDSHAKE) {
             return;
         }
-        match packet {
-            SBoundHandshake::Intention(packet) => {
-                let intent = match packet.intention {
+        let data = &mut Cursor::new(packet.payload);
+        match packet.id {
+            handshake::S_INTENTION => {
+                let intent = match SClientIntention::read_packet(data).unwrap().intention {
                     ClientIntent::LOGIN => ConnectionProtocol::LOGIN,
                     ClientIntent::STATUS => ConnectionProtocol::STATUS,
                     ClientIntent::TRANSFER => ConnectionProtocol::LOGIN,
@@ -396,60 +362,85 @@ impl JavaTcpClient {
                     //TODO: Handle client version being too low or high
                 }
             }
+            _ => panic!(),
         }
     }
 
-    pub async fn handle_status(&self, packet: &SBoundStatus) {
+    pub async fn handle_status(&self, packet: RawPacket) {
         if !self.assert_protocol(ConnectionProtocol::STATUS) {
             return;
         }
 
-        match packet {
-            SBoundStatus::StatusRequest(packet) => handle_status_request(self, packet).await,
-            SBoundStatus::PingRequest(packet) => handle_ping_request(self, packet).await,
+        let data = &mut Cursor::new(packet.payload);
+
+        match packet.id {
+            status::S_STATUS_REQUEST => {
+                handle_status_request(self, SStatusRequest::read_packet(data).unwrap()).await
+            }
+            status::S_PING_REQUEST => {
+                handle_ping_request(self, SPingRequest::read_packet(data).unwrap()).await
+            }
+            _ => panic!(),
         }
     }
 
-    pub async fn handle_login(&self, packet: &SBoundLogin) {
+    pub async fn handle_login(&self, packet: RawPacket) {
         if !self.assert_protocol(ConnectionProtocol::LOGIN) {
             return;
         }
 
-        match packet {
-            SBoundLogin::Hello(packet) => login::handle_hello(self, packet).await,
-            SBoundLogin::Key(packet) => login::handle_key(self, packet).await,
-            SBoundLogin::LoginAcknowledged(packet) => {
-                login::handle_login_acknowledged(self, packet).await
+        let data = &mut Cursor::new(packet.payload);
+
+        match packet.id {
+            login::S_HELLO => l::handle_hello(self, SHello::read_packet(data).unwrap()).await,
+            login::S_KEY => l::handle_key(self, SKey::read_packet(data).unwrap()).await,
+            login::S_LOGIN_ACKNOWLEDGED => {
+                l::handle_login_acknowledged(self, SLoginAcknowledged::read_packet(data).unwrap())
+                    .await
             }
+            _ => panic!(),
         }
     }
 
-    pub async fn handle_configuration(&self, packet: &SBoundConfiguration) {
-        if !self.assert_protocol(ConnectionProtocol::CONFIGURATION) {
+    pub async fn handle_config(&self, packet: RawPacket) {
+        if !self.assert_protocol(ConnectionProtocol::CONFIG) {
             return;
         }
-        match packet {
-            SBoundConfiguration::CustomPayload(packet) => {
-                config::handle_custom_payload(self, packet).await
+        let data = &mut Cursor::new(packet.payload);
+        match packet.id {
+            config::S_CUSTOM_PAYLOAD => {
+                co::handle_custom_payload(self, SCustomPayload::read_packet(data).unwrap()).await
             }
-            SBoundConfiguration::ClientInformation(packet) => {
-                config::handle_client_information(self, packet).await
+            config::S_CLIENT_INFORMATION => {
+                co::handle_client_information(self, SClientInformation::read_packet(data).unwrap())
+                    .await
             }
-            SBoundConfiguration::SelectKnownPacks(packet) => {
-                config::handle_select_known_packs(self, packet).await
+            config::S_SELECT_KNOWN_PACKS => {
+                co::handle_select_known_packs(self, SSelectKnownPacks::read_packet(data).unwrap())
+                    .await
             }
-            SBoundConfiguration::FinishConfiguration(packet) => {
-                config::handle_finish_configuration(self, packet).await
+            config::S_FINISH_CONFIGURATION => {
+                co::handle_finish_configuration(
+                    self,
+                    SFinishConfiguration::read_packet(data).unwrap(),
+                )
+                .await
             }
+            _ => panic!(),
         }
     }
 
-    pub async fn handle_play(&self, packet: &SBoundPlay) {
+    pub async fn handle_play(&self, packet: RawPacket) {
         if !self.assert_protocol(ConnectionProtocol::PLAY) {
             return;
         }
-        match packet {
-            SBoundPlay::CustomPayload(packet) => play::handle_custom_payload(self, packet),
+        let data = &mut Cursor::new(packet.payload);
+
+        match packet.id {
+            play::C_CUSTOM_PAYLOAD => {
+                p::handle_custom_payload(self, SCustomPayload::read_packet(data).unwrap())
+            }
+            id => log::info!("play packet id {} is not known", id),
         }
     }
 }
@@ -458,15 +449,15 @@ impl JavaTcpClient {
     pub async fn kick(&self, reason: TextComponent) {
         match self.connection_protocol.load() {
             ConnectionProtocol::LOGIN => {
-                let packet = CLoginDisconnectPacket::new(reason);
+                let packet = CLoginDisconnect::new(reason);
                 self.send_packet_now(packet).await;
             }
-            ConnectionProtocol::CONFIGURATION => {
-                let packet = CDisconnectPacket::new(reason);
+            ConnectionProtocol::CONFIG => {
+                let packet = CDisconnect::new(reason);
                 self.send_packet_now(packet).await;
             }
             ConnectionProtocol::PLAY => {
-                let packet = CDisconnectPacket::new(reason);
+                let packet = CDisconnect::new(reason);
                 self.send_packet_now(packet).await;
             }
             _ => {}

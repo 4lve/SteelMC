@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, LazyLock},
 };
 use tokio::{net::TcpListener, select};
-use tokio_util::{sync::CancellationToken, task::TaskTracker};
+use tokio_util::sync::CancellationToken;
 
 pub mod network;
 pub mod server;
@@ -17,7 +17,7 @@ pub static STEEL_CONFIG: LazyLock<SteelConfig> =
 
 pub struct SteelServer {
     pub tcp_listener: TcpListener,
-    pub cancellation_token: CancellationToken,
+    pub cancel_token: CancellationToken,
     pub client_id: u64,
     pub server: Arc<Server>,
 }
@@ -32,7 +32,7 @@ impl SteelServer {
             tcp_listener: TcpListener::bind(STEEL_CONFIG.server_address)
                 .await
                 .unwrap(),
-            cancellation_token: CancellationToken::new(),
+            cancel_token: CancellationToken::new(),
             client_id: 0,
             server: Arc::new(server),
         }
@@ -41,13 +41,9 @@ impl SteelServer {
     pub async fn start(&mut self) {
         log::info!("Started Steel Server");
 
-        let tasks = TaskTracker::new();
-
         loop {
-            let cancellation_token_clone = self.cancellation_token.clone();
-
             select! {
-                _ = cancellation_token_clone.cancelled() => {
+                _ = self.cancel_token.cancelled() => {
                     break;
                 }
                 accept_result = self.tcp_listener.accept() => {
@@ -55,17 +51,13 @@ impl SteelServer {
                     if let Err(e) = connection.set_nodelay(true) {
                         log::warn!("Failed to set TCP_NODELAY: {e}");
                     }
-                    let (mut java_client, sender_recv, net_reader, packet_receiver) = JavaTcpClient::new(connection, address, self.client_id, cancellation_token_clone.child_token(), self.server.clone());
+                    let (java_client, sender_recv, net_reader) = JavaTcpClient::new(connection, address, self.client_id, self.cancel_token.child_token(), self.server.clone());
                     self.client_id += 1;
                     log::info!("Accepted connection from Java Edition: {address} (id {})", self.client_id);
-                    java_client.start_incoming_packet_task(net_reader);
-                    java_client.start_outgoing_packet_task(sender_recv);
+
                     let java_client = Arc::new(java_client);
-                    tasks.spawn(async move {
-                        java_client.process_packets(packet_receiver).await;
-                        java_client.close();
-                        java_client.await_tasks().await;
-                    });
+                    java_client.start_outgoing_packet_task(sender_recv);
+                    java_client.start_incoming_packet_task(net_reader);
                 }
             }
         }

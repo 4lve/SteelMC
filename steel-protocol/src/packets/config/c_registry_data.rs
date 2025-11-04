@@ -1,6 +1,6 @@
 use simdnbt::owned::NbtTag;
 use steel_macros::{ClientPacket, WriteTo};
-use steel_registry::packets::clientbound::config::CLIENTBOUND_REGISTRY_DATA;
+use steel_registry::packets::config::C_REGISTRY_DATA;
 use steel_utils::ResourceLocation;
 
 #[derive(Clone, Debug, WriteTo)]
@@ -11,14 +11,14 @@ pub struct RegistryEntry {
 }
 
 #[derive(ClientPacket, WriteTo, Clone, Debug)]
-#[packet_id(CONFIGURATION = "CLIENTBOUND_REGISTRY_DATA")]
-pub struct CRegistryDataPacket {
+#[packet_id(CONFIG = "C_REGISTRY_DATA")]
+pub struct CRegistryData {
     pub registry: ResourceLocation,
     #[write_as(as = "vec")]
     pub entries: Vec<RegistryEntry>,
 }
 
-impl CRegistryDataPacket {
+impl CRegistryData {
     pub fn new(registry: ResourceLocation, entries: Vec<RegistryEntry>) -> Self {
         Self { registry, entries }
     }

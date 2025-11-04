@@ -1,20 +1,17 @@
 use steel_macros::{ClientPacket, WriteTo};
-use steel_registry::packets::clientbound::config::CLIENTBOUND_CUSTOM_PAYLOAD;
-use steel_registry::packets::clientbound::play::CLIENTBOUND_CUSTOM_PAYLOAD as PLAY_CLIENTBOUND_CUSTOM_PAYLOAD;
+use steel_registry::packets::config::C_CUSTOM_PAYLOAD;
+use steel_registry::packets::play::C_CUSTOM_PAYLOAD as PLAY_C_CUSTOM_PAYLOAD;
 use steel_utils::ResourceLocation;
 
 #[derive(WriteTo, ClientPacket, Clone, Debug)]
-#[packet_id(
-    CONFIGURATION = "CLIENTBOUND_CUSTOM_PAYLOAD",
-    PLAY = "PLAY_CLIENTBOUND_CUSTOM_PAYLOAD"
-)]
-pub struct CCustomPayloadPacket {
+#[packet_id(CONFIG = "C_CUSTOM_PAYLOAD", PLAY = "PLAY_C_CUSTOM_PAYLOAD")]
+pub struct CCustomPayload {
     pub resource_location: ResourceLocation,
     #[write_as(as = "vec")]
     pub payload: Box<[u8]>,
 }
 
-impl CCustomPayloadPacket {
+impl CCustomPayload {
     pub fn new(resource_location: ResourceLocation, payload: Box<[u8]>) -> Self {
         Self {
             resource_location,

@@ -1,5 +1,11 @@
-pub mod c_custom_payload;
-pub mod c_disconnect;
-pub mod c_update_tags;
-pub mod s_client_information;
-pub mod s_custom_payload;
+mod c_custom_payload;
+mod c_disconnect;
+mod c_update_tags;
+mod s_client_information;
+mod s_custom_payload;
+
+pub use c_custom_payload::CCustomPayload;
+pub use c_disconnect::CDisconnect;
+pub use c_update_tags::CUpdateTags;
+pub use s_client_information::SClientInformation;
+pub use s_custom_payload::SCustomPayload;

@@ -12,15 +12,15 @@ const UNSUPPORTED_PROP: &str =
 const WRONG_FORMAT: &str =
     "attribute requires a list format: `#[read_as(as = \"...\", bound = ..., ..)]";
 
-#[proc_macro_derive(PacketRead, attributes(read_as))]
-pub fn packet_read_derive(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(ReadFrom, attributes(read_as))]
+pub fn read_from_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
 
     match input.data {
         Data::Struct(s) => {
             let Fields::Named(fields) = s.fields else {
-                panic!("PacketRead only supports structs with named fields");
+                panic!("Read only supports structs with named fields");
             };
 
             // Create read calls for every field
@@ -100,9 +100,6 @@ pub fn packet_read_derive(input: TokenStream) -> TokenStream {
                         })
                     }
                 }
-
-                #[automatically_derived]
-                impl crate::packet_traits::PacketRead for #name {}
             };
 
             TokenStream::from(expanded)
@@ -110,10 +107,13 @@ pub fn packet_read_derive(input: TokenStream) -> TokenStream {
         Data::Enum(e) => {
             let readers = e.variants.iter().map(|v| {
                 if !matches!(v.fields, Fields::Unit) {
-                    panic!("PacketReader only supports enum variants without fields");
+                    panic!("Read only supports enum variants without fields");
                 }
                 let Some((_, value)) = &v.discriminant else {
-                    panic!("PacketReader only supports enum variants with explicit discriminant\n(Ej. {} = 0)", &v.ident)
+                    panic!(
+                        "Read only supports enum variants with explicit discriminant\n(Ej. {} = 0)",
+                        &v.ident
+                    )
                 };
                 let v_name = &v.ident;
                 quote! {
@@ -158,7 +158,7 @@ pub fn packet_read_derive(input: TokenStream) -> TokenStream {
                     }
                     let enum_type = Ident::new(s, Span::call_site());
                     let _ = bound; // `bound` currently unused for primitive reads
-                    quote! { <#enum_type as PacketRead>::read_packet(data)? }
+                    quote! { <#enum_type as ReadFrom>::read_packet(data)? }
                 }
             };
 
@@ -178,12 +178,9 @@ pub fn packet_read_derive(input: TokenStream) -> TokenStream {
                         })
                     }
                 }
-
-                #[automatically_derived]
-                impl crate::packet_traits::PacketRead for #name {}
             })
         }
-        _ => panic!("PacketRead can only be derived for structs or enums"),
+        _ => panic!("Read can only be derived for structs or enums"),
     }
 }
 
@@ -385,7 +382,7 @@ pub fn client_packet_derive(input: TokenStream) -> TokenStream {
         .collect();
 
     if attrs.is_empty() {
-        panic!("CBoundPacket derive macro requires at least one #[packet_id(...)] attribute");
+        panic!("ClientPacket derive macro requires at least one #[packet_id(...)] attribute");
     }
 
     let mut match_arms = Vec::new();
@@ -428,6 +425,37 @@ pub fn client_packet_derive(input: TokenStream) -> TokenStream {
                     _ => None,
                 }
             }
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
+#[proc_macro_derive(ServerPacket, attributes(packet_id))]
+pub fn server_packet_derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = input.ident;
+
+    // Finde das packet_id-Attribut
+    //let attr = input
+    //    .attrs
+    //    .iter()
+    //    .find(|a| a.path().is_ident("packet_id"))
+    //    .expect("ServerPacket requires a #[packet_id(...)] attribute");
+
+    //let id_expr: Expr = if let Meta::List(meta) = &attr.meta {
+    // Parse den Inhalt als Expression: Zahl, Path, Konstante, etc.
+    //    syn::parse2(meta.tokens.clone())
+    //        .expect("Failed to parse packet_id content as expression")
+    //} else {
+    //    panic!("`packet_id` must be used as #[packet_id(...)]");
+    //};
+
+    // Generiere den Code: `#id_expr as i32`
+    let expanded = quote! {
+        #[automatically_derived]
+        impl crate::packet_traits::ServerPacket for #name {
+    //        const ID: i32 = #id_expr as i32;
         }
     };
 

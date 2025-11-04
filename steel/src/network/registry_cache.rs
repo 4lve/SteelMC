@@ -4,8 +4,8 @@ use steel_protocol::packet_traits::{ClientPacket, EncodedPacket};
 use steel_protocol::{
     codec::VarInt,
     packets::{
-        common::c_update_tags::CUpdateTagsPacket,
-        configuration::c_registry_data::{CRegistryDataPacket, RegistryEntry},
+        common::CUpdateTags,
+        config::{CRegistryData, RegistryEntry},
     },
     utils::ConnectionProtocol,
 };
@@ -40,12 +40,12 @@ impl RegistryCache {
         }
     }
 
-    fn build_registry_packets(registry: &Registry) -> Vec<CRegistryDataPacket> {
+    fn build_registry_packets(registry: &Registry) -> Vec<CRegistryData> {
         let mut packets = Vec::new();
 
         macro_rules! add_registry {
             ($reg_key:expr, $field:ident) => {
-                packets.push(CRegistryDataPacket::new(
+                packets.push(CRegistryData::new(
                     $reg_key,
                     registry
                         .$field
@@ -83,7 +83,7 @@ impl RegistryCache {
         packets
     }
 
-    fn build_tags_packet(registry: &Registry) -> CUpdateTagsPacket {
+    fn build_tags_packet(registry: &Registry) -> CUpdateTags {
         let mut tags_by_registry: HashMap<
             ResourceLocation,
             HashMap<ResourceLocation, Vec<VarInt>>,
@@ -120,16 +120,16 @@ impl RegistryCache {
         tags_by_registry.insert(ITEMS_REGISTRY, item_tags);
 
         // Build and return a CUpdateTagsPacket based on the registry data
-        CUpdateTagsPacket::new(tags_by_registry)
+        CUpdateTags::new(tags_by_registry)
     }
 }
 
 pub async fn compress_packet<P: ClientPacket>(packet: P) -> Result<EncodedPacket, ()> {
     let compression_info = STEEL_CONFIG.compression;
-    let id = packet.get_id(ConnectionProtocol::CONFIGURATION);
+    let id = packet.get_id(ConnectionProtocol::CONFIG);
 
     let encoded_packet =
-        EncodedPacket::from_packet(packet, compression_info, ConnectionProtocol::CONFIGURATION)
+        EncodedPacket::from_packet(packet, compression_info, ConnectionProtocol::CONFIG)
             .await
             .map_err(|_| {
                 log::error!("Failed to encode packet: {:?}", id);
@@ -139,8 +139,8 @@ pub async fn compress_packet<P: ClientPacket>(packet: P) -> Result<EncodedPacket
 }
 
 pub async fn build_compressed_packets(
-    registry_packets: Vec<CRegistryDataPacket>,
-    tags_packet: CUpdateTagsPacket,
+    registry_packets: Vec<CRegistryData>,
+    tags_packet: CUpdateTags,
 ) -> (Arc<[EncodedPacket]>, EncodedPacket) {
     let mut compressed_packets = Vec::with_capacity(registry_packets.len());
 

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use steel_macros::{ClientPacket, WriteTo};
-use steel_registry::packets::clientbound::login::CLIENTBOUND_LOGIN_FINISHED;
+use steel_registry::packets::login::C_LOGIN_FINISHED;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, WriteTo, Serialize, Deserialize)]
@@ -14,8 +14,8 @@ pub struct GameProfileProperty {
 }
 
 #[derive(ClientPacket, WriteTo, Clone, Debug)]
-#[packet_id(LOGIN = "CLIENTBOUND_LOGIN_FINISHED")]
-pub struct CLoginFinishedPacket {
+#[packet_id(LOGIN = "C_LOGIN_FINISHED")]
+pub struct CLoginFinished {
     pub uuid: Uuid,
     #[write_as(as = "string", bound = 16)]
     pub name: String,
@@ -23,7 +23,7 @@ pub struct CLoginFinishedPacket {
     pub properties: Vec<GameProfileProperty>,
 }
 
-impl CLoginFinishedPacket {
+impl CLoginFinished {
     pub fn new(uuid: Uuid, name: String, properties: Vec<GameProfileProperty>) -> Self {
         Self {
             uuid,

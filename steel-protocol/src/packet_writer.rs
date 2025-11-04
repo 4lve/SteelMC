@@ -133,7 +133,7 @@ mod tests {
     use cfb8::Decryptor as Cfb8Decryptor;
     use cfb8::cipher::AsyncStreamCipher;
     use flate2::read::ZlibDecoder;
-    use pumpkin_data::packet::clientbound::STATUS_STATUS_RESPONSE;
+    use pumpkin_data::packet::client:STATUS_STATUS_RESPONSE;
     use pumpkin_macros::packet;
     use serde::Serialize;
 

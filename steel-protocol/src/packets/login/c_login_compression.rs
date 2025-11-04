@@ -1,14 +1,14 @@
 use steel_macros::{ClientPacket, WriteTo};
-use steel_registry::packets::clientbound::login::CLIENTBOUND_LOGIN_COMPRESSION;
+use steel_registry::packets::login::C_LOGIN_COMPRESSION;
 
 #[derive(ClientPacket, WriteTo, Clone, Debug)]
-#[packet_id(LOGIN = "CLIENTBOUND_LOGIN_COMPRESSION")]
-pub struct CLoginCompressionPacket {
+#[packet_id(LOGIN = "C_LOGIN_COMPRESSION")]
+pub struct CLoginCompression {
     #[write_as(as = "var_int")]
     pub threshold: i32,
 }
 
-impl CLoginCompressionPacket {
+impl CLoginCompression {
     pub fn new(threshold: i32) -> Self {
         Self { threshold }
     }
