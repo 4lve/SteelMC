@@ -436,7 +436,6 @@ pub fn server_packet_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
 
-    // Finde das packet_id-Attribut
     //let attr = input
     //    .attrs
     //    .iter()
@@ -451,7 +450,6 @@ pub fn server_packet_derive(input: TokenStream) -> TokenStream {
     //    panic!("`packet_id` must be used as #[packet_id(...)]");
     //};
 
-    // Generiere den Code: `#id_expr as i32`
     let expanded = quote! {
         #[automatically_derived]
         impl crate::packet_traits::ServerPacket for #name {
