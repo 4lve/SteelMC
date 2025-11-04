@@ -20,11 +20,9 @@ impl ReadFrom for BitSet {
 impl WriteTo for BitSet {
     fn write(&self, writer: &mut impl Write) -> Result<(), Error> {
         VarInt(self.0.len() as i32).write(writer)?;
-
-        for &long in self.0.iter() {
-            long.write(writer)?;
+        for val in &self.0 {
+            val.write(writer)?;
         }
-
         Ok(())
     }
 }
