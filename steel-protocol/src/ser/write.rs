@@ -5,7 +5,10 @@ use std::{
 
 use steel_utils::BlockPos;
 
-use crate::{codec::VarInt, packet_traits::{PrefixedWrite, WriteTo}};
+use crate::{
+    codec::VarInt,
+    packet_traits::{PrefixedWrite, WriteTo},
+};
 
 impl WriteTo for bool {
     fn write(&self, writer: &mut impl Write) -> Result<()> {
