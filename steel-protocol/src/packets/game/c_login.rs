@@ -2,8 +2,6 @@ use steel_macros::{ClientPacket, WriteTo};
 use steel_registry::packets::play::C_LOGIN;
 use steel_utils::{BlockPos, Identifier, types::GameType};
 
-use crate::packet_traits::WriteTo;
-
 #[derive(Clone, Debug, WriteTo)]
 pub struct CommonPlayerSpawnInfo {
     #[write_as(as = "var_int")]
@@ -23,23 +21,8 @@ pub struct CommonPlayerSpawnInfo {
     pub sea_level: i32,
 }
 
-impl WriteTo for BlockPos {
-    fn write(&self, writer: &mut impl std::io::Write) -> Result<(), std::io::Error> {
-        self.as_i64().write(writer)?;
-        Ok(())
-    }
-}
-
-impl WriteTo for (Identifier, BlockPos) {
-    fn write(&self, writer: &mut impl std::io::Write) -> Result<(), std::io::Error> {
-        self.0.write(writer)?;
-        self.1.write(writer)?;
-        Ok(())
-    }
-}
-
 #[derive(ClientPacket, WriteTo, Clone, Debug)]
-#[packet_id(Play = "C_LOGIN")]
+#[packet_id(Play = C_LOGIN)]
 pub struct CLogin {
     pub player_id: i32,
     pub hardcore: bool,

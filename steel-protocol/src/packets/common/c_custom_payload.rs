@@ -4,7 +4,7 @@ use steel_registry::packets::play::C_CUSTOM_PAYLOAD as PLAY_C_CUSTOM_PAYLOAD;
 use steel_utils::Identifier;
 
 #[derive(WriteTo, ClientPacket, Clone, Debug)]
-#[packet_id(Config = "C_CUSTOM_PAYLOAD", Play = "PLAY_C_CUSTOM_PAYLOAD")]
+#[packet_id(Config = C_CUSTOM_PAYLOAD, Play = PLAY_C_CUSTOM_PAYLOAD)]
 pub struct CCustomPayload {
     pub resource_location: Identifier,
     #[write_as(as = "vec")]

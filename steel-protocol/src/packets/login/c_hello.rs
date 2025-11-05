@@ -2,7 +2,7 @@ use steel_macros::{ClientPacket, WriteTo};
 use steel_registry::packets::login::C_HELLO;
 
 #[derive(ClientPacket, WriteTo, Clone, Debug)]
-#[packet_id(Login = "C_HELLO")]
+#[packet_id(Login = C_HELLO)]
 pub struct CHello {
     #[write_as(as = "string", bound = 20)]
     pub server_id: String,

@@ -395,16 +395,11 @@ pub fn client_packet_derive(input: TokenStream) -> TokenStream {
                     .get_ident()
                     .expect("Expected an identifier for the protocol state")
                     .to_string();
-                let value = meta.value()?;
-                let id_path: LitStr = value.parse()?;
-
+                let value: syn::Expr = meta.value()?.parse()?;
                 let state_ident = Ident::new(&state, Span::call_site());
-                let id_path_val = id_path.value();
-                let id_ident: syn::Path =
-                    syn::parse_str(&id_path_val).expect("Failed to parse id path");
 
                 let arm = quote! {
-                    crate::utils::ConnectionProtocol::#state_ident => Some(#id_ident as i32),
+                    crate::utils::ConnectionProtocol::#state_ident => Some(#value),
                 };
                 match_arms.push(arm);
 
@@ -443,7 +438,6 @@ pub fn server_packet_derive(input: TokenStream) -> TokenStream {
     //    .expect("ServerPacket requires a #[packet_id(...)] attribute");
 
     //let id_expr: Expr = if let Meta::List(meta) = &attr.meta {
-    // Parse den Inhalt als Expression: Zahl, Path, Konstante, etc.
     //    syn::parse2(meta.tokens.clone())
     //        .expect("Failed to parse packet_id content as expression")
     //} else {

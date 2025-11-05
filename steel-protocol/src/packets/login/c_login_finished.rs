@@ -14,7 +14,7 @@ pub struct GameProfileProperty {
 }
 
 #[derive(ClientPacket, WriteTo, Clone, Debug)]
-#[packet_id(Login = "C_LOGIN_FINISHED")]
+#[packet_id(Login = C_LOGIN_FINISHED)]
 pub struct CLoginFinished {
     pub uuid: Uuid,
     #[write_as(as = "string", bound = 16)]

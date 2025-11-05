@@ -7,7 +7,7 @@ use steel_utils::Identifier;
 use crate::codec::VarInt;
 
 #[derive(ClientPacket, WriteTo)]
-#[packet_id(Config = "C_UPDATE_TAGS", Play = "PLAY_C_UPDATE_TAGS")]
+#[packet_id(Config = C_UPDATE_TAGS, Play = PLAY_C_UPDATE_TAGS)]
 pub struct CUpdateTags {
     pub tags: HashMap<Identifier, HashMap<Identifier, Vec<VarInt>>>,
 }

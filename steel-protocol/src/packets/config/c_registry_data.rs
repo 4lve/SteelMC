@@ -11,7 +11,7 @@ pub struct RegistryEntry {
 }
 
 #[derive(ClientPacket, WriteTo, Clone, Debug)]
-#[packet_id(Config = "C_REGISTRY_DATA")]
+#[packet_id(Config = C_REGISTRY_DATA)]
 pub struct CRegistryData {
     pub registry: Identifier,
     #[write_as(as = "vec")]
