@@ -5,7 +5,7 @@ use std::{
 
 use steel_utils::BlockPos;
 
-use crate::{codec::VarInt, packet_traits::WriteTo};
+use crate::{codec::VarInt, packet_traits::{PrefixedWrite, WriteTo}};
 
 impl WriteTo for bool {
     fn write(&self, writer: &mut impl Write) -> Result<()> {
@@ -102,11 +102,7 @@ impl<K: WriteTo, V: WriteTo> WriteTo for HashMap<K, V> {
 
 impl<T: WriteTo> WriteTo for Vec<T> {
     fn write(&self, writer: &mut impl Write) -> Result<()> {
-        VarInt(self.len() as i32).write(writer)?;
-        for v in self {
-            v.write(writer)?;
-        }
-        Ok(())
+        self.write_prefixed::<VarInt>(writer)
     }
 }
 
