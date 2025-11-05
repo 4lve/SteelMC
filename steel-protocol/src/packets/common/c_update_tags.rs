@@ -3,8 +3,7 @@ use steel_macros::{ClientPacket, WriteTo};
 use steel_registry::packets::config::C_UPDATE_TAGS;
 use steel_registry::packets::play::C_UPDATE_TAGS as PLAY_C_UPDATE_TAGS;
 use steel_utils::Identifier;
-
-use crate::codec::VarInt;
+use steel_utils::codec::VarInt;
 
 #[derive(ClientPacket, WriteTo)]
 #[packet_id(Config = C_UPDATE_TAGS, Play = PLAY_C_UPDATE_TAGS)]

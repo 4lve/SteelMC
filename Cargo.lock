@@ -1535,6 +1535,7 @@ dependencies = [
  "serde_json",
  "simdnbt",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

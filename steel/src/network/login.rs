@@ -168,7 +168,7 @@ impl JavaTcpClient {
     pub async fn finish_login(&self, profile: &GameProfile) {
         if let Some(compression) = STEEL_CONFIG.compression {
             self.send_bare_packet_now(CLoginCompression::new(
-                i32::try_from(compression.threshold).unwrap(),
+                compression.threshold.get().try_into().unwrap(),
             ))
             .await;
             self.compression_info.store(Some(compression));
@@ -188,7 +188,7 @@ impl JavaTcpClient {
     }
 
     pub async fn handle_login_acknowledged(&self, _packet: SLoginAcknowledged) {
-        self.connection_protocol.store(ConnectionProtocol::Config);
+        self.protocol.store(ConnectionProtocol::Config);
 
         self.start_configuration().await;
     }

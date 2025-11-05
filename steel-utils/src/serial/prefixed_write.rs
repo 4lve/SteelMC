@@ -1,6 +1,6 @@
 use std::io::{Error, Result, Write};
 
-use crate::packet_traits::{PrefixedWrite, WriteTo};
+use crate::serial::{PrefixedWrite, WriteTo};
 
 impl PrefixedWrite for String {
     fn write_prefixed_bound<P: TryFrom<usize> + WriteTo>(

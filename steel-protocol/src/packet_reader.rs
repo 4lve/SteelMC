@@ -10,14 +10,12 @@ use std::{
 
 use aes::cipher::KeyIvInit;
 use async_compression::tokio::bufread::ZlibDecoder;
+use steel_utils::codec::VarInt;
 use tokio::io::{AsyncRead, AsyncReadExt, BufReader, ReadBuf};
 
-use crate::{
-    codec::VarInt,
-    utils::{
-        Aes128Cfb8Dec, CompressionThreshold, MAX_PACKET_DATA_SIZE, MAX_PACKET_SIZE, PacketError,
-        RawPacket, StreamDecryptor,
-    },
+use crate::utils::{
+    Aes128Cfb8Dec, CompressionThreshold, MAX_PACKET_DATA_SIZE, MAX_PACKET_SIZE, PacketError,
+    RawPacket, StreamDecryptor,
 };
 
 // decrypt -> decompress -> raw

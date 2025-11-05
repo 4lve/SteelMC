@@ -100,10 +100,7 @@ impl<W: AsyncWrite + Unpin> TCPNetworkEncoder<W> {
         take_mut::take(&mut self.writer, |encoder| encoder.upgrade(cipher));
     }
 
-    pub async fn write_encoded_packet(
-        &mut self,
-        packet: &EncodedPacket,
-    ) -> Result<(), PacketError> {
+    pub async fn write_packet(&mut self, packet: &EncodedPacket) -> Result<(), PacketError> {
         self.writer
             .write_all(&packet.encoded_data)
             .await

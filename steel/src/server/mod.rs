@@ -43,7 +43,7 @@ impl Server {
 
 impl WorldServer for Server {
     fn add_player(&self, player: Player) {
-        player.enqueue_packet(CLogin {
+        player.send_packet(CLogin {
             player_id: 0,
             hardcore: false,
             levels: vec![Identifier::vanilla_static("overworld")],

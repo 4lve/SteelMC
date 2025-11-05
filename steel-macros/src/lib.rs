@@ -62,11 +62,11 @@ pub fn read_from_derive(input: TokenStream) -> TokenStream {
 
                 match read_strategy.as_deref() {
                     Some("var_int") => quote! {
-                        let #field_name = crate::codec::VarInt::read(data)?.0 as #field_type;
+                        let #field_name = steel_utils::codec::VarInt::read(data)?.0 as #field_type;
                     },
                     Some("string") | Some("vec") => {
                         let prefix =
-                            prefix.unwrap_or_else(|| syn::parse_quote!(crate::codec::VarInt));
+                            prefix.unwrap_or_else(|| syn::parse_quote!(steel_utils::codec::VarInt));
 
                         let read_call = if let Some(b) = bound {
                             quote! { <#field_type>::read_prefixed_bound::<#prefix>(data, #b)? }
@@ -89,9 +89,9 @@ pub fn read_from_derive(input: TokenStream) -> TokenStream {
 
             let expanded = quote! {
                 #[automatically_derived]
-                impl crate::packet_traits::ReadFrom for #name {
+                impl steel_utils::serial::ReadFrom for #name {
                     fn read(data: &mut impl std::io::Read) -> std::io::Result<Self>{
-                        use crate::packet_traits::PrefixedRead;
+                        use steel_utils::serial::PrefixedRead;
 
                         #(#readers)*
 
@@ -150,7 +150,7 @@ pub fn read_from_derive(input: TokenStream) -> TokenStream {
 
             let read_discriminant = match read_strategy.as_deref() {
                 // Specialized implementation: read a VarInt (i32)
-                None | Some("var_int") => quote! { crate::codec::VarInt::read(data)?.into() },
+                None | Some("var_int") => quote! { steel_utils::codec::VarInt::read(data)?.into() },
                 // Simple implementation: read as a primitive numeric type
                 Some(s) => {
                     if !ALLOWED_TYPES.contains(&s) {
@@ -166,7 +166,7 @@ pub fn read_from_derive(input: TokenStream) -> TokenStream {
 
             TokenStream::from(quote! {
                 #[automatically_derived]
-                impl crate::packet_traits::ReadFrom for #name {
+                impl steel_utils::serial::ReadFrom for #name {
                     fn read(data: &mut impl std::io::Read) -> std::io::Result<Self> {
                         Ok(match { #read_discriminant } {
                             #(#readers)*
@@ -234,10 +234,10 @@ pub fn write_to_derive(input: TokenStream) -> TokenStream {
 
                 match write_strategy.as_deref() {
                     Some("var_int") => quote! {
-                        crate::codec::VarInt(self.#field_name).write(writer)?;
+                        steel_utils::codec::VarInt(self.#field_name).write(writer)?;
                     },
                     Some("string") | Some("vec") => {
-                        let prefix = prefix.unwrap_or_else(|| syn::parse_quote!(crate::codec::VarInt));
+                        let prefix = prefix.unwrap_or_else(|| syn::parse_quote!(steel_utils::codec::VarInt));
 
                         let write_call = if let Some(b) = bound {
                             quote! { self.#field_name.write_prefixed_bound::<#prefix>(writer, #b)?; }
@@ -247,16 +247,16 @@ pub fn write_to_derive(input: TokenStream) -> TokenStream {
 
                         quote! {
                             {
-                                use crate::packet_traits::PrefixedWrite;
+                                use steel_utils::serial::PrefixedWrite;
                                 #write_call
                             }
                         }
                     },
                     Some("json") => {
                         json_count += 1;
-                        let prefix = prefix.unwrap_or_else(|| syn::parse_quote!(crate::codec::VarInt));
+                        let prefix = prefix.unwrap_or_else(|| syn::parse_quote!(steel_utils::codec::VarInt));
                         quote! {
-                            use crate::packet_traits::PrefixedWrite;
+                            use steel_utils::serial::PrefixedWrite;
 
                             serde_json::to_string(&self.#field_name).map_err(|e| {
                                 std::io::Error::other(format!("Failed to serialize: {e}"))
@@ -267,7 +267,7 @@ pub fn write_to_derive(input: TokenStream) -> TokenStream {
                         quote! {
                             if let Some(value) = &self.#field_name {
                                 true.write(writer)?;
-                                crate::packet_traits::WriteTo::write(value, writer)?;
+                                steel_utils::serial::WriteTo::write(value, writer)?;
                             } else {
                                 false.write(writer)?;
                             }
@@ -296,7 +296,7 @@ pub fn write_to_derive(input: TokenStream) -> TokenStream {
 
             let expanded = quote! {
                 #[automatically_derived]
-                impl crate::packet_traits::WriteTo for #name {
+                impl steel_utils::serial::WriteTo for #name {
                     fn write(&self, writer: &mut impl std::io::Write) -> std::io::Result<()> {
                         #(#writers)*
 
@@ -339,7 +339,7 @@ pub fn write_to_derive(input: TokenStream) -> TokenStream {
                 // Specialiced implementation
                 Some("var_int") => {
                     quote! {
-                        crate::codec::VarInt(*self as i32).write(writer)?;
+                        steel_utils::codec::VarInt(*self as i32).write(writer)?;
                     }
                 }
                 // Simple implementation
@@ -356,7 +356,7 @@ pub fn write_to_derive(input: TokenStream) -> TokenStream {
             };
             TokenStream::from(quote! {
                 #[automatically_derived]
-                impl crate::packet_traits::WriteTo for #name {
+                impl steel_utils::serial::WriteTo for #name {
                     fn write(&self, writer: &mut impl std::io::Write) -> std::io::Result<()> {
                         #writer
 

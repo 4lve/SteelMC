@@ -1,9 +1,16 @@
 use std::{
-    io::{Read, Result},
+    io::{Error, Read, Result},
     mem::{self, MaybeUninit},
+    str::FromStr,
 };
 
-use crate::packet_traits::ReadFrom;
+use uuid::Uuid;
+
+use crate::{
+    Identifier,
+    codec::VarInt,
+    serial::{PrefixedRead, ReadFrom},
+};
 
 impl ReadFrom for bool {
     fn read(data: &mut impl Read) -> Result<Self> {
@@ -112,5 +119,24 @@ impl<T: ReadFrom, const N: usize> ReadFrom for [T; N] {
         }
 
         Ok(buf)
+    }
+}
+
+impl ReadFrom for Uuid {
+    fn read(data: &mut impl Read) -> Result<Self> {
+        let most_significant_bits = u64::read(data)?;
+        let least_significant_bits = u64::read(data)?;
+
+        Ok(Uuid::from_u64_pair(
+            most_significant_bits,
+            least_significant_bits,
+        ))
+    }
+}
+
+impl ReadFrom for Identifier {
+    fn read(data: &mut impl Read) -> Result<Self> {
+        Identifier::from_str(&String::read_prefixed::<VarInt>(data)?)
+            .map_err(|e| Error::other(e.to_string()))
     }
 }

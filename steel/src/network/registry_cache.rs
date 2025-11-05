@@ -2,7 +2,6 @@ use std::{collections::HashMap, sync::Arc};
 
 use steel_protocol::packet_traits::{ClientPacket, EncodedPacket};
 use steel_protocol::{
-    codec::VarInt,
     packets::{
         common::CUpdateTags,
         config::{CRegistryData, RegistryEntry},
@@ -18,6 +17,7 @@ use steel_registry::{
     WOLF_VARIANT_REGISTRY,
 };
 use steel_utils::Identifier;
+use steel_utils::codec::VarInt;
 
 use crate::STEEL_CONFIG;
 
@@ -127,7 +127,7 @@ pub async fn compress_packet<P: ClientPacket>(packet: P) -> Result<EncodedPacket
     let id = packet.get_id(ConnectionProtocol::Config);
 
     let encoded_packet =
-        EncodedPacket::from_packet(packet, compression_info, ConnectionProtocol::Config)
+        EncodedPacket::from_bare(packet, compression_info, ConnectionProtocol::Config)
             .await
             .map_err(|_| {
                 log::error!("Failed to encode packet: {id:?}");

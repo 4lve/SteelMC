@@ -60,7 +60,7 @@ impl JavaTcpClient {
     /// # Panics
     /// This function will panic if the game profile is empty, should be impossible at this point.
     pub async fn handle_finish_configuration(&self, _packet: SFinishConfiguration) {
-        self.connection_protocol.store(ConnectionProtocol::Play);
+        self.protocol.store(ConnectionProtocol::Play);
 
         self.server.add_player(Player::new(
             self.gameprofile

@@ -5,7 +5,7 @@ use steel_protocol::{
 };
 
 impl Player {
-    pub fn enqueue_packet<P: ClientPacket>(&self, packet: P) {
+    pub fn send_packet<P: ClientPacket>(&self, packet: P) {
         let buf = EncodedPacket::write_vec(packet, ConnectionProtocol::Play).unwrap();
         self.outgoing_packets
             .send(EnqueuedPacket::RawData(buf))

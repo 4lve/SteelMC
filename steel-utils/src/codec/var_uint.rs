@@ -1,6 +1,6 @@
 use std::io::{Error, Read, Write};
 
-use crate::packet_traits::{ReadFrom, WriteTo};
+use crate::serial::{ReadFrom, WriteTo};
 
 pub struct VarUint(pub u32);
 

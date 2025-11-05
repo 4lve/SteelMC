@@ -1,6 +1,6 @@
 use std::io::{Error, Read, Result};
 
-use crate::packet_traits::{PrefixedRead, ReadFrom};
+use crate::serial::{PrefixedRead, ReadFrom};
 
 impl PrefixedRead for String {
     fn read_prefixed_bound<P: TryInto<usize> + ReadFrom>(

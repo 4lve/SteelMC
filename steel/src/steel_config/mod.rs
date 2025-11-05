@@ -62,7 +62,7 @@ impl SteelConfig {
             return Err("Simulation distance must be less than or equal to 32".to_string());
         }
         if let Some(compression) = self.compression {
-            if compression.threshold < 256 {
+            if compression.threshold.get() < 256 {
                 return Err(
                     "Compression threshold must be greater than or equal to 256".to_string()
                 );

@@ -1,8 +1,11 @@
 use std::io::{Cursor, Error, Read, Write};
 
-use crate::packet_traits::{ReadFrom, WriteTo};
-use steel_utils::FrontVec;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+
+use crate::{
+    FrontVec,
+    serial::{ReadFrom, WriteTo},
+};
 
 pub struct VarInt(pub i32);
 

@@ -55,7 +55,7 @@ impl<V: Hash + Eq + Copy, const DIM: usize> HeterogeneousPaletteData<V, DIM> {
 #[derive(Debug, Clone)]
 pub enum PalettedContainer<V: Hash + Eq + Copy + Default, const DIM: usize> {
     Homogeneous(V),
-    Heterogeneous(Box<HeterogeneousPaletteData<V, DIM>>),
+    Heterogeneous(HeterogeneousPaletteData<V, DIM>),
 }
 
 impl<V: Hash + Eq + Copy + Default + Debug, const DIM: usize> PalettedContainer<V, DIM> {
@@ -75,7 +75,7 @@ impl<V: Hash + Eq + Copy + Default + Debug, const DIM: usize> PalettedContainer<
         if palette.len() == 1 {
             Self::Homogeneous(palette[0].0)
         } else {
-            Self::Heterogeneous(Box::new(HeterogeneousPaletteData { cube, palette }))
+            Self::Heterogeneous(HeterogeneousPaletteData { cube, palette })
         }
     }
 

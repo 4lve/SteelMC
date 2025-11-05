@@ -3,11 +3,14 @@ use std::{
     io::{Result, Write},
 };
 
-use steel_utils::BlockPos;
+use simdnbt::owned::NbtTag;
+use uuid::Uuid;
 
 use crate::{
+    BlockPos, Identifier,
     codec::VarInt,
-    packet_traits::{PrefixedWrite, WriteTo},
+    serial::{PrefixedWrite, WriteTo},
+    text::TextComponent,
 };
 
 impl WriteTo for bool {
@@ -112,5 +115,36 @@ impl<T: WriteTo> WriteTo for Vec<T> {
 impl WriteTo for BlockPos {
     fn write(&self, writer: &mut impl Write) -> Result<()> {
         self.as_i64().write(writer)
+    }
+}
+
+impl WriteTo for TextComponent {
+    fn write(&self, _writer: &mut impl Write) -> Result<()> {
+        todo!()
+    }
+}
+
+impl WriteTo for Uuid {
+    fn write(&self, writer: &mut impl Write) -> Result<()> {
+        let (most_significant_bits, least_significant_bits) = self.as_u64_pair();
+        most_significant_bits.write(writer)?;
+        least_significant_bits.write(writer)?;
+        Ok(())
+    }
+}
+
+impl WriteTo for Identifier {
+    fn write(&self, writer: &mut impl Write) -> Result<()> {
+        self.to_string().write_prefixed::<VarInt>(writer)?;
+        Ok(())
+    }
+}
+
+impl WriteTo for NbtTag {
+    fn write(&self, writer: &mut impl Write) -> Result<()> {
+        let mut buf = Vec::new();
+        self.write(&mut buf);
+        writer.write_all(&buf)?;
+        Ok(())
     }
 }

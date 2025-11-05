@@ -9,3 +9,4 @@ serde.workspace = true
 serde_json.workspace = true
 num-traits = "0.2.19"
 simdnbt.workspace = true
+uuid.workspace = true

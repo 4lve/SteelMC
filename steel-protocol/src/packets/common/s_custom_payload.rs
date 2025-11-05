@@ -3,7 +3,7 @@ use std::io::Read;
 use steel_macros::{ReadFrom, ServerPacket};
 use steel_utils::Identifier;
 
-use crate::packet_traits::ReadFrom;
+use steel_utils::serial::ReadFrom;
 
 #[derive(ReadFrom, ServerPacket, Clone, Debug)]
 pub struct SCustomPayload {

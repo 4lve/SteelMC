@@ -1,19 +1,19 @@
 use std::{
-    io::{Error, Read, Write},
+    io::{Read, Write},
+    num::NonZeroUsize,
     sync::Arc,
 };
 
 use async_compression::{Level, tokio::write::ZlibEncoder};
 use serde::Deserialize;
-use steel_utils::FrontVec;
+use steel_utils::{
+    FrontVec,
+    codec::VarInt,
+    serial::{ReadFrom, WriteTo},
+};
 use tokio::io::AsyncWriteExt;
 
-use crate::{
-    codec::VarInt,
-    utils::{ConnectionProtocol, MAX_PACKET_DATA_SIZE, MAX_PACKET_SIZE, PacketError},
-};
-
-const DEFAULT_BOUND: usize = i32::MAX as _;
+use crate::utils::{ConnectionProtocol, MAX_PACKET_DATA_SIZE, MAX_PACKET_SIZE, PacketError};
 
 // These are the network read/write traits
 pub trait ServerPacket: ReadFrom {
@@ -39,45 +39,11 @@ pub trait ClientPacket: WriteTo {
     fn get_id(&self, protocol: ConnectionProtocol) -> Option<i32>;
 }
 
-// These are the general read/write traits with io::error
-// We dont use Write/Read because it conflicts with std::io::Read/Write
-pub trait ReadFrom: Sized {
-    fn read(data: &mut impl Read) -> Result<Self, Error>;
-}
-pub trait WriteTo {
-    fn write(&self, writer: &mut impl Write) -> Result<(), Error>;
-}
-
-pub trait PrefixedRead: Sized {
-    fn read_prefixed_bound<P: TryInto<usize> + ReadFrom>(
-        data: &mut impl Read,
-        bound: usize,
-    ) -> Result<Self, Error>;
-
-    fn read_prefixed<P: TryInto<usize> + ReadFrom>(data: &mut impl Read) -> Result<Self, Error> {
-        Self::read_prefixed_bound::<P>(data, DEFAULT_BOUND)
-    }
-}
-
-pub trait PrefixedWrite {
-    fn write_prefixed_bound<P: TryFrom<usize> + WriteTo>(
-        &self,
-        writer: &mut impl Write,
-        bound: usize,
-    ) -> Result<(), Error>;
-
-    fn write_prefixed<P: TryFrom<usize> + WriteTo>(
-        &self,
-        writer: &mut impl Write,
-    ) -> Result<(), Error> {
-        self.write_prefixed_bound::<P>(writer, DEFAULT_BOUND)
-    }
-}
-
 #[derive(Copy, Clone, Debug, Deserialize)]
 pub struct CompressionInfo {
     /// The compression threshold used when compression is enabled.
-    pub threshold: usize,
+    /// Its an NonZeroUsize to allow for nullptr optimization in Option<Self> cases
+    pub threshold: NonZeroUsize,
     /// A value between `0..9`.
     /// `1` = Optimize for the best speed of encoding.
     /// `9` = Optimize for the size of data being encoded.
@@ -87,7 +53,7 @@ pub struct CompressionInfo {
 impl Default for CompressionInfo {
     fn default() -> Self {
         Self {
-            threshold: 256,
+            threshold: NonZeroUsize::new(256).unwrap(),
             level: 4,
         }
     }
@@ -135,7 +101,7 @@ pub struct EncodedPacket {
 }
 
 impl EncodedPacket {
-    fn from_data_no_compression(mut packet_data: FrontVec) -> Result<Self, PacketError> {
+    fn from_data_uncompressed(mut packet_data: FrontVec) -> Result<Self, PacketError> {
         let data_len = packet_data.len();
         let varint_size = VarInt::written_size(data_len as _);
 
@@ -153,8 +119,7 @@ impl EncodedPacket {
 
     async fn from_packet_data(
         mut packet_data: FrontVec,
-        threshold: usize,
-        level: i32,
+        compression: CompressionInfo,
     ) -> Result<Self, PacketError> {
         let data_len = packet_data.len();
         // We dont need any more size check to convert to i32 as MAX_PACKET_DATA_SIZE < i32::MAX
@@ -162,9 +127,10 @@ impl EncodedPacket {
             Err(PacketError::TooLong(data_len))?
         }
 
-        if data_len >= threshold {
+        if data_len >= compression.threshold.get() {
             let mut buf = FrontVec::new(10);
-            let mut compressor = ZlibEncoder::with_quality(&mut buf, Level::Precise(level));
+            let mut compressor =
+                ZlibEncoder::with_quality(&mut buf, Level::Precise(compression.level));
 
             compressor
                 .write_all(&packet_data)
@@ -210,7 +176,7 @@ impl EncodedPacket {
         }
     }
 
-    pub async fn from_packet<P: ClientPacket>(
+    pub async fn from_bare<P: ClientPacket>(
         packet: P,
         compression_info: Option<CompressionInfo>,
         protocol: ConnectionProtocol,
@@ -230,12 +196,12 @@ impl EncodedPacket {
 
     pub async fn from_data(
         buf: FrontVec,
-        compression_info: Option<CompressionInfo>,
+        compression: Option<CompressionInfo>,
     ) -> Result<Self, PacketError> {
-        if let Some(compression_info) = compression_info {
-            Self::from_packet_data(buf, compression_info.threshold, compression_info.level).await
+        if let Some(compression) = compression {
+            Self::from_packet_data(buf, compression).await
         } else {
-            Self::from_data_no_compression(buf)
+            Self::from_data_uncompressed(buf)
         }
     }
 }
