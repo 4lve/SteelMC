@@ -45,18 +45,3 @@ impl LevelChunk {
             .set(relative_x, relative_y, relative_z, value);
     }
 }
-
-pub enum ChunkStatus {
-    Empty,
-    StructureStarts,
-    StructureReferences,
-    Biomes,
-    Noise,
-    Surface,
-    Carvers,
-    Features,
-    InitializeLight,
-    Light,
-    Spawn,
-    Full,
-}
