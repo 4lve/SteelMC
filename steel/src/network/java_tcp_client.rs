@@ -279,7 +279,7 @@ impl JavaTcpClient {
                                         net_reader.set_encryption(&key);
                                     }
                                     ConnectionUpdate::EnableCompression(compression) => {
-                                        net_reader.set_compression(compression.threshold.get());
+                                        net_reader.set_compression(compression.threshold);
                                         connection_updated.notify_waiters();
                                     }
                                 }

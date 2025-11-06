@@ -1,4 +1,9 @@
-use std::ops::{Add, Div, Mul, Neg, Sub};
+use std::{
+    io::{Read, Result, Write},
+    ops::{Add, Div, Mul, Neg, Sub},
+};
+
+use crate::serial::{ReadFrom, WriteTo};
 
 #[derive(Clone, Copy, Debug, PartialEq, Hash, Eq, Default)]
 pub struct Vector2<T> {
@@ -41,6 +46,22 @@ impl<T: Math + Copy> Vector2<T> {
             x: self.x * x,
             y: self.y * y,
         }
+    }
+}
+
+impl<T: WriteTo> WriteTo for Vector2<T> {
+    fn write(&self, writer: &mut impl Write) -> Result<()> {
+        self.x.write(writer)?;
+        self.y.write(writer)
+    }
+}
+
+impl<T: ReadFrom> ReadFrom for Vector2<T> {
+    fn read(data: &mut impl Read) -> Result<Self> {
+        Ok(Self {
+            x: T::read(data)?,
+            y: T::read(data)?,
+        })
     }
 }
 

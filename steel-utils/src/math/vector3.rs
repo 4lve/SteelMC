@@ -1,8 +1,15 @@
-use std::ops::{Add, AddAssign, Div, Mul, Sub};
+use std::{
+    io::{Read, Result, Write},
+    ops::{Add, AddAssign, Div, Mul, Sub},
+};
 
 use num_traits::{Float, Num};
 
-use crate::{math::vector2::Vector2, types::BlockPos};
+use crate::{
+    math::vector2::Vector2,
+    serial::{ReadFrom, WriteTo},
+    types::BlockPos,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Hash, Eq, Default)]
 pub struct Vector3<T> {
@@ -275,6 +282,24 @@ impl<T: Math + Copy + Into<f64>> Vector3<T> {
     }
 }
 
+impl<T: WriteTo> WriteTo for Vector3<T> {
+    fn write(&self, writer: &mut impl Write) -> Result<()> {
+        self.x.write(writer)?;
+        self.y.write(writer)?;
+        self.z.write(writer)
+    }
+}
+
+impl<T: ReadFrom> ReadFrom for Vector3<T> {
+    fn read(data: &mut impl Read) -> Result<Self> {
+        Ok(Self {
+            x: T::read(data)?,
+            y: T::read(data)?,
+            z: T::read(data)?,
+        })
+    }
+}
+
 pub trait Math:
     Mul<Output = Self>
     //+ Neg<Output = Self>
@@ -291,90 +316,3 @@ impl Math for f32 {}
 impl Math for i32 {}
 impl Math for i64 {}
 impl Math for u8 {}
-
-impl<'de> serde::Deserialize<'de> for Vector3<i32> {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct Vector3Visitor;
-
-        impl<'de> serde::de::Visitor<'de> for Vector3Visitor {
-            type Value = Vector3<i32>;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("a valid Vector<i32>")
-            }
-
-            fn visit_seq<A: serde::de::SeqAccess<'de>>(
-                self,
-                mut seq: A,
-            ) -> Result<Self::Value, A::Error> {
-                if let Some(x) = seq.next_element::<i32>()?
-                    && let Some(y) = seq.next_element::<i32>()?
-                    && let Some(z) = seq.next_element::<i32>()?
-                {
-                    return Ok(Vector3::new(x, y, z));
-                }
-                Err(serde::de::Error::custom("Failed to read Vector<i32>"))
-            }
-        }
-
-        deserializer.deserialize_seq(Vector3Visitor)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for Vector3<f32> {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct Vector3Visitor;
-
-        impl<'de> serde::de::Visitor<'de> for Vector3Visitor {
-            type Value = Vector3<f32>;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("a valid Vector<32>")
-            }
-
-            fn visit_seq<A: serde::de::SeqAccess<'de>>(
-                self,
-                mut seq: A,
-            ) -> Result<Self::Value, A::Error> {
-                if let Some(x) = seq.next_element::<f32>()?
-                    && let Some(y) = seq.next_element::<f32>()?
-                    && let Some(z) = seq.next_element::<f32>()?
-                {
-                    return Ok(Vector3::new(x, y, z));
-                }
-                Err(serde::de::Error::custom("Failed to read Vector<f32>"))
-            }
-        }
-
-        deserializer.deserialize_seq(Vector3Visitor)
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for Vector3<f64> {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct Vector3Visitor;
-
-        impl<'de> serde::de::Visitor<'de> for Vector3Visitor {
-            type Value = Vector3<f64>;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("a valid Vector<f64>")
-            }
-
-            fn visit_seq<A: serde::de::SeqAccess<'de>>(
-                self,
-                mut seq: A,
-            ) -> Result<Self::Value, A::Error> {
-                if let Some(x) = seq.next_element::<f64>()?
-                    && let Some(y) = seq.next_element::<f64>()?
-                    && let Some(z) = seq.next_element::<f64>()?
-                {
-                    return Ok(Vector3::new(x, y, z));
-                }
-                Err(serde::de::Error::custom("Failed to read Vector<f64>"))
-            }
-        }
-
-        deserializer.deserialize_seq(Vector3Visitor)
-    }
-}

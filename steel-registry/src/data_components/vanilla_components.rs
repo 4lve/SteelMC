@@ -1,11 +1,9 @@
-use steel_utils::Identifier;
+use steel_utils::{Identifier, types::Todo};
 
 use crate::data_components::{DataComponentRegistry, DataComponentType};
 
-pub type TODO = ();
-
 // Basic data components
-pub const CUSTOM_DATA: DataComponentType<TODO> =
+pub const CUSTOM_DATA: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("custom_data"));
 
 pub const MAX_STACK_SIZE: DataComponentType<i32> =
@@ -20,37 +18,37 @@ pub const DAMAGE: DataComponentType<i32> =
 pub const UNBREAKABLE: DataComponentType<()> =
     DataComponentType::new(Identifier::vanilla_static("unbreakable"));
 
-pub const CUSTOM_NAME: DataComponentType<TODO> =
+pub const CUSTOM_NAME: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("custom_name"));
 
-pub const ITEM_NAME: DataComponentType<TODO> =
+pub const ITEM_NAME: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("item_name"));
 
 pub const ITEM_MODEL: DataComponentType<Identifier> =
     DataComponentType::new(Identifier::vanilla_static("item_model"));
 
-pub const LORE: DataComponentType<TODO> =
+pub const LORE: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("lore"));
 
-pub const RARITY: DataComponentType<TODO> =
+pub const RARITY: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("rarity"));
 
-pub const ENCHANTMENTS: DataComponentType<TODO> =
+pub const ENCHANTMENTS: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("enchantments"));
 
-pub const CAN_PLACE_ON: DataComponentType<TODO> =
+pub const CAN_PLACE_ON: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("can_place_on"));
 
-pub const CAN_BREAK: DataComponentType<TODO> =
+pub const CAN_BREAK: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("can_break"));
 
-pub const ATTRIBUTE_MODIFIERS: DataComponentType<TODO> =
+pub const ATTRIBUTE_MODIFIERS: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("attribute_modifiers"));
 
-pub const CUSTOM_MODEL_DATA: DataComponentType<TODO> =
+pub const CUSTOM_MODEL_DATA: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("custom_model_data"));
 
-pub const TOOLTIP_DISPLAY: DataComponentType<TODO> =
+pub const TOOLTIP_DISPLAY: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("tooltip_display"));
 
 pub const REPAIR_COST: DataComponentType<i32> =
@@ -65,34 +63,34 @@ pub const ENCHANTMENT_GLINT_OVERRIDE: DataComponentType<bool> =
 pub const INTANGIBLE_PROJECTILE: DataComponentType<()> =
     DataComponentType::new(Identifier::vanilla_static("intangible_projectile"));
 
-pub const FOOD: DataComponentType<TODO> =
+pub const FOOD: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("food"));
 
-pub const CONSUMABLE: DataComponentType<TODO> =
+pub const CONSUMABLE: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("consumable"));
 
-pub const USE_REMAINDER: DataComponentType<TODO> =
+pub const USE_REMAINDER: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("use_remainder"));
 
-pub const USE_COOLDOWN: DataComponentType<TODO> =
+pub const USE_COOLDOWN: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("use_cooldown"));
 
-pub const DAMAGE_RESISTANT: DataComponentType<TODO> =
+pub const DAMAGE_RESISTANT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("damage_resistant"));
 
-pub const TOOL: DataComponentType<TODO> =
+pub const TOOL: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("tool"));
 
-pub const WEAPON: DataComponentType<TODO> =
+pub const WEAPON: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("weapon"));
 
-pub const ENCHANTABLE: DataComponentType<TODO> =
+pub const ENCHANTABLE: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("enchantable"));
 
-pub const EQUIPPABLE: DataComponentType<TODO> =
+pub const EQUIPPABLE: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("equippable"));
 
-pub const REPAIRABLE: DataComponentType<TODO> =
+pub const REPAIRABLE: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("repairable"));
 
 pub const GLIDER: DataComponentType<()> =
@@ -101,197 +99,197 @@ pub const GLIDER: DataComponentType<()> =
 pub const TOOLTIP_STYLE: DataComponentType<Identifier> =
     DataComponentType::new(Identifier::vanilla_static("tooltip_style"));
 
-pub const DEATH_PROTECTION: DataComponentType<TODO> =
+pub const DEATH_PROTECTION: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("death_protection"));
 
-pub const BLOCKS_ATTACKS: DataComponentType<TODO> =
+pub const BLOCKS_ATTACKS: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("blocks_attacks"));
 
-pub const STORED_ENCHANTMENTS: DataComponentType<TODO> =
+pub const STORED_ENCHANTMENTS: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("stored_enchantments"));
 
-pub const DYED_COLOR: DataComponentType<TODO> =
+pub const DYED_COLOR: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("dyed_color"));
 
-pub const MAP_COLOR: DataComponentType<TODO> =
+pub const MAP_COLOR: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("map_color"));
 
-pub const MAP_ID: DataComponentType<TODO> =
+pub const MAP_ID: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("map_id"));
 
-pub const MAP_DECORATIONS: DataComponentType<TODO> =
+pub const MAP_DECORATIONS: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("map_decorations"));
 
-pub const MAP_POST_PROCESSING: DataComponentType<TODO> =
+pub const MAP_POST_PROCESSING: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("map_post_processing"));
 
-pub const CHARGED_PROJECTILES: DataComponentType<TODO> =
+pub const CHARGED_PROJECTILES: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("charged_projectiles"));
 
-pub const BUNDLE_CONTENTS: DataComponentType<TODO> =
+pub const BUNDLE_CONTENTS: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("bundle_contents"));
 
-pub const POTION_CONTENTS: DataComponentType<TODO> =
+pub const POTION_CONTENTS: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("potion_contents"));
 
 pub const POTION_DURATION_SCALE: DataComponentType<f32> =
     DataComponentType::new(Identifier::vanilla_static("potion_duration_scale"));
 
-pub const SUSPICIOUS_STEW_EFFECTS: DataComponentType<TODO> =
+pub const SUSPICIOUS_STEW_EFFECTS: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("suspicious_stew_effects"));
 
-pub const WRITABLE_BOOK_CONTENT: DataComponentType<TODO> =
+pub const WRITABLE_BOOK_CONTENT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("writable_book_content"));
 
-pub const WRITTEN_BOOK_CONTENT: DataComponentType<TODO> =
+pub const WRITTEN_BOOK_CONTENT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("written_book_content"));
 
-pub const TRIM: DataComponentType<TODO> =
+pub const TRIM: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("trim"));
 
-pub const DEBUG_STICK_STATE: DataComponentType<TODO> =
+pub const DEBUG_STICK_STATE: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("debug_stick_state"));
 
-pub const ENTITY_DATA: DataComponentType<TODO> =
+pub const ENTITY_DATA: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("entity_data"));
 
-pub const BUCKET_ENTITY_DATA: DataComponentType<TODO> =
+pub const BUCKET_ENTITY_DATA: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("bucket_entity_data"));
 
-pub const BLOCK_ENTITY_DATA: DataComponentType<TODO> =
+pub const BLOCK_ENTITY_DATA: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("block_entity_data"));
 
-pub const INSTRUMENT: DataComponentType<TODO> =
+pub const INSTRUMENT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("instrument"));
 
-pub const PROVIDES_TRIM_MATERIAL: DataComponentType<TODO> =
+pub const PROVIDES_TRIM_MATERIAL: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("provides_trim_material"));
 
-pub const OMINOUS_BOTTLE_AMPLIFIER: DataComponentType<TODO> =
+pub const OMINOUS_BOTTLE_AMPLIFIER: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("ominous_bottle_amplifier"));
 
-pub const JUKEBOX_PLAYABLE: DataComponentType<TODO> =
+pub const JUKEBOX_PLAYABLE: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("jukebox_playable"));
 
-pub const PROVIDES_BANNER_PATTERNS: DataComponentType<TODO> =
+pub const PROVIDES_BANNER_PATTERNS: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("provides_banner_patterns"));
 
-pub const RECIPES: DataComponentType<TODO> =
+pub const RECIPES: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("recipes"));
 
-pub const LODESTONE_TRACKER: DataComponentType<TODO> =
+pub const LODESTONE_TRACKER: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("lodestone_tracker"));
 
-pub const FIREWORK_EXPLOSION: DataComponentType<TODO> =
+pub const FIREWORK_EXPLOSION: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("firework_explosion"));
 
-pub const FIREWORKS: DataComponentType<TODO> =
+pub const FIREWORKS: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("fireworks"));
 
-pub const PROFILE: DataComponentType<TODO> =
+pub const PROFILE: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("profile"));
 
 pub const NOTE_BLOCK_SOUND: DataComponentType<Identifier> =
     DataComponentType::new(Identifier::vanilla_static("note_block_sound"));
 
-pub const BANNER_PATTERNS: DataComponentType<TODO> =
+pub const BANNER_PATTERNS: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("banner_patterns"));
 
-pub const BASE_COLOR: DataComponentType<TODO> =
+pub const BASE_COLOR: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("base_color"));
 
-pub const POT_DECORATIONS: DataComponentType<TODO> =
+pub const POT_DECORATIONS: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("pot_decorations"));
 
-pub const CONTAINER: DataComponentType<TODO> =
+pub const CONTAINER: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("container"));
 
-pub const BLOCK_STATE: DataComponentType<TODO> =
+pub const BLOCK_STATE: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("block_state"));
 
-pub const BEES: DataComponentType<TODO> =
+pub const BEES: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("bees"));
 
-pub const LOCK: DataComponentType<TODO> =
+pub const LOCK: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("lock"));
 
-pub const CONTAINER_LOOT: DataComponentType<TODO> =
+pub const CONTAINER_LOOT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("container_loot"));
 
-pub const BREAK_SOUND: DataComponentType<TODO> =
+pub const BREAK_SOUND: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("break_sound"));
 
 // Entity variant components
-pub const VILLAGER_VARIANT: DataComponentType<TODO> =
+pub const VILLAGER_VARIANT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("villager/variant"));
 
-pub const WOLF_VARIANT: DataComponentType<TODO> =
+pub const WOLF_VARIANT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("wolf/variant"));
 
-pub const WOLF_SOUND_VARIANT: DataComponentType<TODO> =
+pub const WOLF_SOUND_VARIANT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("wolf/sound_variant"));
 
-pub const WOLF_COLLAR: DataComponentType<TODO> =
+pub const WOLF_COLLAR: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("wolf/collar"));
 
-pub const FOX_VARIANT: DataComponentType<TODO> =
+pub const FOX_VARIANT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("fox/variant"));
 
-pub const SALMON_SIZE: DataComponentType<TODO> =
+pub const SALMON_SIZE: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("salmon/size"));
 
-pub const PARROT_VARIANT: DataComponentType<TODO> =
+pub const PARROT_VARIANT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("parrot/variant"));
 
-pub const TROPICAL_FISH_PATTERN: DataComponentType<TODO> =
+pub const TROPICAL_FISH_PATTERN: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("tropical_fish/pattern"));
 
-pub const TROPICAL_FISH_BASE_COLOR: DataComponentType<TODO> =
+pub const TROPICAL_FISH_BASE_COLOR: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("tropical_fish/base_color"));
 
-pub const TROPICAL_FISH_PATTERN_COLOR: DataComponentType<TODO> =
+pub const TROPICAL_FISH_PATTERN_COLOR: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("tropical_fish/pattern_color"));
 
-pub const MOOSHROOM_VARIANT: DataComponentType<TODO> =
+pub const MOOSHROOM_VARIANT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("mooshroom/variant"));
 
-pub const RABBIT_VARIANT: DataComponentType<TODO> =
+pub const RABBIT_VARIANT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("rabbit/variant"));
 
-pub const PIG_VARIANT: DataComponentType<TODO> =
+pub const PIG_VARIANT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("pig/variant"));
 
-pub const COW_VARIANT: DataComponentType<TODO> =
+pub const COW_VARIANT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("cow/variant"));
 
-pub const CHICKEN_VARIANT: DataComponentType<TODO> =
+pub const CHICKEN_VARIANT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("chicken/variant"));
 
-pub const FROG_VARIANT: DataComponentType<TODO> =
+pub const FROG_VARIANT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("frog/variant"));
 
-pub const HORSE_VARIANT: DataComponentType<TODO> =
+pub const HORSE_VARIANT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("horse/variant"));
 
-pub const PAINTING_VARIANT: DataComponentType<TODO> =
+pub const PAINTING_VARIANT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("painting/variant"));
 
-pub const LLAMA_VARIANT: DataComponentType<TODO> =
+pub const LLAMA_VARIANT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("llama/variant"));
 
-pub const AXOLOTL_VARIANT: DataComponentType<TODO> =
+pub const AXOLOTL_VARIANT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("axolotl/variant"));
 
-pub const CAT_VARIANT: DataComponentType<TODO> =
+pub const CAT_VARIANT: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("cat/variant"));
 
-pub const CAT_COLLAR: DataComponentType<TODO> =
+pub const CAT_COLLAR: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("cat/collar"));
 
-pub const SHEEP_COLOR: DataComponentType<TODO> =
+pub const SHEEP_COLOR: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("sheep/color"));
 
-pub const SHULKER_COLOR: DataComponentType<TODO> =
+pub const SHULKER_COLOR: DataComponentType<Todo> =
     DataComponentType::new(Identifier::vanilla_static("shulker/color"));
 
 pub fn register_vanilla_data_components(registry: &mut DataComponentRegistry) {

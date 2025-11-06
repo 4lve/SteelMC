@@ -21,19 +21,6 @@ pub enum EnqueuedPacket {
 pub type Aes128Cfb8Enc = cfb8::Encryptor<aes::Aes128>;
 pub type Aes128Cfb8Dec = cfb8::Decryptor<aes::Aes128>;
 
-/// Represents a compression threshold.
-///
-/// The threshold determines the minimum size of data that should be compressed.
-/// Data smaller than the threshold will not be compressed.
-pub type CompressionThreshold = usize;
-
-/// Represents a compression level.
-///
-/// The level controls the amount of compression applied to the data.
-/// Higher levels generally result in higher compression ratios, but also
-/// increase CPU usage.
-pub type CompressionLevel = u32;
-
 pub const MAX_PACKET_SIZE: usize = 2_097_152;
 pub const MAX_PACKET_DATA_SIZE: usize = 8_388_608;
 
@@ -66,7 +53,7 @@ pub enum ConnectionProtocol {
 #[derive(Debug)]
 pub struct RawPacket {
     pub id: i32,
-    /// Could be a Box<[u8]> but that requires a realloc if cap != len
+    /// Could be a `[Box<[u8]>]` but that requires a realloc `if cap != len`
     pub payload: Vec<u8>,
 }
 

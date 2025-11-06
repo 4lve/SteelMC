@@ -2,17 +2,16 @@ use std::{fmt::Debug, hash::Hash};
 
 use steel_utils::BlockStateId;
 
-/// 3d array indexed by y,z,x
-type AbstractCube<T, const DIM: usize> = [[[T; DIM]; DIM]; DIM];
+type Cube<T, const DIM: usize> = [[[T; DIM]; DIM]; DIM];
 
 #[derive(Debug, Clone)]
-pub struct HeterogeneousPaletteData<V: Hash + Eq + Copy, const DIM: usize> {
-    cube: Box<AbstractCube<V, DIM>>,
+pub struct HeterogeneousPalette<V: Hash + Eq + Copy, const DIM: usize> {
+    cube: Box<Cube<V, DIM>>,
     // Keeps track of how many diffrent times each value appears in the cube. (value, count)
     palette: Vec<(V, u16)>,
 }
 
-impl<V: Hash + Eq + Copy, const DIM: usize> HeterogeneousPaletteData<V, DIM> {
+impl<V: Hash + Eq + Copy, const DIM: usize> HeterogeneousPalette<V, DIM> {
     fn get(&self, x: usize, y: usize, z: usize) -> V {
         debug_assert!(x < DIM);
         debug_assert!(y < DIM);
@@ -55,14 +54,14 @@ impl<V: Hash + Eq + Copy, const DIM: usize> HeterogeneousPaletteData<V, DIM> {
 #[derive(Debug, Clone)]
 pub enum PalettedContainer<V: Hash + Eq + Copy + Default, const DIM: usize> {
     Homogeneous(V),
-    Heterogeneous(HeterogeneousPaletteData<V, DIM>),
+    Heterogeneous(HeterogeneousPalette<V, DIM>),
 }
 
 impl<V: Hash + Eq + Copy + Default + Debug, const DIM: usize> PalettedContainer<V, DIM> {
     pub const SIZE: usize = DIM;
     pub const VOLUME: usize = DIM * DIM * DIM;
 
-    fn from_cube(cube: Box<AbstractCube<V, DIM>>) -> Self {
+    fn from_cube(cube: Box<Cube<V, DIM>>) -> Self {
         let mut palette: Vec<(V, u16)> = Vec::new();
         cube.iter().flatten().flatten().for_each(|v| {
             if let Some((_, count)) = palette.iter_mut().find(|(value, _)| value == v) {
@@ -75,7 +74,7 @@ impl<V: Hash + Eq + Copy + Default + Debug, const DIM: usize> PalettedContainer<
         if palette.len() == 1 {
             Self::Homogeneous(palette[0].0)
         } else {
-            Self::Heterogeneous(HeterogeneousPaletteData { cube, palette })
+            Self::Heterogeneous(HeterogeneousPalette { cube, palette })
         }
     }
 
@@ -113,57 +112,3 @@ impl<V: Hash + Eq + Copy + Default + Debug, const DIM: usize> PalettedContainer<
 }
 
 pub type BlockPalette = PalettedContainer<BlockStateId, 16>;
-
-#[derive(Debug, Clone)]
-pub struct SubChunk {
-    pub block_states: BlockPalette,
-}
-
-#[derive(Debug, Clone)]
-pub struct ChunkSections {
-    pub sections: Box<[SubChunk]>,
-    pub min_y: i32,
-}
-
-impl ChunkSections {
-    pub fn new(sections: Box<[SubChunk]>, min_y: i32) -> Self {
-        Self { sections, min_y }
-    }
-
-    pub fn get_relative_block(
-        &self,
-        relative_x: usize,
-        relative_y: usize,
-        relative_z: usize,
-    ) -> Option<BlockStateId> {
-        debug_assert!(relative_x < BlockPalette::SIZE);
-        debug_assert!(relative_z < BlockPalette::SIZE);
-
-        let section_index = relative_y / BlockPalette::SIZE;
-        let relative_y = relative_y % BlockPalette::SIZE;
-        self.sections
-            .get(section_index)
-            .map(|section| section.block_states.get(relative_x, relative_y, relative_z))
-    }
-
-    pub fn set_relative_block(
-        &mut self,
-        relative_x: usize,
-        relative_y: usize,
-        relative_z: usize,
-        value: BlockStateId,
-    ) {
-        debug_assert!(relative_x < BlockPalette::SIZE);
-        debug_assert!(relative_z < BlockPalette::SIZE);
-
-        let section_index = relative_y / BlockPalette::SIZE;
-        let relative_y = relative_y % BlockPalette::SIZE;
-        println!(
-            "setting block at {}, {}, {} to {}",
-            relative_x, relative_y, relative_z, value.0
-        );
-        self.sections[section_index]
-            .block_states
-            .set(relative_x, relative_y, relative_z, value);
-    }
-}

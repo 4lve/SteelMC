@@ -1,6 +1,6 @@
 use std::{
     io::{Read, Write},
-    num::NonZeroUsize,
+    num::NonZeroU32,
     sync::Arc,
 };
 
@@ -43,7 +43,7 @@ pub trait ClientPacket: WriteTo {
 pub struct CompressionInfo {
     /// The compression threshold used when compression is enabled.
     /// Its an NonZeroUsize to allow for nullptr optimization in Option<Self> cases
-    pub threshold: NonZeroUsize,
+    pub threshold: NonZeroU32,
     /// A value between `0..9`.
     /// `1` = Optimize for the best speed of encoding.
     /// `9` = Optimize for the size of data being encoded.
@@ -53,7 +53,7 @@ pub struct CompressionInfo {
 impl Default for CompressionInfo {
     fn default() -> Self {
         Self {
-            threshold: NonZeroUsize::new(256).unwrap(),
+            threshold: NonZeroU32::new(256).unwrap(),
             level: 4,
         }
     }
@@ -127,7 +127,7 @@ impl EncodedPacket {
             Err(PacketError::TooLong(data_len))?
         }
 
-        if data_len >= compression.threshold.get() {
+        if data_len >= compression.threshold.get() as _ {
             let mut buf = FrontVec::new(10);
             let mut compressor =
                 ZlibEncoder::with_quality(&mut buf, Level::Precise(compression.level));

@@ -1,14 +1,19 @@
-// Wrapper types making it harder to accidentaly use the wrong underlying type.
-
 use std::{
     borrow::Cow,
     fmt::{self, Display},
+    io::{self, Read, Write},
     str::FromStr,
 };
 
 use serde::{Deserialize, Serialize};
 
-use crate::math::{vector2::Vector2, vector3::Vector3};
+use crate::{
+    math::{vector2::Vector2, vector3::Vector3},
+    serial::{ReadFrom, WriteTo},
+};
+
+// Usefull for early developement
+pub type Todo = ();
 
 // A raw block state id. Using the registry this id can be derived into a block and it's current properties.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -18,19 +23,31 @@ pub struct BlockStateId(pub u16);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ChunkPos(pub Vector2<i32>);
 
+impl WriteTo for ChunkPos {
+    fn write(&self, writer: &mut impl Write) -> io::Result<()> {
+        self.0.write(writer)
+    }
+}
+
+impl ReadFrom for ChunkPos {
+    fn read(data: &mut impl Read) -> io::Result<Self> {
+        Ok(Self(Vector2::<i32>::read(data)?))
+    }
+}
+
 // A block position.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BlockPos(pub Vector3<i32>);
 
 impl BlockPos {
     // Define constants as per the Java logic, but in Rust style
-    const PACKED_HORIZONTAL_LENGTH: u32 = 26;
-    const PACKED_Y_LENGTH: u32 = 64 - 2 * Self::PACKED_HORIZONTAL_LENGTH;
-    const X_OFFSET: u32 = Self::PACKED_Y_LENGTH + Self::PACKED_HORIZONTAL_LENGTH;
+    const PACKED_HORIZONTAL_LEN: u32 = 26;
+    const PACKED_Y_LEN: u32 = 64 - 2 * Self::PACKED_HORIZONTAL_LEN;
+    const X_OFFSET: u32 = Self::PACKED_Y_LEN + Self::PACKED_HORIZONTAL_LEN;
     const Z_OFFSET: u32 = 0;
-    const PACKED_X_MASK: i64 = (1i64 << Self::PACKED_HORIZONTAL_LENGTH) - 1;
-    const PACKED_Y_MASK: i64 = (1i64 << Self::PACKED_Y_LENGTH) - 1;
-    const PACKED_Z_MASK: i64 = (1i64 << Self::PACKED_HORIZONTAL_LENGTH) - 1;
+    const PACKED_X_MASK: i64 = (1i64 << Self::PACKED_HORIZONTAL_LEN) - 1;
+    const PACKED_Y_MASK: i64 = (1i64 << Self::PACKED_Y_LEN) - 1;
+    const PACKED_Z_MASK: i64 = (1i64 << Self::PACKED_HORIZONTAL_LEN) - 1;
 
     pub fn as_i64(&self) -> i64 {
         let x = self.0.x as i64;
@@ -79,21 +96,16 @@ impl Identifier {
         }
     }
 
-    pub fn valid_namespace_char(namespace_char: char) -> bool {
-        namespace_char == '_'
-            || namespace_char == '-'
-            || namespace_char.is_ascii_lowercase()
-            || namespace_char.is_ascii_digit()
-            || namespace_char == '.'
+    pub fn valid_namespace_char(char: char) -> bool {
+        char == '_'
+            || char == '-'
+            || char.is_ascii_lowercase()
+            || char.is_ascii_digit()
+            || char == '.'
     }
 
-    pub fn valid_path_char(path_char: char) -> bool {
-        path_char == '_'
-            || path_char == '-'
-            || path_char.is_ascii_lowercase()
-            || path_char.is_ascii_digit()
-            || path_char == '/'
-            || path_char == '.'
+    pub fn valid_char(char: char) -> bool {
+        Self::valid_namespace_char(char) || char == '/'
     }
 
     pub fn validate_namespace(namespace: &str) -> bool {
@@ -101,7 +113,7 @@ impl Identifier {
     }
 
     pub fn validate_path(path: &str) -> bool {
-        path.chars().all(Self::valid_path_char)
+        path.chars().all(Self::valid_char)
     }
 
     pub fn validate(namespace: &str, path: &str) -> bool {

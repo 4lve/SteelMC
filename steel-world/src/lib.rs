@@ -4,24 +4,20 @@ use scc::HashIndex;
 use steel_utils::{ChunkPos, locks::SteelRwLock};
 use tokio::sync::watch;
 
-use crate::section::ChunkSections;
+use crate::chunk::level_chunk::LevelChunk;
 
+pub mod chunk;
 pub mod player;
-pub mod section;
 pub mod server;
 pub mod world;
 
-// A chunk represeting a full ticking chunk
-#[derive(Debug)]
-pub struct FullChunk {
-    pub sections: Arc<SteelRwLock<ChunkSections>>,
+pub struct Level {
+    pub chunks: HashIndex<ChunkPos, SteelRwLock<LevelChunk>>,
 }
 
-impl FullChunk {
-    pub fn from_proto(proto_chunk: &ProtoChunk) -> Self {
-        Self {
-            sections: proto_chunk.sections.clone(),
-        }
+impl Default for Level {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

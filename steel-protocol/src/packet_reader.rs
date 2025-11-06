@@ -4,6 +4,7 @@ Credit to https://github.com/Pumpkin-MC/Pumpkin/ for this implementation.
 
 use std::{
     io,
+    num::NonZeroU32,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -14,8 +15,7 @@ use steel_utils::codec::VarInt;
 use tokio::io::{AsyncRead, AsyncReadExt, BufReader, ReadBuf};
 
 use crate::utils::{
-    Aes128Cfb8Dec, CompressionThreshold, MAX_PACKET_DATA_SIZE, MAX_PACKET_SIZE, PacketError,
-    RawPacket, StreamDecryptor,
+    Aes128Cfb8Dec, MAX_PACKET_DATA_SIZE, MAX_PACKET_SIZE, PacketError, RawPacket, StreamDecryptor,
 };
 
 // decrypt -> decompress -> raw
@@ -83,7 +83,7 @@ impl<R: AsyncRead + Unpin> AsyncRead for DecryptionReader<R> {
 /// Supports Aes128 Encryption
 pub struct TCPNetworkDecoder<R: AsyncRead + Unpin> {
     reader: DecryptionReader<R>,
-    compression: Option<CompressionThreshold>,
+    compression: Option<NonZeroU32>,
 }
 
 impl<R: AsyncRead + Unpin> TCPNetworkDecoder<R> {
@@ -94,7 +94,7 @@ impl<R: AsyncRead + Unpin> TCPNetworkDecoder<R> {
         }
     }
 
-    pub fn set_compression(&mut self, threshold: CompressionThreshold) {
+    pub fn set_compression(&mut self, threshold: NonZeroU32) {
         self.compression = Some(threshold);
     }
 
@@ -129,7 +129,7 @@ impl<R: AsyncRead + Unpin> TCPNetworkDecoder<R> {
                 DecompressionReader::Decompress(ZlibDecoder::new(BufReader::new(bounded_reader)))
             } else {
                 // Validate that we are not less than the compression threshold
-                if raw_packet_len > threshold {
+                if raw_packet_len > threshold.get() as _ {
                     Err(PacketError::NotCompressed)?
                 }
 
