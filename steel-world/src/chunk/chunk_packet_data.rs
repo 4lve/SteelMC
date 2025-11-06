@@ -11,10 +11,10 @@ impl<'a> ChunkPacketData<'a> {
         Self { chunk }
     }
 
-    pub fn extract_chunk_data(&self) -> Vec<u8> {
+    pub async fn extract_chunk_data(&self) -> Vec<u8> {
         let mut buf = Vec::new();
 
-        for section in &self.chunk.sections {
+        for section in &self.chunk.data.read().await.sections {
             section.write(&mut buf);
         }
 

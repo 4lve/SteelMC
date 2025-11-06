@@ -2,6 +2,7 @@ use std::{fmt::Debug, hash::Hash};
 
 use steel_utils::BlockStateId;
 
+/// 3d array indexed by y,z,x
 type Cube<T, const DIM: usize> = [[[T; DIM]; DIM]; DIM];
 
 #[derive(Debug, Clone)]

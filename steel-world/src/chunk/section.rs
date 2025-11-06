@@ -1,11 +1,56 @@
 use std::fmt::Debug;
 
-use steel_utils::types::Todo;
+use steel_utils::{BlockStateId, types::Todo};
 
 use crate::chunk::paletted_container::BlockPalette;
 
-#[derive(Debug, Clone)]
-pub struct SubChunk {}
+#[derive(Debug)]
+pub struct Sections {
+    pub sections: Box<[ChunkSection]>,
+}
+
+impl Sections {
+    pub const fn get(&self) -> &[ChunkSection] {
+        &self.sections
+    }
+
+    pub fn get_relative_block(
+        &self,
+        relative_x: usize,
+        relative_y: usize,
+        relative_z: usize,
+    ) -> Option<BlockStateId> {
+        debug_assert!(relative_x < BlockPalette::SIZE);
+        debug_assert!(relative_z < BlockPalette::SIZE);
+
+        let section_index = relative_y / BlockPalette::SIZE;
+        let relative_y = relative_y % BlockPalette::SIZE;
+        self.sections
+            .get(section_index)
+            .map(|section| section.states.get(relative_x, relative_y, relative_z))
+    }
+
+    pub fn set_relative_block(
+        &mut self,
+        relative_x: usize,
+        relative_y: usize,
+        relative_z: usize,
+        value: BlockStateId,
+    ) {
+        debug_assert!(relative_x < BlockPalette::SIZE);
+        debug_assert!(relative_z < BlockPalette::SIZE);
+
+        let idx = relative_y / BlockPalette::SIZE;
+        let relative_y = relative_y % BlockPalette::SIZE;
+        println!(
+            "setting block at {}, {}, {} to {}",
+            relative_x, relative_y, relative_z, value.0
+        );
+        self.sections[idx]
+            .states
+            .set(relative_x, relative_y, relative_z, value);
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct ChunkSection {
