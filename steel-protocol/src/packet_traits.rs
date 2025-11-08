@@ -98,7 +98,6 @@ impl Default for CompressionInfo {
 pub struct EncodedPacket {
     // This is optimized for reduces allocation
     pub encoded_data: Arc<FrontVec>,
-    pub compressed: bool,
 }
 
 impl EncodedPacket {
@@ -115,7 +114,6 @@ impl EncodedPacket {
 
         Ok(Self {
             encoded_data: Arc::new(packet_data),
-            compressed: false,
         })
     }
 
@@ -160,7 +158,6 @@ impl EncodedPacket {
 
             Ok(Self {
                 encoded_data: Arc::new(buf),
-                compressed: true,
             })
         } else {
             // Pushed before data:
@@ -175,7 +172,6 @@ impl EncodedPacket {
 
             Ok(Self {
                 encoded_data: Arc::new(packet_data),
-                compressed: false,
             })
         }
     }
