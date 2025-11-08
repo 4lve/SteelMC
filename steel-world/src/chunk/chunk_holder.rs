@@ -3,13 +3,13 @@ use std::sync::Arc;
 use tokio::sync::watch;
 
 use crate::chunk::{
-    chunk_access::{ChunkAccses, ChunkStatus},
+    chunk_access::{ChunkAccess, ChunkStatus},
     proto_chunk::ProtoChunk,
 };
 
-pub type ChunkStageHolder = (ChunkStatus, Arc<ChunkAccses>);
+pub type ChunkStageHolder = (ChunkStatus, Arc<ChunkAccess>);
 
-// Holds a ChunkAccsess
+// Holds a ChunkAccess
 pub struct ChunkHolder {
     // Will hold None if the chunk is cancelled.
     chunk_access: watch::Receiver<Option<ChunkStageHolder>>,
@@ -20,7 +20,7 @@ impl ChunkHolder {
     pub fn new(proto_chunk: ProtoChunk) -> Self {
         let (sender, receiver) = watch::channel(Some((
             ChunkStatus::Empty,
-            Arc::new(ChunkAccses::Proto(proto_chunk)),
+            Arc::new(ChunkAccess::Proto(proto_chunk)),
         )));
         Self {
             chunk_access: receiver,
@@ -29,7 +29,7 @@ impl ChunkHolder {
     }
 
     // Will return None if the chunk is not full or is cancelled.
-    pub fn try_get_full(&self) -> Option<Arc<ChunkAccses>> {
+    pub fn try_get_full(&self) -> Option<Arc<ChunkAccess>> {
         match &*self.chunk_access.borrow() {
             Some((ChunkStatus::Full, chunk)) => Some(chunk.clone()),
             _ => None,
@@ -37,7 +37,7 @@ impl ChunkHolder {
     }
 
     // Will wait until this chunk has reached the Full status. Will return None if the chunk generation iss cancelled.
-    pub async fn as_full(&self) -> Option<Arc<ChunkAccses>> {
+    pub async fn as_full(&self) -> Option<Arc<ChunkAccess>> {
         let mut subscriber = self.sender.subscribe();
         loop {
             let chunk_access = subscriber.borrow();

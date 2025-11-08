@@ -17,12 +17,12 @@ pub enum ChunkStatus {
     Full,
 }
 
-pub enum ChunkAccses {
+pub enum ChunkAccess {
     Full(LevelChunk),
     Proto(ProtoChunk),
 }
 
-impl ChunkAccses {
+impl ChunkAccess {
     pub fn into_full(self) -> Self {
         match self {
             Self::Proto(proto_chunk) => Self::Full(LevelChunk::from_proto(proto_chunk)),
