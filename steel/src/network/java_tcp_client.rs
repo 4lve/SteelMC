@@ -61,6 +61,8 @@ impl Debug for ConnectionUpdate {
     }
 }
 
+/// Connection for pre play packets
+/// Gets dropped by incoming_packet_task if closed or upgradet to play connection
 pub struct JavaTcpClient {
     pub id: u64,
     /// The client's game profile information.
