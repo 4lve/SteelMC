@@ -11,6 +11,7 @@ pub type ChunkStageHolder = (ChunkStatus, Arc<ChunkAccess>);
 
 // Holds a ChunkAccess
 pub struct ChunkHolder {
+    
     // Will hold None if the chunk is cancelled.
     chunk_access: watch::Receiver<Option<ChunkStageHolder>>,
     sender: watch::Sender<Option<ChunkStageHolder>>,
