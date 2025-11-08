@@ -88,6 +88,7 @@ pub struct JavaTcpClient {
 }
 
 impl JavaTcpClient {
+    #[must_use]
     pub fn new(
         tcp_stream: TcpStream,
         address: SocketAddr,
