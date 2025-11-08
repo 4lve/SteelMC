@@ -1617,6 +1617,7 @@ dependencies = [
  "scc",
  "serde",
  "steel-protocol",
+ "steel-registry",
  "steel-utils",
  "tokio",
  "tokio-util",

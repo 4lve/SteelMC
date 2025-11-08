@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 steel-utils = { path = "../steel-utils" }
 steel-protocol = { path = "../steel-protocol" }
+steel-registry = { path = "../steel-registry" }
 scc.workspace = true
 uuid.workspace = true
 serde.workspace = true

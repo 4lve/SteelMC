@@ -2,38 +2,32 @@ pub mod chunk_sender;
 mod game_profile;
 pub mod networking;
 
+use std::sync::Arc;
+
 pub use game_profile::GameProfile;
 
-use steel_protocol::{
-    packets::{common::SCustomPayload, game::SClientTickEnd},
-    utils::EnqueuedPacket,
-};
-use tokio::sync::mpsc::UnboundedSender;
-use tokio_util::sync::CancellationToken;
+use steel_protocol::packets::common::SCustomPayload;
 
-use crate::player::chunk_sender::ChunkSender;
+use crate::{player::networking::JavaConnection, world::World};
 
-#[derive(Debug, Clone)]
 pub struct Player {
-    pub game_profile: GameProfile,
-    pub outgoing_packets: UnboundedSender<EnqueuedPacket>,
-    pub cancel_token: CancellationToken,
+    pub gameprofile: GameProfile,
+    pub connection: Arc<JavaConnection>,
 
-    // Im still not sure if this is the right place but we can find out in the near future
-    pub chunk_sender: ChunkSender,
+    pub world: Arc<World>,
 }
 
 impl Player {
     pub fn new(
-        game_profile: GameProfile,
-        outgoing_packets: UnboundedSender<EnqueuedPacket>,
-        cancel_token: CancellationToken,
+        gameprofile: GameProfile,
+        connection: Arc<JavaConnection>,
+        world: Arc<World>,
     ) -> Self {
         Self {
-            game_profile,
-            outgoing_packets,
-            cancel_token,
-            chunk_sender: ChunkSender::default(),
+            gameprofile,
+            connection,
+
+            world,
         }
     }
 
@@ -41,7 +35,7 @@ impl Player {
         log::info!("Hello from the other side! {packet:?}");
     }
 
-    pub fn handle_client_tick_end(&self, packet: SClientTickEnd) {
-        log::info!("Hello from the other side! {packet:?}");
+    pub fn handle_client_tick_end(&self) {
+        log::info!("Hello from the other side!");
     }
 }

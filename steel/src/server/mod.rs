@@ -1,6 +1,6 @@
 pub mod key_store;
 
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
 
 use steel_protocol::packets::game::{CLogin, CommonPlayerSpawnInfo};
 use steel_registry::Registry;
@@ -42,10 +42,8 @@ impl Server {
 }
 
 impl WorldServer for Server {
-    fn add_player(&self, player: Player) -> Weak<Player> {
-        let player = Arc::new(player);
-
-        player.send_packet(CLogin {
+    fn add_player(&self, player: Arc<Player>) {
+        player.connection.send_packet(CLogin {
             player_id: 0,
             hardcore: false,
             levels: vec![Identifier::vanilla_static("overworld")],
@@ -69,7 +67,6 @@ impl WorldServer for Server {
             },
             enforces_secure_chat: true,
         });
-        self.worlds[0].add_player(player.clone());
-        Arc::downgrade(&player)
+        self.worlds[0].add_player(player);
     }
 }

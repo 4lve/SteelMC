@@ -171,7 +171,7 @@ impl JavaTcpClient {
                 compression.threshold.get().try_into().unwrap(),
             ))
             .await;
-            self.compression_info.store(Some(compression));
+            self.compression.store(Some(compression));
             self.connection_updates
                 .send(ConnectionUpdate::EnableCompression(compression))
                 .unwrap();
