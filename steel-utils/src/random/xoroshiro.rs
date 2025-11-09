@@ -34,7 +34,6 @@ impl Xoroshiro {
         Self::new(lo, hi)
     }
 
-    #[inline]
     fn new(lo: u64, hi: u64) -> Self {
         let (lo, hi) = if (lo | hi) == 0 {
             (GOLDEN_RATIO_64, SILVER_RATIO_64)
@@ -48,19 +47,16 @@ impl Xoroshiro {
         }
     }
 
-    #[inline(always)]
     fn upgrade_seed_to_128_bit(seed: u64) -> (u64, u64) {
         let lo = seed ^ SILVER_RATIO_64;
         let hi = lo.wrapping_add(GOLDEN_RATIO_64);
         (lo, hi)
     }
 
-    #[inline(always)]
     fn next(&mut self, bits: u64) -> u64 {
         self.next_random() >> (64 - bits)
     }
 
-    #[inline(always)]
     fn next_random(&mut self) -> u64 {
         let l = self.seed_lo;
         let m = self.seed_hi;
@@ -73,18 +69,15 @@ impl Xoroshiro {
 }
 
 impl MarsagliaPolarGaussian for Xoroshiro {
-    #[inline(always)]
     fn stored_next_gaussian(&self) -> Option<f64> {
         self.next_gaussian
     }
 
-    #[inline(always)]
     fn set_stored_next_gaussian(&mut self, value: Option<f64>) {
         self.next_gaussian = value;
     }
 }
 
-#[inline(always)]
 fn mix_stafford_13(z: u64) -> u64 {
     let z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
     let z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
@@ -92,17 +85,14 @@ fn mix_stafford_13(z: u64) -> u64 {
 }
 
 impl Random for Xoroshiro {
-    #[inline]
     fn fork(&mut self) -> Self {
         Self::new(self.next_random(), self.next_random())
     }
 
-    #[inline(always)]
     fn next_i32(&mut self) -> i32 {
         self.next_random() as i32
     }
 
-    #[inline]
     fn next_i32_bounded(&mut self, bound: i32) -> i32 {
         let mut l = (self.next_i32() as u64) & 0xFFFFFFFF;
         let mut m = l.wrapping_mul(bound as u64);
@@ -119,32 +109,26 @@ impl Random for Xoroshiro {
         o as i32
     }
 
-    #[inline(always)]
     fn next_i64(&mut self) -> i64 {
         self.next_random() as i64
     }
 
-    #[inline(always)]
     fn next_f32(&mut self) -> f32 {
         self.next(24) as f32 * 5.9604645e-8
     }
 
-    #[inline(always)]
     fn next_f64(&mut self) -> f64 {
         self.next(53) as f64 * 1.110223e-16
     }
 
-    #[inline(always)]
     fn next_bool(&mut self) -> bool {
         (self.next_random() & 1) != 0
     }
 
-    #[inline]
     fn next_gaussian(&mut self) -> f64 {
         self.calculate_gaussian()
     }
 
-    #[inline]
     fn next_positional(&mut self) -> RandomSplitter {
         RandomSplitter::Xoroshiro(XoroshiroSplitter {
             seed_lo: self.next_random(),
@@ -154,7 +138,6 @@ impl Random for Xoroshiro {
 }
 
 impl PositionalRandom for XoroshiroSplitter {
-    #[inline]
     fn at(&self, x: i32, y: i32, z: i32) -> RandomSource {
         let l = get_seed(x, y, z) as u64;
         let m = l ^ self.seed_lo;
@@ -162,7 +145,6 @@ impl PositionalRandom for XoroshiroSplitter {
         RandomSource::Xoroshiro(Xoroshiro::new(m, self.seed_hi))
     }
 
-    #[inline]
     fn with_hash_of(&self, name: &str) -> RandomSource {
         let bytes = md5::compute(name.as_bytes());
         let l = u64::from_be_bytes(bytes[0..8].try_into().unwrap());
@@ -170,7 +152,6 @@ impl PositionalRandom for XoroshiroSplitter {
         RandomSource::Xoroshiro(Xoroshiro::new(l ^ self.seed_lo, m ^ self.seed_hi))
     }
 
-    #[inline(always)]
     fn with_seed(&self, seed: u64) -> RandomSource {
         RandomSource::Xoroshiro(Xoroshiro::new(seed ^ self.seed_lo, seed ^ self.seed_hi))
     }
