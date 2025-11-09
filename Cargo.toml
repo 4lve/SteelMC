@@ -37,3 +37,10 @@ crossbeam = "0.8.4"
 uuid = { version = "1.18.1", features = ["serde"] }
 log = "0.4.28"
 simdnbt = "0.8.0"
+
+[profile.release]
+lto = true
+codegen-units = 1
+
+[profile.bench]
+debug = true
