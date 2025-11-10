@@ -74,9 +74,6 @@ impl Xoroshiro {
         unsafe {
             let n;
             asm!(
-                // n = rax
-                // seed_lo = rcx
-                // seed_hi = rdx
                 "mov {copy_seed_lo}, {seed_lo}", // create a temporary copy of seed_lo
                 "mov {copy_seed_hi}, {seed_hi}", // create a temporary copy of seed_hi
                 "xor {seed_hi}, {copy_seed_lo}", // seed_hi = seed_hi ^ seed_lo
@@ -92,7 +89,6 @@ impl Xoroshiro {
                 seed_lo = inout(reg) self.seed_lo,
                 seed_hi = inout(reg) self.seed_hi,
                 out("rax") n,
-                // modified register
                 copy_seed_lo = out(reg) _,
                 copy_seed_hi = out(reg) _,
                 out("r8") _,
