@@ -11,6 +11,7 @@ pub mod codec;
 mod front_vec;
 pub mod locks;
 pub mod math;
+pub mod random;
 pub mod serial;
 pub mod text;
 pub mod types;
