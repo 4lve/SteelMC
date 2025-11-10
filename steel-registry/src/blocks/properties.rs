@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-pub use steel_utils::math::vector3::Axis;
+pub use steel_utils::math::Axis;
 
 pub trait Property<T>: Sync + Send {
     fn get_value(&self, value: &str) -> Option<T>;

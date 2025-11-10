@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use scc::HashMap;
+use uuid::Uuid;
 
 use crate::{ChunkMap, player::Player};
 
@@ -8,7 +9,7 @@ mod world_entities;
 
 pub struct World {
     pub chunk_map: ChunkMap,
-    pub players: HashMap<uuid::Uuid, Arc<Player>>,
+    pub players: HashMap<Uuid, Arc<Player>>,
 }
 
 impl World {

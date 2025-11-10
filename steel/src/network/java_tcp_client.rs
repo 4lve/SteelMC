@@ -14,7 +14,7 @@ use steel_protocol::{
         common::{CDisconnect, SClientInformation, SCustomPayload},
         config::SSelectKnownPacks,
         handshake::{ClientIntent, SClientIntention},
-        login::{CLoginDisconnect, SHello, SKey, SLoginAcknowledged},
+        login::{CLoginDisconnect, SHello, SKey},
         status::{SPingRequest, SStatusRequest},
     },
     utils::{ConnectionProtocol, EnqueuedPacket, PacketError, RawPacket},
@@ -253,8 +253,11 @@ impl JavaTcpClient {
                 }
             }
 
-            drop(connection_updated);
+            drop(cancel_token);
+            drop(network_writer);
+            drop(compression);
             drop(connection_updates_recv);
+            drop(connection_updated);
 
             if let Some(connection) = connection {
                 connection.sender(sender_recv).await;
@@ -325,6 +328,7 @@ impl JavaTcpClient {
                 }
             }
 
+            drop(cancel_token);
             drop(connection_updates_recv);
             drop(connection_updated);
             drop(self_clone);
@@ -387,8 +391,7 @@ impl JavaTcpClient {
             login::S_HELLO => self.handle_hello(SHello::read_packet(data)?).await,
             login::S_KEY => self.handle_key(SKey::read_packet(data)?).await,
             login::S_LOGIN_ACKNOWLEDGED => {
-                self.handle_login_acknowledged(SLoginAcknowledged::read_packet(data)?)
-                    .await;
+                self.handle_login_acknowledged().await;
             }
             _ => unreachable!(),
         }

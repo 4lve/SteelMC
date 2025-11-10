@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, io::Cursor};
 
 use steel_utils::{BlockStateId, types::Todo};
 
@@ -56,6 +56,7 @@ impl Sections {
 pub struct ChunkSection {
     pub states: BlockPalette,
     pub biomes: Todo,
+    pub non_empty_block_count: u32,
 }
 
 impl ChunkSection {
@@ -63,7 +64,7 @@ impl ChunkSection {
         Self { states, biomes: () }
     }
 
-    pub fn write(&self, _buf: &mut Vec<u8>) {
-        todo!()
+    pub fn write(&self, buf: &mut Cursor<Vec<u8>>) {
+        self.states.
     }
 }

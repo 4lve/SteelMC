@@ -10,7 +10,7 @@ use steel_utils::{ChunkPos, codec::VarInt, serial::WriteTo};
 pub struct CLevelChunkWithLight {
     pub pos: ChunkPos,
     pub heightmaps: (),
-    pub chunk: (),
+    pub chunk_data: Vec<u8>,
 }
 
 impl WriteTo for CLevelChunkWithLight {

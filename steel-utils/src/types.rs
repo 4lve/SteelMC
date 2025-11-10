@@ -8,7 +8,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    math::{vector2::Vector2, vector3::Vector3},
+    math::{Vector2, Vector3},
     serial::{ReadFrom, WriteTo},
 };
 

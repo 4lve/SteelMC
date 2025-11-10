@@ -3,7 +3,7 @@ use rsa::Pkcs1v15Encrypt;
 use sha1::Sha1;
 use sha2::{Digest, Sha256};
 use steel_protocol::{
-    packets::login::{CHello, CLoginCompression, CLoginFinished, SHello, SKey, SLoginAcknowledged},
+    packets::login::{CHello, CLoginCompression, CLoginFinished, SHello, SKey},
     utils::ConnectionProtocol,
 };
 use steel_utils::{text::TextComponent, translations};
@@ -187,7 +187,7 @@ impl JavaTcpClient {
         .await;
     }
 
-    pub async fn handle_login_acknowledged(&self, _packet: SLoginAcknowledged) {
+    pub async fn handle_login_acknowledged(&self) {
         self.protocol.store(ConnectionProtocol::Config);
 
         self.start_configuration().await;

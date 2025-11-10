@@ -1,3 +1,5 @@
+use std::io::Cursor;
+
 use crate::chunk::level_chunk::LevelChunk;
 
 /// ClientboundLevelChunkPacketData in java
@@ -11,13 +13,13 @@ impl<'a> ChunkPacketData<'a> {
         Self { chunk }
     }
 
-    pub async fn extract_chunk_data(&self) -> Vec<u8> {
-        let mut buf = Vec::new();
+    pub fn extract_chunk_data(&self) -> Vec<u8> {
+        let mut buf = Cursor::new(Vec::new());
 
-        for section in &self.chunk.sections.read().await.sections {
+        for section in &self.chunk.sections.blocking_read().sections {
             section.write(&mut buf);
         }
 
-        buf
+        buf.into_inner()
     }
 }
