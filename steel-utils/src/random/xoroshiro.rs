@@ -74,9 +74,9 @@ impl Xoroshiro {
         unsafe {
             let n;
             asm!(
-                "eor {out_seed_lo}, {seed_hi}, {in_seed_lo}, ror 15", // seed_lo = seed_hi ^ ror(seed_lo, 15)
                 "add x0, {in_seed_lo}, {seed_hi}", // n = seed_lo + seed_hi
                 "eor {seed_hi}, {in_seed_lo}, {seed_hi}", // seed_hi = seed_lo ^ seed_hi
+                "eor {out_seed_lo}, {seed_hi}, {in_seed_lo}, ror 15", // seed_lo = seed_hi ^ rol(seed_lo, 49)
                 "ror x0, x0, 47", // n = rol(n, 17)
                 "eor {out_seed_lo}, {out_seed_lo}, {seed_hi}, lsl 21", // seed_lo = seed_lo ^ (seed_hi << 21)
                 "ror {seed_hi}, {seed_hi}, 36", // seed_hi = ror(seed_hi, 36)
