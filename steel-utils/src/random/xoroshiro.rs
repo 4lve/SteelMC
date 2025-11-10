@@ -58,7 +58,7 @@ impl Xoroshiro {
         self.next_random() >> (64 - bits)
     }
 
-    #[cfg(all(not(target_arch = "x86_64"), not(target_arch = "aarch64")))]
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
     fn next_random(&mut self) -> u64 {
         let l = self.seed_lo;
         let m = self.seed_hi;
@@ -74,8 +74,9 @@ impl Xoroshiro {
         unsafe {
             let n;
             asm!(
-                "add x0, {in_seed_lo}, {seed_hi}", // n = seed_lo + seed_hi
+                "mov {copy_seed_hi}, {seed_hi}", // create a temporary copy of seed_hi
                 "eor {seed_hi}, {in_seed_lo}, {seed_hi}", // seed_hi = seed_lo ^ seed_hi
+                "add x0, {in_seed_lo}, {copy_seed_hi}", // n = seed_lo + seed_hi
                 "eor {out_seed_lo}, {seed_hi}, {in_seed_lo}, ror 15", // seed_lo = seed_hi ^ rol(seed_lo, 49)
                 "ror x0, x0, 47", // n = rol(n, 17)
                 "eor {out_seed_lo}, {out_seed_lo}, {seed_hi}, lsl 21", // seed_lo = seed_lo ^ (seed_hi << 21)
@@ -84,6 +85,7 @@ impl Xoroshiro {
                 in_seed_lo = in(reg) self.seed_lo,
                 out_seed_lo = out(reg) self.seed_lo,
                 seed_hi = inout(reg) self.seed_hi,
+                copy_seed_hi = out(reg) _,
                 out("x0") n,
                 options(nostack, nomem, preserves_flags),
             );
