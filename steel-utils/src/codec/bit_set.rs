@@ -1,4 +1,4 @@
-use std::io::{Read, Write, Result};
+use std::io::{Read, Result, Write};
 
 use crate::serial::{PrefixedRead, PrefixedWrite, ReadFrom, WriteTo};
 

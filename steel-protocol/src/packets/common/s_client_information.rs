@@ -22,13 +22,13 @@ pub enum ParticleStatus {
 
 #[derive(ReadFrom, ServerPacket, Clone, Debug)]
 pub struct SClientInformation {
-    #[read_as(as = "string", bound = 16)]
+    #[read(as = "string", bound = 16)]
     pub language: String,
-    #[read_as(as = "var_int")]
+    #[read(as = "var_int")]
     pub view_distance: i32,
     pub chat_visibility: ChatVisibility,
     pub chat_colors: bool,
-    #[read_as(as = "var_int")]
+    #[read(as = "var_int")]
     pub model_customisation: i32,
     pub main_hand: HumanoidArm,
     pub text_filtering_enabled: bool,

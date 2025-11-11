@@ -12,13 +12,12 @@ use steel_protocol::utils::ConnectionProtocol;
 use steel_utils::Identifier;
 use steel_world::player::Player;
 use steel_world::player::networking::JavaConnection;
-use steel_world::server::WorldServer;
 
 use crate::MC_VERSION;
 use crate::network::JavaTcpClient;
 use crate::network::java_tcp_client::ConnectionUpdate;
 
-const BRAND_PAYLOAD: &[u8; 5] = b"Steel";
+const BRAND_PAYLOAD: [u8; 5] = *b"Steel";
 
 impl JavaTcpClient {
     pub fn handle_config_custom_payload(&self, packet: SCustomPayload) {
@@ -32,7 +31,7 @@ impl JavaTcpClient {
     pub async fn start_configuration(&self) {
         self.send_bare_packet_now(CCustomPayload::new(
             Identifier::vanilla_static("brand"),
-            Box::new(*BRAND_PAYLOAD),
+            Box::new(BRAND_PAYLOAD),
         ))
         .await;
 

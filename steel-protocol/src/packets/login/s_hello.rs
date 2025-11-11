@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 #[derive(ReadFrom, ServerPacket, Clone, Debug)]
 pub struct SHello {
-    #[read_as(as = "string", bound = 16)]
+    #[read(as = "string", bound = 16)]
     pub name: String,
     pub profile_id: Uuid,
 }

@@ -54,11 +54,11 @@ impl JavaTcpClient {
 
         if STEEL_CONFIG.encryption {
             let challenge: [u8; 4] = rand::random();
-            self.challenge.store(Some(challenge));
+            self.challenge.store(challenge);
 
             self.send_bare_packet_now(CHello::new(
                 String::new(),
-                self.server.key_store.public_key_der.clone(),
+                &self.server.key_store.public_key_der,
                 challenge,
                 true,
             ))
@@ -66,7 +66,7 @@ impl JavaTcpClient {
         } else {
             self.finish_login(&GameProfile {
                 id,
-                name: packet.name.clone(),
+                name: packet.name,
                 properties: vec![],
                 profile_actions: None,
             })
@@ -76,12 +76,6 @@ impl JavaTcpClient {
 
     pub async fn handle_key(&self, packet: SKey) {
         let challenge = self.challenge.load();
-
-        let Some(challenge) = challenge else {
-            self.kick(TextComponent::new().text("No challenge found"))
-                .await;
-            return;
-        };
 
         let Ok(challenge_response) = self
             .server
@@ -140,6 +134,7 @@ impl JavaTcpClient {
                 .chain_update(&self.server.key_store.public_key_der)
                 .finalize();
 
+            // TODO! Remove BigInt & make our own util for that
             let server_hash = BigInt::from_signed_bytes_be(server_hash).to_str_radix(16);
 
             match mojang_authenticate(&profile.name, &server_hash).await {
@@ -181,8 +176,8 @@ impl JavaTcpClient {
 
         self.send_bare_packet_now(CLoginFinished::new(
             profile.id,
-            profile.name.clone(),
-            profile.properties.clone(),
+            &profile.name,
+            &profile.properties,
         ))
         .await;
     }

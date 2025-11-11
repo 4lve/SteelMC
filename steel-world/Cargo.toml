@@ -3,6 +3,9 @@ name = "steel-world"
 version.workspace = true
 edition.workspace = true
 
+[features]
+stand-alone = []
+
 [dependencies]
 steel-utils = { path = "../steel-utils" }
 steel-protocol = { path = "../steel-protocol" }
@@ -14,3 +17,8 @@ tokio.workspace = true
 tokio-util.workspace = true
 log.workspace = true
 replace_with = { version = "0.1.8", features = ["nightly"] }
+rsa = "0.10.0-rc.9"
+rsa-der = "0.3.0"
+rand = "0.9.2"
+serde_json5 = "0.2.1"
+base64 = "0.22.1"

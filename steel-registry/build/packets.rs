@@ -10,7 +10,7 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct Packets {
-    version: u32,
+    version: i32,
     serverbound: BTreeMap<String, Vec<String>>,
     clientbound: BTreeMap<String, Vec<String>>,
 }
@@ -50,7 +50,7 @@ pub(crate) fn build() -> TokenStream {
 
     quote!(
         /// The current Minecraft protocol version. This changes only when the protocol itself is modified.
-        pub const CURRENT_MC_PROTOCOL: u32 = #version;
+        pub const CURRENT_MC_PROTOCOL: i32 = #version;
 
         #consts
     )

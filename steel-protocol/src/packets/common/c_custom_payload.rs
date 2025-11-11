@@ -7,7 +7,7 @@ use steel_utils::Identifier;
 #[packet_id(Config = C_CUSTOM_PAYLOAD, Play = PLAY_C_CUSTOM_PAYLOAD)]
 pub struct CCustomPayload {
     pub identifier: Identifier,
-    #[write_as(as = "vec")]
+    #[write(as = "vec")]
     pub payload: Box<[u8]>,
 }
 

@@ -2,9 +2,9 @@ use steel_macros::{ReadFrom, ServerPacket};
 
 #[derive(ReadFrom, ServerPacket, Clone, Debug)]
 pub struct SKey {
-    #[read_as(as = "vec")]
+    #[read(as = "vec")]
     pub key: Vec<u8>,
-    #[read_as(as = "vec")]
+    #[read(as = "vec")]
     pub challenge: Vec<u8>,
 }
 

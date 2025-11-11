@@ -7,5 +7,6 @@ mod s_custom_payload;
 pub use c_custom_payload::CCustomPayload;
 pub use c_disconnect::CDisconnect;
 pub use c_update_tags::CUpdateTags;
+pub use c_update_tags::TagCollection;
 pub use s_client_information::SClientInformation;
 pub use s_custom_payload::SCustomPayload;

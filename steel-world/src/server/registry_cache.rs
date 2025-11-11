@@ -1,6 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use steel_protocol::packet_traits::{ClientPacket, EncodedPacket};
+use steel_protocol::packets::common::TagCollection;
 use steel_protocol::{
     packets::{
         common::CUpdateTags,
@@ -19,7 +20,7 @@ use steel_registry::{
 use steel_utils::Identifier;
 use steel_utils::codec::VarInt;
 
-use crate::STEEL_CONFIG;
+use crate::config::STEEL_CONFIG;
 
 pub struct RegistryCache {
     pub registry_packets: Arc<[EncodedPacket]>,
@@ -84,38 +85,39 @@ impl RegistryCache {
     }
 
     fn build_tags_packet(registry: &Registry) -> CUpdateTags {
-        let mut tags_by_registry: HashMap<Identifier, HashMap<Identifier, Vec<VarInt>>> =
-            HashMap::new();
+        let mut tags_by_registry: TagCollection = Vec::with_capacity(2);
 
         // Build block tags
-        let mut block_tags: HashMap<Identifier, Vec<VarInt>> = HashMap::new();
+        let mut block_tags: Vec<(Identifier, Vec<VarInt>)> =
+            Vec::with_capacity(registry.blocks.tag_keys().count());
         for tag_key in registry.blocks.tag_keys() {
-            let mut block_ids = Vec::new();
+            let mut block_ids = Vec::with_capacity(registry.blocks.iter_tag(tag_key).count());
 
             for block in registry.blocks.iter_tag(tag_key) {
                 let block_id = *registry.blocks.get_id(block);
                 block_ids.push(VarInt(i32::try_from(block_id).unwrap()));
             }
 
-            block_tags.insert(tag_key.clone(), block_ids);
+            block_tags.push((tag_key.clone(), block_ids));
         }
 
-        tags_by_registry.insert(BLOCKS_REGISTRY, block_tags);
+        tags_by_registry.push((BLOCKS_REGISTRY, block_tags));
 
         // Build item tags
-        let mut item_tags: HashMap<Identifier, Vec<VarInt>> = HashMap::new();
+        let mut item_tags: Vec<(Identifier, Vec<VarInt>)> =
+            Vec::with_capacity(registry.items.tag_keys().count());
         for tag_key in registry.items.tag_keys() {
-            let mut item_ids = Vec::new();
+            let mut item_ids = Vec::with_capacity(registry.items.iter_tag(tag_key).count());
 
             for item in registry.items.iter_tag(tag_key) {
                 let item_id = *registry.items.get_id(item);
                 item_ids.push(VarInt(i32::try_from(item_id).unwrap()));
             }
 
-            item_tags.insert(tag_key.clone(), item_ids);
+            item_tags.push((tag_key.clone(), item_ids));
         }
 
-        tags_by_registry.insert(ITEMS_REGISTRY, item_tags);
+        tags_by_registry.push((ITEMS_REGISTRY, item_tags));
 
         // Build and return a CUpdateTagsPacket based on the registry data
         CUpdateTags::new(tags_by_registry)

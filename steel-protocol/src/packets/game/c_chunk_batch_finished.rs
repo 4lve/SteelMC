@@ -5,6 +5,6 @@ use steel_registry::packets::play::C_CHUNK_BATCH_FINISHED;
 #[derive(ClientPacket, WriteTo)]
 #[packet_id(Play = C_CHUNK_BATCH_FINISHED)]
 pub struct CChunkBatchFinished {
-    #[write_as(as = "var_int")]
+    #[write(as = "var_int")]
     pub batch_size: i32,
 }

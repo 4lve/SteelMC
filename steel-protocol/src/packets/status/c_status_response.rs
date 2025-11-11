@@ -25,7 +25,7 @@ pub struct Version {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Status {
-    pub description: String,
+    pub description: &'static str,
     pub players: Option<Players>,
     pub version: Option<Version>,
     pub favicon: Option<String>,
@@ -35,7 +35,7 @@ pub struct Status {
 #[derive(ClientPacket, WriteTo, Clone, Debug)]
 #[packet_id(Status = C_STATUS_RESPONSE)]
 pub struct CStatusResponse {
-    #[write_as(as = "json")]
+    #[write(as = "json")]
     status: Status,
 }
 

@@ -1,6 +1,6 @@
 use std::{fmt::Debug, io::Cursor};
 
-use steel_utils::{BlockStateId, types::Todo};
+use steel_utils::{BlockStateId, serial::WriteTo, types::Todo};
 
 use crate::chunk::paletted_container::BlockPalette;
 
@@ -56,7 +56,6 @@ impl Sections {
 pub struct ChunkSection {
     pub states: BlockPalette,
     pub biomes: Todo,
-    pub non_empty_block_count: u32,
 }
 
 impl ChunkSection {
@@ -64,7 +63,7 @@ impl ChunkSection {
         Self { states, biomes: () }
     }
 
-    pub fn write(&self, buf: &mut Cursor<Vec<u8>>) {
-        self.states.
+    pub fn write(&self, writer: &mut Cursor<Vec<u8>>) {
+        self.states.non_empty_block_count().write(writer).unwrap();
     }
 }

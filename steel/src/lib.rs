@@ -8,22 +8,18 @@
     clippy::needless_pass_by_value,
     clippy::cargo_common_metadata
 )]
-use crate::{network::JavaTcpClient, server::Server, steel_config::SteelConfig};
+use crate::network::JavaTcpClient;
 use std::{
-    path::Path,
-    sync::{Arc, LazyLock},
+    net::{Ipv4Addr, SocketAddrV4},
+    sync::Arc,
 };
+use steel_world::{config::STEEL_CONFIG, server::Server};
 use tokio::{net::TcpListener, select};
 use tokio_util::sync::CancellationToken;
 
 pub mod network;
-pub mod server;
-pub mod steel_config;
 
 pub const MC_VERSION: &str = "1.21.10";
-
-pub static STEEL_CONFIG: LazyLock<SteelConfig> =
-    LazyLock::new(|| SteelConfig::load_or_create(Path::new("config/steel_config.json5")));
 
 pub struct SteelServer {
     pub tcp_listener: TcpListener,
@@ -41,9 +37,12 @@ impl SteelServer {
         let server = Server::new().await;
 
         Self {
-            tcp_listener: TcpListener::bind(STEEL_CONFIG.server_address)
-                .await
-                .unwrap(),
+            tcp_listener: TcpListener::bind(SocketAddrV4::new(
+                Ipv4Addr::UNSPECIFIED,
+                STEEL_CONFIG.server_port,
+            ))
+            .await
+            .unwrap(),
             cancel_token: CancellationToken::new(),
             client_id: 0,
             server: Arc::new(server),

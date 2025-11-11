@@ -1,3 +1,5 @@
+use std::thread::spawn;
+
 use log::LevelFilter;
 use simplelog::{ColorChoice, Config, TermLogger, TerminalMode};
 use steel::SteelServer;
@@ -13,11 +15,16 @@ async fn main() {
     )
     .unwrap();
 
-    let mut server = SteelServer::new().await;
+    let mut steel = SteelServer::new().await;
+
+    {
+        let server = steel.server.clone();
+        spawn(move || server.run());
+    }
 
     log::info!(
         "{:?}",
-        server
+        steel
             .server
             .registry
             .items
@@ -35,5 +42,5 @@ async fn main() {
             .format()
     );
 
-    server.start().await;
+    steel.start().await;
 }

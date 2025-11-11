@@ -5,6 +5,7 @@ use steel_utils::ChunkPos;
 use crate::chunk::chunk_holder::ChunkHolder;
 
 pub mod chunk;
+pub mod config;
 pub mod player;
 pub mod server;
 pub mod world;

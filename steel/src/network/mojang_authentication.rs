@@ -2,7 +2,9 @@ use reqwest::StatusCode;
 use steel_world::player::GameProfile;
 use thiserror::Error;
 
-const MOJANG_AUTHENTICATION_URL: &str = "https://sessionserver.mojang.com/session/minecraft/hasJoined?username={username}&serverId={server_hash}";
+const MOJANG_AUTH_URL: &str =
+    "https://sessionserver.mojang.com/session/minecraft/hasJoined?username=";
+const SERVER_ID_ARG: &str = "&serverId=";
 
 #[derive(Error, Debug)]
 pub enum AuthError {
@@ -40,9 +42,12 @@ pub async fn mojang_authenticate(
     username: &str,
     server_hash: &str,
 ) -> Result<GameProfile, AuthError> {
-    let auth_url = MOJANG_AUTHENTICATION_URL
-        .replace("{username}", username)
-        .replace("{server_hash}", server_hash);
+    let cap = MOJANG_AUTH_URL.len() + SERVER_ID_ARG.len() + username.len() + server_hash.len();
+    let mut auth_url = String::with_capacity(cap);
+    auth_url += MOJANG_AUTH_URL;
+    auth_url += username;
+    auth_url += SERVER_ID_ARG;
+    auth_url += server_hash;
 
     let response = reqwest::get(auth_url)
         .await
@@ -53,7 +58,6 @@ pub async fn mojang_authenticate(
         StatusCode::NO_CONTENT => Err(AuthError::UnverifiedUsername)?,
         other => Err(AuthError::UnknownStatusCode(other))?,
     }
-    let profile: GameProfile = response.json().await.map_err(|_| AuthError::FailedParse)?;
 
-    Ok(profile)
+    response.json().await.map_err(|_| AuthError::FailedParse)
 }

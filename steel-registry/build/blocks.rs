@@ -299,14 +299,6 @@ pub(crate) fn build() -> TokenStream {
 
     let mut stream = TokenStream::new();
 
-    stream.extend(quote! {
-        use crate::{
-            blocks::{behaviour::{BlockBehaviourProperties, PushReaction}, Block, offset, BlockRegistry},
-            blocks::properties::{self, BlockStateProperties, NoteBlockInstrument}
-        };
-        use steel_utils::Identifier;
-    });
-
     // Create default properties for comparison
     let default_props = BlockBehaviourProperties::new();
 
@@ -349,11 +341,17 @@ pub(crate) fn build() -> TokenStream {
         });
     }
 
-    stream.extend(quote! {
+    quote! {
+        use crate::{
+            blocks::{behaviour::{BlockBehaviourProperties, PushReaction}, Block, offset, BlockRegistry},
+            blocks::properties::{self, BlockStateProperties, NoteBlockInstrument}
+        };
+        use steel_utils::Identifier;
+
+        #stream
+
         pub fn register_blocks(registry: &mut BlockRegistry) {
             #register_stream
         }
-    });
-
-    stream
+    }
 }

@@ -1794,7 +1794,6 @@ checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 name = "steel"
 version = "0.0.0"
 dependencies = [
- "base64",
  "crossbeam",
  "log",
  "num-bigint",
@@ -1805,7 +1804,6 @@ dependencies = [
  "scc",
  "serde",
  "serde_json",
- "serde_json5",
  "sha1",
  "sha2",
  "simplelog",
@@ -1887,10 +1885,15 @@ dependencies = [
 name = "steel-world"
 version = "0.0.0"
 dependencies = [
+ "base64",
  "log",
+ "rand",
  "replace_with",
+ "rsa",
+ "rsa-der",
  "scc",
  "serde",
+ "serde_json5",
  "steel-protocol",
  "steel-registry",
  "steel-utils",

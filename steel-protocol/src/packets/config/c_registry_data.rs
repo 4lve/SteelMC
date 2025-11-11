@@ -6,7 +6,7 @@ use steel_utils::Identifier;
 #[derive(Clone, Debug, WriteTo)]
 pub struct RegistryEntry {
     pub id: Identifier,
-    #[write_as(as = "option")]
+    #[write(as = "option")]
     pub data: Option<NbtTag>,
 }
 
@@ -14,7 +14,7 @@ pub struct RegistryEntry {
 #[packet_id(Config = C_REGISTRY_DATA)]
 pub struct CRegistryData {
     pub registry: Identifier,
-    #[write_as(as = "vec")]
+    #[write(as = "vec")]
     pub entries: Vec<RegistryEntry>,
 }
 

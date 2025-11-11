@@ -10,9 +10,9 @@ const ALLOWED_TYPES: [&str; 12] = [
 const UNSUPPORTED_PROP: &str =
     "unsupported property. Supported properties are `as = \"...\"`, `bound = ...`, `prefix = ...`";
 const WRONG_FORMAT: &str =
-    "attribute requires a list format: `#[read_as(as = \"...\", bound = ..., ..)]";
+    "attribute requires a list format: `#[read(as = \"...\", bound = ..., ..)]";
 
-#[proc_macro_derive(ReadFrom, attributes(read_as))]
+#[proc_macro_derive(ReadFrom, attributes(read))]
 pub fn read_from_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
@@ -32,7 +32,7 @@ pub fn read_from_derive(input: TokenStream) -> TokenStream {
                 let mut bound: Option<syn::LitInt> = None;
                 let mut prefix: Option<syn::Type> = None;
 
-                if let Some(attr) = f.attrs.iter().find(|a| a.path().is_ident("read_as")) {
+                if let Some(attr) = f.attrs.iter().find(|a| a.path().is_ident("read")) {
                     if let Meta::List(meta) = attr.meta.clone() {
                         meta.parse_nested_meta(|meta| {
                             if meta.path.is_ident("as") {
@@ -54,7 +54,7 @@ pub fn read_from_derive(input: TokenStream) -> TokenStream {
                                 Err(meta.error(UNSUPPORTED_PROP))
                             }
                         })
-                        .unwrap_or_else(|e| panic!("Failed to parse `read_as` attribute: {}", e));
+                        .unwrap_or_else(|e| panic!("Failed to parse `read` attribute: {}", e));
                     } else {
                         panic!("{WRONG_FORMAT}");
                     }
@@ -125,7 +125,7 @@ pub fn read_from_derive(input: TokenStream) -> TokenStream {
             // Defaults to reading a varint when no attribute is provided
             let mut read_strategy: Option<String> = None;
             let mut bound: Option<syn::LitInt> = None;
-            if let Some(attr) = input.attrs.iter().find(|a| a.path().is_ident("read_as")) {
+            if let Some(attr) = input.attrs.iter().find(|a| a.path().is_ident("read")) {
                 if let Meta::List(meta) = attr.meta.clone() {
                     meta.parse_nested_meta(|meta| {
                         if meta.path.is_ident("as") {
@@ -142,7 +142,7 @@ pub fn read_from_derive(input: TokenStream) -> TokenStream {
                             Err(meta.error(UNSUPPORTED_PROP))
                         }
                     })
-                    .unwrap_or_else(|e| panic!("Failed to parse `read_as` attribute: {}", e));
+                    .unwrap_or_else(|e| panic!("Failed to parse `read` attribute: {}", e));
                 } else {
                     panic!("{WRONG_FORMAT}");
                 }
@@ -184,7 +184,7 @@ pub fn read_from_derive(input: TokenStream) -> TokenStream {
     }
 }
 
-#[proc_macro_derive(WriteTo, attributes(write_as))]
+#[proc_macro_derive(WriteTo, attributes(write))]
 pub fn write_to_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
@@ -204,7 +204,7 @@ pub fn write_to_derive(input: TokenStream) -> TokenStream {
                 let mut bound: Option<syn::LitInt> = None;
                 let mut prefix: Option<syn::Type> = None;
 
-                if let Some(attr) = f.attrs.iter().find(|a| a.path().is_ident("write_as")) {
+                if let Some(attr) = f.attrs.iter().find(|a| a.path().is_ident("write")) {
                     if let Meta::List(meta) = attr.meta.clone() {
                         meta.parse_nested_meta(|meta| {
                             if meta.path.is_ident("as") {
@@ -226,7 +226,7 @@ pub fn write_to_derive(input: TokenStream) -> TokenStream {
                                 Err(meta.error(UNSUPPORTED_PROP))
                             }
                         })
-                        .unwrap_or_else(|e| panic!("Failed to parse `write_as` attribute: {}", e));
+                        .unwrap_or_else(|e| panic!("Failed to parse `write` attribute: {}", e));
                     } else {
                         panic!("{WRONG_FORMAT}");
                     }
@@ -294,9 +294,11 @@ pub fn write_to_derive(input: TokenStream) -> TokenStream {
                 }
             });
 
+            let (impl_generics, ty_generics, _) = input.generics.split_for_impl();
+
             let expanded = quote! {
                 #[automatically_derived]
-                impl steel_utils::serial::WriteTo for #name {
+                impl #impl_generics steel_utils::serial::WriteTo for #name #ty_generics {
                     fn write(&self, writer: &mut impl std::io::Write) -> std::io::Result<()> {
                         #(#writers)*
 
@@ -310,7 +312,7 @@ pub fn write_to_derive(input: TokenStream) -> TokenStream {
         Data::Enum(_) => {
             let mut write_strategy: Option<String> = None;
             let mut bound: Option<syn::LitInt> = None;
-            if let Some(attr) = input.attrs.iter().find(|a| a.path().is_ident("write_as")) {
+            if let Some(attr) = input.attrs.iter().find(|a| a.path().is_ident("write")) {
                 if let Meta::List(meta) = attr.meta.clone() {
                     meta.parse_nested_meta(|meta| {
                         if meta.path.is_ident("as") {
@@ -327,12 +329,12 @@ pub fn write_to_derive(input: TokenStream) -> TokenStream {
                             Err(meta.error(UNSUPPORTED_PROP))
                         }
                     })
-                    .unwrap_or_else(|e| panic!("Failed to parse `write_as` attribute: {}", e));
+                    .unwrap_or_else(|e| panic!("Failed to parse `write` attribute: {}", e));
                 } else {
                     panic!("{WRONG_FORMAT}");
                 }
             } else {
-                panic!("Write enums requires the \"write_as\" attribute")
+                panic!("Write enums requires the \"write\" attribute")
             }
 
             let writer = match write_strategy.as_deref() {
@@ -352,7 +354,7 @@ pub fn write_to_derive(input: TokenStream) -> TokenStream {
                         (*self as #enum_type).write_packet(writer)?;
                     }
                 }
-                None => panic!("Expected write_as's \"as\" value"),
+                None => panic!("Expected write's \"as\" value"),
             };
             TokenStream::from(quote! {
                 #[automatically_derived]
@@ -411,9 +413,11 @@ pub fn client_packet_derive(input: TokenStream) -> TokenStream {
         }
     }
 
+    let (impl_generics, ty_generics, _) = input.generics.split_for_impl();
+
     let expanded = quote! {
         #[automatically_derived]
-        impl crate::packet_traits::ClientPacket for #name {
+        impl #impl_generics crate::packet_traits::ClientPacket for #name #ty_generics {
             fn get_id(&self, protocol: crate::utils::ConnectionProtocol) -> Option<i32> {
                 match protocol {
                     #(#match_arms)*

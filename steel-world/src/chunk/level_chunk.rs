@@ -12,7 +12,7 @@ impl LevelChunk {
     pub fn from_proto(proto_chunk: ProtoChunk) -> Self {
         Self {
             sections: proto_chunk.sections,
-            pos: proto_chunk.pos
+            pos: proto_chunk.pos,
         }
     }
 }

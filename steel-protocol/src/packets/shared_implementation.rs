@@ -2,14 +2,14 @@ use steel_macros::{ReadFrom, WriteTo};
 
 #[derive(Clone, Debug, WriteTo, ReadFrom)]
 pub struct KnownPack {
-    #[write_as(as = "string")]
-    #[read_as(as = "string")]
+    #[write(as = "string")]
+    #[read(as = "string")]
     pub namespace: String,
-    #[write_as(as = "string")]
-    #[read_as(as = "string")]
+    #[write(as = "string")]
+    #[read(as = "string")]
     pub id: String,
-    #[write_as(as = "string")]
-    #[read_as(as = "string")]
+    #[write(as = "string")]
+    #[read(as = "string")]
     pub version: String,
 }
 

@@ -15,7 +15,7 @@ use steel_protocol::{
         config::SSelectKnownPacks,
         handshake::{ClientIntent, SClientIntention},
         login::{CLoginDisconnect, SHello, SKey},
-        status::{SPingRequest, SStatusRequest},
+        status::SPingRequest,
     },
     utils::{ConnectionProtocol, EnqueuedPacket, PacketError, RawPacket},
 };
@@ -37,10 +37,7 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::{
-    network::status::{handle_ping_request, handle_status_request},
-    server::Server,
-};
+use steel_world::server::Server;
 
 #[derive(Clone)]
 pub enum ConnectionUpdate {
@@ -81,7 +78,7 @@ pub struct JavaTcpClient {
     pub(crate) compression: Arc<AtomicCell<Option<CompressionInfo>>>,
 
     pub server: Arc<Server>,
-    pub challenge: AtomicCell<Option<[u8; 4]>>,
+    pub challenge: AtomicCell<[u8; 4]>,
 
     pub(crate) connection_updates: Sender<ConnectionUpdate>,
     pub(crate) connection_updated: Arc<Notify>,
@@ -115,7 +112,7 @@ impl JavaTcpClient {
             network_writer: Arc::new(Mutex::new(TCPNetworkEncoder::new(BufWriter::new(write)))),
             compression: Arc::new(AtomicCell::new(None)),
             server,
-            challenge: AtomicCell::new(None),
+            challenge: AtomicCell::new([0; 4]),
             connection_updates,
             connection_updated: Arc::new(Notify::new()),
         };
@@ -374,10 +371,11 @@ impl JavaTcpClient {
 
         match packet.id {
             status::S_STATUS_REQUEST => {
-                handle_status_request(self, SStatusRequest::read_packet(data)?).await;
+                self.handle_status_request().await;
             }
             status::S_PING_REQUEST => {
-                handle_ping_request(self, SPingRequest::read_packet(data)?).await;
+                self.handle_ping_request(SPingRequest::read_packet(data)?)
+                    .await;
             }
             _ => unreachable!(),
         }

@@ -3,7 +3,10 @@ use std::sync::Arc;
 use steel_protocol::packets::game::{CChunkBatchFinished, CChunkBatchStart, CLevelChunkWithLight};
 use steel_utils::ChunkPos;
 
-use crate::{chunk::{chunk_packet_data::ChunkPacketData, level_chunk::LevelChunk}, player::{Player, networking::JavaConnection}};
+use crate::{
+    chunk::{chunk_packet_data::ChunkPacketData, level_chunk::LevelChunk},
+    player::{Player, networking::JavaConnection},
+};
 
 // any idea to make this shorter?
 const MAX_UNACKNOWLEDGED_BATCHES: u16 = 1;
@@ -21,7 +24,7 @@ impl ChunkSender {
         if self.unacknowledged_batches < MAX_UNACKNOWLEDGED_BATCHES {
             let max_batch_size = self.desired_chunks_per_tick.max(1.0);
             self.batch_quota = max_batch_size.min(self.desired_chunks_per_tick + self.batch_quota);
-            
+
             if self.batch_quota >= 1.0 && !self.pending_chunks.is_empty() {
                 let chunks_to_send: Vec<LevelChunk> = Vec::new();
                 if !chunks_to_send.is_empty() {
@@ -34,7 +37,9 @@ impl ChunkSender {
                         Self::send_chunk(chunk, connection);
                     }
 
-                    connection.send_packet(CChunkBatchFinished { batch_size: chunks_to_send.len() as _ });
+                    connection.send_packet(CChunkBatchFinished {
+                        batch_size: chunks_to_send.len() as _,
+                    });
                     self.batch_quota -= chunks_to_send.len() as f32;
                 }
             }
@@ -57,7 +62,7 @@ impl Default for ChunkSender {
             pending_chunks: Vec::default(),
             unacknowledged_batches: 0,
             desired_chunks_per_tick: 9.0,
-            batch_quota: 0.0
+            batch_quota: 0.0,
         }
     }
 }
