@@ -29,7 +29,7 @@ impl<T> SteelRwLock<T> {
         self.0.blocking_write()
     }
 
-    pub fn trying_write(&self) -> Result<RwLockWriteGuard<'_, T>, TryLockError> {
+    pub fn try_write(&self) -> Result<RwLockWriteGuard<'_, T>, TryLockError> {
         self.0.try_write()
     }
 

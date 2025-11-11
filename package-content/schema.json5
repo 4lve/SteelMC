@@ -1,0 +1,115 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "SteelConfig",
+    "description": "Configuration schema for Steel Minecraft server",
+    "type": "object",
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "format": "uri"
+        },
+        "server_address": {
+            "type": "integer",
+            "description": "Server port",
+            "examples": [
+                "25565",
+                "25565"
+            ],
+            "default": 25565
+        },
+        "seed": {
+            "type": "string",
+            "description": "World seed for generating the world",
+            "default": ""
+        },
+        "max_players": {
+            "type": "integer",
+            "description": "Maximum number of players allowed on the server",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "default": 20
+        },
+        "view_distance": {
+            "type": "integer",
+            "description": "Maximum view distance in chunks",
+            "minimum": 1,
+            "maximum": 32,
+            "default": 10
+        },
+        "simulation_distance": {
+            "type": "integer",
+            "description": "Maximum simulation distance in chunks",
+            "minimum": 1,
+            "maximum": 32,
+            "default": 10
+        },
+        "online_mode": {
+            "type": "boolean",
+            "description": "Whether to use Mojang's authentication service",
+            "default": true
+        },
+        "encryption": {
+            "type": "boolean",
+            "description": "Whether to enable encryption for client-server communication",
+            "default": true
+        },
+        "motd": {
+            "type": "string",
+            "description": "Message of the day displayed in server lists",
+            "default": "A Steel Server"
+        },
+        "use_favicon": {
+            "type": "boolean",
+            "description": "Whether to use a custom favicon for the server",
+            "default": true
+        },
+        "favicon": {
+            "type": "string",
+            "description": "Path to the favicon file (PNG format, 64x64 pixels)",
+            "default": "config/favicon.png"
+        },
+        "enforce_secure_chat": {
+            "type": "boolean",
+            "description": "Whether to enforce secure chat",
+            "default": false
+        },
+        "compression": {
+            "type": "object",
+            "description": "Compression settings",
+            "properties": {
+                "threshold": {
+                    "type": "integer",
+                    "description": "Compression threshold",
+                    "minimum": 256,
+                    "maximum": 2147483647,
+                    "default": 256
+                },
+                "level": {
+                    "type": "integer",
+                    "description": "Compression level",
+                    "minimum": 1,
+                    "maximum": 9,
+                    "default": 4
+                }
+            },
+            "required": [
+                "threshold",
+                "level"
+            ],
+            "additionalProperties": false
+        }
+    },
+    "required": [
+        "server_address",
+        "seed",
+        "max_players",
+        "view_distance",
+        "simulation_distance",
+        "online_mode",
+        "encryption",
+        "motd",
+        "use_favicon",
+        "favicon"
+    ],
+    "additionalProperties": false
+}

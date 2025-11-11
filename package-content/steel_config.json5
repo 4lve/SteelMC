@@ -1,5 +1,5 @@
 {
-    $schema: "https://raw.githubusercontent.com/4lve/SteelMC/refs/heads/master/config/schema.json5",
+    $schema: "https://raw.githubusercontent.com/4lve/SteelMC/refs/heads/master/package-content/schema.json5",
     // Server port
     server_port: 25565,
     // World seed for generating the world, empty string means random seed
