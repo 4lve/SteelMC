@@ -1,10 +1,10 @@
-use steel_utils::{ChunkPos, locks::SteelRwLock};
+use steel_utils::ChunkPos;
 
 use crate::chunk::{proto_chunk::ProtoChunk, section::Sections};
 
 #[derive(Debug)]
 pub struct LevelChunk {
-    pub sections: SteelRwLock<Sections>,
+    pub sections: Sections,
     pub pos: ChunkPos,
 }
 

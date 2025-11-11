@@ -14,12 +14,12 @@ impl<'a> ChunkPacketData<'a> {
     }
 
     pub fn extract_chunk_data(&self) -> Vec<u8> {
-        let mut writer = Cursor::new(Vec::new());
+        let mut buf = Cursor::new(Vec::new());
 
-        for section in &self.chunk.sections.blocking_read().sections {
-            section.write(&mut writer);
+        for section in &self.chunk.sections.sections {
+            section.write(&mut buf);
         }
 
-        writer.into_inner()
+        buf.into_inner()
     }
 }

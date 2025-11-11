@@ -1,4 +1,5 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
+use std::hint::black_box;
 use steel_utils::random::{PositionalRandom, Random, xoroshiro::Xoroshiro};
 
 fn bench_from_seed(c: &mut Criterion) {
