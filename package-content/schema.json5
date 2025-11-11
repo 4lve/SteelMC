@@ -8,13 +8,11 @@
             "type": "string",
             "format": "uri"
         },
-        "server_address": {
+        "server_port": {
             "type": "integer",
             "description": "Server port",
-            "examples": [
-                "25565",
-                "25565"
-            ],
+            "minimum": 1,
+            "maximum": 65000,
             "default": 25565
         },
         "seed": {
