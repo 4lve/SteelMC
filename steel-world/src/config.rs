@@ -7,7 +7,7 @@ use steel_protocol::packet_traits::CompressionInfo;
 const DEFAULT_FAVICON: &[u8] = include_bytes!("../../package-content/favicon.png");
 const ICON_PREFIX: &str = "data:image/png;base64,";
 
-const DEFAULT_CONFIG: &str = include_str!("../../config/steel_config.json5");
+const DEFAULT_CONFIG: &str = include_str!("../../package-content/steel_config.json5");
 
 pub static STEEL_CONFIG: LazyLock<ServerConfig> =
     LazyLock::new(|| ServerConfig::load_or_create(Path::new("config/steel_config.json5")));
