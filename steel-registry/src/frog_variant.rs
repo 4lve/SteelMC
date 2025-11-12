@@ -34,6 +34,7 @@ pub struct FrogVariantRegistry {
 }
 
 impl FrogVariantRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             frog_variants_by_id: Vec::new(),
@@ -43,9 +44,10 @@ impl FrogVariantRegistry {
     }
 
     pub fn register(&mut self, frog_variant: FrogVariantRef) -> usize {
-        if !self.allows_registering {
-            panic!("Cannot register frog variants after the registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register frog variants after the registry has been frozen"
+        );
 
         let id = self.frog_variants_by_id.len();
         self.frog_variants_by_key
@@ -54,16 +56,19 @@ impl FrogVariantRegistry {
         id
     }
 
+    #[must_use]
     pub fn by_id(&self, id: usize) -> Option<FrogVariantRef> {
         self.frog_variants_by_id.get(id).copied()
     }
 
+    #[must_use]
     pub fn get_id(&self, frog_variant: FrogVariantRef) -> &usize {
         self.frog_variants_by_key
             .get(&frog_variant.key)
             .expect("Frog variant not found")
     }
 
+    #[must_use]
     pub fn by_key(&self, key: &Identifier) -> Option<FrogVariantRef> {
         self.frog_variants_by_key
             .get(key)
@@ -77,10 +82,12 @@ impl FrogVariantRegistry {
             .map(|(id, &variant)| (id, variant))
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.frog_variants_by_id.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.frog_variants_by_id.is_empty()
     }

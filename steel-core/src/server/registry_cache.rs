@@ -95,7 +95,9 @@ impl RegistryCache {
 
             for block in registry.blocks.iter_tag(tag_key) {
                 let block_id = *registry.blocks.get_id(block);
-                block_ids.push(VarInt(i32::try_from(block_id).unwrap()));
+                block_ids.push(VarInt(
+                    i32::try_from(block_id).expect("Failed to convert block id to i32"),
+                ));
             }
 
             block_tags.push((tag_key.clone(), block_ids));
@@ -111,7 +113,9 @@ impl RegistryCache {
 
             for item in registry.items.iter_tag(tag_key) {
                 let item_id = *registry.items.get_id(item);
-                item_ids.push(VarInt(i32::try_from(item_id).unwrap()));
+                item_ids.push(VarInt(
+                    i32::try_from(item_id).expect("Failed to convert item id to i32"),
+                ));
             }
 
             item_tags.push((tag_key.clone(), item_ids));
@@ -147,10 +151,16 @@ pub async fn build_compressed_packets(
     let mut compressed_packets = Vec::with_capacity(registry_packets.len());
 
     for packet in registry_packets {
-        compressed_packets.push(compress_packet(packet).await.unwrap());
+        compressed_packets.push(
+            compress_packet(packet)
+                .await
+                .expect("Failed to compress packet"),
+        );
     }
 
-    let compressed_tags_packet = compress_packet(tags_packet).await.unwrap();
+    let compressed_tags_packet = compress_packet(tags_packet)
+        .await
+        .expect("Failed to compress tags packet");
 
     (compressed_packets.into(), compressed_tags_packet)
 }

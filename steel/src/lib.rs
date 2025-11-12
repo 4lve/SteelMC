@@ -1,7 +1,13 @@
 //! # Steel
 //!
 //! The main library for the Steel Minecraft server.
-#![warn(clippy::all, clippy::pedantic, clippy::cargo, missing_docs)]
+#![warn(
+    clippy::all,
+    clippy::pedantic,
+    clippy::cargo,
+    missing_docs,
+    clippy::unwrap_used
+)]
 #![allow(
     clippy::single_call_fn,
     clippy::multiple_inherent_impl,
@@ -54,7 +60,7 @@ impl SteelServer {
                 STEEL_CONFIG.server_port,
             ))
             .await
-            .unwrap(),
+            .expect("Failed to bind to server address"),
             cancel_token: CancellationToken::new(),
             client_id: 0,
             server: Arc::new(server),

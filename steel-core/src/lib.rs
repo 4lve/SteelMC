@@ -1,7 +1,13 @@
 //! # Steel Core
 //!
 //! The core library for the Steel Minecraft server. Handles everything related to the PLAY state.
-#![warn(clippy::all, clippy::pedantic, clippy::cargo, missing_docs)]
+#![warn(
+    clippy::all,
+    clippy::pedantic,
+    clippy::cargo,
+    missing_docs,
+    clippy::unwrap_used
+)]
 #![allow(
     clippy::single_call_fn,
     clippy::multiple_inherent_impl,

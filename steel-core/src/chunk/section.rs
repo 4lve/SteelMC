@@ -81,6 +81,9 @@ impl ChunkSection {
     /// # Panics
     /// - If the writer fails to write.
     pub fn write(&self, writer: &mut Cursor<Vec<u8>>) {
-        self.states.non_empty_block_count().write(writer).unwrap();
+        self.states
+            .non_empty_block_count()
+            .write(writer)
+            .expect("Failed to write block count");
     }
 }

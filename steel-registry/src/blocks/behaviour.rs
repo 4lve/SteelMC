@@ -33,6 +33,7 @@ pub struct BlockBehaviourProperties {
 
 impl BlockBehaviourProperties {
     /// Starts building a new set of block properties.
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             has_collision: true,
@@ -56,91 +57,109 @@ impl BlockBehaviourProperties {
         }
     }
 
+    #[must_use]
     pub const fn has_collision(mut self, has_collision: bool) -> Self {
         self.has_collision = has_collision;
         self
     }
 
+    #[must_use]
     pub const fn can_occlude(mut self, can_occlude: bool) -> Self {
         self.can_occlude = can_occlude;
         self
     }
 
+    #[must_use]
     pub const fn explosion_resistance(mut self, resistance: f32) -> Self {
         self.explosion_resistance = resistance;
         self
     }
 
+    #[must_use]
     pub const fn is_randomly_ticking(mut self, ticking: bool) -> Self {
         self.is_randomly_ticking = ticking;
         self
     }
 
+    #[must_use]
     pub const fn force_solid_off(mut self, force: bool) -> Self {
         self.force_solid_off = force;
         self
     }
 
+    #[must_use]
     pub const fn force_solid_on(mut self, force: bool) -> Self {
         self.force_solid_on = force;
         self
     }
 
+    #[must_use]
     pub const fn push_reaction(mut self, reaction: PushReaction) -> Self {
         self.push_reaction = reaction;
         self
     }
 
+    #[must_use]
     pub const fn friction(mut self, friction: f32) -> Self {
         self.friction = friction;
         self
     }
 
+    #[must_use]
     pub const fn speed_factor(mut self, factor: f32) -> Self {
         self.speed_factor = factor;
         self
     }
 
+    #[must_use]
     pub const fn jump_factor(mut self, factor: f32) -> Self {
         self.jump_factor = factor;
         self
     }
 
+    #[must_use]
     pub const fn dynamic_shape(mut self, dynamic: bool) -> Self {
         self.dynamic_shape = dynamic;
         self
     }
 
+    #[must_use]
     pub const fn destroy_time(mut self, time: f32) -> Self {
         self.destroy_time = time;
         self
     }
 
+    #[must_use]
     pub const fn ignited_by_lava(mut self, ignited: bool) -> Self {
         self.ignited_by_lava = ignited;
         self
     }
 
+    #[must_use]
     pub const fn liquid(mut self, liquid: bool) -> Self {
         self.liquid = liquid;
         self
     }
 
+    #[must_use]
     pub const fn is_air(mut self, is_air: bool) -> Self {
         self.is_air = is_air;
         self
     }
 
+    #[must_use]
     pub const fn requires_correct_tool_for_drops(mut self, requires: bool) -> Self {
         self.requires_correct_tool_for_drops = requires;
         self
     }
 
+    #[must_use]
     pub const fn instrument(mut self, instrument: NoteBlockInstrument) -> Self {
         self.instrument = instrument;
         self
     }
 
+    #[must_use]
     pub const fn replaceable(mut self, replaceable: bool) -> Self {
         self.replaceable = replaceable;
         self

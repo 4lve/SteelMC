@@ -27,6 +27,7 @@ pub struct DataComponentType<T> {
 }
 
 impl<T> DataComponentType<T> {
+    #[must_use]
     pub const fn new(key: Identifier) -> Self {
         Self {
             key,
@@ -47,6 +48,7 @@ impl Default for DataComponentRegistry {
 }
 
 impl DataComponentRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             components_by_key: HashMap::new(),
@@ -55,14 +57,16 @@ impl DataComponentRegistry {
     }
 
     pub fn register<T: 'static>(&mut self, component: DataComponentType<T>) {
-        if !self.allows_registering {
-            panic!("Cannot register data components after the registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register data components after the registry has been frozen"
+        );
 
         let id = self.components_by_key.len();
         self.components_by_key.insert(component.key.clone(), id);
     }
 
+    #[must_use]
     pub fn get_id<T: 'static>(&self, component: DataComponentType<T>) -> Option<usize> {
         self.components_by_key.get(&component.key).copied()
     }
@@ -87,10 +91,12 @@ impl Default for DataComponentMap {
 }
 
 impl DataComponentMap {
+    #[must_use]
     pub const fn new() -> Self {
         Self { map: Vec::new() }
     }
 
+    #[must_use]
     pub fn common_item_components() -> Self {
         //TODO: Some components still have todo values, we should implement them
 
@@ -108,6 +114,7 @@ impl DataComponentMap {
         }
     }
 
+    #[must_use]
     pub fn builder_set<T: 'static + ComponentValue>(
         mut self,
         component: DataComponentType<T>,
@@ -133,6 +140,7 @@ impl DataComponentMap {
         }
     }
 
+    #[must_use]
     pub fn get<T: 'static>(&self, component: DataComponentType<T>) -> Option<&T> {
         let index = self
             .map
@@ -141,6 +149,7 @@ impl DataComponentMap {
         self.map[index].as_any().downcast_ref::<T>()
     }
 
+    #[must_use]
     pub fn has<T: 'static>(&self, component: DataComponentType<T>) -> bool {
         self.map
             .iter()

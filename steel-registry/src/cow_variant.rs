@@ -44,6 +44,7 @@ pub struct CowVariantRegistry {
 }
 
 impl CowVariantRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             cow_variants_by_id: Vec::new(),
@@ -53,9 +54,10 @@ impl CowVariantRegistry {
     }
 
     pub fn register(&mut self, cow_variant: CowVariantRef) -> usize {
-        if !self.allows_registering {
-            panic!("Cannot register cow variants after the registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register cow variants after the registry has been frozen"
+        );
 
         let id = self.cow_variants_by_id.len();
         self.cow_variants_by_key.insert(cow_variant.key.clone(), id);
@@ -63,16 +65,19 @@ impl CowVariantRegistry {
         id
     }
 
+    #[must_use]
     pub fn by_id(&self, id: usize) -> Option<CowVariantRef> {
         self.cow_variants_by_id.get(id).copied()
     }
 
+    #[must_use]
     pub fn get_id(&self, cow_variant: CowVariantRef) -> &usize {
         self.cow_variants_by_key
             .get(&cow_variant.key)
             .expect("Cow variant not found")
     }
 
+    #[must_use]
     pub fn by_key(&self, key: &Identifier) -> Option<CowVariantRef> {
         self.cow_variants_by_key
             .get(key)
@@ -86,10 +91,12 @@ impl CowVariantRegistry {
             .map(|(id, &variant)| (id, variant))
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.cow_variants_by_id.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.cow_variants_by_id.is_empty()
     }

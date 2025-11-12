@@ -22,6 +22,7 @@ pub struct TrimPatternRegistry {
 }
 
 impl TrimPatternRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             trim_patterns_by_id: Vec::new(),
@@ -31,9 +32,10 @@ impl TrimPatternRegistry {
     }
 
     pub fn register(&mut self, trim_pattern: TrimPatternRef) -> usize {
-        if !self.allows_registering {
-            panic!("Cannot register trim patterns after the registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register trim patterns after the registry has been frozen"
+        );
 
         let id = self.trim_patterns_by_id.len();
         self.trim_patterns_by_key
@@ -42,16 +44,19 @@ impl TrimPatternRegistry {
         id
     }
 
+    #[must_use]
     pub fn by_id(&self, id: usize) -> Option<TrimPatternRef> {
         self.trim_patterns_by_id.get(id).copied()
     }
 
+    #[must_use]
     pub fn get_id(&self, trim_pattern: TrimPatternRef) -> &usize {
         self.trim_patterns_by_key
             .get(&trim_pattern.key)
             .expect("Trim pattern not found")
     }
 
+    #[must_use]
     pub fn by_key(&self, key: &Identifier) -> Option<TrimPatternRef> {
         self.trim_patterns_by_key
             .get(key)
@@ -65,10 +70,12 @@ impl TrimPatternRegistry {
             .map(|(id, &pattern)| (id, pattern))
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.trim_patterns_by_id.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.trim_patterns_by_id.is_empty()
     }

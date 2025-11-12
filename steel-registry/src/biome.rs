@@ -110,6 +110,7 @@ pub struct BiomeRegistry {
 }
 
 impl BiomeRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             biomes_by_id: Vec::new(),
@@ -119,9 +120,10 @@ impl BiomeRegistry {
     }
 
     pub fn register(&mut self, biome: BiomeRef, key: Identifier) -> usize {
-        if !self.allows_registering {
-            panic!("Cannot register biomes after the registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register biomes after the registry has been frozen"
+        );
 
         let id = self.biomes_by_id.len();
         self.biomes_by_key.insert(key, id);
@@ -129,18 +131,22 @@ impl BiomeRegistry {
         id
     }
 
+    #[must_use]
     pub fn by_id(&self, id: usize) -> Option<BiomeRef> {
         self.biomes_by_id.get(id).copied()
     }
 
+    #[must_use]
     pub fn get_id(&self, biome: BiomeRef) -> &usize {
         self.biomes_by_key.get(&biome.key).expect("Biome not found")
     }
 
+    #[must_use]
     pub fn get(&self, key: &Identifier) -> Option<BiomeRef> {
         self.biomes_by_key.get(key).and_then(|id| self.by_id(*id))
     }
 
+    #[must_use]
     pub fn by_key(&self, key: &Identifier) -> Option<BiomeRef> {
         self.get(key)
     }
@@ -152,10 +158,12 @@ impl BiomeRegistry {
             .map(|(id, &biome)| (id, biome))
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.biomes_by_id.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.biomes_by_id.is_empty()
     }

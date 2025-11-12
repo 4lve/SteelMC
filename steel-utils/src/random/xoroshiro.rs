@@ -162,8 +162,16 @@ impl PositionalRandom for XoroshiroSplitter {
     #[allow(clippy::cast_sign_loss)]
     fn with_hash_of(&self, name: &str) -> RandomSource {
         let bytes = md5::compute(name.as_bytes());
-        let l = u64::from_be_bytes(bytes[0..8].try_into().unwrap());
-        let m = u64::from_be_bytes(bytes[8..16].try_into().unwrap());
+        let l = u64::from_be_bytes(
+            bytes[0..8]
+                .try_into()
+                .expect("slice with 8 elements to array"),
+        );
+        let m = u64::from_be_bytes(
+            bytes[8..16]
+                .try_into()
+                .expect("slice with 8 elements to array"),
+        );
         RandomSource::Xoroshiro(Xoroshiro::new(l ^ self.seed_lo, m ^ self.seed_hi))
     }
 

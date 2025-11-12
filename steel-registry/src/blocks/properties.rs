@@ -24,15 +24,18 @@ pub struct BoolProperty {
     pub name: &'static str,
 }
 impl BoolProperty {
+    #[must_use]
     pub const fn new(name: &'static str) -> Self {
         Self { name }
     }
 
+    #[must_use]
     pub const fn value_count(&self) -> usize {
         2
     }
 
     /// Convert a boolean value to its internal index (true=0, false=1 for Java compatibility)
+    #[must_use]
     pub const fn index_of(&self, value: bool) -> usize {
         !value as usize
     }
@@ -64,7 +67,7 @@ impl Property<bool> for BoolProperty {
     }
 
     fn get_internal_index(&self, value: &bool) -> usize {
-        if *value { 0 } else { 1 }
+        usize::from(!*value)
     }
 
     fn value_from_index(&self, index: usize) -> bool {
@@ -77,6 +80,7 @@ impl Property<bool> for BoolProperty {
 }
 
 impl BoolProperty {
+    #[must_use]
     pub const fn get_internal_index_const(self, value: bool) -> usize {
         if value { 0 } else { 1 }
     }
@@ -96,10 +100,12 @@ pub struct IntProperty {
 }
 
 impl IntProperty {
+    #[must_use]
     pub const fn new(name: &'static str, min: u8, max: u8) -> Self {
-        Self { name, min, max }
+        Self { min, max, name }
     }
 
+    #[must_use]
     pub const fn value_count(&self) -> usize {
         (self.max - self.min + 1) as usize
     }
@@ -136,7 +142,7 @@ impl Property<u8> for IntProperty {
     }
 
     fn value_from_index(&self, index: usize) -> u8 {
-        self.min + (index as u8)
+        self.min + u8::try_from(index).unwrap()
     }
 
     fn as_dyn(&self) -> &dyn DynProperty {
@@ -145,6 +151,7 @@ impl Property<u8> for IntProperty {
 }
 
 impl IntProperty {
+    #[must_use]
     pub const fn get_internal_index_const(self, value: &u8) -> usize {
         if *value <= self.max {
             (*value - self.min) as usize
@@ -162,7 +169,10 @@ pub struct EnumProperty<T: PropertyEnum + 'static> {
 
 impl<T: PropertyEnum + 'static> DynProperty for EnumProperty<T> {
     fn get_possible_values(&self) -> Box<[&str]> {
-        self.possible_values.iter().map(|v| v.as_str()).collect()
+        self.possible_values
+            .iter()
+            .map(PropertyEnum::as_str)
+            .collect()
     }
 
     fn get_name(&self) -> &'static str {
@@ -178,6 +188,7 @@ impl<T: PropertyEnum> EnumProperty<T> {
         }
     }
 
+    #[must_use]
     pub const fn value_count(&self) -> usize {
         self.possible_values.len()
     }

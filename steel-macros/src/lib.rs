@@ -51,7 +51,7 @@ fn read_from_struct(s: syn::DataStruct, name: Ident) -> TokenStream {
 
     // Create read calls for every field
     let readers = fields.named.iter().map(|f| {
-        let field_name = f.ident.as_ref().unwrap();
+        let field_name = f.ident.as_ref().expect("should have a named field");
         let field_type = &f.ty;
 
         let mut read_strategy: Option<String> = None;
@@ -111,7 +111,10 @@ fn read_from_struct(s: syn::DataStruct, name: Ident) -> TokenStream {
         }
     });
 
-    let field_names = fields.named.iter().map(|f| f.ident.as_ref().unwrap());
+    let field_names = fields
+        .named
+        .iter()
+        .map(|f| f.ident.as_ref().expect("should have a named field"));
 
     let expanded = quote! {
         #[automatically_derived]
@@ -279,7 +282,7 @@ fn write_to_struct(s: syn::DataStruct, name: Ident, generics: &syn::Generics) ->
     };
 
     let writers = fields.named.iter().map(|f| {
-        let field_name = f.ident.as_ref().unwrap();
+        let field_name = f.ident.as_ref().expect("should have a named field");
         let FieldWriteAttributes {
             write_strategy,
             bound,

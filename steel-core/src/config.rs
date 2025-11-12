@@ -54,22 +54,26 @@ impl ServerConfig {
     #[must_use]
     pub fn load_or_create(path: &Path) -> Self {
         let config = if path.exists() {
-            let config_str = fs::read_to_string(path).unwrap();
-            let config: ServerConfig = serde_json5::from_str(config_str.as_str()).unwrap();
-            config.validate().unwrap();
+            let config_str = fs::read_to_string(path).expect("Failed to read config file");
+            let config: ServerConfig =
+                serde_json5::from_str(config_str.as_str()).expect("Failed to parse config");
+            config.validate().expect("Failed to validate config");
             config
         } else {
-            fs::create_dir_all(path.parent().unwrap()).unwrap();
-            fs::write(path, DEFAULT_CONFIG).unwrap();
-            let config: ServerConfig = serde_json5::from_str(DEFAULT_CONFIG).unwrap();
-            config.validate().unwrap();
+            fs::create_dir_all(path.parent().expect("Failed to get config directory"))
+                .expect("Failed to create config directory");
+            fs::write(path, DEFAULT_CONFIG).expect("Failed to write config file");
+            let config: ServerConfig =
+                serde_json5::from_str(DEFAULT_CONFIG).expect("Failed to parse config");
+            config.validate().expect("Failed to validate config");
             config
         };
 
         // If icon file doesnt exist, write it
         #[cfg(feature = "stand-alone")]
         if config.use_favicon && !Path::new(&config.favicon).exists() {
-            fs::write(Path::new(&config.favicon), DEFAULT_FAVICON).unwrap();
+            fs::write(Path::new(&config.favicon), DEFAULT_FAVICON)
+                .expect("Failed to write favicon file");
         }
 
         config

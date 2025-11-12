@@ -11,6 +11,7 @@ pub struct Item {
 }
 
 impl Item {
+    #[must_use]
     pub fn from_block(block: BlockRef) -> Self {
         Self {
             key: block.key.clone(),
@@ -18,6 +19,7 @@ impl Item {
         }
     }
 
+    #[must_use]
     pub fn from_block_custom_name(_block: BlockRef, name: &'static str) -> Self {
         Self {
             key: Identifier::vanilla_static(name),
@@ -42,6 +44,7 @@ impl Default for ItemRegistry {
 }
 
 impl ItemRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             items_by_id: Vec::new(),
@@ -52,9 +55,10 @@ impl ItemRegistry {
     }
 
     pub fn register(&mut self, item: ItemRef) -> usize {
-        if !self.allows_registering {
-            panic!("Cannot register items after the registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register items after the registry has been frozen"
+        );
 
         let id = self.items_by_id.len();
         self.items_by_key.insert(item.key.clone(), id);
@@ -63,14 +67,17 @@ impl ItemRegistry {
         id
     }
 
+    #[must_use]
     pub fn by_id(&self, id: usize) -> Option<ItemRef> {
         self.items_by_id.get(id).copied()
     }
 
+    #[must_use]
     pub fn get_id(&self, item: ItemRef) -> &usize {
         self.items_by_key.get(&item.key).expect("Item not found")
     }
 
+    #[must_use]
     pub fn by_key(&self, key: &Identifier) -> Option<ItemRef> {
         self.items_by_key.get(key).and_then(|id| self.by_id(*id))
     }
@@ -82,10 +89,12 @@ impl ItemRegistry {
             .map(|(id, &item)| (id, item))
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.items_by_id.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.items_by_id.is_empty()
     }
@@ -95,9 +104,10 @@ impl ItemRegistry {
     /// Registers a tag with a list of item keys.
     /// Item keys that don't exist in the registry are silently skipped.
     pub fn register_tag(&mut self, tag: Identifier, item_keys: &[&'static str]) {
-        if !self.allows_registering {
-            panic!("Cannot register tags after registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register tags after registry has been frozen"
+        );
 
         let items: Vec<ItemRef> = item_keys
             .iter()
@@ -108,20 +118,19 @@ impl ItemRegistry {
     }
 
     /// Checks if an item is in a given tag.
+    #[must_use]
     pub fn is_in_tag(&self, item: ItemRef, tag: &Identifier) -> bool {
-        self.tags
-            .get(tag)
-            .map(|items| {
-                items
-                    .iter()
-                    .any(|&i| std::ptr::eq(i as *const _, item as *const _))
-            })
-            .unwrap_or(false)
+        self.tags.get(tag).is_some_and(|items| {
+            items
+                .iter()
+                .any(|&i| std::ptr::eq(std::ptr::from_ref(i), std::ptr::from_ref(item)))
+        })
     }
 
     /// Gets all items in a tag.
+    #[must_use]
     pub fn get_tag(&self, tag: &Identifier) -> Option<&[ItemRef]> {
-        self.tags.get(tag).map(|v| v.as_slice())
+        self.tags.get(tag).map(std::vec::Vec::as_slice)
     }
 
     /// Iterates over all items in a tag.

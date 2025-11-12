@@ -70,7 +70,12 @@ impl JavaTcpClient {
     pub async fn finish_configuration(&self) {
         self.protocol.store(ConnectionProtocol::Play);
 
-        let gameprofile = self.gameprofile.lock().await.clone().unwrap();
+        let gameprofile = self
+            .gameprofile
+            .lock()
+            .await
+            .clone()
+            .expect("Game profile is empty");
 
         let world = self.server.worlds[0].clone();
 
@@ -92,7 +97,7 @@ impl JavaTcpClient {
 
         self.connection_updates
             .send(ConnectionUpdate::Upgrade(player.connection.clone()))
-            .unwrap();
+            .expect("Failed to send connection update");
 
         self.server.add_player(player);
     }

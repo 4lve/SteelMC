@@ -24,6 +24,7 @@ pub struct WolfSoundVariantRegistry {
 }
 
 impl WolfSoundVariantRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             wolf_sound_variants_by_id: Vec::new(),
@@ -33,9 +34,10 @@ impl WolfSoundVariantRegistry {
     }
 
     pub fn register(&mut self, wolf_sound_variant: WolfSoundVariantRef) -> usize {
-        if !self.allows_registering {
-            panic!("Cannot register wolf sound variants after the registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register wolf sound variants after the registry has been frozen"
+        );
 
         let id = self.wolf_sound_variants_by_id.len();
         self.wolf_sound_variants_by_key
@@ -44,16 +46,19 @@ impl WolfSoundVariantRegistry {
         id
     }
 
+    #[must_use]
     pub fn by_id(&self, id: usize) -> Option<WolfSoundVariantRef> {
         self.wolf_sound_variants_by_id.get(id).copied()
     }
 
+    #[must_use]
     pub fn get_id(&self, wolf_sound_variant: WolfSoundVariantRef) -> &usize {
         self.wolf_sound_variants_by_key
             .get(&wolf_sound_variant.key)
             .expect("Wolf sound variant not found")
     }
 
+    #[must_use]
     pub fn by_key(&self, key: &Identifier) -> Option<WolfSoundVariantRef> {
         self.wolf_sound_variants_by_key
             .get(key)
@@ -67,10 +72,12 @@ impl WolfSoundVariantRegistry {
             .map(|(id, &variant)| (id, variant))
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.wolf_sound_variants_by_id.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.wolf_sound_variants_by_id.is_empty()
     }

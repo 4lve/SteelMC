@@ -35,6 +35,7 @@ pub struct CatVariantRegistry {
 }
 
 impl CatVariantRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             cat_variants_by_id: Vec::new(),
@@ -44,9 +45,10 @@ impl CatVariantRegistry {
     }
 
     pub fn register(&mut self, cat_variant: CatVariantRef) -> usize {
-        if !self.allows_registering {
-            panic!("Cannot register cat variants after the registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register cat variants after the registry has been frozen"
+        );
 
         let id = self.cat_variants_by_id.len();
         self.cat_variants_by_key.insert(cat_variant.key.clone(), id);
@@ -54,16 +56,19 @@ impl CatVariantRegistry {
         id
     }
 
+    #[must_use]
     pub fn by_id(&self, id: usize) -> Option<CatVariantRef> {
         self.cat_variants_by_id.get(id).copied()
     }
 
+    #[must_use]
     pub fn get_id(&self, cat_variant: CatVariantRef) -> &usize {
         self.cat_variants_by_key
             .get(&cat_variant.key)
             .expect("Cat variant not found")
     }
 
+    #[must_use]
     pub fn by_key(&self, key: &Identifier) -> Option<CatVariantRef> {
         self.cat_variants_by_key
             .get(key)
@@ -77,10 +82,12 @@ impl CatVariantRegistry {
             .map(|(id, &variant)| (id, variant))
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.cat_variants_by_id.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.cat_variants_by_id.is_empty()
     }

@@ -142,7 +142,7 @@ impl JavaTcpClient {
         let protocol = self.protocol.load();
         let packet = EncodedPacket::from_bare(packet, compression, protocol)
             .await
-            .unwrap();
+            .expect("Failed to encode packet");
 
         if let Err(err) = self.network_writer.lock().await.write_packet(&packet).await
             && !self.cancel_token.is_cancelled()

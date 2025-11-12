@@ -43,6 +43,7 @@ pub struct ChickenVariantRegistry {
 }
 
 impl ChickenVariantRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             chicken_variants_by_id: Vec::new(),
@@ -52,9 +53,10 @@ impl ChickenVariantRegistry {
     }
 
     pub fn register(&mut self, chicken_variant: ChickenVariantRef) -> usize {
-        if !self.allows_registering {
-            panic!("Cannot register chicken variants after the registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register chicken variants after the registry has been frozen"
+        );
 
         let id = self.chicken_variants_by_id.len();
         self.chicken_variants_by_key
@@ -63,16 +65,19 @@ impl ChickenVariantRegistry {
         id
     }
 
+    #[must_use]
     pub fn by_id(&self, id: usize) -> Option<ChickenVariantRef> {
         self.chicken_variants_by_id.get(id).copied()
     }
 
+    #[must_use]
     pub fn get_id(&self, chicken_variant: ChickenVariantRef) -> &usize {
         self.chicken_variants_by_key
             .get(&chicken_variant.key)
             .expect("Chicken variant not found")
     }
 
+    #[must_use]
     pub fn by_key(&self, key: &Identifier) -> Option<ChickenVariantRef> {
         self.chicken_variants_by_key
             .get(key)
@@ -86,10 +91,12 @@ impl ChickenVariantRegistry {
             .map(|(id, &variant)| (id, variant))
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.chicken_variants_by_id.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.chicken_variants_by_id.is_empty()
     }

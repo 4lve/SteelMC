@@ -170,13 +170,17 @@ impl JavaTcpClient {
     pub async fn finish_login(&self, profile: &GameProfile) {
         if let Some(compression) = STEEL_CONFIG.compression {
             self.send_bare_packet_now(CLoginCompression::new(
-                compression.threshold.get().try_into().unwrap(),
+                compression
+                    .threshold
+                    .get()
+                    .try_into()
+                    .expect("Failed to convert compression threshold to i32"),
             ))
             .await;
             self.compression.store(Some(compression));
             self.connection_updates
                 .send(ConnectionUpdate::EnableCompression(compression))
-                .unwrap();
+                .expect("Failed to send connection update");
         }
 
         //TODO: Here compression isn't awaited, if this becomes a problem in the future look here.

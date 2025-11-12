@@ -64,10 +64,11 @@ impl JavaConnection {
     /// - If the packet fails to be written to the buffer.
     /// - If the packet fails to be sent through the channel.
     pub fn send_packet<P: ClientPacket>(&self, packet: P) {
-        let packet = EncodedPacket::write_vec(packet, ConnectionProtocol::Play).unwrap();
+        let packet = EncodedPacket::write_vec(packet, ConnectionProtocol::Play)
+            .expect("Failed to write packet");
         self.outgoing_packets
             .send(EnqueuedPacket::RawData(packet))
-            .unwrap();
+            .expect("Failed to send packet");
     }
 
     /// Closes the connection.
@@ -179,7 +180,7 @@ impl JavaConnection {
             }
         }
 
-        let player = self.player.upgrade().unwrap();
+        let player = self.player.upgrade().expect("Player is not available");
         let world = player.world.clone();
         world.remove_player(player);
     }

@@ -42,6 +42,7 @@ pub struct WolfVariantRegistry {
 }
 
 impl WolfVariantRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             wolf_variants_by_id: Vec::new(),
@@ -51,9 +52,10 @@ impl WolfVariantRegistry {
     }
 
     pub fn register(&mut self, wolf_variant: WolfVariantRef) -> usize {
-        if !self.allows_registering {
-            panic!("Cannot register wolf variants after the registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register wolf variants after the registry has been frozen"
+        );
 
         let id = self.wolf_variants_by_id.len();
         self.wolf_variants_by_key
@@ -62,16 +64,19 @@ impl WolfVariantRegistry {
         id
     }
 
+    #[must_use]
     pub fn by_id(&self, id: usize) -> Option<WolfVariantRef> {
         self.wolf_variants_by_id.get(id).copied()
     }
 
+    #[must_use]
     pub fn get_id(&self, wolf_variant: WolfVariantRef) -> &usize {
         self.wolf_variants_by_key
             .get(&wolf_variant.key)
             .expect("Wolf variant not found")
     }
 
+    #[must_use]
     pub fn by_key(&self, key: &Identifier) -> Option<WolfVariantRef> {
         self.wolf_variants_by_key
             .get(key)
@@ -85,10 +90,12 @@ impl WolfVariantRegistry {
             .map(|(id, &variant)| (id, variant))
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.wolf_variants_by_id.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.wolf_variants_by_id.is_empty()
     }

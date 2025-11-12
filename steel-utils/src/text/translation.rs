@@ -88,7 +88,7 @@ impl TranslatedMessage {
     pub fn format(&self) -> String {
         let mut result = crate::translations::TRANSLATIONS
             .get(self.key.as_ref())
-            .unwrap()
+            .expect("Translation key should exist")
             .to_string();
 
         // Handle positional arguments

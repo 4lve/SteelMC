@@ -39,6 +39,7 @@ pub struct ChatTypeRegistry {
 }
 
 impl ChatTypeRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             chat_types_by_id: Vec::new(),
@@ -48,9 +49,10 @@ impl ChatTypeRegistry {
     }
 
     pub fn register(&mut self, chat_type: ChatTypeRef) -> usize {
-        if !self.allows_registering {
-            panic!("Cannot register chat types after the registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register chat types after the registry has been frozen"
+        );
 
         let id = self.chat_types_by_id.len();
         self.chat_types_by_key.insert(chat_type.key.clone(), id);
@@ -58,16 +60,19 @@ impl ChatTypeRegistry {
         id
     }
 
+    #[must_use]
     pub fn by_id(&self, id: usize) -> Option<ChatTypeRef> {
         self.chat_types_by_id.get(id).copied()
     }
 
+    #[must_use]
     pub fn get_id(&self, chat_type: ChatTypeRef) -> &usize {
         self.chat_types_by_key
             .get(&chat_type.key)
             .expect("Chat type not found")
     }
 
+    #[must_use]
     pub fn by_key(&self, key: &Identifier) -> Option<ChatTypeRef> {
         self.chat_types_by_key
             .get(key)
@@ -81,10 +86,12 @@ impl ChatTypeRegistry {
             .map(|(id, &ct)| (id, ct))
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.chat_types_by_id.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.chat_types_by_id.is_empty()
     }

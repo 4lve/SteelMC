@@ -1,3 +1,14 @@
+#![warn(clippy::all, clippy::pedantic, clippy::cargo)]
+#![allow(
+    clippy::single_call_fn,
+    clippy::multiple_inherent_impl,
+    clippy::shadow_unrelated,
+    clippy::missing_errors_doc,
+    clippy::struct_excessive_bools,
+    clippy::needless_pass_by_value,
+    clippy::cargo_common_metadata,
+    clippy::missing_panics_doc
+)]
 #![feature(
     const_trait_impl,
     const_slice_make_iter,
@@ -54,46 +65,57 @@ pub mod trim_pattern;
 pub mod wolf_sound_variant;
 pub mod wolf_variant;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_blocks.rs"]
 pub mod vanilla_blocks;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_block_tags.rs"]
 pub mod vanilla_block_tags;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_banner_patterns.rs"]
 pub mod vanilla_banner_patterns;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_items.rs"]
 pub mod vanilla_items;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_item_tags.rs"]
 pub mod vanilla_item_tags;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_biomes.rs"]
 pub mod vanilla_biomes;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_chat_types.rs"]
 pub mod vanilla_chat_types;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_trim_patterns.rs"]
 pub mod vanilla_trim_patterns;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_trim_materials.rs"]
 pub mod vanilla_trim_materials;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_wolf_variants.rs"]
 pub mod vanilla_wolf_variants;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_wolf_sound_variants.rs"]
 pub mod vanilla_wolf_sound_variants;
@@ -102,18 +124,22 @@ pub mod vanilla_wolf_sound_variants;
 #[path = "generated/vanilla_pig_variants.rs"]
 pub mod vanilla_pig_variants;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_frog_variants.rs"]
 pub mod vanilla_frog_variants;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_cat_variants.rs"]
 pub mod vanilla_cat_variants;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_cow_variants.rs"]
 pub mod vanilla_cow_variants;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_chicken_variants.rs"]
 pub mod vanilla_chicken_variants;
@@ -122,6 +148,7 @@ pub mod vanilla_chicken_variants;
 #[path = "generated/vanilla_painting_variants.rs"]
 pub mod vanilla_painting_variants;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_dimension_types.rs"]
 pub mod vanilla_dimension_types;
@@ -130,18 +157,22 @@ pub mod vanilla_dimension_types;
 #[path = "generated/vanilla_damage_types.rs"]
 pub mod vanilla_damage_types;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_jukebox_songs.rs"]
 pub mod vanilla_jukebox_songs;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_instruments.rs"]
 pub mod vanilla_instruments;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_dialogs.rs"]
 pub mod vanilla_dialogs;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_packets.rs"]
 pub mod packets;
@@ -199,6 +230,7 @@ pub struct Registry {
 }
 
 impl Registry {
+    #[must_use]
     pub fn new_vanilla() -> Self {
         let mut block_registry = BlockRegistry::new();
         vanilla_blocks::register_blocks(&mut block_registry);
