@@ -1,8 +1,12 @@
 use enum_dispatch::enum_dispatch;
 
-use crate::random::xoroshiro::{Xoroshiro, XoroshiroSplitter};
+use crate::random::{
+    legacy_random::{LegacyRandom, LegacyRandomSplitter},
+    xoroshiro::{Xoroshiro, XoroshiroSplitter},
+};
 
 pub mod gaussian;
+pub mod legacy_random;
 pub mod xoroshiro;
 
 #[enum_dispatch]
@@ -60,11 +64,13 @@ pub trait PositionalRandom {
 #[enum_dispatch(Random)]
 pub enum RandomSource {
     Xoroshiro(Xoroshiro),
+    Legacy(LegacyRandom),
 }
 
 #[enum_dispatch(PositionalRandom)]
 pub enum RandomSplitter {
     Xoroshiro(XoroshiroSplitter),
+    Legacy(LegacyRandomSplitter),
 }
 
 pub fn get_seed(x: i32, y: i32, z: i32) -> i64 {
