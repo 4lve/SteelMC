@@ -173,6 +173,12 @@ impl PositionalRandom for XoroshiroSplitter {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unreadable_literal,
+    clippy::cast_sign_loss,
+    clippy::items_after_statements,
+    clippy::float_cmp
+)]
 mod tests {
     use super::*;
     use crate::random::{PositionalRandom, Random};
@@ -219,8 +225,7 @@ mod tests {
             assert_eq!(
                 mix_stafford_13(input),
                 expected as u64,
-                "mix_stafford_13({}) failed",
-                input
+                "mix_stafford_13({input}) failed"
             );
         }
     }
@@ -248,19 +253,19 @@ mod tests {
 
     #[test]
     fn next_i32_bounded() {
-        let mut rng = Xoroshiro::from_seed(0);
-
         const SMALL_EXPECTED: [i32; 10] = [9, 1, 1, 3, 8, 9, 0, 3, 6, 3];
-        for &expected in &SMALL_EXPECTED {
-            assert_eq!(rng.next_i32_bounded(10), expected);
-        }
-
         const LARGE_EXPECTED: [i32; 10] = [
             9784805, 470346, 13560642, 7320226, 14949645, 13460529, 2824352, 10938308, 14146127,
             4549185,
         ];
+        let mut rng = Xoroshiro::from_seed(0);
+
+        for &expected in &SMALL_EXPECTED {
+            assert_eq!(rng.next_i32_bounded(10), expected);
+        }
+
         for &expected in &LARGE_EXPECTED {
-            assert_eq!(rng.next_i32_bounded(0xFFFFFF), expected);
+            assert_eq!(rng.next_i32_bounded(0xFF_FFFF), expected);
         }
     }
 
