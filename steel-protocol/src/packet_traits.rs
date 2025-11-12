@@ -56,7 +56,7 @@ pub trait ClientPacket: WriteTo {
 #[derive(Copy, Clone, Debug, Deserialize)]
 pub struct CompressionInfo {
     /// The compression threshold used when compression is enabled.
-    /// Its an `NonZeroUsize` to allow for nullptr optimization in Option<Self> cases
+    /// Its an `NonZeroU32` to allow for nullptr optimization in `Option<Self>` cases
     pub threshold: NonZeroU32,
     /// A value between `0..9`.
     /// `1` = Optimize for the best speed of encoding.

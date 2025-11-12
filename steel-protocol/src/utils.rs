@@ -35,8 +35,8 @@ pub const MAX_PACKET_DATA_SIZE: usize = 8_388_608;
 
 /// Describes the set of packets a connection understands at a given point.
 ///
-/// A connection always starts out in state [`ConnectionProtocol::HANDSHAKING`]. In this state,
-/// the client sends its desired protocol using [`steel_protocol::packets::handshake::ClientIntentionPacket`]. The
+/// A connection always starts out in state [`ConnectionProtocol::Handshake`]. In this state,
+/// the client sends its desired protocol using [`crate::packets::handshake::SClientIntention`]. The
 /// server then either accepts the connection and switches to the desired
 /// protocol, or it disconnects the client (for example, in case of an
 /// outdated client).

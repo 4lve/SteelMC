@@ -10,7 +10,7 @@ impl VarUint {
     const MAX_SIZE: usize = 5;
 
     /// Returns the exact number of bytes this `VarUInt` will write when
-    /// [`Encode::encode`] is called, assuming no error occurs.
+    /// [`WriteTo::write`] is called, assuming no error occurs.
     #[must_use]
     pub fn written_size(self) -> usize {
         (32 - self.0.leading_zeros() as usize).max(1).div_ceil(7)
