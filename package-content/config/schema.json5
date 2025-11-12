@@ -64,7 +64,7 @@
         "favicon": {
             "type": "string",
             "description": "Path to the favicon file (PNG format, 64x64 pixels)",
-            "default": "favicon.png"
+            "default": "config/favicon.png"
         },
         "enforce_secure_chat": {
             "type": "boolean",

@@ -19,7 +19,7 @@
     // Whether to use a custom favicon for the server
     use_favicon: true,
     // Path to the favicon file (PNG format, 64x64 pixels)
-    favicon: "favicon.png",
+    favicon: "config/favicon.png",
     // Whether to enforce secure chat
     enforce_secure_chat: false,
     // Compression settings

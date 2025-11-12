@@ -4,10 +4,10 @@ use std::{fs, num::NonZeroU32, path::Path, sync::LazyLock};
 use steel_protocol::packet_traits::CompressionInfo;
 
 #[cfg(feature = "stand-alone")]
-const DEFAULT_FAVICON: &[u8] = include_bytes!("../../package-content/favicon.png");
+const DEFAULT_FAVICON: &[u8] = include_bytes!("../../package-content/config/favicon.png");
 const ICON_PREFIX: &str = "data:image/png;base64,";
 
-const DEFAULT_CONFIG: &str = include_str!("../../package-content/steel_config.json5");
+const DEFAULT_CONFIG: &str = include_str!("../../package-content/config/steel_config.json5");
 
 pub static STEEL_CONFIG: LazyLock<ServerConfig> = LazyLock::new(ServerConfig::load_or_create);
 
@@ -32,11 +32,7 @@ impl ServerConfig {
     /// # Panics
     /// This function will panic if the config file does not exist and the directory cannot be created, or if the config file cannot be read or written.
     pub fn load_or_create() -> Self {
-        #[cfg(feature = "dev-build")]
         let path = Path::new("config/steel_config.json5");
-
-        #[cfg(not(feature = "dev-build"))]
-        let path = Path::new("steel_config.json5");
 
         let config = if path.exists() {
             let config_str = fs::read_to_string(path).unwrap();
@@ -131,7 +127,7 @@ impl Default for ServerConfig {
             encryption: true,
             motd: "A Steel Server".to_string(),
             use_favicon: true,
-            favicon: "favicon.png".to_string(),
+            favicon: "config/favicon.png".to_string(),
             enforce_secure_chat: false,
             compression: Some(CompressionInfo {
                 threshold: NonZeroU32::new(256).unwrap(),
