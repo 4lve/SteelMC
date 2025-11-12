@@ -52,8 +52,8 @@ impl ServerConfig {
         // If icon file doesnt exist, write it
         #[cfg(all(feature = "stand-alone", not(feature = "dev-build")))]
         if config.use_favicon && !Path::new(&config.favicon).exists() {
-                fs::write(Path::new(&config.favicon), DEFAULT_FAVICON).unwrap();
-            }
+            fs::write(Path::new(&config.favicon), DEFAULT_FAVICON).unwrap();
+        }
 
         config
     }
