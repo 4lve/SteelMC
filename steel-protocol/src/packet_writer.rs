@@ -1,3 +1,6 @@
+//! # Steel Protocol Packet Writer
+//!
+//! This module contains the implementation of the packet writer.
 /*
 Credit to https://github.com/Pumpkin-MC/Pumpkin/ for this implementation.
 */
@@ -18,16 +21,24 @@ use crate::{
 };
 
 // raw -> compress -> encrypt
+/// A writer that can encrypt data.
 pub enum EncryptionWriter<W: AsyncWrite + Unpin> {
+    /// A writer that encrypts data.
     Encrypt(Box<StreamEncryptor<W>>),
+    /// A writer that does not encrypt data.
     None(W),
 }
 
 impl<W: AsyncWrite + Unpin> EncryptionWriter<W> {
+    /// Upgrades the writer to encrypt data.
+    ///
+    /// # Panics
+    /// - If the writer is already encrypting data.
+    #[must_use]
     pub fn upgrade(self, cipher: Aes128Cfb8Enc) -> Self {
         match self {
             Self::None(stream) => Self::Encrypt(Box::new(StreamEncryptor::new(cipher, stream))),
-            _ => panic!("Cannot upgrade a stream that already has a cipher!"),
+            Self::Encrypt(_) => panic!("Cannot upgrade a stream that already has a cipher!"),
         }
     }
 }
@@ -78,13 +89,14 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for EncryptionWriter<W> {
 }
 
 /// Encoder: Server -> Client
-/// Supports ZLib endecoding/compression
+/// Supports `ZLib` endecoding/compression
 /// Supports Aes128 Encryption
 pub struct TCPNetworkEncoder<W: AsyncWrite + Unpin> {
     writer: EncryptionWriter<W>,
 }
 
 impl<W: AsyncWrite + Unpin> TCPNetworkEncoder<W> {
+    /// Creates a new `TCPNetworkEncoder`.
     pub fn new(writer: W) -> Self {
         Self {
             writer: EncryptionWriter::None(writer),
@@ -92,6 +104,10 @@ impl<W: AsyncWrite + Unpin> TCPNetworkEncoder<W> {
     }
 
     /// NOTE: Encryption can only be set; a minecraft stream cannot go back to being unencrypted
+    ///
+    /// # Panics
+    /// - If the stream is already encrypted.
+    /// - If the key is invalid.
     pub fn set_encryption(&mut self, key: &[u8; 16]) {
         if matches!(self.writer, EncryptionWriter::Encrypt(_)) {
             panic!("Cannot upgrade a stream that already has a cipher!");
@@ -100,6 +116,11 @@ impl<W: AsyncWrite + Unpin> TCPNetworkEncoder<W> {
         take_mut::take(&mut self.writer, |encoder| encoder.upgrade(cipher));
     }
 
+    /// Writes a packet to the stream.
+    ///
+    /// # Errors
+    /// - If the packet fails to write.
+    /// - If the stream fails to flush.
     pub async fn write_packet(&mut self, packet: &EncodedPacket) -> Result<(), PacketError> {
         self.writer
             .write_all(&packet.encoded_data)
@@ -113,6 +134,7 @@ impl<W: AsyncWrite + Unpin> TCPNetworkEncoder<W> {
     }
 }
 
+/// An error that occurs when the compression level is invalid.
 #[derive(Error, Debug)]
 #[error("Invalid compression Level")]
 pub struct CompressionLevelError;

@@ -7,13 +7,17 @@ use crate::{
     serial::{ReadFrom, WriteTo},
 };
 
+/// A variable-length integer.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct VarInt(pub i32);
 
 impl VarInt {
+    /// The maximum number of bytes a `VarInt` can be.
     pub const MAX_SIZE: usize = 5;
 
-    /// Returns the exact number of bytes this VarInt will write when
+    /// Returns the exact number of bytes this `VarInt` will write when
     /// [`Encode::encode`] is called, assuming no error occurs.
+    #[must_use]
     pub fn written_size(val: i32) -> usize {
         match val {
             0 => 1,
@@ -21,6 +25,10 @@ impl VarInt {
         }
     }
 
+    /// Reads a `VarInt` from an async reader.
+    ///
+    /// # Errors
+    /// - If the `VarInt` is too long.
     pub async fn read_async(read: &mut (impl AsyncRead + Unpin)) -> Result<i32, Error> {
         let mut val = 0;
         for i in 0..Self::MAX_SIZE {
@@ -36,13 +44,18 @@ impl VarInt {
         Err(Error::other("VarInt"))
     }
 
+    /// Writes a `VarInt` to an async writer.
+    ///
+    /// # Errors
+    /// - If the writer fails to write.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     pub async fn write_async(self, write: &mut (impl AsyncWrite + Unpin)) -> Result<(), Error> {
         let mut val = self.0;
         loop {
-            let b: u8 = (val as u8) & 0b01111111;
+            let b: u8 = (val as u8) & 0b0111_1111;
             val >>= 7;
             write
-                .write_u8(if val == 0 { b } else { b | 0b10000000 })
+                .write_u8(if val == 0 { b } else { b | 0b1000_0000 })
                 .await?;
             if val == 0 {
                 break;
@@ -53,6 +66,10 @@ impl VarInt {
 
     // We could just get the written size in place,
     // but in our use case its already calculated
+    /// Sets the `VarInt` in front of a `FrontVec`.
+    ///
+    /// # Panics
+    /// - If the `VarInt` fails to write to the buffer.
     pub fn set_in_front(&self, vec: &mut FrontVec, varint_size: usize) {
         // No heap allocation :)
         let mut buf = [0; Self::MAX_SIZE];
@@ -61,6 +78,7 @@ impl VarInt {
     }
 }
 
+#[allow(missing_docs)]
 impl ReadFrom for VarInt {
     fn read(read: &mut impl Read) -> Result<Self, Error> {
         let mut val = 0;
@@ -75,7 +93,9 @@ impl ReadFrom for VarInt {
     }
 }
 
+#[allow(missing_docs)]
 impl WriteTo for VarInt {
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     fn write(&self, writer: &mut impl Write) -> Result<(), Error> {
         let mut val = self.0;
         loop {
@@ -84,32 +104,37 @@ impl WriteTo for VarInt {
             if val == 0 {
                 b.write(writer)?;
                 break;
-            } else {
-                (b | 0x80).write(writer)?;
             }
+            (b | 0x80).write(writer)?;
         }
         Ok(())
     }
 }
 
+#[allow(missing_docs)]
 impl From<usize> for VarInt {
+    #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
     fn from(value: usize) -> Self {
         Self(value as _)
     }
 }
 
+#[allow(missing_docs)]
+#[allow(clippy::cast_sign_loss)]
 impl From<VarInt> for usize {
     fn from(value: VarInt) -> usize {
         value.0 as _
     }
 }
 
+#[allow(missing_docs)]
 impl From<i32> for VarInt {
     fn from(value: i32) -> Self {
         Self(value as _)
     }
 }
 
+#[allow(missing_docs)]
 impl From<VarInt> for i32 {
     fn from(value: VarInt) -> i32 {
         value.0

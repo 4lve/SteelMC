@@ -24,6 +24,7 @@ pub struct CLoginFinished<'a> {
 }
 
 impl<'a> CLoginFinished<'a> {
+    #[must_use]
     pub fn new(uuid: Uuid, name: &'a str, properties: &'a [GameProfileProperty]) -> Self {
         Self {
             uuid,

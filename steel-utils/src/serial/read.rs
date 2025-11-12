@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use std::{
     io::{Error, Read, Result},
     mem::{self, MaybeUninit},
@@ -137,6 +138,6 @@ impl ReadFrom for Uuid {
 impl ReadFrom for Identifier {
     fn read(data: &mut impl Read) -> Result<Self> {
         Identifier::from_str(&String::read_prefixed::<VarInt>(data)?)
-            .map_err(|e| Error::other(e.to_string()))
+            .map_err(|e| Error::other(e.clone()))
     }
 }

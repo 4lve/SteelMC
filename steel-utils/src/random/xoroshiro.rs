@@ -3,23 +3,26 @@ use crate::random::{
     get_seed,
 };
 
-// Xoroshiro128PlusPlusRandom
+// Ratios used in the mix functions
+const GOLDEN_RATIO_64: u64 = 0x9E37_79B9_7F4A_7C15;
+const SILVER_RATIO_64: u64 = 0x6A09_E667_F3BC_C909;
+
+/// A Xoroshiro128++ random number generator.
 pub struct Xoroshiro {
     seed_lo: u64,
     seed_hi: u64,
     next_gaussian: Option<f64>,
 }
 
+/// A splitter for the Xoroshiro128++ random number generator.
 pub struct XoroshiroSplitter {
     seed_lo: u64,
     seed_hi: u64,
 }
 
-// Ratios used in the mix functions
-const GOLDEN_RATIO_64: u64 = 0x9E3779B97F4A7C15;
-const SILVER_RATIO_64: u64 = 0x6A09E667F3BCC909;
-
 impl Xoroshiro {
+    /// Creates a new `Xoroshiro` from a seed.
+    #[must_use]
     pub fn from_seed(seed: u64) -> Self {
         // From RandomSupport
         let (lo, hi) = Self::upgrade_seed_to_128_bit(seed);
@@ -28,6 +31,8 @@ impl Xoroshiro {
         Self::new(lo, hi)
     }
 
+    /// Creates a new `Xoroshiro` from a seed without mixing.
+    #[must_use]
     pub fn from_seed_unmixed(seed: u64) -> Self {
         // From RandomSupport and
         let (lo, hi) = Self::upgrade_seed_to_128_bit(seed);
@@ -68,6 +73,7 @@ impl Xoroshiro {
     }
 }
 
+#[allow(missing_docs)]
 impl MarsagliaPolarGaussian for Xoroshiro {
     fn stored_next_gaussian(&self) -> Option<f64> {
         self.next_gaussian
@@ -79,46 +85,52 @@ impl MarsagliaPolarGaussian for Xoroshiro {
 }
 
 fn mix_stafford_13(z: u64) -> u64 {
-    let z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
-    let z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
+    let z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    let z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
     z ^ (z >> 31)
 }
 
+#[allow(missing_docs)]
 impl Random for Xoroshiro {
     fn fork(&mut self) -> Self {
         Self::new(self.next_random(), self.next_random())
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     fn next_i32(&mut self) -> i32 {
         self.next_random() as i32
     }
 
+    #[allow(clippy::cast_sign_loss)]
     fn next_i32_bounded(&mut self, bound: i32) -> i32 {
-        let mut l = (self.next_i32() as u64) & 0xFFFFFFFF;
+        let mut l = (self.next_i32() as u64) & 0xFFFF_FFFF;
         let mut m = l.wrapping_mul(bound as u64);
-        let mut n = m & 0xFFFFFFFF;
+        let mut n = m & 0xFFFF_FFFF;
         if n < bound as u64 {
             let i = (((!bound).wrapping_add(1)) as u64) % (bound as u64);
             while n < i {
-                l = (self.next_i32() as u64) & 0xFFFFFFFF;
+                l = (self.next_i32() as u64) & 0xFFFF_FFFF;
                 m = l.wrapping_mul(bound as u64);
-                n = m & 0xFFFFFFFF;
+                n = m & 0xFFFF_FFFF;
             }
         }
         let o = m >> 32;
         o as i32
     }
 
+    #[allow(clippy::cast_possible_wrap)]
     fn next_i64(&mut self) -> i64 {
         self.next_random() as i64
     }
 
+    #[allow(clippy::cast_precision_loss)]
     fn next_f32(&mut self) -> f32 {
-        self.next(24) as f32 * 5.9604645e-8
+        self.next(24) as f32 * 5.960_464_5e-8
     }
 
+    #[allow(clippy::cast_precision_loss)]
     fn next_f64(&mut self) -> f64 {
-        self.next(53) as f64 * 1.110223e-16f32 as f64
+        self.next(53) as f64 * f64::from(1.110_223e-16_f32)
     }
 
     fn next_bool(&mut self) -> bool {
@@ -137,7 +149,9 @@ impl Random for Xoroshiro {
     }
 }
 
+#[allow(missing_docs)]
 impl PositionalRandom for XoroshiroSplitter {
+    #[allow(clippy::many_single_char_names, clippy::cast_sign_loss)]
     fn at(&self, x: i32, y: i32, z: i32) -> RandomSource {
         let l = get_seed(x, y, z) as u64;
         let m = l ^ self.seed_lo;
@@ -145,6 +159,7 @@ impl PositionalRandom for XoroshiroSplitter {
         RandomSource::Xoroshiro(Xoroshiro::new(m, self.seed_hi))
     }
 
+    #[allow(clippy::cast_sign_loss)]
     fn with_hash_of(&self, name: &str) -> RandomSource {
         let bytes = md5::compute(name.as_bytes());
         let l = u64::from_be_bytes(bytes[0..8].try_into().unwrap());

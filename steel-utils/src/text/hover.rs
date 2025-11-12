@@ -4,12 +4,15 @@ use serde::{Deserialize, Serialize};
 
 use super::TextComponent;
 
+/// A hover event.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum HoverEvent {
     /// Displays a tooltip with the given text.
+    #[allow(missing_docs)]
     ShowText { value: Vec<TextComponent> },
     /// Shows an item.
+    #[allow(missing_docs)]
     ShowItem {
         /// Resource identifier of the item
         id: Cow<'static, str>,
@@ -20,11 +23,12 @@ pub enum HoverEvent {
         // components: Option<Cow<'static, str>>,
     },
     /// Shows an entity.
+    #[allow(missing_docs)]
     ShowEntity {
         /// The entity's ID Entity Type
         id: Cow<'static, str>,
         /// The entity's UUID
-        /// The UUID cannot use uuid::Uuid because its serialization parses it into bytes, so its double bytes serialized
+        /// The UUID cannot use `uuid::Uuid` because its serialization parses it into bytes, so its double bytes serialized
         uuid: Cow<'static, str>,
         /// Optional custom name for the entity
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -32,7 +36,9 @@ pub enum HoverEvent {
     },
 }
 
+#[allow(missing_docs)]
 impl HoverEvent {
+    #[must_use]
     pub fn show_text(text: TextComponent) -> Self {
         Self::ShowText { value: vec![text] }
     }

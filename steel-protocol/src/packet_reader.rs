@@ -1,3 +1,6 @@
+//! # Steel Protocol Packet Reader
+//!
+//! This module contains the implementation of the packet reader.
 /*
 Credit to https://github.com/Pumpkin-MC/Pumpkin/ for this implementation.
 */
@@ -19,8 +22,11 @@ use crate::utils::{
 };
 
 // decrypt -> decompress -> raw
+/// A reader that can decompress data.
 pub enum DecompressionReader<R: AsyncRead + Unpin> {
+    /// A reader that decompresses data.
     Decompress(ZlibDecoder<BufReader<R>>),
+    /// A reader that does not decompress data.
     None(R),
 }
 
@@ -44,16 +50,24 @@ impl<R: AsyncRead + Unpin> AsyncRead for DecompressionReader<R> {
     }
 }
 
+/// A reader that can decrypt data.
 pub enum DecryptionReader<R: AsyncRead + Unpin> {
+    /// A reader that decrypts data.
     Decrypt(Box<StreamDecryptor<R>>),
+    /// A reader that does not decrypt data.
     None(R),
 }
 
 impl<R: AsyncRead + Unpin> DecryptionReader<R> {
+    /// Upgrades the reader to decrypt data.
+    ///
+    /// # Panics
+    /// - If the reader is already decrypting data.
+    #[must_use]
     pub fn upgrade(self, cipher: Aes128Cfb8Dec) -> Self {
         match self {
             Self::None(stream) => Self::Decrypt(Box::new(StreamDecryptor::new(cipher, stream))),
-            _ => panic!("Cannot upgrade a stream that already has a cipher!"),
+            Self::Decrypt(_) => panic!("Cannot upgrade a stream that already has a cipher!"),
         }
     }
 }
@@ -79,7 +93,7 @@ impl<R: AsyncRead + Unpin> AsyncRead for DecryptionReader<R> {
 }
 
 /// Decoder: Client -> Server
-/// Supports ZLib decoding/decompression
+/// Supports `ZLib` decoding/decompression
 /// Supports Aes128 Encryption
 pub struct TCPNetworkDecoder<R: AsyncRead + Unpin> {
     reader: DecryptionReader<R>,
@@ -87,6 +101,7 @@ pub struct TCPNetworkDecoder<R: AsyncRead + Unpin> {
 }
 
 impl<R: AsyncRead + Unpin> TCPNetworkDecoder<R> {
+    /// Creates a new `TCPNetworkDecoder`.
     pub fn new(reader: R) -> Self {
         Self {
             reader: DecryptionReader::None(reader),
@@ -94,11 +109,16 @@ impl<R: AsyncRead + Unpin> TCPNetworkDecoder<R> {
         }
     }
 
+    /// Sets the compression threshold for the decoder.
     pub fn set_compression(&mut self, threshold: NonZeroU32) {
         self.compression = Some(threshold);
     }
 
     /// NOTE: Encryption can only be set; a minecraft stream cannot go back to being unencrypted
+    ///
+    /// # Panics
+    /// - If the reader is already decrypting data.
+    /// - If the key is invalid.
     pub fn set_encryption(&mut self, key: &[u8; 16]) {
         if matches!(self.reader, DecryptionReader::Decrypt(_)) {
             panic!("Cannot upgrade a stream that already has a cipher!");
@@ -107,11 +127,19 @@ impl<R: AsyncRead + Unpin> TCPNetworkDecoder<R> {
         take_mut::take(&mut self.reader, |decoder| decoder.upgrade(cipher));
     }
 
+    /// Gets a raw packet from the stream.
+    ///
+    /// # Errors
+    /// - If the packet length is invalid.
+    /// - If the packet is too long.
+    /// - If the packet is not compressed when it should be.
+    /// - If the packet fails to decompress.
+    #[allow(clippy::cast_sign_loss)]
     pub async fn get_raw_packet(&mut self) -> Result<RawPacket, PacketError> {
         let packet_len = VarInt::read_async(&mut self.reader).await? as usize;
 
         if packet_len > MAX_PACKET_SIZE {
-            Err(PacketError::OutOfBounds)?
+            Err(PacketError::OutOfBounds)?;
         }
 
         let mut bounded_reader = (&mut self.reader).take(packet_len as _);
@@ -122,7 +150,7 @@ impl<R: AsyncRead + Unpin> TCPNetworkDecoder<R> {
             let decompressed_len = decompressed_len as usize;
 
             if decompressed_len > MAX_PACKET_DATA_SIZE {
-                Err(PacketError::TooLong(decompressed_len))?
+                Err(PacketError::TooLong(decompressed_len))?;
             }
 
             if decompressed_len > 0 {
@@ -130,7 +158,7 @@ impl<R: AsyncRead + Unpin> TCPNetworkDecoder<R> {
             } else {
                 // Validate that we are not less than the compression threshold
                 if raw_packet_len > threshold.get() as _ {
-                    Err(PacketError::NotCompressed)?
+                    Err(PacketError::NotCompressed)?;
                 }
 
                 DecompressionReader::None(bounded_reader)

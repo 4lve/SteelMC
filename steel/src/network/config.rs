@@ -20,14 +20,17 @@ use crate::network::java_tcp_client::ConnectionUpdate;
 const BRAND_PAYLOAD: [u8; 5] = *b"Steel";
 
 impl JavaTcpClient {
+    /// Handles a custom payload packet during the configuration state.
     pub fn handle_config_custom_payload(&self, packet: SCustomPayload) {
         println!("Custom payload packet: {packet:?}");
     }
 
+    /// Handles the client information packet during the configuration state.
     pub fn handle_client_information(&self, packet: SClientInformation) {
         println!("Client information packet: {packet:?}");
     }
 
+    /// Starts the configuration process by sending initial packets.
     pub async fn start_configuration(&self) {
         self.send_bare_packet_now(CCustomPayload::new(
             Identifier::vanilla_static("brand"),
@@ -43,6 +46,7 @@ impl JavaTcpClient {
         .await;
     }
 
+    /// Handles the select known packs packet during the configuration state.
     pub async fn handle_select_known_packs(&self, packet: SSelectKnownPacks) {
         println!("Select known packs packet: {packet:?}");
 
@@ -59,6 +63,8 @@ impl JavaTcpClient {
         self.send_bare_packet_now(CFinishConfiguration {}).await;
     }
 
+    /// Finishes the configuration process and transitions to the play state.
+    ///
     /// # Panics
     /// This function will panic if the game profile is empty, should be impossible at this point.
     pub async fn finish_configuration(&self) {

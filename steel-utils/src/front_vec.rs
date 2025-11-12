@@ -10,13 +10,16 @@ use tokio::io::AsyncWrite;
 /// Its like a vec but with reserveable front space.
 /// Its meant for our packet serialization,
 /// you can just put the len of the packet in front without reallocating
-/// keep in mind that calling multiple set_in_front() sets the data in reverse order compared to extend_from_slice()
+/// keep in mind that calling multiple `set_in_front()` sets the data in reverse order compared to `extend_from_slice()`
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct FrontVec {
     buf: Vec<u8>,
     front_space: usize,
 }
 
 impl FrontVec {
+    /// Creates a new `FrontVec` with the given reserved front space and capacity.
+    #[must_use]
     pub fn capacity(reserve: usize, capacity: usize) -> Self {
         let total = reserve + capacity;
         let mut buf = Vec::with_capacity(total);
@@ -32,6 +35,8 @@ impl FrontVec {
         }
     }
 
+    /// Creates a new `FrontVec` with the given reserved front space.
+    #[must_use]
     pub fn new(reserve: usize) -> Self {
         let mut buf = Vec::with_capacity(reserve);
 
@@ -46,43 +51,56 @@ impl FrontVec {
         }
     }
 
+    /// Returns the length of the `FrontVec`.
+    #[must_use]
     pub const fn len(&self) -> usize {
         self.buf.len() - self.front_space
     }
 
+    /// Returns whether the `FrontVec` is empty.
+    #[must_use]
     pub const fn is_empty(&self) -> bool {
         (self.buf.len() - self.front_space) == 0
     }
 
+    /// Pushes a value to the back of the `FrontVec`.
     pub fn push(&mut self, value: u8) {
         self.buf.push(value);
     }
 
+    /// Extends the `FrontVec` with a slice.
     pub fn extend_from_slice(&mut self, other: &[u8]) {
         self.buf.extend_from_slice(other);
     }
 
+    /// Sets the data in the front of the `FrontVec`.
+    ///
+    /// # Panics
+    /// - If there is not enough reserved space.
     #[track_caller]
     pub fn set_in_front(&mut self, other: &[u8]) {
-        if self.front_space < other.len() {
-            panic!("Not enough reserved space");
-        }
+        assert!(self.front_space >= other.len(), "Not enough reserved space");
 
         let new_start = self.front_space - other.len();
         self.buf[new_start..self.front_space].copy_from_slice(other);
         self.front_space = new_start;
     }
 
+    /// Returns a slice of the `FrontVec`.
+    #[must_use]
     pub fn as_slice(&self) -> &[u8] {
         &self.buf[self.front_space..self.buf.len()]
     }
 
+    /// Returns a mutable slice of the `FrontVec`.
+    #[must_use]
     pub fn as_mut_slice(&mut self) -> &mut [u8] {
         let len = self.buf.len();
         &mut self.buf[self.front_space..len]
     }
 }
 
+#[allow(missing_docs)]
 impl Write for FrontVec {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.buf.extend_from_slice(buf);
@@ -93,6 +111,7 @@ impl Write for FrontVec {
     }
 }
 
+#[allow(missing_docs)]
 impl AsyncWrite for FrontVec {
     fn poll_write(
         self: Pin<&mut Self>,
@@ -113,6 +132,7 @@ impl AsyncWrite for FrontVec {
     }
 }
 
+#[allow(missing_docs)]
 impl Deref for FrontVec {
     type Target = [u8];
 
@@ -121,6 +141,7 @@ impl Deref for FrontVec {
     }
 }
 
+#[allow(missing_docs)]
 impl DerefMut for FrontVec {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()

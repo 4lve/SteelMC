@@ -9,6 +9,7 @@ pub struct SKey {
 }
 
 impl SKey {
+    #[must_use]
     pub fn new(key: Vec<u8>, challenge: Vec<u8>) -> Self {
         Self { key, challenge }
     }

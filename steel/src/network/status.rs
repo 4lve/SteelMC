@@ -6,6 +6,7 @@ use steel_registry::packets::CURRENT_MC_PROTOCOL;
 use crate::{MC_VERSION, STEEL_CONFIG, network::JavaTcpClient};
 
 impl JavaTcpClient {
+    /// Handles a status request from the client.
     pub async fn handle_status_request(&self) {
         let res_packet = CStatusResponse::new(Status {
             description: &STEEL_CONFIG.motd,
@@ -25,6 +26,7 @@ impl JavaTcpClient {
         self.send_bare_packet_now(res_packet).await;
     }
 
+    /// Handles a ping request from the client.
     pub async fn handle_ping_request(&self, packet: SPingRequest) {
         self.send_bare_packet_now(CPongResponse::new(packet.time))
             .await;

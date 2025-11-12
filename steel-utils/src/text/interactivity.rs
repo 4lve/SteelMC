@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use super::click::ClickEvent;
 use super::hover::HoverEvent;
 
+/// The interactivity of a text component.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct Interactivity {
@@ -15,6 +16,8 @@ pub struct Interactivity {
 }
 
 impl Interactivity {
+    /// Creates a new `Interactivity`.
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             click_event: None,
@@ -23,6 +26,7 @@ impl Interactivity {
     }
 }
 
+#[allow(missing_docs)]
 impl Default for Interactivity {
     fn default() -> Self {
         Self::new()

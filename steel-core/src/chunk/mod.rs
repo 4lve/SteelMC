@@ -1,3 +1,5 @@
+//! This module contains all the chunk related structures and logic.
+
 pub mod chunk_access;
 pub mod chunk_generation_task;
 pub mod chunk_generator;

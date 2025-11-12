@@ -1,12 +1,18 @@
+//! This module contains utilities for random number generation.
 use enum_dispatch::enum_dispatch;
 
 use crate::random::xoroshiro::{Xoroshiro, XoroshiroSplitter};
 
+/// This module contains the gaussian random number generator.
 pub mod gaussian;
+/// This module contains the xoroshiro random number generator.
 pub mod xoroshiro;
 
+/// A trait for random number generators.
 #[enum_dispatch]
+#[allow(missing_docs)]
 pub trait Random {
+    #[must_use]
     fn fork(&mut self) -> Self;
 
     fn next_i32(&mut self) -> i32;
@@ -48,7 +54,9 @@ pub trait Random {
     }
 }
 
+/// A trait for positional random number generators.
 #[enum_dispatch]
+#[allow(missing_docs)]
 pub trait PositionalRandom {
     fn at(&self, x: i32, y: i32, z: i32) -> RandomSource;
 
@@ -57,21 +65,30 @@ pub trait PositionalRandom {
     fn with_seed(&self, seed: u64) -> RandomSource;
 }
 
+/// A source of random numbers.
 #[enum_dispatch(Random)]
 pub enum RandomSource {
+    /// A xoroshiro random number generator.
     Xoroshiro(Xoroshiro),
 }
 
+/// A random number generator that can be split.
 #[enum_dispatch(PositionalRandom)]
 pub enum RandomSplitter {
+    /// A xoroshiro random number generator.
     Xoroshiro(XoroshiroSplitter),
 }
 
+/// Gets a seed from a position.
+#[allow(clippy::cast_sign_loss)]
+#[must_use]
 pub fn get_seed(x: i32, y: i32, z: i32) -> i64 {
-    let l = (x.wrapping_mul(3129871) as i64) ^ ((z as i64).wrapping_mul(116129781i64)) ^ (y as i64);
+    let l = i64::from(x.wrapping_mul(3_129_871))
+        ^ (i64::from(z).wrapping_mul(116_129_781_i64))
+        ^ i64::from(y);
     let l = l
         .wrapping_mul(l)
-        .wrapping_mul(42317861i64)
-        .wrapping_add(l.wrapping_mul(11i64));
+        .wrapping_mul(42_317_861_i64)
+        .wrapping_add(l.wrapping_mul(11));
     l >> 16
 }

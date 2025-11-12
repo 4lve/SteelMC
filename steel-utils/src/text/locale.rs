@@ -1,6 +1,8 @@
 use std::str::FromStr;
 
+/// A locale.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[allow(missing_docs)]
 pub enum Locale {
     AfZa,
     ArSa,
@@ -132,9 +134,11 @@ pub enum Locale {
     ZlmArab,
 }
 
+#[allow(missing_docs)]
 impl FromStr for Locale {
     type Err = ();
 
+    #[allow(clippy::too_many_lines, clippy::match_same_arms)]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "af_za" => Ok(Locale::AfZa),       // Afrikaans (Suid-Afrika)

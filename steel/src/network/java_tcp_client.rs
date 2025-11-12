@@ -39,10 +39,14 @@ use tokio_util::sync::CancellationToken;
 
 use steel_core::server::Server;
 
+/// Represents updates to the connection state.
 #[derive(Clone)]
 pub enum ConnectionUpdate {
+    /// Enable encryption on the connection.
     EnableEncryption([u8; 16]),
+    /// Enable compression on the connection.
     EnableCompression(CompressionInfo),
+    /// Upgrade the connection to the play state.
     Upgrade(Arc<JavaConnection>),
 }
 
@@ -61,6 +65,7 @@ impl Debug for ConnectionUpdate {
 /// Connection for pre play packets
 /// Gets dropped by `incoming_packet_task` if closed or upgradet to play connection
 pub struct JavaTcpClient {
+    /// The unique ID of the client.
     pub id: u64,
     /// The client's game profile information.
     pub gameprofile: Mutex<Option<GameProfile>>,
@@ -77,7 +82,9 @@ pub struct JavaTcpClient {
     pub network_writer: Arc<Mutex<TCPNetworkEncoder<BufWriter<OwnedWriteHalf>>>>,
     pub(crate) compression: Arc<AtomicCell<Option<CompressionInfo>>>,
 
+    /// The shared server state.
     pub server: Arc<Server>,
+    /// The challenge sent to the client during login.
     pub challenge: AtomicCell<[u8; 4]>,
 
     pub(crate) connection_updates: Sender<ConnectionUpdate>,
@@ -85,6 +92,7 @@ pub struct JavaTcpClient {
 }
 
 impl JavaTcpClient {
+    /// Creates a new `JavaTcpClient`.
     #[must_use]
     pub fn new(
         tcp_stream: TcpStream,
@@ -120,10 +128,13 @@ impl JavaTcpClient {
         (client, recv, TCPNetworkDecoder::new(BufReader::new(read)))
     }
 
+    /// Closes the connection.
     pub fn close(&self) {
         self.cancel_token.cancel();
     }
 
+    /// Sends a packet immediately, without queueing.
+    ///
     /// # Panics
     /// This function will panic if the packet cannot be encoded. Should never happen.
     pub async fn send_bare_packet_now<P: ClientPacket>(&self, packet: P) {
@@ -141,6 +152,7 @@ impl JavaTcpClient {
         }
     }
 
+    /// Sends an already encoded packet immediately, without queueing.
     pub async fn send_packet_now(&self, packet: &EncodedPacket) {
         if let Err(err) = self.network_writer.lock().await.write_packet(packet).await
             && !self.cancel_token.is_cancelled()
@@ -150,6 +162,7 @@ impl JavaTcpClient {
         }
     }
 
+    /// Encodes and queues a packet to be sent.
     pub fn send_bare_packet<P: ClientPacket>(&self, packet: P) -> Result<(), PacketError> {
         let protocol = self.protocol.load();
         let buf = EncodedPacket::write_vec(packet, protocol)?;
@@ -164,6 +177,7 @@ impl JavaTcpClient {
         Ok(())
     }
 
+    /// Queues an already encoded packet to be sent.
     pub fn send_packet(&self, packet: EncodedPacket) -> Result<(), PacketError> {
         self.outgoing_queue
             .send(EnqueuedPacket::EncodedPacket(packet))
@@ -262,6 +276,8 @@ impl JavaTcpClient {
         });
     }
 
+    /// Starts a task that will receive packets from the client.
+    /// This task will run until the client is closed or the cancellation token is cancelled.
     pub fn start_incoming_packet_task(
         self: &Arc<Self>,
         mut reader: TCPNetworkDecoder<BufReader<OwnedReadHalf>>,
@@ -346,6 +362,7 @@ impl JavaTcpClient {
         }
     }
 
+    /// Handles a handshake packet.
     pub fn handle_handshake(&self, packet: RawPacket) -> Result<(), PacketError> {
         let data = &mut Cursor::new(packet.payload);
 
@@ -366,6 +383,7 @@ impl JavaTcpClient {
         Ok(())
     }
 
+    /// Handles a status packet.
     pub async fn handle_status(&self, packet: RawPacket) -> Result<(), PacketError> {
         let data = &mut Cursor::new(packet.payload);
 
@@ -382,6 +400,7 @@ impl JavaTcpClient {
         Ok(())
     }
 
+    /// Handles a login packet.
     pub async fn handle_login(&self, packet: RawPacket) -> Result<(), PacketError> {
         let data = &mut Cursor::new(packet.payload);
 
@@ -396,6 +415,7 @@ impl JavaTcpClient {
         Ok(())
     }
 
+    /// Handles a configuration packet.
     pub async fn handle_config(&self, packet: RawPacket) -> Result<(), PacketError> {
         let data = &mut Cursor::new(packet.payload);
 
@@ -420,6 +440,7 @@ impl JavaTcpClient {
 }
 
 impl JavaTcpClient {
+    /// Kicks the client with a given reason.
     pub async fn kick(&self, reason: TextComponent) {
         match self.protocol.load() {
             ConnectionProtocol::Login => {

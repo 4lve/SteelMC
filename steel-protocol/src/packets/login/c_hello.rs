@@ -14,6 +14,7 @@ pub struct CHello<'a> {
 }
 
 impl<'a> CHello<'a> {
+    #[must_use]
     pub fn new(
         server_id: String,
         public_key: &'a [u8],

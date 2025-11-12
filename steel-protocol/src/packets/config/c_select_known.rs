@@ -11,6 +11,7 @@ pub struct CSelectKnownPacks {
 }
 
 impl CSelectKnownPacks {
+    #[must_use]
     pub fn new(packs: Vec<KnownPack>) -> Self {
         Self { packs }
     }

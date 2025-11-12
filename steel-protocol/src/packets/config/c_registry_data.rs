@@ -19,12 +19,14 @@ pub struct CRegistryData {
 }
 
 impl CRegistryData {
+    #[must_use]
     pub fn new(registry: Identifier, entries: Vec<RegistryEntry>) -> Self {
         Self { registry, entries }
     }
 }
 
 impl RegistryEntry {
+    #[must_use]
     pub fn new(id: Identifier, data: Option<NbtTag>) -> Self {
         Self { id, data }
     }

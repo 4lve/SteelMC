@@ -10,6 +10,7 @@ pub struct CLoginDisconnect {
 }
 
 impl CLoginDisconnect {
+    #[must_use]
     pub fn new(reason: TextComponent) -> Self {
         Self { reason }
     }

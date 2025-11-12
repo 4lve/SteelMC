@@ -6,40 +6,51 @@ use crate::text::TextComponent;
 
 /// A translation with compile-time argument count checking
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[allow(missing_docs)]
 pub struct Translation<const ARGS: usize> {
     pub key: &'static str,
     pub format: &'static str,
 }
 
+#[allow(missing_docs)]
 impl<const ARGS: usize> Translation<ARGS> {
+    #[must_use]
     pub const fn new(key: &'static str, format: &'static str) -> Self {
         Self { key, format }
     }
 }
 
 impl Translation<0> {
+    /// Creates a new `TranslatedMessage` with no arguments.
+    #[must_use]
     pub fn msg(&self) -> TranslatedMessage {
         TranslatedMessage::new(self.key, None)
     }
 }
 
 impl<const ARGS: usize> Translation<ARGS> {
+    /// Creates a new `TranslatedMessage` with the given arguments.
+    #[must_use]
     pub fn message(self, args: [impl Into<TextComponent>; ARGS]) -> TranslatedMessage {
-        TranslatedMessage::new(self.key, Some(Box::new(args.map(|a| a.into()))))
+        TranslatedMessage::new(self.key, Some(Box::new(args.map(std::convert::Into::into))))
     }
 }
 
 /// A constructed message
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[allow(missing_docs)]
 pub struct TranslatedMessage {
     pub key: Cow<'static, str>,
     pub fallback: Option<Cow<'static, str>>,
     pub args: Option<Box<[TextComponent]>>,
 }
 
+/// An empty array of text components.
 pub const EMPTY_ARGS: &[TextComponent] = &[];
 
 impl TranslatedMessage {
+    /// Creates a new `TranslatedMessage`.
+    #[must_use]
     pub const fn new(key: &'static str, args: Option<Box<[TextComponent]>>) -> Self {
         Self {
             key: Cow::Borrowed(key),
@@ -49,11 +60,13 @@ impl TranslatedMessage {
     }
 
     /// Get the translation key (for sending to client)
+    #[must_use]
     pub fn key(&self) -> Cow<'static, str> {
         self.key.clone()
     }
 
     /// Get the arguments as a slice
+    #[must_use]
     pub fn args(&self) -> &[TextComponent] {
         match &self.args {
             Some(args) => args,
@@ -62,11 +75,16 @@ impl TranslatedMessage {
     }
 
     /// Get key and arguments for client packet
+    #[must_use]
     pub fn client_data(&self) -> (Cow<'static, str>, &[TextComponent]) {
         (self.key.clone(), self.args())
     }
 
     /// Format the message on the server-side
+    ///
+    /// # Panics
+    /// - If the translation key is not found.
+    #[must_use]
     pub fn format(&self) -> String {
         let mut result = crate::translations::TRANSLATIONS
             .get(self.key.as_ref())
@@ -79,7 +97,7 @@ impl TranslatedMessage {
         }
 
         // Handle sequential %s
-        for arg in self.args().iter() {
+        for arg in self.args() {
             result = result.replacen("%s", &arg.to_string(), 1);
         }
 

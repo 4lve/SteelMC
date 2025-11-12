@@ -18,16 +18,20 @@ use crate::{
     },
 };
 
+/// Checks if a player name is valid.
 #[must_use]
 pub fn is_valid_player_name(name: &str) -> bool {
     (3..=16).contains(&name.len()) && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
+/// Generates an offline mode UUID for a player.
 pub fn offline_uuid(username: &str) -> Result<Uuid, uuid::Error> {
     Uuid::from_slice(&Sha256::digest(username)[..16])
 }
 
 impl JavaTcpClient {
+    /// Handles the hello packet during the login state.
+    ///
     /// # Panics
     /// This function will panic if the player name converted to a UUID fails.
     pub async fn handle_hello(&self, packet: SHello) {
@@ -74,6 +78,7 @@ impl JavaTcpClient {
         }
     }
 
+    /// Handles the key packet during the login state, used for encryption.
     pub async fn handle_key(&self, packet: SKey) {
         let challenge = self.challenge.load();
 
@@ -158,6 +163,8 @@ impl JavaTcpClient {
         self.finish_login(profile).await;
     }
 
+    /// Finishes the login process and transitions to the configuration state.
+    ///
     /// # Panics
     /// This function will panic if the compression threshold cannot be converted to an i32. Should never happen.
     pub async fn finish_login(&self, profile: &GameProfile) {
@@ -182,6 +189,7 @@ impl JavaTcpClient {
         .await;
     }
 
+    /// Handles the login acknowledged packet and transitions to the configuration state.
     pub async fn handle_login_acknowledged(&self) {
         self.protocol.store(ConnectionProtocol::Config);
 

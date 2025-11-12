@@ -1,4 +1,7 @@
-#![warn(clippy::all, clippy::pedantic, clippy::cargo)]
+//! # Steel
+//!
+//! The main library for the Steel Minecraft server.
+#![warn(clippy::all, clippy::pedantic, clippy::cargo, missing_docs)]
 #![allow(
     clippy::single_call_fn,
     clippy::multiple_inherent_impl,
@@ -17,18 +20,27 @@ use steel_core::{config::STEEL_CONFIG, server::Server};
 use tokio::{net::TcpListener, select};
 use tokio_util::sync::CancellationToken;
 
+/// The networking module.
 pub mod network;
 
+/// The supported Minecraft version.
 pub const MC_VERSION: &str = "1.21.10";
 
+/// The main server struct.
 pub struct SteelServer {
+    /// The TCP listener for incoming connections.
     pub tcp_listener: TcpListener,
+    /// The cancellation token for graceful shutdown.
     pub cancel_token: CancellationToken,
+    /// The next client ID to be assigned.
     pub client_id: u64,
+    /// The shared server state.
     pub server: Arc<Server>,
 }
 
 impl SteelServer {
+    /// Creates a new Steel server.
+    ///
     /// # Panics
     /// This function will panic if the TCP listener fails to bind to the server address.
     pub async fn new() -> Self {
@@ -49,6 +61,7 @@ impl SteelServer {
         }
     }
 
+    /// Starts the server and begins accepting connections.
     pub async fn start(&mut self) {
         log::info!("Started Steel Server");
 

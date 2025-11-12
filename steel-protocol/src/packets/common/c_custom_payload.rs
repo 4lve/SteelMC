@@ -12,6 +12,7 @@ pub struct CCustomPayload {
 }
 
 impl CCustomPayload {
+    #[must_use]
     pub fn new(identifier: Identifier, payload: Box<[u8]>) -> Self {
         Self {
             identifier,

@@ -40,6 +40,7 @@ pub struct CStatusResponse {
 }
 
 impl CStatusResponse {
+    #[must_use]
     pub fn new(status: Status) -> Self {
         Self { status }
     }

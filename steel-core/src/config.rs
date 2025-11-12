@@ -1,3 +1,4 @@
+//! Handles all the server configuration.
 use base64::{Engine, prelude::BASE64_STANDARD};
 use serde::Deserialize;
 use std::{fs, path::Path, sync::LazyLock};
@@ -9,29 +10,48 @@ const ICON_PREFIX: &str = "data:image/png;base64,";
 
 const DEFAULT_CONFIG: &str = include_str!("../../package-content/steel_config.json5");
 
+/// The server configuration.
+///
+/// This is loaded from `config/steel_config.json5` or created if it doesn't exist.
 pub static STEEL_CONFIG: LazyLock<ServerConfig> =
     LazyLock::new(|| ServerConfig::load_or_create(Path::new("config/steel_config.json5")));
 
+/// The server configuration.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ServerConfig {
+    /// The port the server will listen on.
     pub server_port: u16,
+    /// The seed for the world generator.
     pub seed: String,
+    /// The maximum number of players that can be on the server at once.
     pub max_players: u32,
+    /// The view distance of the server.
     pub view_distance: u8,
+    /// The simulation distance of the server.
     pub simulation_distance: u8,
+    /// Whether the server is in online mode.
     pub online_mode: bool,
+    /// Whether the server should use encryption.
     pub encryption: bool,
+    /// The message of the day.
     pub motd: String,
+    /// Whether to use a favicon.
     pub use_favicon: bool,
+    /// The path to the favicon.
     pub favicon: String,
+    /// Whether to enforce secure chat.
     pub enforce_secure_chat: bool,
+    /// The compression settings for the server.
     pub compression: Option<CompressionInfo>,
 }
 
 impl ServerConfig {
-    #[must_use]
+    /// Loads the server configuration from the given path, or creates it if it doesn't exist.
+    ///
     /// # Panics
-    /// This function will panic if the config file does not exist and the directory cannot be created, or if the config file cannot be read or written.
+    /// This function will panic if the config file does not exist and the directory cannot be created,
+    /// or if the config file cannot be read or written.
+    #[must_use]
     pub fn load_or_create(path: &Path) -> Self {
         let config = if path.exists() {
             let config_str = fs::read_to_string(path).unwrap();
@@ -55,6 +75,10 @@ impl ServerConfig {
         config
     }
 
+    /// Validates the server configuration.
+    ///
+    /// # Errors
+    /// This function will return an error if the configuration is invalid.
     pub fn validate(&self) -> Result<(), &'static str> {
         if !(1..=64).contains(&self.view_distance) {
             return Err("View distance must in range 1..64");
@@ -73,7 +97,11 @@ impl ServerConfig {
         Ok(())
     }
 
-    /// Assemble the icon with only one alloc :)
+    /// Loads the favicon from the path specified in the config.
+    /// If the favicon doesn't exist, it will use the default favicon.
+    /// If `use_favicon` is false, this will return `None`.
+    ///
+    /// The returned string is a base64 encoded png with the `data:image/png;base64,` prefix.
     #[must_use]
     pub fn load_favicon(&self) -> Option<String> {
         if self.use_favicon {
@@ -89,20 +117,19 @@ impl ServerConfig {
                     BASE64_STANDARD.encode_string(icon, &mut base64);
 
                     return Some(base64);
-                } else {
-                    #[cfg(feature = "stand-alone")]
-                    {
-                        let cap = ICON_PREFIX.len() + DEFAULT_FAVICON.len().div_ceil(3) * 4;
-                        let mut base64 = String::with_capacity(cap);
-
-                        base64 += ICON_PREFIX;
-                        BASE64_STANDARD.encode_string(DEFAULT_FAVICON, &mut base64);
-
-                        return Some(base64);
-                    }
-                    #[cfg(not(feature = "stand-alone"))]
-                    return None;
                 }
+                #[cfg(feature = "stand-alone")]
+                {
+                    let cap = ICON_PREFIX.len() + DEFAULT_FAVICON.len().div_ceil(3) * 4;
+                    let mut base64 = String::with_capacity(cap);
+
+                    base64 += ICON_PREFIX;
+                    BASE64_STANDARD.encode_string(DEFAULT_FAVICON, &mut base64);
+
+                    return Some(base64);
+                }
+                #[cfg(not(feature = "stand-alone"))]
+                return None;
             }
         }
         None
