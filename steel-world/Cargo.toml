@@ -4,8 +4,9 @@ version.workspace = true
 edition.workspace = true
 
 [features]
-#default = ["stand-alone"]
+default = ["dev-build"]
 stand-alone = []
+dev-build = []
 
 [dependencies]
 steel-utils = { path = "../steel-utils" }

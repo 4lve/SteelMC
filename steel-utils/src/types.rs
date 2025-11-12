@@ -45,9 +45,9 @@ impl BlockPos {
     const PACKED_Y_LEN: u32 = 64 - 2 * Self::PACKED_HORIZONTAL_LEN;
     const X_OFFSET: u32 = Self::PACKED_Y_LEN + Self::PACKED_HORIZONTAL_LEN;
     const Z_OFFSET: u32 = 0;
-    const PACKED_X_MASK: i64 = (1i64 << Self::PACKED_HORIZONTAL_LEN) - 1;
-    const PACKED_Y_MASK: i64 = (1i64 << Self::PACKED_Y_LEN) - 1;
-    const PACKED_Z_MASK: i64 = (1i64 << Self::PACKED_HORIZONTAL_LEN) - 1;
+    const PACKED_X_MASK: i64 = (1 << Self::PACKED_HORIZONTAL_LEN) - 1;
+    const PACKED_Y_MASK: i64 = (1 << Self::PACKED_Y_LEN) - 1;
+    const PACKED_Z_MASK: i64 = (1 << Self::PACKED_HORIZONTAL_LEN) - 1;
 
     pub fn as_i64(&self) -> i64 {
         let x = self.0.x as i64;

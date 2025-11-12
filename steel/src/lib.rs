@@ -20,6 +20,7 @@ use tokio_util::sync::CancellationToken;
 pub mod network;
 
 pub const MC_VERSION: &str = "1.21.10";
+pub const BRAND: &[u8; 5] = b"Steel";
 
 pub struct SteelServer {
     pub tcp_listener: TcpListener,
