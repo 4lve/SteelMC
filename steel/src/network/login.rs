@@ -2,12 +2,12 @@ use num_bigint::BigInt;
 use rsa::Pkcs1v15Encrypt;
 use sha1::Sha1;
 use sha2::{Digest, Sha256};
+use steel_core::player::GameProfile;
 use steel_protocol::{
     packets::login::{CHello, CLoginCompression, CLoginFinished, SHello, SKey},
     utils::ConnectionProtocol,
 };
 use steel_utils::{text::TextComponent, translations};
-use steel_world::player::GameProfile;
 use uuid::Uuid;
 
 use crate::{

@@ -6,7 +6,7 @@ edition.workspace = true
 
 [dependencies]
 steel-utils = { path = "../steel-utils" }
-steel-world = { path = "../steel-world" }
+steel-core = { path = "../steel-core" }
 steel-registry = { path = "../steel-registry" }
 steel-protocol = { path = "../steel-protocol" }
 tokio.workspace = true

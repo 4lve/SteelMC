@@ -13,7 +13,7 @@ use std::{
     net::{Ipv4Addr, SocketAddrV4},
     sync::Arc,
 };
-use steel_world::{config::STEEL_CONFIG, server::Server};
+use steel_core::{config::STEEL_CONFIG, server::Server};
 use tokio::{net::TcpListener, select};
 use tokio_util::sync::CancellationToken;
 

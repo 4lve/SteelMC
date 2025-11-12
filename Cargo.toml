@@ -6,7 +6,7 @@ members = [
     "steel-protocol",
     "steel-registry",
     "steel-utils",
-    "steel-world",
+    "steel-core",
 ]
 
 [workspace.package]

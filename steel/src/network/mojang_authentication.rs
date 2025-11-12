@@ -1,5 +1,5 @@
 use reqwest::StatusCode;
-use steel_world::player::GameProfile;
+use steel_core::player::GameProfile;
 use thiserror::Error;
 
 const MOJANG_AUTH_URL: &str =

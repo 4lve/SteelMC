@@ -6,6 +6,7 @@ use std::{
 };
 
 use crossbeam::atomic::AtomicCell;
+use steel_core::player::{GameProfile, networking::JavaConnection};
 use steel_protocol::{
     packet_reader::TCPNetworkDecoder,
     packet_traits::{ClientPacket, CompressionInfo, EncodedPacket, ServerPacket},
@@ -21,7 +22,6 @@ use steel_protocol::{
 };
 use steel_registry::packets::{config, handshake, login, status};
 use steel_utils::text::TextComponent;
-use steel_world::player::{GameProfile, networking::JavaConnection};
 use tokio::{
     io::{BufReader, BufWriter},
     net::{
@@ -37,7 +37,7 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-use steel_world::server::Server;
+use steel_core::server::Server;
 
 #[derive(Clone)]
 pub enum ConnectionUpdate {

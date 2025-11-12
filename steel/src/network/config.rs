@@ -9,9 +9,9 @@ use steel_protocol::packets::config::SSelectKnownPacks;
 use steel_protocol::packets::shared_implementation::KnownPack;
 use steel_protocol::utils::ConnectionProtocol;
 
+use steel_core::player::Player;
+use steel_core::player::networking::JavaConnection;
 use steel_utils::Identifier;
-use steel_world::player::Player;
-use steel_world::player::networking::JavaConnection;
 
 use crate::MC_VERSION;
 use crate::network::JavaTcpClient;
