@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["DataComponentMap","DataComponentRegistry","DataComponentType"],"trait":["ComponentValue"]};

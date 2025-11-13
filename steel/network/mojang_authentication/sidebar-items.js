@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MOJANG_AUTH_URL","SERVER_ID_ARG"],"enum":["AuthError","TextureError"],"fn":["mojang_authenticate"]};

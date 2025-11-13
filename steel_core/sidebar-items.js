@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["chunk","config","player","server","world"],"struct":["ChunkMap","Level"]};

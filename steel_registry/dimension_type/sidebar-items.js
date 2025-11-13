@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MonsterSpawnLightLevel"],"struct":["DimensionType","DimensionTypeRegistry"],"type":["DimensionTypeRef"]};

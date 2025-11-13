@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Dialog"],"struct":["DialogList","DialogRegistry","ExitAction","ServerLinks"],"type":["DialogRef"]};

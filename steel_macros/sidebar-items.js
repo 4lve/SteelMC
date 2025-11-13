@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ALLOWED_TYPES","UNSUPPORTED_PROP","WRONG_FORMAT"],"derive":["ClientPacket","ReadFrom","ServerPacket","WriteTo"],"fn":["parse_write_attributes","read_from_enum","read_from_struct","write_to_enum","write_to_struct"],"struct":["FieldWriteAttributes"]};

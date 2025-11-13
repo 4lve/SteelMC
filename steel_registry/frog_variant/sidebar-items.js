@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["BiomeCondition","FrogVariant","FrogVariantRegistry","SpawnConditionEntry"],"type":["FrogVariantRef"]};

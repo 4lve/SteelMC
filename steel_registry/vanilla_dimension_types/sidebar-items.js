@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["OVERWORLD","OVERWORLD_CAVES","THE_END","THE_NETHER"],"fn":["register_dimension_types"]};

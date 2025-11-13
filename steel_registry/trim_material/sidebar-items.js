@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["StyledTextComponent","TrimMaterial","TrimMaterialRegistry"],"type":["TrimMaterialRef"]};

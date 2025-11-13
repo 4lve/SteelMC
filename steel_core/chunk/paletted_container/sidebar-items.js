@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PalettedContainer"],"struct":["HeterogeneousPalette"],"type":["BlockPalette","Cube"]};

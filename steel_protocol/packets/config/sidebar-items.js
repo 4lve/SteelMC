@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["c_finish_configuration","c_registry_data","c_select_known","s_finish_configuration","s_select_known"],"struct":["CFinishConfiguration","CRegistryData","CSelectKnownPacks","RegistryEntry","SFinishConfiguration","SSelectKnownPacks"]};

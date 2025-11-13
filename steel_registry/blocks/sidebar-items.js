@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["offset"],"mod":["behaviour","properties"],"struct":["Block","BlockRegistry"],"type":["BlockRef"]};

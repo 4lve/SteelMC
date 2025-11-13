@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["c_custom_payload","c_disconnect","c_update_tags","s_client_information","s_custom_payload"],"struct":["CCustomPayload","CDisconnect","CUpdateTags","SClientInformation","SCustomPayload"],"type":["TagCollection"]};

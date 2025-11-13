@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ANGRY","BIG","CLASSIC","CUTE","GRUMPY","PUGLIN","SAD"],"fn":["register_wolf_sound_variants"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["BOLT","COAST","DUNE","EYE","FLOW","HOST","RAISER","RIB","SENTRY","SHAPER","SILENCE","SNOUT","SPIRE","TIDE","VEX","WARD","WAYFINDER","WILD"],"fn":["register_trim_patterns"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["BiomeCondition","SpawnConditionEntry","WolfAssetInfo","WolfVariant","WolfVariantRegistry"],"type":["WolfVariantRef"]};

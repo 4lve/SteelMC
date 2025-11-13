@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ASHEN","BLACK","CHESTNUT","PALE","RUSTY","SNOWY","SPOTTED","STRIPED","WOODS"],"fn":["register_wolf_variants"]};

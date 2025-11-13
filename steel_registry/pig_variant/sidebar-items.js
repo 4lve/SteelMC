@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PigModelType"],"struct":["BiomeCondition","PigVariant","PigVariantRegistry","SpawnConditionEntry"],"type":["PigVariantRef"]};

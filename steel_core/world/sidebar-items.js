@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["world_entities"],"struct":["World"]};
