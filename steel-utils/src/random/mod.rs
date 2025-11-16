@@ -1,10 +1,15 @@
 //! This module contains utilities for random number generation.
 use enum_dispatch::enum_dispatch;
 
-use crate::random::xoroshiro::{Xoroshiro, XoroshiroSplitter};
+use crate::random::{
+    legacy_random::{LegacyRandom, LegacyRandomSplitter},
+    xoroshiro::{Xoroshiro, XoroshiroSplitter},
+};
 
 /// This module contains the gaussian random number generator.
 pub mod gaussian;
+/// This module contains the legacy random number generator implementation.
+pub mod legacy_random;
 /// This module contains the xoroshiro random number generator.
 pub mod xoroshiro;
 
@@ -70,6 +75,8 @@ pub trait PositionalRandom {
 pub enum RandomSource {
     /// A xoroshiro random number generator.
     Xoroshiro(Xoroshiro),
+    /// A legacy Minecraft random number generator.
+    Legacy(LegacyRandom),
 }
 
 /// A random number generator that can be split.
@@ -77,6 +84,8 @@ pub enum RandomSource {
 pub enum RandomSplitter {
     /// A xoroshiro random number generator.
     Xoroshiro(XoroshiroSplitter),
+    /// A legacy Minecraft random number generator splitter.
+    Legacy(LegacyRandomSplitter),
 }
 
 /// Gets a seed from a position.

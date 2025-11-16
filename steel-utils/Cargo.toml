@@ -30,3 +30,7 @@ phf_codegen = "0.13.1"
 [[bench]]
 name = "xoroshiro"
 harness = false
+
+[[bench]]
+name = "legacy_random"
+harness = false

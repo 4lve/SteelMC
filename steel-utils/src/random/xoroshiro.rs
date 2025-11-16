@@ -463,13 +463,19 @@ mod tests {
 
         let splitter = forked.next_positional();
 
-        let RandomSource::Xoroshiro(mut rand1) = splitter.with_hash_of("TEST STRING");
+        let RandomSource::Xoroshiro(mut rand1) = splitter.with_hash_of("TEST STRING") else {
+            panic!("Expected Xoroshiro variant");
+        };
         assert_eq!(rand1.next_i32(), -641435713);
 
-        let RandomSource::Xoroshiro(mut rand2) = splitter.with_seed(42069);
+        let RandomSource::Xoroshiro(mut rand2) = splitter.with_seed(42069) else {
+            panic!("Expected Xoroshiro variant");
+        };
         assert_eq!(rand2.next_i32(), -340700677);
 
-        let RandomSource::Xoroshiro(mut rand3) = splitter.at(1337, 80085, -69420);
+        let RandomSource::Xoroshiro(mut rand3) = splitter.at(1337, 80085, -69420) else {
+            panic!("Expected Xoroshiro variant");
+        };
         assert_eq!(rand3.next_i32(), 790449132);
 
         assert_eq!(rng.next_i32(), 653572596);

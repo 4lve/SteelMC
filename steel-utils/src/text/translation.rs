@@ -86,10 +86,10 @@ impl TranslatedMessage {
     /// - If the translation key is not found.
     #[must_use]
     pub fn format(&self) -> String {
-        let mut result = crate::translations::TRANSLATIONS
+        let mut result = (*crate::translations::TRANSLATIONS
             .get(self.key.as_ref())
-            .expect("Translation key should exist")
-            .to_string();
+            .expect("Translation key should exist"))
+        .to_string();
 
         // Handle positional arguments
         for (i, arg) in self.args().iter().enumerate() {
