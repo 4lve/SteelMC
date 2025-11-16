@@ -1,3 +1,4 @@
+//! This module is responsible for sending chunks to the client.
 use std::sync::Arc;
 
 use steel_protocol::packets::game::{CChunkBatchFinished, CChunkBatchStart, CLevelChunkWithLight};
@@ -11,15 +12,21 @@ use crate::{
 // any idea to make this shorter?
 const MAX_UNACKNOWLEDGED_BATCHES: u16 = 1;
 
+/// This struct is responsible for sending chunks to the client.
 #[derive(Debug, Clone)]
 pub struct ChunkSender {
+    /// A list of chunks that are waiting to be sent to the client.
     pub pending_chunks: Vec<ChunkPos>,
+    /// The number of batches that have been sent to the client but have not been acknowledged yet.
     pub unacknowledged_batches: u16,
+    /// The number of chunks that should be sent to the client per tick.
     pub desired_chunks_per_tick: f32,
+    /// The number of chunks that can be sent to the client in the current batch.
     pub batch_quota: f32,
 }
 
 impl ChunkSender {
+    /// Sends the next batch of chunks to the client.
     pub fn send_next_chunks(&mut self, player: &Arc<Player>) {
         if self.unacknowledged_batches < MAX_UNACKNOWLEDGED_BATCHES {
             let max_batch_size = self.desired_chunks_per_tick.max(1.0);
@@ -39,14 +46,18 @@ impl ChunkSender {
                     }
 
                     connection.send_packet(CChunkBatchFinished {
-                        batch_size: chunks_to_send.len() as _,
+                        batch_size: chunks_to_send.len().try_into().unwrap_or(0),
                     });
-                    self.batch_quota -= chunks_to_send.len() as f32;
+                    #[allow(clippy::cast_precision_loss)]
+                    {
+                        self.batch_quota -= chunks_to_send.len() as f32;
+                    }
                 }
             }
         }
     }
 
+    /// Sends a chunk to the client.
     pub fn send_chunk(chunk: &LevelChunk, connection: &JavaConnection) {
         let chunk_data = ChunkPacketData { chunk }.extract_chunk_data();
         connection.send_packet(CLevelChunkWithLight {

@@ -24,6 +24,7 @@ pub struct PaintingVariantRegistry {
 }
 
 impl PaintingVariantRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             painting_variants_by_id: Vec::new(),
@@ -33,9 +34,10 @@ impl PaintingVariantRegistry {
     }
 
     pub fn register(&mut self, painting_variant: PaintingVariantRef) -> usize {
-        if !self.allows_registering {
-            panic!("Cannot register painting variants after the registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register painting variants after the registry has been frozen"
+        );
 
         let id = self.painting_variants_by_id.len();
         self.painting_variants_by_key
@@ -44,16 +46,19 @@ impl PaintingVariantRegistry {
         id
     }
 
+    #[must_use]
     pub fn by_id(&self, id: usize) -> Option<PaintingVariantRef> {
         self.painting_variants_by_id.get(id).copied()
     }
 
+    #[must_use]
     pub fn get_id(&self, painting_variant: PaintingVariantRef) -> &usize {
         self.painting_variants_by_key
             .get(&painting_variant.key)
             .expect("Painting variant not found")
     }
 
+    #[must_use]
     pub fn by_key(&self, key: &Identifier) -> Option<PaintingVariantRef> {
         self.painting_variants_by_key
             .get(key)
@@ -67,10 +72,12 @@ impl PaintingVariantRegistry {
             .map(|(id, &variant)| (id, variant))
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.painting_variants_by_id.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.painting_variants_by_id.is_empty()
     }

@@ -47,6 +47,8 @@ impl Block {
     }
 
     /// Const helper to calculate state offset from property indices and counts
+    #[must_use]
+    #[allow(clippy::cast_possible_truncation)]
     pub const fn calculate_offset(property_indices: &[usize], property_counts: &[usize]) -> u16 {
         let mut offset = 0u16;
         let mut multiplier = 1u16;
@@ -71,7 +73,7 @@ pub struct BlockRegistry {
     tags: HashMap<Identifier, Vec<BlockRef>>,
     allows_registering: bool,
     pub state_to_block_lookup: Vec<BlockRef>,
-    /// Maps state IDs to block IDs (parallel to state_to_block_lookup for O(1) lookup)
+    /// Maps state IDs to block IDs (parallel to `state_to_block_lookup` for O(1) lookup)
     pub state_to_block_id: Vec<usize>,
     /// Maps block IDs to their base state ID
     pub block_to_base_state: Vec<u16>,
@@ -87,6 +89,7 @@ impl Default for BlockRegistry {
 
 impl BlockRegistry {
     // Creates a new, empty registry.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             blocks_by_id: Vec::new(),
@@ -102,9 +105,10 @@ impl BlockRegistry {
 
     // Registers a new block.
     pub fn register(&mut self, block: BlockRef) -> usize {
-        if !self.allows_registering {
-            panic!("Cannot register blocks after the registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register blocks after the registry has been frozen"
+        );
 
         let id = self.blocks_by_id.len();
         let base_state_id = self.next_state_id;
@@ -123,39 +127,46 @@ impl BlockRegistry {
             self.state_to_block_id.push(id);
         }
 
-        self.next_state_id += state_count as u16;
+        self.next_state_id += u16::try_from(state_count).unwrap();
 
         id
     }
 
+    #[must_use]
     pub fn get_base_state_id(&self, block: BlockRef) -> BlockStateId {
         BlockStateId(self.block_to_base_state[*self.get_id(block)])
     }
 
     /// Gets the default state ID for a block (base state + default offset)
+    #[must_use]
     pub fn get_default_state_id(&self, block: BlockRef) -> BlockStateId {
         let base = self.block_to_base_state[*self.get_id(block)];
         BlockStateId(base + block.default_state_offset)
     }
 
     // Retrieves a block by its ID.
+    #[must_use]
     pub fn by_id(&self, id: usize) -> Option<BlockRef> {
         self.blocks_by_id.get(id).copied()
     }
 
+    #[must_use]
     pub fn get_id(&self, block: BlockRef) -> &usize {
         self.blocks_by_key.get(&block.key).expect("Block not found")
     }
 
+    #[must_use]
     pub fn by_state_id(&self, state_id: BlockStateId) -> Option<BlockRef> {
         self.state_to_block_lookup.get(state_id.0 as usize).copied()
     }
 
     // Retrieves a block by its name.
+    #[must_use]
     pub fn by_key(&self, key: &Identifier) -> Option<BlockRef> {
         self.blocks_by_key.get(key).and_then(|id| self.by_id(*id))
     }
 
+    #[must_use]
     pub fn get_properties(&self, id: BlockStateId) -> Vec<(&str, &str)> {
         let block = self.by_state_id(id).expect("Invalid state ID");
 
@@ -175,8 +186,8 @@ impl BlockRegistry {
         let mut index = relative_index;
         let mut property_values = Vec::with_capacity(block.properties.len());
 
-        for prop in block.properties.iter() {
-            let count = prop.get_possible_values().len() as u16;
+        for prop in block.properties {
+            let count = u16::try_from(prop.get_possible_values().len()).unwrap();
             let current_index = (index % count) as usize;
 
             let possible_values = prop.get_possible_values();
@@ -211,7 +222,7 @@ impl BlockRegistry {
         let mut property_value_index = 0;
 
         for (i, prop) in block.properties.iter().enumerate() {
-            let count = prop.get_possible_values().len() as u16;
+            let count = u16::try_from(prop.get_possible_values().len()).unwrap();
             let current_index = (index % count) as usize;
 
             if i == property_index {
@@ -258,8 +269,8 @@ impl BlockRegistry {
         let mut index = relative_index;
         let mut property_indices = Vec::with_capacity(block.properties.len());
 
-        for prop in block.properties.iter() {
-            let count = prop.get_possible_values().len() as u16;
+        for prop in block.properties {
+            let count = u16::try_from(prop.get_possible_values().len()).unwrap();
             property_indices.push((index % count) as usize);
             index /= count;
         }
@@ -272,9 +283,9 @@ impl BlockRegistry {
         let (new_relative_index, _) = property_indices.iter().zip(block.properties.iter()).fold(
             (0u16, 1u16),
             |(current_index, multiplier), (&value_idx, prop)| {
-                let count = prop.get_possible_values().len() as u16;
+                let count = u16::try_from(prop.get_possible_values().len()).unwrap();
                 (
-                    current_index + (value_idx as u16) * multiplier,
+                    current_index + u16::try_from(value_idx).unwrap() * multiplier,
                     multiplier * count,
                 )
             },
@@ -290,10 +301,12 @@ impl BlockRegistry {
             .map(|(id, &block)| (id, block))
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.blocks_by_id.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.blocks_by_id.is_empty()
     }
@@ -303,9 +316,10 @@ impl BlockRegistry {
     /// Registers a tag with a list of block keys.
     /// Block keys that don't exist in the registry are silently skipped.
     pub fn register_tag(&mut self, tag: Identifier, block_keys: &[&'static str]) {
-        if !self.allows_registering {
-            panic!("Cannot register tags after registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register tags after registry has been frozen"
+        );
 
         let blocks: Vec<BlockRef> = block_keys
             .iter()
@@ -316,20 +330,19 @@ impl BlockRegistry {
     }
 
     /// Checks if a block is in a given tag.
+    #[must_use]
     pub fn is_in_tag(&self, block: BlockRef, tag: &Identifier) -> bool {
-        self.tags
-            .get(tag)
-            .map(|blocks| {
-                blocks
-                    .iter()
-                    .any(|&b| std::ptr::eq(b as *const _, block as *const _))
-            })
-            .unwrap_or(false)
+        self.tags.get(tag).is_some_and(|blocks| {
+            blocks
+                .iter()
+                .any(|&b| std::ptr::eq(std::ptr::from_ref(b), std::ptr::from_ref(block)))
+        })
     }
 
     /// Gets all blocks in a tag.
+    #[must_use]
     pub fn get_tag(&self, tag: &Identifier) -> Option<&[BlockRef]> {
-        self.tags.get(tag).map(|v| v.as_slice())
+        self.tags.get(tag).map(std::vec::Vec::as_slice)
     }
 
     /// Iterates over all blocks in a tag.

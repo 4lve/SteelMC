@@ -24,6 +24,7 @@ pub struct InstrumentRegistry {
 }
 
 impl InstrumentRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             instruments_by_id: Vec::new(),
@@ -33,9 +34,10 @@ impl InstrumentRegistry {
     }
 
     pub fn register(&mut self, instrument: InstrumentRef) -> usize {
-        if !self.allows_registering {
-            panic!("Cannot register instruments after the registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register instruments after the registry has been frozen"
+        );
 
         let id = self.instruments_by_id.len();
         self.instruments_by_key.insert(instrument.key.clone(), id);
@@ -43,16 +45,19 @@ impl InstrumentRegistry {
         id
     }
 
+    #[must_use]
     pub fn by_id(&self, id: usize) -> Option<InstrumentRef> {
         self.instruments_by_id.get(id).copied()
     }
 
+    #[must_use]
     pub fn get_id(&self, instrument: InstrumentRef) -> &usize {
         self.instruments_by_key
             .get(&instrument.key)
             .expect("Instrument not found")
     }
 
+    #[must_use]
     pub fn by_key(&self, key: &Identifier) -> Option<InstrumentRef> {
         self.instruments_by_key
             .get(key)
@@ -66,10 +71,12 @@ impl InstrumentRegistry {
             .map(|(id, &instrument)| (id, instrument))
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.instruments_by_id.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.instruments_by_id.is_empty()
     }

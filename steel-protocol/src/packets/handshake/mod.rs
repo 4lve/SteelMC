@@ -19,6 +19,7 @@ pub struct SClientIntention {
 }
 
 impl SClientIntention {
+    #[must_use]
     pub fn new(
         protocol_version: i32,
         hostname: String,

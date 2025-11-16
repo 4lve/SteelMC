@@ -1,9 +1,10 @@
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard, TryLockError};
 
-// A wrapper that allows us to do debug checks on the lock. To prevent deadlocks.
+/// A wrapper that allows us to do debug checks on the lock. To prevent deadlocks.
 #[derive(Debug)]
 pub struct SteelRwLock<T>(RwLock<T>);
 
+#[allow(missing_docs)]
 impl<T> SteelRwLock<T> {
     pub fn new(inner: T) -> Self {
         Self(RwLock::new(inner))

@@ -1,3 +1,4 @@
+//! This module contains the `Server` struct, which is the main entry point for the server.
 mod key_store;
 mod registry_cache;
 use std::{sync::Arc, time::Instant};
@@ -13,14 +14,20 @@ use crate::{
     world::World,
 };
 
+/// The main server struct.
 pub struct Server {
+    /// The key store for the server.
     pub key_store: KeyStore,
+    /// The registry for the server.
     pub registry: Arc<Registry>,
+    /// The registry cache for the server.
     pub registry_cache: RegistryCache,
+    /// A list of all the worlds on the server.
     pub worlds: Vec<Arc<World>>,
 }
 
 impl Server {
+    /// Creates a new server.
     pub async fn new() -> Self {
         let start = Instant::now();
         let mut registry = Registry::new_vanilla();
@@ -38,8 +45,10 @@ impl Server {
         }
     }
 
+    /// Runs the server.
     pub fn run(self: Arc<Self>) {}
 
+    /// Adds a player to the server.
     pub fn add_player(&self, player: Arc<Player>) {
         player.connection.send_packet(CLogin {
             player_id: 0,

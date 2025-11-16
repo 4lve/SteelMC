@@ -1,3 +1,4 @@
+//! A 3D vector.
 use std::{
     io::{Read, Result, Write},
     ops::{Add, AddAssign, Div, Mul, Sub},
@@ -11,22 +12,28 @@ use crate::{
     types::BlockPos,
 };
 
+/// A 3D vector.
 #[derive(Clone, Copy, Debug, PartialEq, Hash, Eq, Default)]
+#[allow(missing_docs)]
 pub struct Vector3<T> {
     pub x: T,
     pub y: T,
     pub z: T,
 }
 
+/// An axis in 3D space.
 #[derive(Copy, Clone, Debug, Eq)]
 #[derive_const(PartialEq)]
+#[allow(missing_docs)]
 pub enum Axis {
     X,
     Y,
     Z,
 }
 
+#[allow(missing_docs)]
 impl Axis {
+    #[must_use]
     pub fn as_str(&self) -> &str {
         match self {
             Axis::X => "x",
@@ -36,19 +43,23 @@ impl Axis {
     }
 }
 
+#[allow(missing_docs)]
 impl<T: Math + PartialOrd + Copy> Vector3<T> {
     pub const fn new(x: T, y: T, z: T) -> Self {
         Vector3 { x, y, z }
     }
 
+    #[must_use]
     pub fn length_squared(&self) -> T {
         self.x * self.x + self.y * self.y + self.z * self.z
     }
 
+    #[must_use]
     pub fn horizontal_length_squared(&self) -> T {
         self.x * self.x + self.z * self.z
     }
 
+    #[must_use]
     pub fn add(&self, other: &Vector3<T>) -> Self {
         Vector3 {
             x: self.x + other.x,
@@ -57,6 +68,7 @@ impl<T: Math + PartialOrd + Copy> Vector3<T> {
         }
     }
 
+    #[must_use]
     pub fn add_raw(&self, x: T, y: T, z: T) -> Self {
         Vector3 {
             x: self.x + x,
@@ -65,6 +77,7 @@ impl<T: Math + PartialOrd + Copy> Vector3<T> {
         }
     }
 
+    #[must_use]
     pub fn sub(&self, other: &Vector3<T>) -> Self {
         Vector3 {
             x: self.x - other.x,
@@ -73,6 +86,7 @@ impl<T: Math + PartialOrd + Copy> Vector3<T> {
         }
     }
 
+    #[must_use]
     pub fn sub_raw(&self, x: T, y: T, z: T) -> Self {
         Vector3 {
             x: self.x - x,
@@ -81,6 +95,7 @@ impl<T: Math + PartialOrd + Copy> Vector3<T> {
         }
     }
 
+    #[must_use]
     pub fn multiply(self, x: T, y: T, z: T) -> Self {
         Self {
             x: self.x * x,
@@ -89,6 +104,7 @@ impl<T: Math + PartialOrd + Copy> Vector3<T> {
         }
     }
 
+    #[must_use]
     pub fn lerp(&self, other: &Vector3<T>, t: T) -> Self {
         Vector3 {
             x: self.x + (other.x - self.x) * t,
@@ -97,6 +113,7 @@ impl<T: Math + PartialOrd + Copy> Vector3<T> {
         }
     }
 
+    #[must_use]
     pub fn sign(&self) -> Vector3<i32>
     where
         T: Num + PartialOrd + Copy,
@@ -126,10 +143,12 @@ impl<T: Math + PartialOrd + Copy> Vector3<T> {
         }
     }
 
+    #[must_use]
     pub fn squared_distance_to_vec(&self, other: Self) -> T {
         self.squared_distance_to(other.x, other.y, other.z)
     }
 
+    #[must_use]
     pub fn squared_distance_to(&self, x: T, y: T, z: T) -> T {
         let delta_x = self.x - x;
         let delta_y = self.y - y;
@@ -137,6 +156,7 @@ impl<T: Math + PartialOrd + Copy> Vector3<T> {
         delta_x * delta_x + delta_y * delta_y + delta_z * delta_z
     }
 
+    #[must_use]
     pub fn is_within_bounds(&self, block_pos: Self, x: T, y: T, z: T) -> bool {
         let min_x = block_pos.x - x;
         let max_x = block_pos.x + x;
@@ -154,15 +174,19 @@ impl<T: Math + PartialOrd + Copy> Vector3<T> {
     }
 }
 
+#[allow(missing_docs)]
 impl<T: Math + Copy + Float> Vector3<T> {
+    #[must_use]
     pub fn length(&self) -> T {
         self.length_squared().sqrt()
     }
 
+    #[must_use]
     pub fn horizontal_length(&self) -> T {
         self.horizontal_length_squared().sqrt()
     }
 
+    #[must_use]
     pub fn normalize(&self) -> Self {
         let length = self.length();
         Vector3 {
@@ -172,6 +196,7 @@ impl<T: Math + Copy + Float> Vector3<T> {
         }
     }
 
+    #[must_use]
     pub fn rotation_vector(pitch: T, yaw: T) -> Self {
         let h = pitch.to_radians();
         let i = (-yaw).to_radians();
@@ -185,6 +210,7 @@ impl<T: Math + Copy + Float> Vector3<T> {
     }
 }
 
+#[allow(missing_docs)]
 impl<T: Math + Copy> Mul<T> for Vector3<T> {
     type Output = Self;
 
@@ -197,6 +223,7 @@ impl<T: Math + Copy> Mul<T> for Vector3<T> {
     }
 }
 
+#[allow(missing_docs)]
 impl<T: Math + Copy> Add for Vector3<T> {
     type Output = Vector3<T>;
     fn add(self, rhs: Self) -> Self::Output {
@@ -208,6 +235,7 @@ impl<T: Math + Copy> Add for Vector3<T> {
     }
 }
 
+#[allow(missing_docs)]
 impl<T: Math + Copy> AddAssign for Vector3<T> {
     fn add_assign(&mut self, other: Self) {
         self.x += other.x;
@@ -230,21 +258,23 @@ impl<T: Math + Copy> Neg for Vector3<T> {
 }
 */
 
+#[allow(missing_docs)]
 impl<T> From<(T, T, T)> for Vector3<T> {
-    #[inline(always)]
     fn from((x, y, z): (T, T, T)) -> Self {
         Vector3 { x, y, z }
     }
 }
 
+#[allow(missing_docs)]
 impl<T> From<Vector3<T>> for (T, T, T) {
-    #[inline(always)]
     fn from(vector: Vector3<T>) -> Self {
         (vector.x, vector.y, vector.z)
     }
 }
 
+#[allow(missing_docs)]
 impl<T: Math + Copy + Into<f64>> Vector3<T> {
+    #[must_use]
     pub fn to_f64(&self) -> Vector3<f64> {
         Vector3 {
             x: self.x.into(),
@@ -254,7 +284,10 @@ impl<T: Math + Copy + Into<f64>> Vector3<T> {
     }
 }
 
+#[allow(missing_docs)]
+#[allow(clippy::cast_possible_truncation)]
 impl<T: Math + Copy + Into<f64>> Vector3<T> {
+    #[must_use]
     pub fn to_i32(&self) -> Vector3<i32> {
         let x: f64 = self.x.into();
         let y: f64 = self.y.into();
@@ -266,6 +299,7 @@ impl<T: Math + Copy + Into<f64>> Vector3<T> {
         }
     }
 
+    #[must_use]
     pub fn to_vec2_i32(&self) -> Vector2<i32> {
         let x: f64 = self.x.into();
         let z: f64 = self.z.into();
@@ -276,12 +310,15 @@ impl<T: Math + Copy + Into<f64>> Vector3<T> {
     }
 }
 
+#[allow(missing_docs)]
 impl<T: Math + Copy + Into<f64>> Vector3<T> {
+    #[must_use]
     pub fn to_block_pos(&self) -> BlockPos {
         BlockPos(self.to_i32())
     }
 }
 
+#[allow(missing_docs)]
 impl<T: WriteTo> WriteTo for Vector3<T> {
     fn write(&self, writer: &mut impl Write) -> Result<()> {
         self.x.write(writer)?;
@@ -290,6 +327,7 @@ impl<T: WriteTo> WriteTo for Vector3<T> {
     }
 }
 
+#[allow(missing_docs)]
 impl<T: ReadFrom> ReadFrom for Vector3<T> {
     fn read(data: &mut impl Read) -> Result<Self> {
         Ok(Self {
@@ -300,6 +338,8 @@ impl<T: ReadFrom> ReadFrom for Vector3<T> {
     }
 }
 
+/// A trait for types that can be used in a `Vector3`.
+#[allow(missing_docs)]
 pub trait Math:
     Mul<Output = Self>
     //+ Neg<Output = Self>

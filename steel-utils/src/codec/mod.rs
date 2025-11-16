@@ -1,6 +1,10 @@
-mod bit_set;
-mod var_int;
-mod var_uint;
+//! This module contains various codecs for reading and writing data.
+/// A module for a bit set.
+pub mod bit_set;
+/// A module for a variable-length integer.
+pub mod var_int;
+/// A module for a variable-length unsigned integer.
+pub mod var_uint;
 
 pub use bit_set::BitSet;
 pub use var_int::VarInt;

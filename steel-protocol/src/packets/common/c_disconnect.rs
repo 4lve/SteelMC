@@ -10,6 +10,7 @@ pub struct CDisconnect {
 }
 
 impl CDisconnect {
+    #[must_use]
     pub fn new(reason: TextComponent) -> Self {
         Self { reason }
     }

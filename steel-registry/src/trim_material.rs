@@ -28,6 +28,7 @@ pub struct TrimMaterialRegistry {
 }
 
 impl TrimMaterialRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             trim_materials_by_id: Vec::new(),
@@ -37,9 +38,10 @@ impl TrimMaterialRegistry {
     }
 
     pub fn register(&mut self, trim_material: TrimMaterialRef, key: Identifier) -> usize {
-        if !self.allows_registering {
-            panic!("Cannot register trim materials after the registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register trim materials after the registry has been frozen"
+        );
 
         let id = self.trim_materials_by_id.len();
         self.trim_materials_by_key.insert(key, id);
@@ -47,16 +49,19 @@ impl TrimMaterialRegistry {
         id
     }
 
+    #[must_use]
     pub fn by_id(&self, id: usize) -> Option<TrimMaterialRef> {
         self.trim_materials_by_id.get(id).copied()
     }
 
+    #[must_use]
     pub fn get_id(&self, trim_material: TrimMaterialRef) -> &usize {
         self.trim_materials_by_key
             .get(&trim_material.key)
             .expect("Trim material not found")
     }
 
+    #[must_use]
     pub fn by_key(&self, key: &Identifier) -> Option<TrimMaterialRef> {
         self.trim_materials_by_key
             .get(key)
@@ -70,10 +75,12 @@ impl TrimMaterialRegistry {
             .map(|(id, &material)| (id, material))
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.trim_materials_by_id.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.trim_materials_by_id.is_empty()
     }

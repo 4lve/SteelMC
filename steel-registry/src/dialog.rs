@@ -50,6 +50,7 @@ pub struct DialogRegistry {
 }
 
 impl DialogRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             dialogs_by_id: Vec::new(),
@@ -59,9 +60,10 @@ impl DialogRegistry {
     }
 
     pub fn register(&mut self, key: Identifier, dialog: DialogRef) -> usize {
-        if !self.allows_registering {
-            panic!("Cannot register dialogs after the registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register dialogs after the registry has been frozen"
+        );
 
         let id = self.dialogs_by_id.len();
         self.dialogs_by_key.insert(key, id);
@@ -69,10 +71,12 @@ impl DialogRegistry {
         id
     }
 
+    #[must_use]
     pub fn by_id(&self, id: usize) -> Option<DialogRef> {
         self.dialogs_by_id.get(id).copied()
     }
 
+    #[must_use]
     pub fn get_id(&self, dialog: DialogRef) -> &usize {
         let key = match dialog {
             Dialog::DialogList(d) => &d.key,
@@ -81,6 +85,7 @@ impl DialogRegistry {
         self.dialogs_by_key.get(key).expect("Dialog not found")
     }
 
+    #[must_use]
     pub fn by_key(&self, key: &Identifier) -> Option<DialogRef> {
         self.dialogs_by_key.get(key).and_then(|id| self.by_id(*id))
     }
@@ -92,10 +97,12 @@ impl DialogRegistry {
             .map(|(id, &dialog)| (id, dialog))
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.dialogs_by_id.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.dialogs_by_id.is_empty()
     }

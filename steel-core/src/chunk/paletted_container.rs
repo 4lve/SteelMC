@@ -1,3 +1,4 @@
+//! A paletted container is a container that can be either homogeneous or heterogeneous.
 use std::{fmt::Debug, hash::Hash};
 
 use steel_utils::BlockStateId;
@@ -5,6 +6,7 @@ use steel_utils::BlockStateId;
 /// 3d array indexed by y,z,x
 type Cube<T, const DIM: usize> = [[[T; DIM]; DIM]; DIM];
 
+/// A heterogeneous palette container.
 #[derive(Debug, Clone)]
 pub struct HeterogeneousPalette<V: Hash + Eq + Copy, const DIM: usize> {
     cube: Box<Cube<V, DIM>>,
@@ -52,14 +54,19 @@ impl<V: Hash + Eq + Copy, const DIM: usize> HeterogeneousPalette<V, DIM> {
     }
 }
 
+/// A paletted container.
 #[derive(Debug, Clone)]
 pub enum PalettedContainer<V: Hash + Eq + Copy + Default, const DIM: usize> {
+    /// A homogeneous container, where all values are the same.
     Homogeneous(V),
+    /// A heterogeneous container, where values can be different.
     Heterogeneous(HeterogeneousPalette<V, DIM>),
 }
 
 impl<V: Hash + Eq + Copy + Default + Debug, const DIM: usize> PalettedContainer<V, DIM> {
+    /// The size of the container in one dimension.
     pub const SIZE: usize = DIM;
+    /// The volume of the container.
     pub const VOLUME: usize = DIM * DIM * DIM;
 
     fn from_cube(cube: Box<Cube<V, DIM>>) -> Self {
@@ -79,6 +86,7 @@ impl<V: Hash + Eq + Copy + Default + Debug, const DIM: usize> PalettedContainer<
         }
     }
 
+    /// Gets the value at the given coordinates.
     pub fn get(&self, x: usize, y: usize, z: usize) -> V {
         match self {
             Self::Homogeneous(value) => *value,
@@ -86,6 +94,7 @@ impl<V: Hash + Eq + Copy + Default + Debug, const DIM: usize> PalettedContainer<
         }
     }
 
+    /// Sets the value at the given coordinates.
     pub fn set(&mut self, x: usize, y: usize, z: usize, value: V) -> V {
         debug_assert!(x < Self::SIZE);
         debug_assert!(y < Self::SIZE);
@@ -112,9 +121,12 @@ impl<V: Hash + Eq + Copy + Default + Debug, const DIM: usize> PalettedContainer<
     }
 }
 
+/// A palette container for blocks.
 pub type BlockPalette = PalettedContainer<BlockStateId, 16>;
 
 impl BlockPalette {
+    /// Gets the number of non-empty blocks in the container.
+    #[must_use]
     pub fn non_empty_block_count(&self) -> u16 {
         todo!()
     }

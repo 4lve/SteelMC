@@ -48,6 +48,7 @@ pub struct DimensionTypeRegistry {
 }
 
 impl DimensionTypeRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             dimension_types_by_id: Vec::new(),
@@ -57,9 +58,10 @@ impl DimensionTypeRegistry {
     }
 
     pub fn register(&mut self, dimension_type: DimensionTypeRef) -> usize {
-        if !self.allows_registering {
-            panic!("Cannot register dimension types after the registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register dimension types after the registry has been frozen"
+        );
 
         let id = self.dimension_types_by_id.len();
         self.dimension_types_by_key
@@ -68,16 +70,19 @@ impl DimensionTypeRegistry {
         id
     }
 
+    #[must_use]
     pub fn by_id(&self, id: usize) -> Option<DimensionTypeRef> {
         self.dimension_types_by_id.get(id).copied()
     }
 
+    #[must_use]
     pub fn get_id(&self, dimension_type: DimensionTypeRef) -> &usize {
         self.dimension_types_by_key
             .get(&dimension_type.key)
             .expect("Dimension type not found")
     }
 
+    #[must_use]
     pub fn by_key(&self, key: &Identifier) -> Option<DimensionTypeRef> {
         self.dimension_types_by_key
             .get(key)
@@ -91,10 +96,12 @@ impl DimensionTypeRegistry {
             .map(|(id, &dt)| (id, dt))
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.dimension_types_by_id.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.dimension_types_by_id.is_empty()
     }

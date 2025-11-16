@@ -23,6 +23,7 @@ pub struct JukeboxSongRegistry {
 }
 
 impl JukeboxSongRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             jukebox_songs_by_id: Vec::new(),
@@ -32,9 +33,10 @@ impl JukeboxSongRegistry {
     }
 
     pub fn register(&mut self, jukebox_song: JukeboxSongRef) -> usize {
-        if !self.allows_registering {
-            panic!("Cannot register jukebox songs after the registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register jukebox songs after the registry has been frozen"
+        );
 
         let id = self.jukebox_songs_by_id.len();
         self.jukebox_songs_by_key
@@ -43,16 +45,19 @@ impl JukeboxSongRegistry {
         id
     }
 
+    #[must_use]
     pub fn by_id(&self, id: usize) -> Option<JukeboxSongRef> {
         self.jukebox_songs_by_id.get(id).copied()
     }
 
+    #[must_use]
     pub fn get_id(&self, jukebox_song: JukeboxSongRef) -> &usize {
         self.jukebox_songs_by_key
             .get(&jukebox_song.key)
             .expect("Jukebox song not found")
     }
 
+    #[must_use]
     pub fn by_key(&self, key: &Identifier) -> Option<JukeboxSongRef> {
         self.jukebox_songs_by_key
             .get(key)
@@ -66,10 +71,12 @@ impl JukeboxSongRegistry {
             .map(|(id, &song)| (id, song))
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.jukebox_songs_by_id.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.jukebox_songs_by_id.is_empty()
     }

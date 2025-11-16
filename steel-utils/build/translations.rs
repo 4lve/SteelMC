@@ -106,7 +106,8 @@ pub(crate) fn build() -> TokenStream {
     }
 
     let map_code = map_builder.build();
-    let map_token_stream = TokenStream::from_str(&map_code.to_string()).unwrap();
+    let map_token_stream =
+        TokenStream::from_str(&map_code.to_string()).expect("Unable to build token stream");
 
     stream.extend(quote! {
         pub static TRANSLATIONS: phf::Map<&'static str, &'static str> = #map_token_stream;

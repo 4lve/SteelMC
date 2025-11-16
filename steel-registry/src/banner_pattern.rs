@@ -20,6 +20,7 @@ pub struct BannerPatternRegistry {
 }
 
 impl BannerPatternRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             banner_patterns_by_id: Vec::new(),
@@ -29,9 +30,10 @@ impl BannerPatternRegistry {
     }
 
     pub fn register(&mut self, banner_pattern: BannerPatternRef) -> usize {
-        if !self.allows_registering {
-            panic!("Cannot register banner patterns after the registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register banner patterns after the registry has been frozen"
+        );
 
         let id = self.banner_patterns_by_id.len();
         self.banner_patterns_by_key
@@ -40,16 +42,19 @@ impl BannerPatternRegistry {
         id
     }
 
+    #[must_use]
     pub fn by_id(&self, id: usize) -> Option<BannerPatternRef> {
         self.banner_patterns_by_id.get(id).copied()
     }
 
+    #[must_use]
     pub fn get_id(&self, banner_pattern: BannerPatternRef) -> &usize {
         self.banner_patterns_by_key
             .get(&banner_pattern.key)
             .expect("Banner pattern not found")
     }
 
+    #[must_use]
     pub fn by_key(&self, key: &Identifier) -> Option<BannerPatternRef> {
         self.banner_patterns_by_key
             .get(key)
@@ -63,10 +68,12 @@ impl BannerPatternRegistry {
             .map(|(id, &pattern)| (id, pattern))
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.banner_patterns_by_id.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.banner_patterns_by_id.is_empty()
     }

@@ -2,12 +2,12 @@ use num_bigint::BigInt;
 use rsa::Pkcs1v15Encrypt;
 use sha1::Sha1;
 use sha2::{Digest, Sha256};
+use steel_core::player::GameProfile;
 use steel_protocol::{
     packets::login::{CHello, CLoginCompression, CLoginFinished, SHello, SKey},
     utils::ConnectionProtocol,
 };
 use steel_utils::{text::TextComponent, translations};
-use steel_world::player::GameProfile;
 use uuid::Uuid;
 
 use crate::{
@@ -18,16 +18,20 @@ use crate::{
     },
 };
 
+/// Checks if a player name is valid.
 #[must_use]
 pub fn is_valid_player_name(name: &str) -> bool {
     (3..=16).contains(&name.len()) && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
+/// Generates an offline mode UUID for a player.
 pub fn offline_uuid(username: &str) -> Result<Uuid, uuid::Error> {
     Uuid::from_slice(&Sha256::digest(username)[..16])
 }
 
 impl JavaTcpClient {
+    /// Handles the hello packet during the login state.
+    ///
     /// # Panics
     /// This function will panic if the player name converted to a UUID fails.
     pub async fn handle_hello(&self, packet: SHello) {
@@ -74,6 +78,7 @@ impl JavaTcpClient {
         }
     }
 
+    /// Handles the key packet during the login state, used for encryption.
     pub async fn handle_key(&self, packet: SKey) {
         let challenge = self.challenge.load();
 
@@ -158,18 +163,24 @@ impl JavaTcpClient {
         self.finish_login(profile).await;
     }
 
+    /// Finishes the login process and transitions to the configuration state.
+    ///
     /// # Panics
     /// This function will panic if the compression threshold cannot be converted to an i32. Should never happen.
     pub async fn finish_login(&self, profile: &GameProfile) {
         if let Some(compression) = STEEL_CONFIG.compression {
             self.send_bare_packet_now(CLoginCompression::new(
-                compression.threshold.get().try_into().unwrap(),
+                compression
+                    .threshold
+                    .get()
+                    .try_into()
+                    .expect("Failed to convert compression threshold to i32"),
             ))
             .await;
             self.compression.store(Some(compression));
             self.connection_updates
                 .send(ConnectionUpdate::EnableCompression(compression))
-                .unwrap();
+                .expect("Failed to send connection update");
         }
 
         //TODO: Here compression isn't awaited, if this becomes a problem in the future look here.
@@ -182,6 +193,7 @@ impl JavaTcpClient {
         .await;
     }
 
+    /// Handles the login acknowledged packet and transitions to the configuration state.
     pub async fn handle_login_acknowledged(&self) {
         self.protocol.store(ConnectionProtocol::Config);
 

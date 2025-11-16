@@ -3,11 +3,13 @@ use simdnbt::{ToNbtTag, owned::NbtCompound};
 
 use crate::text::color::{ARGBColor, Color};
 
+/// The style of a text component.
 #[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq, Eq, Hash)]
 pub struct Style {
     /// The color to render the content.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<Color>,
+    /// Whether to render the content in bold.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bold: Option<bool>,
     /// Whether to render the content in italic.
@@ -33,10 +35,13 @@ pub struct Style {
         skip_serializing_if = "Option::is_none",
         rename = "shadow_color"
     )]
+    /// The color of the shadow.
     pub shadow_color: Option<ARGBColor>,
 }
 
 impl Style {
+    /// Creates a new `Style`.
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             color: None,
@@ -51,16 +56,22 @@ impl Style {
         }
     }
 
+    /// Sets the color of the `Style`.
+    #[must_use]
     pub const fn color(mut self, color: Color) -> Self {
         self.color = Some(color);
         self
     }
 
+    /// Sets the shadow color of the `Style`.
+    #[must_use]
     pub const fn shadow_color(mut self, shadow_color: ARGBColor) -> Self {
         self.shadow_color = Some(shadow_color);
         self
     }
 
+    /// Converts the `Style` into an `NbtCompound`.
+    #[must_use]
     pub fn into_nbt_compound(self) -> NbtCompound {
         let mut compound = NbtCompound::new();
         if let Some(color) = self.color {

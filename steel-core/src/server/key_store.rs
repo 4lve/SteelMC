@@ -1,11 +1,16 @@
+//! This module contains the `KeyStore` struct, which is used to store the server's encryption keys.
 use rsa::{RsaPrivateKey, traits::PublicKeyParts};
 
+/// A struct that stores the server's encryption keys.
 pub struct KeyStore {
+    /// The server's private key.
     pub private_key: RsaPrivateKey,
+    /// The server's public key in DER format.
     pub public_key_der: Vec<u8>,
 }
 
 impl KeyStore {
+    /// Creates a new `KeyStore`.
     #[must_use]
     pub fn create() -> Self {
         log::debug!("Creating encryption keys...");

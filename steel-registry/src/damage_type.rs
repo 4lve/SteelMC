@@ -50,6 +50,7 @@ pub struct DamageTypeRegistry {
 }
 
 impl DamageTypeRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             damage_types_by_id: Vec::new(),
@@ -59,9 +60,10 @@ impl DamageTypeRegistry {
     }
 
     pub fn register(&mut self, damage_type: DamageTypeRef) -> usize {
-        if !self.allows_registering {
-            panic!("Cannot register damage types after the registry has been frozen");
-        }
+        assert!(
+            self.allows_registering,
+            "Cannot register damage types after the registry has been frozen"
+        );
 
         let id = self.damage_types_by_id.len();
         self.damage_types_by_key.insert(damage_type.key.clone(), id);
@@ -69,16 +71,19 @@ impl DamageTypeRegistry {
         id
     }
 
+    #[must_use]
     pub fn by_id(&self, id: usize) -> Option<DamageTypeRef> {
         self.damage_types_by_id.get(id).copied()
     }
 
+    #[must_use]
     pub fn get_id(&self, damage_type: DamageTypeRef) -> &usize {
         self.damage_types_by_key
             .get(&damage_type.key)
             .expect("Damage type not found")
     }
 
+    #[must_use]
     pub fn by_key(&self, key: &Identifier) -> Option<DamageTypeRef> {
         self.damage_types_by_key
             .get(key)
@@ -92,10 +97,12 @@ impl DamageTypeRegistry {
             .map(|(id, &dt)| (id, dt))
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.damage_types_by_id.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.damage_types_by_id.is_empty()
     }

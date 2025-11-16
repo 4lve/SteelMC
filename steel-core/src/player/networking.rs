@@ -1,3 +1,4 @@
+//! This module contains the `JavaConnection` struct, which is used to represent a connection to a Java client.
 use std::{
     io::Cursor,
     sync::{Arc, Weak},
@@ -23,6 +24,7 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
+/// A connection to a Java client.
 pub struct JavaConnection {
     outgoing_packets: UnboundedSender<EnqueuedPacket>,
     cancel_token: CancellationToken,
@@ -36,6 +38,7 @@ pub struct JavaConnection {
 }
 
 impl JavaConnection {
+    /// Creates a new `JavaConnection`.
     pub fn new(
         outgoing_packets: UnboundedSender<EnqueuedPacket>,
         cancel_token: CancellationToken,
@@ -55,26 +58,37 @@ impl JavaConnection {
         }
     }
 
+    /// Sends a packet to the client.
+    ///
+    /// # Panics
+    /// - If the packet fails to be written to the buffer.
+    /// - If the packet fails to be sent through the channel.
     pub fn send_packet<P: ClientPacket>(&self, packet: P) {
-        let packet = EncodedPacket::write_vec(packet, ConnectionProtocol::Play).unwrap();
+        let packet = EncodedPacket::write_vec(packet, ConnectionProtocol::Play)
+            .expect("Failed to write packet");
         self.outgoing_packets
             .send(EnqueuedPacket::RawData(packet))
-            .unwrap();
+            .expect("Failed to send packet");
     }
 
+    /// Closes the connection.
     pub fn close(&self) {
         self.cancel_token.cancel();
     }
 
+    /// Returns whether the connection is closed.
+    #[must_use]
     pub fn closed(&self) -> bool {
         self.cancel_token.is_cancelled()
     }
 
+    /// Waits for the connection to be closed.
     pub async fn wait_for_close(&self) {
-        self.cancel_token.cancelled().await
+        self.cancel_token.cancelled().await;
     }
 
-    pub async fn process_packet(
+    /// Processes a packet from the client.
+    pub fn process_packet(
         self: &Arc<Self>,
         packet: RawPacket,
         player: Arc<Player>,
@@ -93,6 +107,7 @@ impl JavaConnection {
         Ok(())
     }
 
+    /// Listens for packets from the client.
     pub async fn listener(
         self: Arc<Self>,
         mut reader: TCPNetworkDecoder<BufReader<OwnedReadHalf>>,
@@ -105,12 +120,13 @@ impl JavaConnection {
                 packet = reader.get_raw_packet() => {
                     match packet {
                         Ok(packet) => {
-                            if let Some(player) = self.player.upgrade() && let Err(err) = self.process_packet(packet, player).await {
-                                log::warn!(
-                                    "Failed to get packet from client {}: {err}",
-                                    self.id
-                                );
-                            }
+                            if let Some(player) = self.player.upgrade()
+                                && let Err(err) = self.process_packet(packet, player) {
+                                    log::warn!(
+                                        "Failed to get packet from client {}: {err}",
+                                        self.id
+                                    );
+                                }
                         }
                         Err(err) => {
                             log::info!("Failed to get raw packet from client {}: {err}", self.id);
@@ -122,6 +138,10 @@ impl JavaConnection {
         }
     }
 
+    /// Sends packets to the client.
+    ///
+    /// # Panics
+    /// - If the player is not available.
     pub async fn sender(self: Arc<Self>, mut sender_recv: UnboundedReceiver<EnqueuedPacket>) {
         loop {
             select! {
@@ -160,7 +180,7 @@ impl JavaConnection {
             }
         }
 
-        let player = self.player.upgrade().unwrap();
+        let player = self.player.upgrade().expect("Player is not available");
         let world = player.world.clone();
         world.remove_player(player);
     }

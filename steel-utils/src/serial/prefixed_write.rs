@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use std::io::{Error, Result, Write};
 
 use crate::serial::{PrefixedWrite, WriteTo};
@@ -9,7 +10,7 @@ impl PrefixedWrite for String {
         bound: usize,
     ) -> Result<()> {
         if self.len() > bound {
-            Err(Error::other("To long"))?
+            Err(Error::other("To long"))?;
         }
 
         let len: P = self
@@ -29,7 +30,7 @@ impl PrefixedWrite for str {
         bound: usize,
     ) -> Result<()> {
         if self.len() > bound {
-            Err(Error::other("To long"))?
+            Err(Error::other("To long"))?;
         }
 
         let len: P = self
@@ -49,7 +50,7 @@ impl<T: WriteTo> PrefixedWrite for Vec<T> {
         bound: usize,
     ) -> Result<()> {
         if self.len() > bound {
-            Err(Error::other("To long"))?
+            Err(Error::other("To long"))?;
         }
 
         let len: P = self
@@ -74,7 +75,7 @@ impl<T: WriteTo> PrefixedWrite for [T] {
         bound: usize,
     ) -> Result<()> {
         if self.len() > bound {
-            Err(Error::other("To long"))?
+            Err(Error::other("To long"))?;
         }
 
         let len: P = self
@@ -99,7 +100,7 @@ impl<T: WriteTo, const N: usize> PrefixedWrite for [T; N] {
         bound: usize,
     ) -> Result<()> {
         if N > bound {
-            Err(Error::other("To long"))?
+            Err(Error::other("To long"))?;
         }
 
         P::try_from(N)

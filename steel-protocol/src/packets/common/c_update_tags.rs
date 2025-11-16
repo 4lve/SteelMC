@@ -13,6 +13,7 @@ pub struct CUpdateTags {
 }
 
 impl CUpdateTags {
+    #[must_use]
     pub fn new(tags: TagCollection) -> Self {
         Self { tags }
     }
