@@ -32,6 +32,29 @@ pub enum ChunkStatus {
     Full,
 }
 
+impl ChunkStatus {
+    /// Gets the next status in the generation order.
+    /// # Panics
+    /// This function will panic if the chunk is at the Full status.
+    #[must_use]
+    pub fn next(self) -> Self {
+        match self {
+            Self::Empty => Self::StructureStarts,
+            Self::StructureStarts => Self::StructureReferences,
+            Self::StructureReferences => Self::Biomes,
+            Self::Biomes => Self::Noise,
+            Self::Noise => Self::Surface,
+            Self::Surface => Self::Carvers,
+            Self::Carvers => Self::Features,
+            Self::Features => Self::InitializeLight,
+            Self::InitializeLight => Self::Light,
+            Self::Light => Self::Spawn,
+            Self::Spawn => Self::Full,
+            Self::Full => unreachable!(),
+        }
+    }
+}
+
 /// An enum that allows access to a chunk in different states.
 pub enum ChunkAccess {
     /// A fully generated chunk.
