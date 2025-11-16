@@ -1,5 +1,4 @@
 //! This module contains the `ChunkMap` struct, which is a map of chunk holders.
-use scc::HashIndex;
 use std::sync::Arc;
 use steel_utils::ChunkPos;
 use tokio::sync::Mutex;
@@ -11,7 +10,7 @@ use crate::chunk::{chunk_access::ChunkStatus, chunk_generation_task::ChunkGenera
 /// A map of chunks.
 pub struct ChunkMap {
     /// A map of all the chunks in the level.
-    pub chunks: HashIndex<ChunkPos, Arc<ChunkHolder>>,
+    pub chunks: scc::HashMap<ChunkPos, Arc<ChunkHolder>>,
     /// A queue of pending generation tasks.
     pub pending_generation_tasks: Mutex<Vec<Arc<ChunkGenerationTask>>>,
     /// A tracker for the generation tasks.
@@ -29,7 +28,7 @@ impl ChunkMap {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            chunks: HashIndex::new(),
+            chunks: scc::HashMap::new(),
             pending_generation_tasks: Mutex::new(Vec::new()),
             task_tracker: TaskTracker::new(),
         }
