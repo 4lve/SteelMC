@@ -8,6 +8,7 @@ use crate::random::{
 
 /// This module contains the gaussian random number generator.
 pub mod gaussian;
+/// This module contains the legacy random number generator implementation.
 pub mod legacy_random;
 /// This module contains the xoroshiro random number generator.
 pub mod xoroshiro;
@@ -74,6 +75,7 @@ pub trait PositionalRandom {
 pub enum RandomSource {
     /// A xoroshiro random number generator.
     Xoroshiro(Xoroshiro),
+    /// A legacy Minecraft random number generator.
     Legacy(LegacyRandom),
 }
 
@@ -82,6 +84,7 @@ pub enum RandomSource {
 pub enum RandomSplitter {
     /// A xoroshiro random number generator.
     Xoroshiro(XoroshiroSplitter),
+    /// A legacy Minecraft random number generator splitter.
     Legacy(LegacyRandomSplitter),
 }
 

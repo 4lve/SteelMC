@@ -3,16 +3,22 @@ use crate::random::{
     get_seed,
 };
 
+/// Legacy Minecraft random number generator based on a Linear Congruential Generator (LCG).
+/// This implementation mirrors Java's `java.util.Random` which Minecraft originally used.
 pub struct LegacyRandom {
     seed: i64,
     next_gauissian: Option<f64>,
 }
 
+/// A positional random number generator factory for the legacy Minecraft LCG algorithm.
+/// This can create random sources based on position, hash, or seed.
 pub struct LegacyRandomSplitter {
     seed: i64,
 }
 
 impl LegacyRandom {
+    /// Creates a new `LegacyRandom` instance from the given seed.
+    /// The seed is XORed with the LCG multiplier and masked to 48 bits, matching Java's behavior.
     pub fn from_seed(seed: u64) -> Self {
         Self {
             seed: (seed as i64 ^ 0x5DEECE66D) & 0xFFFFFFFFFFFF,
@@ -93,6 +99,8 @@ impl Random for LegacyRandom {
 }
 
 impl LegacyRandomSplitter {
+    /// Creates a new `LegacyRandomSplitter` with the given seed.
+    /// This seed is used to initialize positional random sources.
     pub fn new(seed: i64) -> Self {
         Self { seed }
     }
