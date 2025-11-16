@@ -92,7 +92,8 @@ impl Random for LegacyRandom {
 
     fn next_f64(&mut self) -> f64 {
         #[allow(clippy::cast_precision_loss, clippy::cast_sign_loss)]
-        let result = (((self.next(26) as u64) << 27) | (self.next(27) as u64)) as f64 * f64::from(1.110_223e-16_f32);
+        let result = (((self.next(26) as u64) << 27) | (self.next(27) as u64)) as f64
+            * f64::from(1.110_223e-16_f32);
         result
     }
 
@@ -240,8 +241,16 @@ mod test {
         let mut rand = LegacyRandom::from_seed(0);
 
         let values: [f32; 10] = [
-            0.730_967_76, 0.831_441, 0.240_536_39, 0.606_345_2, 0.637_417_4, 0.309_050_56, 0.550_437,
-            0.117_006_6, 0.597_545_27, 0.781_534_6,
+            0.730_967_76,
+            0.831_441,
+            0.240_536_39,
+            0.606_345_2,
+            0.637_417_4,
+            0.309_050_56,
+            0.550_437,
+            0.117_006_6,
+            0.597_545_27,
+            0.781_534_6,
         ];
 
         for value in values {
