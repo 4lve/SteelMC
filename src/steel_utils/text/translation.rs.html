@@ -86,10 +86,10 @@
 <a href=#86 id=86 data-nosnippet>86</a>    /// - If the translation key is not found.
 <a href=#87 id=87 data-nosnippet>87</a>    </span><span class="attr">#[must_use]
 <a href=#88 id=88 data-nosnippet>88</a>    </span><span class="kw">pub fn </span>format(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
-<a href=#89 id=89 data-nosnippet>89</a>        <span class="kw">let </span><span class="kw-2">mut </span>result = <span class="kw">crate</span>::translations::TRANSLATIONS
+<a href=#89 id=89 data-nosnippet>89</a>        <span class="kw">let </span><span class="kw-2">mut </span>result = (<span class="kw-2">*</span><span class="kw">crate</span>::translations::TRANSLATIONS
 <a href=#90 id=90 data-nosnippet>90</a>            .get(<span class="self">self</span>.key.as_ref())
-<a href=#91 id=91 data-nosnippet>91</a>            .expect(<span class="string">"Translation key should exist"</span>)
-<a href=#92 id=92 data-nosnippet>92</a>            .to_string();
+<a href=#91 id=91 data-nosnippet>91</a>            .expect(<span class="string">"Translation key should exist"</span>))
+<a href=#92 id=92 data-nosnippet>92</a>        .to_string();
 <a href=#93 id=93 data-nosnippet>93</a>
 <a href=#94 id=94 data-nosnippet>94</a>        <span class="comment">// Handle positional arguments
 <a href=#95 id=95 data-nosnippet>95</a>        </span><span class="kw">for </span>(i, arg) <span class="kw">in </span><span class="self">self</span>.args().iter().enumerate() {

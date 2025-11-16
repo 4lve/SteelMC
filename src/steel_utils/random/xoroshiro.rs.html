@@ -463,23 +463,29 @@
 <a href=#463 id=463 data-nosnippet>463</a>
 <a href=#464 id=464 data-nosnippet>464</a>        <span class="kw">let </span>splitter = forked.next_positional();
 <a href=#465 id=465 data-nosnippet>465</a>
-<a href=#466 id=466 data-nosnippet>466</a>        <span class="kw">let </span>RandomSource::Xoroshiro(<span class="kw-2">mut </span>rand1) = splitter.with_hash_of(<span class="string">"TEST STRING"</span>);
-<a href=#467 id=467 data-nosnippet>467</a>        <span class="macro">assert_eq!</span>(rand1.next_i32(), -<span class="number">641435713</span>);
-<a href=#468 id=468 data-nosnippet>468</a>
-<a href=#469 id=469 data-nosnippet>469</a>        <span class="kw">let </span>RandomSource::Xoroshiro(<span class="kw-2">mut </span>rand2) = splitter.with_seed(<span class="number">42069</span>);
-<a href=#470 id=470 data-nosnippet>470</a>        <span class="macro">assert_eq!</span>(rand2.next_i32(), -<span class="number">340700677</span>);
-<a href=#471 id=471 data-nosnippet>471</a>
-<a href=#472 id=472 data-nosnippet>472</a>        <span class="kw">let </span>RandomSource::Xoroshiro(<span class="kw-2">mut </span>rand3) = splitter.at(<span class="number">1337</span>, <span class="number">80085</span>, -<span class="number">69420</span>);
-<a href=#473 id=473 data-nosnippet>473</a>        <span class="macro">assert_eq!</span>(rand3.next_i32(), <span class="number">790449132</span>);
-<a href=#474 id=474 data-nosnippet>474</a>
-<a href=#475 id=475 data-nosnippet>475</a>        <span class="macro">assert_eq!</span>(rng.next_i32(), <span class="number">653572596</span>);
-<a href=#476 id=476 data-nosnippet>476</a>        <span class="macro">assert_eq!</span>(forked.next_i32(), <span class="number">435917842</span>);
-<a href=#477 id=477 data-nosnippet>477</a>    }
-<a href=#478 id=478 data-nosnippet>478</a>
-<a href=#479 id=479 data-nosnippet>479</a>    <span class="attr">#[test]
-<a href=#480 id=480 data-nosnippet>480</a>    </span><span class="kw">fn </span>zero_seed_produces_fallback_values() {
-<a href=#481 id=481 data-nosnippet>481</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = Xoroshiro::new(<span class="number">0</span>, <span class="number">0</span>);
-<a href=#482 id=482 data-nosnippet>482</a>        <span class="macro">assert_eq!</span>(rng.next_i64(), <span class="number">6807859099481836695</span>);
+<a href=#466 id=466 data-nosnippet>466</a>        <span class="kw">let </span>RandomSource::Xoroshiro(<span class="kw-2">mut </span>rand1) = splitter.with_hash_of(<span class="string">"TEST STRING"</span>) <span class="kw">else </span>{
+<a href=#467 id=467 data-nosnippet>467</a>            <span class="macro">panic!</span>(<span class="string">"Expected Xoroshiro variant"</span>);
+<a href=#468 id=468 data-nosnippet>468</a>        };
+<a href=#469 id=469 data-nosnippet>469</a>        <span class="macro">assert_eq!</span>(rand1.next_i32(), -<span class="number">641435713</span>);
+<a href=#470 id=470 data-nosnippet>470</a>
+<a href=#471 id=471 data-nosnippet>471</a>        <span class="kw">let </span>RandomSource::Xoroshiro(<span class="kw-2">mut </span>rand2) = splitter.with_seed(<span class="number">42069</span>) <span class="kw">else </span>{
+<a href=#472 id=472 data-nosnippet>472</a>            <span class="macro">panic!</span>(<span class="string">"Expected Xoroshiro variant"</span>);
+<a href=#473 id=473 data-nosnippet>473</a>        };
+<a href=#474 id=474 data-nosnippet>474</a>        <span class="macro">assert_eq!</span>(rand2.next_i32(), -<span class="number">340700677</span>);
+<a href=#475 id=475 data-nosnippet>475</a>
+<a href=#476 id=476 data-nosnippet>476</a>        <span class="kw">let </span>RandomSource::Xoroshiro(<span class="kw-2">mut </span>rand3) = splitter.at(<span class="number">1337</span>, <span class="number">80085</span>, -<span class="number">69420</span>) <span class="kw">else </span>{
+<a href=#477 id=477 data-nosnippet>477</a>            <span class="macro">panic!</span>(<span class="string">"Expected Xoroshiro variant"</span>);
+<a href=#478 id=478 data-nosnippet>478</a>        };
+<a href=#479 id=479 data-nosnippet>479</a>        <span class="macro">assert_eq!</span>(rand3.next_i32(), <span class="number">790449132</span>);
+<a href=#480 id=480 data-nosnippet>480</a>
+<a href=#481 id=481 data-nosnippet>481</a>        <span class="macro">assert_eq!</span>(rng.next_i32(), <span class="number">653572596</span>);
+<a href=#482 id=482 data-nosnippet>482</a>        <span class="macro">assert_eq!</span>(forked.next_i32(), <span class="number">435917842</span>);
 <a href=#483 id=483 data-nosnippet>483</a>    }
-<a href=#484 id=484 data-nosnippet>484</a>}
+<a href=#484 id=484 data-nosnippet>484</a>
+<a href=#485 id=485 data-nosnippet>485</a>    <span class="attr">#[test]
+<a href=#486 id=486 data-nosnippet>486</a>    </span><span class="kw">fn </span>zero_seed_produces_fallback_values() {
+<a href=#487 id=487 data-nosnippet>487</a>        <span class="kw">let </span><span class="kw-2">mut </span>rng = Xoroshiro::new(<span class="number">0</span>, <span class="number">0</span>);
+<a href=#488 id=488 data-nosnippet>488</a>        <span class="macro">assert_eq!</span>(rng.next_i64(), <span class="number">6807859099481836695</span>);
+<a href=#489 id=489 data-nosnippet>489</a>    }
+<a href=#490 id=490 data-nosnippet>490</a>}
 </code></pre></div></section></main></body></html>

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["RandomSource","RandomSplitter"],"fn":["get_seed"],"mod":["gaussian","xoroshiro"],"trait":["PositionalRandom","Random"]};
+window.SIDEBAR_ITEMS = {"enum":["RandomSource","RandomSplitter"],"fn":["get_seed"],"mod":["gaussian","legacy_random","xoroshiro"],"trait":["PositionalRandom","Random"]};
