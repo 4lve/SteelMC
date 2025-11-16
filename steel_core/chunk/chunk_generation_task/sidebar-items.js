@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ChunkGenerationTask"]};
+window.SIDEBAR_ITEMS = {"struct":["ChunkGenerationTask"],"type":["NeighborReady"]};
