@@ -1,11 +1,20 @@
 //! This module contains the `ChunkHolder` struct, which is used to hold a chunk in a watch channel.
-use replace_with::replace_with_or_abort;
-use tokio::sync::watch;
+use std::pin::Pin;
+use std::sync::Arc;
 
-use crate::chunk::{
-    chunk_access::{ChunkAccess, ChunkStatus},
-    level_chunk::LevelChunk,
-    proto_chunk::ProtoChunk,
+use futures::{Future, future};
+use replace_with::replace_with_or_abort;
+use steel_utils::ChunkPos;
+use tokio::sync::{Mutex, watch};
+
+use crate::{
+    ChunkMap,
+    chunk::{
+        chunk_access::{ChunkAccess, ChunkStatus},
+        chunk_generation_task::ChunkGenerationTask,
+        level_chunk::LevelChunk,
+        proto_chunk::ProtoChunk,
+    },
 };
 
 /// A tuple containing the chunk status and the chunk access.
@@ -16,17 +25,61 @@ pub struct ChunkHolder {
     // Will hold None if the chunk is cancelled.
     chunk_access: watch::Receiver<Option<ChunkStageHolder>>,
     sender: watch::Sender<Option<ChunkStageHolder>>,
+    generation_task: Mutex<Option<Arc<ChunkGenerationTask>>>,
+    pos: ChunkPos,
 }
 
 impl ChunkHolder {
     /// Creates a new chunk holder.
     #[must_use]
-    pub fn new(proto_chunk: ProtoChunk) -> Self {
+    pub fn new(proto_chunk: ProtoChunk, pos: ChunkPos) -> Self {
         let (sender, receiver) =
             watch::channel(Some((ChunkStatus::Empty, ChunkAccess::Proto(proto_chunk))));
         Self {
             chunk_access: receiver,
             sender,
+            generation_task: Mutex::new(None),
+            pos,
+        }
+    }
+
+    /// Returns a future that completes when the chunk has reached the given status or None if cancelled.
+    #[allow(clippy::missing_panics_doc)]
+    pub async fn schedule_chunk_generation_task(
+        &self,
+        status: ChunkStatus,
+        chunk_map: Arc<ChunkMap>,
+    ) -> Pin<Box<dyn Future<Output = Option<()>> + Send + '_>> {
+        // Check if the chunk is already at the given status.
+        if self.with_chunk(status, |_| ()).is_some() {
+            return Box::pin(future::ready(Some(())));
+        }
+
+        let task = self.generation_task.lock().await;
+
+        #[allow(clippy::unwrap_used)]
+        if task.is_none() || status > task.as_ref().unwrap().target_status {
+            drop(task);
+            self.reschedule_chunk_task(status, chunk_map).await;
+        }
+
+        Box::pin(ChunkHolder::await_chunk_and_then(
+            self.sender.subscribe(),
+            status,
+            |_| (),
+        ))
+    }
+
+    /// Reschedules the chunk task to the given status.
+    pub async fn reschedule_chunk_task(&self, status: ChunkStatus, chunk_map: Arc<ChunkMap>) {
+        let new_task = chunk_map.schedule_generation_task(status, self.pos);
+        let mut old_task_guard = self.generation_task.lock().await;
+
+        let old_task = old_task_guard.replace(new_task);
+        drop(old_task_guard);
+
+        if let Some(old_task) = old_task {
+            old_task.mark_for_cancel();
         }
     }
 
@@ -70,28 +123,31 @@ impl ChunkHolder {
     }
 
     /// Waits until the chunk has reached the given status, and then calls the given function.
-    pub async fn await_chunk_and_then<F, R>(&self, status: ChunkStatus, f: F) -> Option<R>
+    pub async fn await_chunk_and_then<F, R>(
+        mut subscriber: watch::Receiver<Option<ChunkStageHolder>>,
+        status: ChunkStatus,
+        f: F,
+    ) -> Option<R>
     where
         F: FnOnce(&ChunkAccess) -> R,
     {
-        let mut subscriber = self.sender.subscribe();
         loop {
-            let chunk_access = subscriber.borrow_and_update();
-            match &*chunk_access {
-                Some((s, chunk)) if status <= *s => {
-                    return Some(f(chunk));
-                }
-                // Don't return
-                Some(_) => {}
-                None => {
-                    return None;
+            {
+                let chunk_access = subscriber.borrow_and_update();
+                match &*chunk_access {
+                    Some((s, chunk)) if status <= *s => {
+                        return Some(f(chunk));
+                    }
+                    // Don't return
+                    Some(_) => {}
+                    None => {
+                        return None;
+                    }
                 }
             }
-            drop(chunk_access);
 
-            let changed = subscriber.changed().await;
-            if let Err(e) = changed {
-                log::error!("Failed to wait for chunk access: {e}");
+            if subscriber.changed().await.is_err() {
+                log::error!("Failed to wait for chunk access");
                 return None;
             }
         }
@@ -104,7 +160,7 @@ impl ChunkHolder {
     where
         F: FnOnce(&ChunkAccess) -> R,
     {
-        self.await_chunk_and_then(ChunkStatus::Full, f).await
+        ChunkHolder::await_chunk_and_then(self.sender.subscribe(), ChunkStatus::Full, f).await
     }
 
     /// Waits until this chunk has reached the Full status.

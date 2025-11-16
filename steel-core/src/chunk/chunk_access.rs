@@ -4,7 +4,7 @@ use steel_utils::BlockStateId;
 use crate::chunk::{level_chunk::LevelChunk, proto_chunk::ProtoChunk};
 
 /// The status of a chunk.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum ChunkStatus {
     /// The chunk is empty.
     Empty,

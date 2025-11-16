@@ -2,7 +2,10 @@
 use std::{
     collections::HashMap,
     future::Future,
-    sync::{Arc, atomic::AtomicBool},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 use steel_utils::ChunkPos;
@@ -21,7 +24,7 @@ pub struct ChunkGenerationTask {
     pub marked_for_cancel: AtomicBool,
 
     /// A list of futures that will be ready when the neighbors are ready.
-    pub neighbor_ready: Vec<Box<dyn Future<Output = ()> + Send>>,
+    pub neighbor_ready: Vec<Box<dyn Future<Output = ()> + Send + Sync>>,
     //TODO: We should make a custom struct in the future that can treat this as a fixed size array.
     /// A cache of chunks that are needed for generation.
     pub cache: HashMap<ChunkPos, Arc<ChunkHolder>>,
@@ -42,5 +45,10 @@ impl ChunkGenerationTask {
             cache: HashMap::new(),
             needs_generation: true,
         }
+    }
+
+    /// Marks the task for cancellation.
+    pub fn mark_for_cancel(&self) {
+        self.marked_for_cancel.store(true, Ordering::Relaxed);
     }
 }
