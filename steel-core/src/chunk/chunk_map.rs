@@ -38,11 +38,11 @@ impl ChunkMap {
     ///
     /// Returns a handle to the task.
     pub async fn schedule_generation_task(
-        &self,
+        self: &Arc<Self>,
         target_status: ChunkStatus,
         pos: ChunkPos,
     ) -> Arc<ChunkGenerationTask> {
-        let task = Arc::new(ChunkGenerationTask::new(pos, target_status));
+        let task = Arc::new(ChunkGenerationTask::new(pos, target_status, self.clone()).await);
         self.pending_generation_tasks
             .lock()
             .await

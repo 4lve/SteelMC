@@ -25,3 +25,4 @@ serde_json5 = "0.2.1"
 base64 = "0.22.1"
 futures = "0.3.31"
 parking_lot.workspace = true
+enum_dispatch.workspace = true

@@ -14,7 +14,7 @@ simdnbt.workspace = true
 uuid.workspace = true
 phf = { version = "0.13.1", features = ["macros"] }
 md5 = "0.8.0"
-enum_dispatch = "0.3.13"
+enum_dispatch.workspace = true
 log.workspace = true
 
 [dev-dependencies]

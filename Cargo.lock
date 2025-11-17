@@ -1873,6 +1873,7 @@ name = "steel-core"
 version = "0.0.0"
 dependencies = [
  "base64",
+ "enum_dispatch",
  "futures",
  "log",
  "parking_lot",

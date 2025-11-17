@@ -35,6 +35,8 @@ uuid = { version = "1.18.1", features = ["serde"] }
 log = "0.4.28"
 simdnbt = "0.8.0"
 parking_lot = { version = "0.12.5", features = ["nightly", "send_guard"] }
+enum_dispatch = "0.3.13"
+
 
 [profile.release]
 lto = true

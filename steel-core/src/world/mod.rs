@@ -11,7 +11,7 @@ mod world_entities;
 /// A struct that represents a world.
 pub struct World {
     /// The chunk map of the world.
-    pub chunk_map: ChunkMap,
+    pub chunk_map: Arc<ChunkMap>,
     /// A map of all the players in the world.
     pub players: HashMap<Uuid, Arc<Player>>,
 }
@@ -22,7 +22,7 @@ impl World {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            chunk_map: ChunkMap::new(),
+            chunk_map: Arc::new(ChunkMap::new()),
             players: HashMap::new(),
         }
     }

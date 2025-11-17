@@ -7,11 +7,13 @@ use replace_with::replace_with_or_abort;
 use steel_utils::ChunkPos;
 use tokio::sync::{Mutex, watch};
 
+use crate::chunk::chunk_generation_task::{NeighborReady, StaticCache2D};
 use crate::{
     ChunkMap,
     chunk::{
         chunk_access::{ChunkAccess, ChunkStatus},
         chunk_generation_task::ChunkGenerationTask,
+        chunk_pyramid::ChunkStep,
         level_chunk::LevelChunk,
         proto_chunk::ProtoChunk,
     },
@@ -166,6 +168,23 @@ impl ChunkHolder {
     /// Waits until this chunk has reached the Full status.
     pub async fn await_full(&self) -> Option<()> {
         self.await_full_and_then(|_| ()).await
+    }
+
+    /// Gets the persisted status of the chunk.
+    pub fn persisted_status(&self) -> ChunkStatus {
+        match &*self.chunk_access.borrow() {
+            Some((s, _)) => *s,
+            None => ChunkStatus::Empty,
+        }
+    }
+
+    /// Applies a step to the chunk.
+    pub fn apply_step(
+        &self,
+        _step: Arc<ChunkStep>,
+        _cache: Arc<StaticCache2D<Arc<ChunkHolder>>>,
+    ) -> NeighborReady {
+        todo!()
     }
 
     /// Upgrades the chunk to a full chunk.

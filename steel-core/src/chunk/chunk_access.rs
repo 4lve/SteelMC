@@ -33,24 +33,51 @@ pub enum ChunkStatus {
 }
 
 impl ChunkStatus {
+    /// Gets the index of the status.
+    #[must_use]
+    pub fn get_index(self) -> usize {
+        self as usize
+    }
+}
+
+impl ChunkStatus {
     /// Gets the next status in the generation order.
     /// # Panics
     /// This function will panic if the chunk is at the Full status.
     #[must_use]
-    pub fn next(self) -> Self {
+    pub fn next(self) -> Option<Self> {
         match self {
-            Self::Empty => Self::StructureStarts,
-            Self::StructureStarts => Self::StructureReferences,
-            Self::StructureReferences => Self::Biomes,
-            Self::Biomes => Self::Noise,
-            Self::Noise => Self::Surface,
-            Self::Surface => Self::Carvers,
-            Self::Carvers => Self::Features,
-            Self::Features => Self::InitializeLight,
-            Self::InitializeLight => Self::Light,
-            Self::Light => Self::Spawn,
-            Self::Spawn => Self::Full,
-            Self::Full => unreachable!(),
+            Self::Empty => Some(Self::StructureStarts),
+            Self::StructureStarts => Some(Self::StructureReferences),
+            Self::StructureReferences => Some(Self::Biomes),
+            Self::Biomes => Some(Self::Noise),
+            Self::Noise => Some(Self::Surface),
+            Self::Surface => Some(Self::Carvers),
+            Self::Carvers => Some(Self::Features),
+            Self::Features => Some(Self::InitializeLight),
+            Self::InitializeLight => Some(Self::Light),
+            Self::Light => Some(Self::Spawn),
+            Self::Spawn => Some(Self::Full),
+            Self::Full => None,
+        }
+    }
+
+    /// Gets the parent status in the generation order.
+    #[must_use]
+    pub fn parent(self) -> Option<Self> {
+        match self {
+            Self::Empty => None,
+            Self::StructureStarts => Some(Self::Empty),
+            Self::StructureReferences => Some(Self::StructureStarts),
+            Self::Biomes => Some(Self::StructureReferences),
+            Self::Noise => Some(Self::Biomes),
+            Self::Surface => Some(Self::Noise),
+            Self::Carvers => Some(Self::Surface),
+            Self::Features => Some(Self::Carvers),
+            Self::InitializeLight => Some(Self::Features),
+            Self::Light => Some(Self::InitializeLight),
+            Self::Spawn => Some(Self::Light),
+            Self::Full => Some(Self::Spawn),
         }
     }
 }
