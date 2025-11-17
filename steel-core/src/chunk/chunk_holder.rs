@@ -63,11 +63,7 @@ impl ChunkHolder {
             self.reschedule_chunk_task(status, chunk_map).await;
         }
 
-        Box::pin(ChunkHolder::await_chunk_and_then(
-            self.sender.subscribe(),
-            status,
-            |_| (),
-        ))
+        Box::pin(self.await_chunk_and_then(status, |_| ()))
     }
 
     /// Reschedules the chunk task to the given status.
@@ -123,32 +119,36 @@ impl ChunkHolder {
     }
 
     /// Waits until the chunk has reached the given status, and then calls the given function.
-    pub async fn await_chunk_and_then<F, R>(
-        mut subscriber: watch::Receiver<Option<ChunkStageHolder>>,
+    /// Returns a future so that the subscriber can be eagerly executed and the self reference can be dropped.
+    pub fn await_chunk_and_then<F, R>(
+        &self,
         status: ChunkStatus,
         f: F,
-    ) -> Option<R>
+    ) -> impl Future<Output = Option<R>>
     where
         F: FnOnce(&ChunkAccess) -> R,
     {
-        loop {
-            {
-                let chunk_access = subscriber.borrow_and_update();
-                match &*chunk_access {
-                    Some((s, chunk)) if status <= *s => {
-                        return Some(f(chunk));
-                    }
-                    // Don't return
-                    Some(_) => {}
-                    None => {
-                        return None;
+        let mut subscriber = self.sender.subscribe();
+        async move {
+            loop {
+                {
+                    let chunk_access = subscriber.borrow_and_update();
+                    match &*chunk_access {
+                        Some((s, chunk)) if status <= *s => {
+                            return Some(f(chunk));
+                        }
+                        // Don't return
+                        Some(_) => {}
+                        None => {
+                            return None;
+                        }
                     }
                 }
-            }
 
-            if subscriber.changed().await.is_err() {
-                log::error!("Failed to wait for chunk access");
-                return None;
+                if subscriber.changed().await.is_err() {
+                    log::error!("Failed to wait for chunk access");
+                    return None;
+                }
             }
         }
     }
@@ -160,7 +160,7 @@ impl ChunkHolder {
     where
         F: FnOnce(&ChunkAccess) -> R,
     {
-        ChunkHolder::await_chunk_and_then(self.sender.subscribe(), ChunkStatus::Full, f).await
+        self.await_chunk_and_then(ChunkStatus::Full, f).await
     }
 
     /// Waits until this chunk has reached the Full status.

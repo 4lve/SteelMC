@@ -2,6 +2,7 @@ use crate::random::{
     PositionalRandom, Random, RandomSource, RandomSplitter, gaussian::MarsagliaPolarGaussian,
     get_seed,
 };
+#[cfg(target_arch = "x86_64")]
 use std::arch::asm;
 
 // Ratios used in the mix functions
