@@ -5,12 +5,12 @@ edition.workspace = true
 
 
 [dependencies]
-aes = "0.8.4"
+aes = "0.9.0-rc.2"
 async-compression = { version = "0.4.32", features = ["tokio", "zlib"] }
 steel-utils = { path = "../steel-utils" }
 tokio.workspace = true
 thiserror.workspace = true
-cfb8 = "0.8.1"
+cfb8 = "0.9.0-rc.1"
 take_mut = "0.2.2"
 steel-macros = { path = "../steel-macros" }
 serde.workspace = true

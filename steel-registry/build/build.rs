@@ -24,7 +24,7 @@ mod trim_patterns;
 mod wolf_sound_variants;
 mod wolf_variants;
 
-const FMT: bool = true;
+const FMT: bool = cfg!(feature = "fmt");
 
 const OUT_DIR: &str = "src/generated";
 

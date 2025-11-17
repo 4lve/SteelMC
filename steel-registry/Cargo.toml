@@ -5,7 +5,6 @@ edition.workspace = true
 build = "build/build.rs"
 
 [dependencies]
-include_dir = { version = "0.7.4", features = ["nightly"] }
 steel-utils = { path = "../steel-utils" }
 serde_json.workspace = true
 serde.workspace = true
@@ -17,3 +16,6 @@ serde_json.workspace = true
 serde.workspace = true
 steel-utils = { path = "../steel-utils" }
 heck = "0.5.0"
+
+[features]
+fmt = []

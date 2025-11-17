@@ -76,3 +76,44 @@ pub async fn mojang_authenticate(
 
     response.json().await.map_err(|_| AuthError::FailedParse)
 }
+
+/// Converts a signed bytes big endian to a hex string.
+#[must_use]
+pub fn signed_bytes_be_to_hex(bytes: &[u8]) -> String {
+    if bytes.is_empty() {
+        return "0".to_string();
+    }
+
+    // Find the first non-zero byte to handle cases like `[0x00, 0x1a]`
+    let first_digit = bytes.iter().position(|&b| b != 0);
+
+    // If all bytes are zero, the number is 0.
+    let Some(start_index) = first_digit else {
+        return "0".to_string();
+    };
+
+    let significant_bytes = &bytes[start_index..];
+    let is_negative = (significant_bytes[0] & 0x80) != 0;
+
+    if is_negative {
+        // Negative case: calculate two's complement of the original full byte array
+        // to preserve the correct number of bits for the calculation.
+        let mut inverted_bytes: Vec<u8> = bytes.iter().map(|b| !*b).collect();
+        for byte in inverted_bytes.iter_mut().rev() {
+            let (result, carry) = byte.overflowing_add(1);
+            *byte = result;
+            if !carry {
+                break;
+            }
+        }
+
+        // Now, find the first significant digit of the *result*
+        let mag_start_index = inverted_bytes.iter().position(|&b| b != 0).unwrap_or(0);
+
+        // Format the result with a leading '-'
+        format!("-{}", hex::encode(&inverted_bytes[mag_start_index..]))
+    } else {
+        // Positive case: just encode the significant bytes.
+        hex::encode(significant_bytes)
+    }
+}

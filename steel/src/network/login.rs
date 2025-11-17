@@ -1,4 +1,3 @@
-use num_bigint::BigInt;
 use rsa::Pkcs1v15Encrypt;
 use sha1::Sha1;
 use sha2::{Digest, Sha256};
@@ -14,7 +13,7 @@ use crate::{
     STEEL_CONFIG,
     network::{
         java_tcp_client::{ConnectionUpdate, JavaTcpClient},
-        mojang_authentication::{AuthError, mojang_authenticate},
+        mojang_authentication::{AuthError, mojang_authenticate, signed_bytes_be_to_hex},
     },
 };
 
@@ -139,8 +138,7 @@ impl JavaTcpClient {
                 .chain_update(&self.server.key_store.public_key_der)
                 .finalize();
 
-            // TODO! Remove BigInt & make our own util for that
-            let server_hash = BigInt::from_signed_bytes_be(server_hash).to_str_radix(16);
+            let server_hash = signed_bytes_be_to_hex(server_hash);
 
             match mojang_authenticate(&profile.name, &server_hash).await {
                 Ok(new_profile) => *profile = new_profile,
