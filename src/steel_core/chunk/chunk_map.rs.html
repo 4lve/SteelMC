@@ -38,11 +38,11 @@
 <a href=#38 id=38 data-nosnippet>38</a>    ///
 <a href=#39 id=39 data-nosnippet>39</a>    /// Returns a handle to the task.
 <a href=#40 id=40 data-nosnippet>40</a>    </span><span class="kw">pub async fn </span>schedule_generation_task(
-<a href=#41 id=41 data-nosnippet>41</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#41 id=41 data-nosnippet>41</a>        <span class="self">self</span>: <span class="kw-2">&amp;</span>Arc&lt;<span class="self">Self</span>&gt;,
 <a href=#42 id=42 data-nosnippet>42</a>        target_status: ChunkStatus,
 <a href=#43 id=43 data-nosnippet>43</a>        pos: ChunkPos,
 <a href=#44 id=44 data-nosnippet>44</a>    ) -&gt; Arc&lt;ChunkGenerationTask&gt; {
-<a href=#45 id=45 data-nosnippet>45</a>        <span class="kw">let </span>task = Arc::new(ChunkGenerationTask::new(pos, target_status));
+<a href=#45 id=45 data-nosnippet>45</a>        <span class="kw">let </span>task = Arc::new(ChunkGenerationTask::new(pos, target_status, <span class="self">self</span>.clone()).<span class="kw">await</span>);
 <a href=#46 id=46 data-nosnippet>46</a>        <span class="self">self</span>.pending_generation_tasks
 <a href=#47 id=47 data-nosnippet>47</a>            .lock()
 <a href=#48 id=48 data-nosnippet>48</a>            .<span class="kw">await
