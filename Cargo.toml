@@ -7,6 +7,7 @@ members = [
     "steel-registry",
     "steel-utils",
     "steel-core",
+    "steel-nylium",
 ]
 
 [workspace.package]

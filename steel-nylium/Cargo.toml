@@ -1,0 +1,15 @@
+[package]
+name = "steel-nylium"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+async-trait = "0.1.89"
+tokio.workspace = true
+
+nylium = { git = "https://github.com/Guibi1/Nylium" }
+nylium-adapter = { git = "https://github.com/Guibi1/Nylium" }
+steel = { path = "../steel" }
+
+# nylium = { path = "../../nylium/nylium" }
+# nylium-adapter = { path = "../../nylium/nylium-adapter" }

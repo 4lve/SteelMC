@@ -2,6 +2,7 @@
 name = "steel"
 version.workspace = true
 edition.workspace = true
+default-run = "steel"
 
 
 [dependencies]

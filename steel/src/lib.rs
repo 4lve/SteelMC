@@ -23,7 +23,7 @@ use std::{
     sync::Arc,
 };
 use steel_core::{config::STEEL_CONFIG, server::Server};
-use tokio::{net::TcpListener, select};
+use tokio::{net::TcpListener, select, spawn};
 use tokio_util::sync::CancellationToken;
 
 /// The networking module.
@@ -34,14 +34,12 @@ pub const MC_VERSION: &str = "1.21.10";
 
 /// The main server struct.
 pub struct SteelServer {
-    /// The TCP listener for incoming connections.
-    pub tcp_listener: TcpListener,
     /// The cancellation token for graceful shutdown.
     pub cancel_token: CancellationToken,
-    /// The next client ID to be assigned.
-    pub client_id: u64,
     /// The shared server state.
     pub server: Arc<Server>,
+    /// The server's listen address.
+    pub bind_address: SocketAddrV4,
 }
 
 impl SteelServer {
@@ -55,15 +53,9 @@ impl SteelServer {
         let server = Server::new().await;
 
         Self {
-            tcp_listener: TcpListener::bind(SocketAddrV4::new(
-                Ipv4Addr::UNSPECIFIED,
-                STEEL_CONFIG.server_port,
-            ))
-            .await
-            .expect("Failed to bind to server address"),
             cancel_token: CancellationToken::new(),
-            client_id: 0,
             server: Arc::new(server),
+            bind_address: SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, STEEL_CONFIG.server_port),
         }
     }
 
@@ -71,29 +63,44 @@ impl SteelServer {
     pub async fn start(&mut self) {
         log::info!("Started Steel Server");
 
-        loop {
-            select! {
-                () = self.cancel_token.cancelled() => {
-                    break;
-                }
-                accept_result = self.tcp_listener.accept() => {
-                    let Ok((connection, address)) = accept_result else {
-                        continue;
-                    };
-                    if let Err(e) = connection.set_nodelay(true) {
-                        log::warn!("Failed to set TCP_NODELAY: {e}");
-                    }
-                    let (java_client, sender_recv, net_reader) = JavaTcpClient::new(connection, address, self.client_id, self.cancel_token.child_token(), self.server.clone());
-                    self.client_id = self.client_id.wrapping_add(1);
-                    log::info!("Accepted connection from Java Edition: {address} (id {})", self.client_id);
+        let server = self.server.clone();
+        let cancel_token = self.cancel_token.clone();
+        let mut client_id = 0;
 
-                    let java_client = Arc::new(java_client);
-                    java_client.start_outgoing_packet_task(sender_recv);
-                    java_client.start_incoming_packet_task(net_reader);
-                    // Java_client won't drop until the incoming and outcoming task close
-                    // So we dont need to care about them here anymore
+        let tcp_listener = TcpListener::bind(self.bind_address)
+            .await
+            .expect("Failed to bind to server address");
+
+        spawn(async move {
+            loop {
+                select! {
+                    () = cancel_token.cancelled() => {
+                        break;
+                    }
+                    accept_result = tcp_listener.accept() => {
+                        let Ok((connection, address)) = accept_result else {
+                            continue;
+                        };
+                        if let Err(e) = connection.set_nodelay(true) {
+                            log::warn!("Failed to set TCP_NODELAY: {e}");
+                        }
+                        let (java_client, sender_recv, net_reader) = JavaTcpClient::new(connection, address, client_id, cancel_token.child_token(), server.clone());
+                        client_id = client_id.wrapping_add(1);
+                        log::info!("Accepted connection from Java Edition: {address} (id {})", client_id);
+
+                        let java_client = Arc::new(java_client);
+                        java_client.start_outgoing_packet_task(sender_recv);
+                        java_client.start_incoming_packet_task(net_reader);
+                        // Java_client won't drop until the incoming and outcoming task close
+                        // So we dont need to care about them here anymore
+                    }
                 }
             }
-        }
+        });
+    }
+
+    /// Stops the server.
+    pub fn stop(&self) {
+        self.cancel_token.cancel();
     }
 }
