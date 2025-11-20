@@ -10,15 +10,8 @@ env:
 
 jobs:
   test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --verbose
