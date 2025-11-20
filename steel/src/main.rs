@@ -47,4 +47,7 @@ async fn main() {
         .await; */
 
     steel.start().await;
+
+    // Keep the server running until cancellation
+    steel.cancel_token.cancelled().await;
 }
