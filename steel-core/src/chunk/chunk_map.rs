@@ -207,6 +207,8 @@ impl ChunkMap {
                 Some(ChunkStatus::Full)
             } else {
                 let distance = (new_level - 33) as usize;
+
+                // Fallback to None if distance is out of bounds (simulating Vanilla logic)
                 GENERATION_PYRAMID
                     .get_step_to(ChunkStatus::Full)
                     .accumulated_dependencies
@@ -218,7 +220,6 @@ impl ChunkMap {
             {
                 let chunk_holder_clone = chunk_holder.clone();
                 let map_clone = self_clone.clone();
-
                 chunk_holder_clone.schedule_chunk_generation_task_b(status, map_clone);
             }
         }
@@ -227,6 +228,7 @@ impl ChunkMap {
         if schedule_elapsed >= SLOW_TASK_WARN_THRESHOLD {
             log::warn!("tick_b schedule loop took: {:?}", schedule_elapsed);
         }
+
 
         let start_gen = tokio::time::Instant::now();
         self.run_generation_tasks_b();
