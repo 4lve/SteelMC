@@ -66,17 +66,20 @@ impl DistanceManager {
         self.remove_ticket(pos, &ticket);
     }
 
+    #[inline]
     fn update_chunk_tracker(&mut self, pos: ChunkPos) {
-        let ticket_level = self.ticket_storage.get_level(pos).unwrap_or(MAX_LEVEL + 1);
+        let ticket_level = ticket_level_or_max(&self.ticket_storage, pos);
+        let ticket_storage = &self.ticket_storage;
         self.tracker.update(pos, ticket_level, |p| {
-            self.ticket_storage.get_level(p).unwrap_or(MAX_LEVEL + 1)
+            ticket_level_or_max(ticket_storage, p)
         });
     }
 
     /// Runs pending updates and returns a list of changes.
     pub fn run_updates(&mut self) -> Vec<(ChunkPos, u8, u8)> {
+        let ticket_storage = &self.ticket_storage;
         self.tracker
-            .process_all_updates(|p| self.ticket_storage.get_level(p).unwrap_or(MAX_LEVEL + 1))
+            .process_all_updates(|p| ticket_level_or_max(ticket_storage, p))
     }
 
     /// Purges expired tickets and updates the tracker.
@@ -86,4 +89,12 @@ impl DistanceManager {
             self.update_chunk_tracker(pos);
         }
     }
+}
+
+#[inline]
+fn ticket_level_or_max(storage: &TicketStorage, pos: ChunkPos) -> u8 {
+    storage
+        .get_cached_level(pos)
+        .or_else(|| storage.get_level(pos))
+        .unwrap_or(MAX_LEVEL + 1)
 }

@@ -1,4 +1,4 @@
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashMap;
 use std::{cmp::min, collections::VecDeque};
 use steel_utils::ChunkPos;
 
@@ -11,11 +11,24 @@ pub struct ChunkTracker {
     levels: FxHashMap<ChunkPos, u8>,
     /// Priority queue: array of queues, one per priority level (0 to `MAX_LEVEL`).
     /// Lower priority values are processed first.
-    priority_queue: Vec<VecDeque<ChunkPos>>,
-    /// Set of chunks currently in the queue (for deduplication).
-    in_queue: FxHashSet<ChunkPos>,
-    /// Computed levels - the "desired" level for each chunk in the queue.
-    computed_levels: FxHashMap<ChunkPos, u8>,
+    priority_queue: Vec<VecDeque<QueuedChunk>>,
+    /// Cached queue metadata per chunk (generation + computed level).
+    queue_entries: FxHashMap<ChunkPos, QueueEntry>,
+    /// Bitmask tracking which priority queues are non-empty.
+    non_empty_mask: u128,
+    /// Monotonic counter used to invalidate stale queue entries.
+    next_generation: u32,
+}
+
+#[derive(Copy, Clone)]
+struct QueuedChunk {
+    pos: ChunkPos,
+    generation: u32,
+}
+
+struct QueueEntry {
+    computed_level: u8,
+    generation: u32,
 }
 
 impl Default for ChunkTracker {
@@ -37,8 +50,9 @@ impl ChunkTracker {
         Self {
             levels: FxHashMap::default(),
             priority_queue,
-            in_queue: FxHashSet::default(),
-            computed_levels: FxHashMap::default(),
+            queue_entries: FxHashMap::default(),
+            non_empty_mask: 0,
+            next_generation: 0,
         }
     }
 
@@ -88,55 +102,59 @@ impl ChunkTracker {
     /// If the chunk is already queued, updates its priority and computed level if needed.
     fn enqueue(&mut self, pos: ChunkPos, priority: u8, computed_level: u8) {
         let priority = priority as usize;
+        let generation = self.next_generation();
 
-        if let Some(&old_computed) = self.computed_levels.get(&pos) {
-            // Chunk is already in queue - check if we need to update priority
-            if old_computed != computed_level {
-                let old_priority = min(min(self.get_level(pos), old_computed), MAX_LEVEL) as usize;
-
-                if old_priority != priority {
-                    // Remove from old priority queue and add to new one
-                    if let Some(idx) = self.priority_queue[old_priority]
-                        .iter()
-                        .position(|&p| p == pos)
-                    {
-                        self.priority_queue[old_priority].remove(idx);
-                    }
-                    self.priority_queue[priority].push_back(pos);
-                }
-
-                // Update computed level
-                self.computed_levels.insert(pos, computed_level);
+        match self.queue_entries.entry(pos) {
+            std::collections::hash_map::Entry::Occupied(mut entry) => {
+                let data = entry.get_mut();
+                data.computed_level = computed_level;
+                data.generation = generation;
             }
-        } else {
-            // Not in queue yet - add it
-            self.in_queue.insert(pos);
-            self.priority_queue[priority].push_back(pos);
-            self.computed_levels.insert(pos, computed_level);
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                entry.insert(QueueEntry {
+                    computed_level,
+                    generation,
+                });
+            }
         }
+
+        self.priority_queue[priority].push_back(QueuedChunk { pos, generation });
+        self.non_empty_mask |= 1u128 << priority;
     }
 
     /// Dequeues the next chunk from the lowest priority level.
-    fn dequeue(&mut self) -> Option<ChunkPos> {
-        for queue in &mut self.priority_queue {
-            if let Some(pos) = queue.pop_front() {
-                self.in_queue.remove(&pos);
-                return Some(pos);
+    fn dequeue(&mut self) -> Option<(ChunkPos, u8)> {
+        while self.non_empty_mask != 0 {
+            let priority = self.non_empty_mask.trailing_zeros() as usize;
+            let queue = &mut self.priority_queue[priority];
+
+            while let Some(queued) = queue.pop_front() {
+                if queue.is_empty() {
+                    self.non_empty_mask &= !(1u128 << priority);
+                }
+
+                if let Some(entry) = self.queue_entries.get(&queued.pos) {
+                    if entry.generation == queued.generation {
+                        let entry = self.queue_entries.remove(&queued.pos).unwrap();
+                        return Some((queued.pos, entry.computed_level));
+                    }
+                }
             }
         }
+
         None
     }
 
     /// Processes all pending updates in the queue.
+    #[inline]
     pub fn process_all_updates(
         &mut self,
         get_ticket_level: impl Fn(ChunkPos) -> u8,
     ) -> Vec<(ChunkPos, u8, u8)> {
         let mut changes = Vec::new();
 
-        while let Some(pos) = self.dequeue() {
+        while let Some((pos, computed_level)) = self.dequeue() {
             let current_level = self.get_level(pos);
-            let computed_level = self.computed_levels.remove(&pos).unwrap_or(MAX_LEVEL);
 
             if computed_level < current_level {
                 // Level is decreasing - update and propagate decrease to neighbors
@@ -200,7 +218,10 @@ impl ChunkTracker {
         let propagated_level = min(from_level + 1, MAX_LEVEL);
 
         // Check against currently computed level in queue if present, otherwise current level
-        let stored_computed = self.computed_levels.get(&to).copied();
+        let stored_computed = self
+            .queue_entries
+            .get(&to)
+            .map(|entry| entry.computed_level);
         let target_level = stored_computed.unwrap_or(to_level);
 
         let computed_level = if only_decrease {
@@ -219,16 +240,13 @@ impl ChunkTracker {
             let priority = min(min(to_level, computed_level), MAX_LEVEL);
             self.enqueue(to, priority, computed_level);
         } else if stored_computed.is_some() && computed_level == to_level {
-            // If we computed the same as current level, and it was in queue, we should remove it?
-            // Java does: this.priorityQueue.dequeue(to, oldPriority, this.levelCount);
-            // this.computedLevels.remove(to);
-            // But our enqueue handles updates. If we want to remove, we don't have a remove method exposed easily here.
-            // However, leaving it in queue with level == current level is harmless, just redundant processing.
-            // But wait, if computed_level == to_level, process_all_updates will dequeue it.
-            // computed (X) == current (X).
-            // It does nothing.
-            // So it effectively removes it.
         }
+    }
+
+    fn next_generation(&mut self) -> u32 {
+        let generation = self.next_generation;
+        self.next_generation = self.next_generation.wrapping_add(1);
+        generation
     }
 
     /// Computes the level for a node based on all neighbors and ticket level.

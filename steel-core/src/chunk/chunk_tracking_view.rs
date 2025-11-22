@@ -60,7 +60,7 @@ impl ChunkTrackingView {
     }
 
     /// Checks if a chunk at `(chunk_x, chunk_z)` is within the view distance of `(center_x, center_z)`.
-    #[must_use] 
+    #[must_use]
     pub fn is_within_distance(
         center_x: i32,
         center_z: i32,

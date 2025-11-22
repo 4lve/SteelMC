@@ -2,7 +2,6 @@
 
 use std::sync::Arc;
 
-
 use crate::chunk::{
     chunk_access::{ChunkAccess, ChunkStatus},
     chunk_generation_task::StaticCache2D,

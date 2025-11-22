@@ -14,7 +14,7 @@ pub struct FlatChunkGenerator {
 
 impl FlatChunkGenerator {
     /// Creates a new `FlatChunkGenerator`.
-    #[must_use] 
+    #[must_use]
     pub fn new(bedrock: BlockStateId, dirt: BlockStateId, grass: BlockStateId) -> Self {
         Self {
             bedrock,
