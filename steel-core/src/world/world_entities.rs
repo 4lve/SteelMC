@@ -14,7 +14,7 @@ impl World {
         if self.players.remove_async(&uuid).await.is_some() {
             let self_clone = self.clone();
             let start = Instant::now();
-            self_clone.chunk_map.remove_player(&player).await;
+            self_clone.chunk_map.remove_player(&player);
             player.cleanup();
             log::info!("Player {uuid} removed in {:?}", start.elapsed());
         }

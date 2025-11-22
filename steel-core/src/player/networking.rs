@@ -102,6 +102,7 @@ impl JavaConnection {
     }
 
     /// Handles a keep alive packet.
+    #[allow(clippy::cast_possible_truncation)]
     fn handle_keep_alive(&self, packet: SKeepAlive) {
         let mut tracker = self.keep_alive_tracker.lock();
         if tracker.alive_pending && packet.id as u64 == tracker.alive_id {

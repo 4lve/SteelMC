@@ -133,11 +133,11 @@ impl ChunkTracker {
                     self.non_empty_mask &= !(1u128 << priority);
                 }
 
-                if let Some(entry) = self.queue_entries.get(&queued.pos) {
-                    if entry.generation == queued.generation {
-                        let entry = self.queue_entries.remove(&queued.pos).unwrap();
-                        return Some((queued.pos, entry.computed_level));
-                    }
+                if let Some(entry) = self.queue_entries.get(&queued.pos)
+                    && entry.generation == queued.generation
+                {
+                    let entry = self.queue_entries.remove(&queued.pos).unwrap();
+                    return Some((queued.pos, entry.computed_level));
                 }
             }
         }

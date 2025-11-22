@@ -46,7 +46,7 @@ impl ChunkMap {
     pub fn new(block_registry: &BlockRegistry) -> Self {
         Self {
             chunks: scc::HashMap::with_capacity(1000),
-            unloading_chunks: scc::HashMap::with_capacity(1000),
+            unloading_chunks: scc::HashMap::new(),
             pending_generation_tasks: Mutex::new(Vec::new()),
             task_tracker: TaskTracker::new(),
             distance_manager: ParkingMutex::new(DistanceManager::new()),
@@ -160,18 +160,19 @@ impl ChunkMap {
         };
 
         if purge_elapsed >= SLOW_TASK_WARN_THRESHOLD {
-            log::warn!("distance_manager purge_tickets slow: {:?}", purge_elapsed);
+            log::warn!("distance_manager purge_tickets slow: {purge_elapsed:?}");
         }
         if updates_elapsed >= SLOW_TASK_WARN_THRESHOLD {
-            log::warn!("distance_manager run_updates slow: {:?}", updates_elapsed);
+            log::warn!("distance_manager run_updates slow: {updates_elapsed:?}");
         }
 
         let deduped: FxHashMap<_, _> = changes
             .into_iter()
             .map(|(pos, _, new_level)| (pos, new_level))
             .collect();
-            
+
         let start_process_changes = tokio::time::Instant::now();
+        let deduped_len = deduped.len();
 
         // TODO: Use parallel iterator, when 4lve says it's time hehe
         let updates_to_schedule: Vec<_> = deduped
@@ -189,9 +190,11 @@ impl ChunkMap {
         {
             let per_change =
                 process_elapsed.as_secs_f64() * 1_000_000.0 / updates_to_schedule.len() as f64;
+            // Show unique (deduped) vs scheduled counts. Avoid unsigned underflow from incorrect subtraction.
             log::warn!(
-                "process changes: {:?} ({} total, {:.2}µs/change)",
+                "process changes: {:?} ({} unique, {} scheduled, {:.2}µs/change)",
                 process_elapsed,
+                deduped_len,
                 updates_to_schedule.len(),
                 per_change
             );
@@ -226,27 +229,26 @@ impl ChunkMap {
 
         let schedule_elapsed = schedule_start.elapsed();
         if schedule_elapsed >= SLOW_TASK_WARN_THRESHOLD {
-            log::warn!("tick_b schedule loop took: {:?}", schedule_elapsed);
+            log::warn!("tick_b schedule loop took: {schedule_elapsed:?}");
         }
-
 
         let start_gen = tokio::time::Instant::now();
         self.run_generation_tasks_b();
         let gen_elapsed = start_gen.elapsed();
         if gen_elapsed >= SLOW_TASK_WARN_THRESHOLD {
-            log::warn!("run_generation_tasks_b slow: {:?}", gen_elapsed);
+            log::warn!("run_generation_tasks_b slow: {gen_elapsed:?}");
         }
 
         let start_unload = tokio::time::Instant::now();
         self.process_unloads();
         let unload_elapsed = start_unload.elapsed();
         if unload_elapsed >= SLOW_TASK_WARN_THRESHOLD {
-            log::warn!("process_unloads slow: {:?}", unload_elapsed);
+            log::warn!("process_unloads slow: {unload_elapsed:?}");
         }
 
         let tick_elapsed = start.elapsed();
         if tick_elapsed >= SLOW_TASK_WARN_THRESHOLD {
-            log::warn!("Tick_b slow: total {:?}", tick_elapsed);
+            log::warn!("Tick_b slow: total {tick_elapsed:?}");
         }
 
         if tick_count.is_multiple_of(100) {
@@ -362,7 +364,7 @@ impl ChunkMap {
     }
 
     /// Removes a player from the chunk map.
-    pub async fn remove_player(&self, player: &Player) {
+    pub fn remove_player(&self, player: &Player) {
         // Okay to lock sync lock here cause it has low contention
         let mut last_view_guard = player.last_tracking_view.lock();
         if let Some(last_view) = last_view_guard.take() {
