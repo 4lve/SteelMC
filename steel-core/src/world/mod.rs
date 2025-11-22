@@ -2,6 +2,7 @@
 use std::sync::Arc;
 
 use scc::HashMap;
+use steel_registry::blocks::BlockRegistry;
 use uuid::Uuid;
 
 use crate::{ChunkMap, player::Player};
@@ -20,9 +21,9 @@ impl World {
     /// Creates a new world.
     #[allow(clippy::new_without_default)]
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(block_registry: &BlockRegistry) -> Self {
         Self {
-            chunk_map: Arc::new(ChunkMap::new()),
+            chunk_map: Arc::new(ChunkMap::new(block_registry)),
             players: HashMap::new(),
         }
     }

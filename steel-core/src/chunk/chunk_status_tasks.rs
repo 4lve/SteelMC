@@ -2,7 +2,6 @@
 
 use std::sync::Arc;
 
-use steel_utils::BlockStateId;
 
 use crate::chunk::{
     chunk_access::{ChunkAccess, ChunkStatus},
@@ -51,14 +50,8 @@ impl ChunkStatusTasks {
         _context: Arc<WorldGenContext>,
         _step: &Arc<ChunkStep>,
         _cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
-        holder: Arc<ChunkHolder>,
+        _holder: Arc<ChunkHolder>,
     ) -> Result<(), anyhow::Error> {
-        holder
-            .with_chunk_mut(ChunkStatus::Empty, |chunk| {
-                chunk.set_relative_block(1, 1, 1, BlockStateId(1));
-            })
-            .expect("Chunk not found at status Empty");
-
         Ok(())
     }
 
@@ -90,11 +83,18 @@ impl ChunkStatusTasks {
     }
 
     pub fn generate_noise(
-        _context: Arc<WorldGenContext>,
+        context: Arc<WorldGenContext>,
         _step: &Arc<ChunkStep>,
         _cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
-        _holder: Arc<ChunkHolder>,
+        holder: Arc<ChunkHolder>,
     ) -> Result<(), anyhow::Error> {
+        holder
+            .with_chunk_mut(ChunkStatus::Biomes, |chunk| {
+                if let ChunkAccess::Proto(proto_chunk) = chunk {
+                    context.generator.fill_from_noise(proto_chunk);
+                }
+            })
+            .expect("Chunk not found at status Biomes");
         Ok(())
     }
 
