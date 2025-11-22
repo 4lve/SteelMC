@@ -1,4 +1,8 @@
 use std::sync::Arc;
+use std::time::Duration;
+
+use futures::future::join_all;
+use parking_lot::Mutex as ParkingMutex;
 use steel_protocol::packets::game::CSetChunkCenter;
 use steel_utils::ChunkPos;
 use tokio::sync::Mutex;
@@ -15,6 +19,9 @@ use crate::chunk::{
 use crate::config::STEEL_CONFIG;
 use crate::player::Player;
 
+const PROCESS_CHANGES_WARN_THRESHOLD: usize = 1_000;
+const PROCESS_CHANGES_WARN_MIN_DURATION: Duration = Duration::from_micros(500);
+
 /// A map of chunks managing their state, loading, and generation.
 pub struct ChunkMap {
     /// Map of active chunks.
@@ -26,7 +33,7 @@ pub struct ChunkMap {
     /// Tracker for background generation tasks.
     pub task_tracker: TaskTracker,
     /// Manager for chunk distances and tickets.
-    pub distance_manager: Mutex<DistanceManager>,
+    pub distance_manager: ParkingMutex<DistanceManager>,
     /// The world generation context.
     pub world_gen_context: Arc<WorldGenContext>,
 }
@@ -46,7 +53,7 @@ impl ChunkMap {
             unloading_chunks: scc::HashMap::new(),
             pending_generation_tasks: Mutex::new(Vec::new()),
             task_tracker: TaskTracker::new(),
-            distance_manager: Mutex::new(DistanceManager::new()),
+            distance_manager: ParkingMutex::new(DistanceManager::new()),
             world_gen_context: Arc::new(WorldGenContext {
                 generator: Arc::new(SimpleChunkGenerator),
             }),
@@ -126,64 +133,72 @@ impl ChunkMap {
     pub fn tick_b(self: &Arc<Self>, tick_count: u64) {
         let start = tokio::time::Instant::now();
 
-        let start_purge = tokio::time::Instant::now();
-        {
-            let mut dm = self.distance_manager.blocking_lock();
+        let changes = {
+            let mut dm = self.distance_manager.lock();
             dm.purge_tickets(tick_count);
-        }
-        if start_purge.elapsed().as_millis() > 1 {
-            log::warn!("purge_tickets slow: {:?}", start_purge.elapsed());
-        }
-
-        let start_updates = tokio::time::Instant::now();
-        let changes = self.distance_manager.blocking_lock().run_updates();
-        if start_updates.elapsed().as_millis() > 1 {
-            log::warn!("run_updates slow: {:?}", start_updates.elapsed());
-        }
-
-        let mut updates_to_schedule = Vec::new();
+            dm.run_updates()
+        };
 
         let start_process_changes = tokio::time::Instant::now();
-        for (pos, _, new_level) in changes {
-            if let Some(holder) = self.update_chunk_level_b(pos, new_level) {
-                updates_to_schedule.push((holder, new_level));
+
+        let updates_to_schedule: Vec<_> = {
+            let mut result = Vec::with_capacity(changes.len());
+
+            for (pos, _, new_level) in changes {
+                if let Some(holder) = self.update_chunk_level_b(pos, new_level) {
+                    result.push((holder, new_level));
+                }
             }
-        }
-        if start_process_changes.elapsed().as_millis() > 1 {
+
+            result
+        };
+
+        let process_elapsed = start_process_changes.elapsed();
+        if !updates_to_schedule.is_empty()
+            && (updates_to_schedule.len() >= PROCESS_CHANGES_WARN_THRESHOLD
+                || process_elapsed >= PROCESS_CHANGES_WARN_MIN_DURATION)
+        {
+            let per_change = process_elapsed.as_secs_f64() * 1_000_000.0
+                / updates_to_schedule.len() as f64;
             log::warn!(
-                "process changes slow: {:?} ({} changes)",
-                start_process_changes.elapsed(),
-                updates_to_schedule.len()
+                "process changes: {:?} ({} changes, {:.2}µs/change)",
+                process_elapsed,
+                updates_to_schedule.len(),
+                per_change
             );
         }
 
         let self_clone = self.clone();
         let _ = self.task_tracker.spawn(async move {
-            for (chunk_holder, new_level) in updates_to_schedule {
-                // Use the generation pyramid to determine the target status for the given level.
-                let target_status = if new_level >= MAX_LEVEL {
-                    None
-                } else if new_level <= 33 {
-                    Some(ChunkStatus::Full)
-                } else {
-                    let distance = (new_level - 33) as usize;
-                    // Fallback to None if distance is out of bounds (simulating Vanilla logic)
-                    GENERATION_PYRAMID
-                        .get_step_to(ChunkStatus::Full)
-                        .accumulated_dependencies
-                        .get(distance)
-                };
+            let tasks = updates_to_schedule
+                .into_iter()
+                .filter_map(|(chunk_holder, new_level)| {
+                    let target_status = if new_level >= MAX_LEVEL {
+                        None
+                    } else if new_level <= 33 {
+                        Some(ChunkStatus::Full)
+                    } else {
+                        let distance = (new_level - 33) as usize;
+                        GENERATION_PYRAMID
+                            .get_step_to(ChunkStatus::Full)
+                            .accumulated_dependencies
+                            .get(distance)
+                    };
 
-                if let Some(status) = target_status
-                    && status == ChunkStatus::Full
-                {
-                    let chunk_holder_clone = chunk_holder.clone();
-                    let map_clone = self_clone.clone();
+                    target_status.map(|status| {
+                        let chunk_holder_clone = chunk_holder.clone();
+                        let map_clone = self_clone.clone();
+                        async move {
+                            chunk_holder_clone
+                                .schedule_chunk_generation_task(status, map_clone)
+                                .await;
+                        }
+                    })
+                })
+                .collect::<Vec<_>>();
 
-                    chunk_holder_clone
-                        .schedule_chunk_generation_task(status, map_clone)
-                        .await;
-                }
+            if !tasks.is_empty() {
+                join_all(tasks).await;
             }
         });
 
@@ -271,7 +286,7 @@ impl ChunkMap {
         let mut last_view_guard = player.last_tracking_view.lock();
 
         if last_view_guard.as_ref() != Some(&new_view) {
-            let mut distance_manager = self.distance_manager.blocking_lock();
+            let mut distance_manager = self.distance_manager.lock();
 
             let connection = &player.connection;
 
@@ -321,7 +336,7 @@ impl ChunkMap {
         let mut last_view_guard = player.last_tracking_view.lock();
         if let Some(last_view) = last_view_guard.take() {
             drop(last_view_guard);
-            let mut distance_manager = self.distance_manager.lock().await;
+            let mut distance_manager = self.distance_manager.lock();
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             distance_manager.remove_player(last_view.center, last_view.view_distance as u8);
         }
