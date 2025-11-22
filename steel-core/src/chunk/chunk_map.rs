@@ -1,7 +1,8 @@
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use futures::future::join_all;
+use futures::stream::{FuturesUnordered, StreamExt};
 use parking_lot::Mutex as ParkingMutex;
 use steel_protocol::packets::game::CSetChunkCenter;
 use steel_registry::blocks::BlockRegistry;
@@ -95,35 +96,41 @@ impl ChunkMap {
         new_level: u8,
     ) -> Option<Arc<ChunkHolder>> {
         // Recover from unloading if possible, else create new holder.
-        let chunk_holder = if let Some(entry) = self.unloading_chunks.remove_sync(&pos) {
-            let holder = entry.1;
-            let _ = self.chunks.insert_sync(pos, holder.clone());
-            holder
+        let (chunk_holder, revived_from_unloading) = if let Some(entry) = self.unloading_chunks.remove_sync(&pos) {
+            (entry.1, true)
         } else if let Some(holder) = self.chunks.get_sync(&pos) {
-            holder.get().clone()
+            (holder.get().clone(), false)
         } else {
             if new_level >= MAX_LEVEL {
                 return None;
             }
             let holder = Arc::new(ChunkHolder::new(pos, new_level));
             let _ = self.chunks.insert_sync(pos, holder.clone());
-            holder
+            (holder, false)
         };
 
-        *chunk_holder.ticket_level.blocking_lock() = new_level;
-
-        //log::info!("New level: {new_level}");
         if new_level >= MAX_LEVEL {
             //log::info!("Unloading chunk at {pos:?}");
             chunk_holder.cancel_generation_task();
             // Drop the local reference so it doesn't count towards the strong count
-            drop(chunk_holder);
-
-            if let Some((_, holder)) = self.chunks.remove_sync(&pos) {
+            if revived_from_unloading {
+                let _ = self.unloading_chunks.insert_sync(pos, chunk_holder.clone());
+            } else if let Some((_, holder)) = self.chunks.remove_sync(&pos) {
                 let _ = self.unloading_chunks.insert_sync(pos, holder);
             }
+            drop(chunk_holder);
             None
         } else {
+            if revived_from_unloading {
+                let _ = self.chunks.insert_sync(pos, chunk_holder.clone());
+            }
+
+            let ticket_level = chunk_holder.ticket_level.load(Ordering::Acquire);
+            if ticket_level == new_level {
+                return Some(chunk_holder);
+            }
+
+            chunk_holder.ticket_level.store(new_level, Ordering::Release);
             Some(chunk_holder)
         }
     }
@@ -140,17 +147,13 @@ impl ChunkMap {
 
         let start_process_changes = tokio::time::Instant::now();
 
-        let updates_to_schedule: Vec<_> = {
-            let mut result = Vec::with_capacity(changes.len());
-
-            for (pos, _, new_level) in changes {
-                if let Some(holder) = self.update_chunk_level_b(pos, new_level) {
-                    result.push((holder, new_level));
-                }
-            }
-
-            result
-        };
+        let updates_to_schedule: Vec<_> = changes
+            .into_iter()
+            .filter_map(|(pos, _, new_level)| {
+                self.update_chunk_level_b(pos, new_level)
+                    .map(|holder| (holder, new_level))
+            })
+            .collect();
 
         let process_elapsed = start_process_changes.elapsed();
         if !updates_to_schedule.is_empty()
@@ -169,7 +172,7 @@ impl ChunkMap {
 
         let self_clone = self.clone();
         let _ = self.task_tracker.spawn(async move {
-            let tasks = updates_to_schedule
+            let mut tasks: FuturesUnordered<_> = updates_to_schedule
                 .into_iter()
                 .filter_map(|(chunk_holder, new_level)| {
                     let target_status = if new_level >= MAX_LEVEL {
@@ -194,11 +197,9 @@ impl ChunkMap {
                         }
                     })
                 })
-                .collect::<Vec<_>>();
+                .collect();
 
-            if !tasks.is_empty() {
-                join_all(tasks).await;
-            }
+            while tasks.next().await.is_some() {}
         });
 
         let start_gen = tokio::time::Instant::now();

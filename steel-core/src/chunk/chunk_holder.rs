@@ -1,6 +1,6 @@
 //! `ChunkHolder` manages chunk state and asynchronous generation tasks.
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
 
 use futures::Future;
 use replace_with::replace_with_or_abort;
@@ -39,7 +39,7 @@ pub struct ChunkHolder {
     generation_task: Mutex<Option<Arc<ChunkGenerationTask>>>,
     pos: ChunkPos,
     /// The current ticket level of the chunk.
-    pub ticket_level: Mutex<u8>,
+    pub ticket_level: AtomicU8,
     /// The highest status that has started work.
     started_work: AtomicUsize,
 }
@@ -59,7 +59,7 @@ impl ChunkHolder {
             sender,
             generation_task: Mutex::new(None),
             pos,
-            ticket_level: Mutex::new(ticket_level),
+            ticket_level: AtomicU8::new(ticket_level),
             started_work: AtomicUsize::new(usize::MAX),
         }
     }
