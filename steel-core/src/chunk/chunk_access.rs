@@ -38,6 +38,26 @@ impl ChunkStatus {
     pub fn get_index(self) -> usize {
         self as usize
     }
+
+    /// Gets the status from an index.
+    #[must_use]
+    pub fn from_index(index: usize) -> Option<Self> {
+        match index {
+            0 => Some(Self::Empty),
+            1 => Some(Self::StructureStarts),
+            2 => Some(Self::StructureReferences),
+            3 => Some(Self::Biomes),
+            4 => Some(Self::Noise),
+            5 => Some(Self::Surface),
+            6 => Some(Self::Carvers),
+            7 => Some(Self::Features),
+            8 => Some(Self::InitializeLight),
+            9 => Some(Self::Light),
+            10 => Some(Self::Spawn),
+            11 => Some(Self::Full),
+            _ => None,
+        }
+    }
 }
 
 impl ChunkStatus {

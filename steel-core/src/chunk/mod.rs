@@ -4,6 +4,7 @@ pub mod chunk_access;
 pub mod chunk_generation_task;
 pub mod chunk_generator;
 pub mod chunk_holder;
+pub mod chunk_level;
 /// The chunk map manages chunk loading, generation, and lifecycle.
 pub mod chunk_map;
 pub mod chunk_pyramid;

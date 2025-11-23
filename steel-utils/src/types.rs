@@ -21,8 +21,14 @@ pub type Todo = ();
 pub struct BlockStateId(pub u16);
 
 /// A chunk position.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ChunkPos(pub Vector2<i32>);
+
+impl std::hash::Hash for ChunkPos {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        state.write_u64(self.as_i64() as u64);
+    }
+}
 
 impl ChunkPos {
     #[must_use]
@@ -33,12 +39,14 @@ impl ChunkPos {
 
     /// Converts the `ChunkPos` to an `i64`.
     #[must_use]
+    #[inline]
     pub fn as_i64(&self) -> i64 {
         (i64::from(self.0.x) & 0xFFFF_FFFF) | ((i64::from(self.0.y) & 0xFFFF_FFFF) << 32)
     }
 
     /// Creates a new `ChunkPos` from an `i64`.
     #[must_use]
+    #[inline]
     pub fn from_i64(value: i64) -> Self {
         Self(Vector2::new(
             (value & 0xFFFF_FFFF) as i32,

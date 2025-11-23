@@ -3,12 +3,14 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
 
 use futures::Future;
+use parking_lot::Mutex;
 use replace_with::replace_with_or_abort;
 use steel_utils::ChunkPos;
-use tokio::sync::{Mutex, watch};
+use tokio::sync::watch;
 use tokio::task::spawn_blocking;
 
 use crate::chunk::chunk_generation_task::{NeighborReady, StaticCache2D};
+use crate::chunk::chunk_level::ChunkLevel;
 use crate::{
     ChunkMap,
     chunk::{
@@ -18,6 +20,8 @@ use crate::{
         level_chunk::LevelChunk,
     },
 };
+
+const STATUS_NONE: u8 = u8::MAX;
 
 /// A tuple containing the chunk status and the chunk access.
 pub type ChunkStageHolder = (ChunkStatus, ChunkAccess);
@@ -42,6 +46,8 @@ pub struct ChunkHolder {
     pub ticket_level: AtomicU8,
     /// The highest status that has started work.
     started_work: AtomicUsize,
+    /// The highest status that generation is allowed to reach.
+    highest_allowed_status: AtomicU8,
 }
 
 impl ChunkHolder {
@@ -54,6 +60,10 @@ impl ChunkHolder {
     #[must_use]
     pub fn new(pos: ChunkPos, ticket_level: u8) -> Self {
         let (sender, receiver) = watch::channel(ChunkResult::Unloaded);
+        let highest_allowed_status = ChunkLevel::generation_status(ticket_level)
+            .map(|s| s.get_index() as u8)
+            .unwrap_or(STATUS_NONE);
+
         Self {
             chunk_access: receiver,
             sender,
@@ -61,7 +71,26 @@ impl ChunkHolder {
             pos,
             ticket_level: AtomicU8::new(ticket_level),
             started_work: AtomicUsize::new(usize::MAX),
+            highest_allowed_status: AtomicU8::new(highest_allowed_status),
         }
+    }
+
+    /// Updates the highest allowed generation status based on the ticket level.
+    pub fn update_highest_allowed_status(&self, ticket_level: u8) {
+        let new_status = ChunkLevel::generation_status(ticket_level)
+            .map(|s| s.get_index() as u8)
+            .unwrap_or(STATUS_NONE);
+        self.highest_allowed_status
+            .store(new_status, Ordering::Relaxed);
+    }
+
+    /// Checks if the given status is disallowed.
+    pub fn is_status_disallowed(&self, status: ChunkStatus) -> bool {
+        let allowed = self.highest_allowed_status.load(Ordering::Relaxed);
+        if allowed == STATUS_NONE {
+            return true;
+        }
+        status.get_index() > allowed as usize
     }
 
     /// Returns a future that completes when the chunk reaches the given status or is cancelled.
@@ -71,24 +100,34 @@ impl ChunkHolder {
         self: Arc<Self>,
         status: ChunkStatus,
         chunk_map: Arc<ChunkMap>,
+        lookup_provider: impl FnMut(ChunkPos) -> Option<Arc<ChunkHolder>>,
     ) {
+        if self.is_status_disallowed(status) {
+            return;
+        }
+
         if self.with_chunk(status, |_| ()).is_some() {
             return;
         }
 
-        let task = self.generation_task.blocking_lock();
+        let task = self.generation_task.lock();
 
         #[allow(clippy::unwrap_used)]
         if task.is_none() || status > task.as_ref().unwrap().target_status {
             drop(task);
-            self.reschedule_chunk_task_b(status, chunk_map);
+            self.reschedule_chunk_task_b(status, chunk_map, lookup_provider);
         }
     }
 
     /// Reschedules the chunk task to the given status.
-    pub(crate) fn reschedule_chunk_task_b(&self, status: ChunkStatus, chunk_map: Arc<ChunkMap>) {
-        let new_task = chunk_map.schedule_generation_task_b(status, self.pos);
-        let mut old_task_guard = self.generation_task.blocking_lock();
+    pub(crate) fn reschedule_chunk_task_b(
+        &self,
+        status: ChunkStatus,
+        chunk_map: Arc<ChunkMap>,
+        lookup_provider: impl FnMut(ChunkPos) -> Option<Arc<ChunkHolder>>,
+    ) {
+        let new_task = chunk_map.schedule_generation_task_b(status, self.pos, lookup_provider);
+        let mut old_task_guard = self.generation_task.lock();
 
         let old_task = old_task_guard.replace(new_task);
         drop(old_task_guard);
@@ -199,6 +238,10 @@ impl ChunkHolder {
         cache: Arc<StaticCache2D<Arc<ChunkHolder>>>,
     ) -> NeighborReady {
         let target_status = step.target_status;
+
+        if self.is_status_disallowed(target_status) {
+            return Box::pin(async { None });
+        }
 
         if !self.acquire_status_bump(target_status) {
             let self_clone = self.clone();
@@ -344,7 +387,7 @@ impl ChunkHolder {
 
     /// Cancels the current generation task.
     pub fn cancel_generation_task(&self) {
-        let mut task_guard = self.generation_task.blocking_lock();
+        let mut task_guard = self.generation_task.lock();
         if let Some(task) = task_guard.take() {
             task.mark_for_cancel();
         }
@@ -352,7 +395,7 @@ impl ChunkHolder {
 
     /// Cancels the current generation task asynchronously.
     pub async fn cancel_generation_task_async(&self) {
-        let mut task_guard = self.generation_task.lock().await;
+        let mut task_guard = self.generation_task.lock();
         if let Some(task) = task_guard.take() {
             task.mark_for_cancel();
         }
