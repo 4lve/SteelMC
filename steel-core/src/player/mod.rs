@@ -138,7 +138,10 @@ impl Player {
             return;
         }
 
-        if !self.update_awaiting_teleport() && self.client_loaded.load(Ordering::Relaxed) {
+        if !self.update_awaiting_teleport()
+            && self.client_loaded.load(Ordering::Relaxed)
+            && packet.has_pos
+        {
             *self.position.lock() = packet.position;
         }
     }

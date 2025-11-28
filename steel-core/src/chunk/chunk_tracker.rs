@@ -1,34 +1,49 @@
-use rustc_hash::FxHashMap;
-use std::{cmp::min, collections::VecDeque};
+use indexmap::IndexSet;
+use rustc_hash::{FxBuildHasher, FxHashMap};
+use std::cmp::min;
 use steel_utils::ChunkPos;
 
 /// A standard max level for chunks that are unloaded.
-pub const MAX_LEVEL: u8 = 66;
+pub const MAX_LEVEL: u8 = 45;
+/// The level count (`MAX_LEVEL` + 1).
+const LEVEL_COUNT: usize = (MAX_LEVEL + 1) as usize;
+
+/// Returns all 8 neighbors of a chunk position (including diagonals).
+/// This matches Java's `ChunkTracker` which uses a 3x3 grid around the chunk.
+#[inline]
+fn get_neighbor_keys(pos: i64) -> [i64; 8] {
+    let chunk = ChunkPos::from_i64(pos);
+    let x = chunk.0.x;
+    let z = chunk.0.y;
+    [
+        ChunkPos::new(x - 1, z - 1).as_i64(),
+        ChunkPos::new(x, z - 1).as_i64(),
+        ChunkPos::new(x + 1, z - 1).as_i64(),
+        ChunkPos::new(x - 1, z).as_i64(),
+        ChunkPos::new(x + 1, z).as_i64(),
+        ChunkPos::new(x - 1, z + 1).as_i64(),
+        ChunkPos::new(x, z + 1).as_i64(),
+        ChunkPos::new(x + 1, z + 1).as_i64(),
+    ]
+}
 
 /// Tracks chunk levels based on propagation.
+///
+/// This implementation matches Java's `DynamicGraphMinFixedPoint` architecture:
+/// - Uses `IndexSet<i64>` per priority level (like Java's `LongLinkedOpenHashSet`)
+/// - O(1) dequeue by key, automatic deduplication
+/// - No generation counters needed
 pub struct ChunkTracker {
     /// Map of chunk positions to their current levels.
-    levels: FxHashMap<ChunkPos, u8>,
-    /// Priority queue: array of queues, one per priority level (0 to `MAX_LEVEL`).
-    /// Lower priority values are processed first.
-    priority_queue: Vec<VecDeque<QueuedChunk>>,
-    /// Cached queue metadata per chunk (generation + computed level).
-    queue_entries: FxHashMap<ChunkPos, QueueEntry>,
-    /// Bitmask tracking which priority queues are non-empty.
-    non_empty_mask: u128,
-    /// Monotonic counter used to invalidate stale queue entries.
-    next_generation: u32,
-}
-
-#[derive(Copy, Clone)]
-struct QueuedChunk {
-    pos: ChunkPos,
-    generation: u32,
-}
-
-struct QueueEntry {
-    computed_level: u8,
-    generation: u32,
+    levels: FxHashMap<i64, u8>,
+    /// Priority queue: array of sets, one per priority level (0 to `MAX_LEVEL`).
+    /// Using `IndexSet` for O(1) removal and insertion-order iteration.
+    queues: Vec<IndexSet<i64, FxBuildHasher>>,
+    /// Computed levels for nodes currently in the queue.
+    /// Matches Java's `Long2ByteMap computedLevels`.
+    computed_levels: FxHashMap<i64, u8>,
+    /// Index of the first non-empty queue (optimization from Java).
+    first_queued_level: usize,
 }
 
 impl Default for ChunkTracker {
@@ -41,111 +56,133 @@ impl ChunkTracker {
     /// Creates a new chunk tracker.
     #[must_use]
     pub fn new() -> Self {
-        // Initialize priority queue with one VecDeque per priority level
-        let mut priority_queue = Vec::with_capacity((MAX_LEVEL + 1) as usize);
-        for _ in 0..=MAX_LEVEL {
-            priority_queue.push(VecDeque::new());
+        // Initialize with one IndexSet per priority level
+        let mut queues = Vec::with_capacity(LEVEL_COUNT);
+        for _ in 0..LEVEL_COUNT {
+            queues.push(IndexSet::default());
         }
 
         Self {
             levels: FxHashMap::default(),
-            priority_queue,
-            queue_entries: FxHashMap::default(),
-            non_empty_mask: 0,
-            next_generation: 0,
+            queues,
+            computed_levels: FxHashMap::default(),
+            first_queued_level: LEVEL_COUNT,
         }
     }
 
     /// Gets the level of a chunk. Returns `MAX_LEVEL` if untracked.
     #[must_use]
+    #[inline]
     pub fn get_level(&self, pos: ChunkPos) -> u8 {
-        *self.levels.get(&pos).unwrap_or(&MAX_LEVEL)
+        self.get_level_raw(pos.as_i64())
+    }
+
+    /// Gets the level by raw i64 key.
+    #[inline]
+    fn get_level_raw(&self, key: i64) -> u8 {
+        self.levels.get(&key).copied().unwrap_or(MAX_LEVEL)
     }
 
     /// Updates the level of a chunk from a source (ticket).
+    /// Matches Java's `ChunkTracker.update(node, newLevelFrom, onlyDecreased)`.
     pub fn update(
         &mut self,
         pos: ChunkPos,
         new_ticket_level: u8,
-        _get_ticket_level: impl Fn(ChunkPos) -> u8,
+        get_ticket_level: impl Fn(ChunkPos) -> u8,
     ) {
-        let current_level = self.get_level(pos);
+        let key = pos.as_i64();
+        let level_to = self.get_level_raw(key);
+        let stored_computed = self.computed_levels.get(&key).copied();
 
-        // Compute best level from new ticket level AND neighbors
-        let mut best_level = new_ticket_level;
+        // Match Java's checkEdge logic
+        let was_consistent = stored_computed.is_none();
+        let old_computed = stored_computed.unwrap_or(level_to);
 
-        if best_level > 0 {
-            let neighbors = [
-                ChunkPos::new(pos.0.x + 1, pos.0.y),
-                ChunkPos::new(pos.0.x - 1, pos.0.y),
-                ChunkPos::new(pos.0.x, pos.0.y + 1),
-                ChunkPos::new(pos.0.x, pos.0.y - 1),
-            ];
+        // For ticket updates, compute the new level (onlyDecreased = false style)
+        let new_computed = min(
+            self.compute_level_raw(key, i64::MAX, new_ticket_level, &get_ticket_level),
+            MAX_LEVEL,
+        );
 
-            for neighbor in neighbors {
-                let neighbor_level = self.get_level(neighbor);
-                let propagated = min(neighbor_level + 1, MAX_LEVEL);
-                best_level = min(best_level, propagated);
+        if level_to != new_computed {
+            let old_priority = Self::calculate_priority(level_to, old_computed);
+            let new_priority = Self::calculate_priority(level_to, new_computed);
+
+            if old_priority != new_priority && !was_consistent {
+                self.dequeue_node(key, old_priority, new_priority);
             }
+
+            self.enqueue_node(key, new_priority);
+            self.computed_levels.insert(key, new_computed);
+        } else if !was_consistent {
+            let old_priority = Self::calculate_priority(level_to, old_computed);
+            self.dequeue_node(key, old_priority, LEVEL_COUNT);
+            self.computed_levels.remove(&key);
         }
-
-        let computed_level = best_level;
-
-        // Calculate priority: min(current_level, computed_level, MAX_LEVEL)
-        let priority = min(min(current_level, computed_level), MAX_LEVEL);
-
-        // Enqueue at the calculated priority level
-        self.enqueue(pos, priority, computed_level);
     }
 
-    /// Enqueues a chunk at the specified priority level.
-    /// If the chunk is already queued, updates its priority and computed level if needed.
-    fn enqueue(&mut self, pos: ChunkPos, priority: u8, computed_level: u8) {
-        let priority = priority as usize;
-        let generation = self.next_generation();
-
-        match self.queue_entries.entry(pos) {
-            std::collections::hash_map::Entry::Occupied(mut entry) => {
-                let data = entry.get_mut();
-                data.computed_level = computed_level;
-                data.generation = generation;
-            }
-            std::collections::hash_map::Entry::Vacant(entry) => {
-                entry.insert(QueueEntry {
-                    computed_level,
-                    generation,
-                });
-            }
-        }
-
-        self.priority_queue[priority].push_back(QueuedChunk { pos, generation });
-        self.non_empty_mask |= 1u128 << priority;
+    /// Calculates priority for queue placement.
+    #[inline]
+    fn calculate_priority(level: u8, computed_level: u8) -> usize {
+        min(min(level, computed_level), MAX_LEVEL) as usize
     }
 
-    /// Dequeues the next chunk from the lowest priority level.
-    fn dequeue(&mut self) -> Option<(ChunkPos, u8)> {
-        while self.non_empty_mask != 0 {
-            let priority = self.non_empty_mask.trailing_zeros() as usize;
-            let queue = &mut self.priority_queue[priority];
+    /// Removes a node from its current queue position.
+    fn dequeue_node(&mut self, key: i64, from_priority: usize, upper_bound: usize) {
+        let queue = &mut self.queues[from_priority];
+        queue.shift_remove(&key);
 
-            while let Some(queued) = queue.pop_front() {
-                if queue.is_empty() {
-                    self.non_empty_mask &= !(1u128 << priority);
-                }
+        if queue.is_empty() && self.first_queued_level == from_priority {
+            self.update_first_queued_level(upper_bound);
+        }
+    }
 
-                if let Some(entry) = self.queue_entries.get(&queued.pos)
-                    && entry.generation == queued.generation
-                {
-                    let entry = self.queue_entries.remove(&queued.pos).unwrap();
-                    return Some((queued.pos, entry.computed_level));
-                }
+    /// Adds a node to a queue at the given priority.
+    fn enqueue_node(&mut self, key: i64, priority: usize) {
+        self.queues[priority].insert(key);
+        if self.first_queued_level > priority {
+            self.first_queued_level = priority;
+        }
+    }
+
+    /// Updates `first_queued_level` to the next non-empty queue.
+    fn update_first_queued_level(&mut self, upper_bound: usize) {
+        let old_level = self.first_queued_level;
+        self.first_queued_level = upper_bound;
+
+        for i in (old_level + 1)..upper_bound {
+            if !self.queues[i].is_empty() {
+                self.first_queued_level = i;
+                break;
             }
         }
+    }
 
-        None
+    /// Checks if the queue is empty.
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.first_queued_level >= LEVEL_COUNT
+    }
+
+    /// Removes and returns the first node from the lowest priority queue.
+    fn pop_first(&mut self) -> Option<i64> {
+        if self.is_empty() {
+            return None;
+        }
+
+        let queue = &mut self.queues[self.first_queued_level];
+        let key = queue.shift_remove_index(0)?;
+
+        if queue.is_empty() {
+            self.update_first_queued_level(LEVEL_COUNT);
+        }
+
+        Some(key)
     }
 
     /// Processes all pending updates in the queue.
+    /// Returns changes as (pos, `old_level`, `new_level`).
     #[inline]
     pub fn process_all_updates(
         &mut self,
@@ -153,137 +190,196 @@ impl ChunkTracker {
     ) -> Vec<(ChunkPos, u8, u8)> {
         let mut changes = Vec::new();
 
-        while let Some((pos, computed_level)) = self.dequeue() {
-            let current_level = self.get_level(pos);
+        while let Some(key) = self.pop_first() {
+            let level = min(self.get_level_raw(key), MAX_LEVEL);
+            let computed_level = self.computed_levels.remove(&key).unwrap_or(MAX_LEVEL);
 
-            if computed_level < current_level {
-                // Level is decreasing - update and propagate decrease to neighbors
-                self.levels.insert(pos, computed_level);
-                changes.push((pos, current_level, computed_level));
-                self.check_neighbors_after_update(pos, computed_level, true, &get_ticket_level);
-            } else if computed_level > current_level {
-                // Level is increasing - first set to MAX, then propagate
-                self.levels.insert(pos, MAX_LEVEL);
-                changes.push((pos, current_level, MAX_LEVEL));
+            if computed_level < level {
+                // Level is decreasing
+                self.set_level_raw(key, computed_level);
+                changes.push((ChunkPos::from_i64(key), level, computed_level));
+                self.check_neighbors_after_update(key, computed_level, true, &get_ticket_level);
+            } else if computed_level > level {
+                // Level is increasing - set to MAX first
+                self.set_level_raw(key, MAX_LEVEL);
+                changes.push((ChunkPos::from_i64(key), level, MAX_LEVEL));
 
-                // Re-enqueue if not yet at desired level
+                // Re-enqueue if not yet at final level
                 if computed_level != MAX_LEVEL {
-                    let priority = min(MAX_LEVEL, computed_level);
-                    self.enqueue(pos, priority, computed_level);
+                    let priority = Self::calculate_priority(MAX_LEVEL, computed_level);
+                    self.enqueue_node(key, priority);
+                    self.computed_levels.insert(key, computed_level);
                 }
 
-                self.check_neighbors_after_update(pos, current_level, false, &get_ticket_level);
+                self.check_neighbors_after_update(key, level, false, &get_ticket_level);
             }
         }
 
         changes
     }
 
+    /// Sets the level for a chunk by raw key.
+    #[inline]
+    fn set_level_raw(&mut self, key: i64, level: u8) {
+        if level >= MAX_LEVEL {
+            self.levels.remove(&key);
+        } else {
+            self.levels.insert(key, level);
+        }
+    }
+
     /// Checks and updates neighbors after a level change.
     fn check_neighbors_after_update(
         &mut self,
-        pos: ChunkPos,
+        key: i64,
         level: u8,
         only_decrease: bool,
         get_ticket_level: &impl Fn(ChunkPos) -> u8,
     ) {
-        // Skip neighbor updates if only decreasing and level is near max
-        // (optimization from Java implementation)
+        // Optimization from Java: skip if only decreasing and level is near max
         if only_decrease && level >= MAX_LEVEL - 1 {
             return;
         }
 
-        let neighbors = [
-            ChunkPos::new(pos.0.x + 1, pos.0.y),
-            ChunkPos::new(pos.0.x - 1, pos.0.y),
-            ChunkPos::new(pos.0.x, pos.0.y + 1),
-            ChunkPos::new(pos.0.x, pos.0.y - 1),
-        ];
-
-        for neighbor in neighbors {
-            self.check_neighbor(pos, neighbor, level, only_decrease, get_ticket_level);
+        for neighbor_key in get_neighbor_keys(key) {
+            self.check_neighbor(key, neighbor_key, level, only_decrease, get_ticket_level);
         }
     }
 
     /// Checks a specific neighbor and enqueues it if needed.
+    /// Matches Java's `checkNeighbor` method.
     fn check_neighbor(
         &mut self,
-        from: ChunkPos,
-        to: ChunkPos,
+        from: i64,
+        to: i64,
         from_level: u8,
         only_decrease: bool,
         get_ticket_level: &impl Fn(ChunkPos) -> u8,
     ) {
-        let to_level = self.get_level(to);
-        let propagated_level = min(from_level + 1, MAX_LEVEL);
+        let stored_computed = self.computed_levels.get(&to).copied();
+        let level_from = min(from_level + 1, MAX_LEVEL); // computeLevelFromNeighbor equivalent
 
-        // Check against currently computed level in queue if present, otherwise current level
-        let stored_computed = self
-            .queue_entries
-            .get(&to)
-            .map(|entry| entry.computed_level);
-        let target_level = stored_computed.unwrap_or(to_level);
-
-        let computed_level = if only_decrease {
-            // When only decreasing, just propagate the level
-            min(target_level, propagated_level)
-        } else if propagated_level == target_level {
-            // When increasing, if 'to' (or its pending update) derived its level from 'from',
-            // we must recompute 'to's level ignoring 'from' (since 'from' increased).
-            self.compute_level(to, from, MAX_LEVEL, get_ticket_level)
+        if only_decrease {
+            let level_to = self.get_level_raw(to);
+            self.check_edge(
+                from,
+                to,
+                level_from,
+                level_to,
+                stored_computed,
+                true,
+                get_ticket_level,
+            );
         } else {
-            // 'to' has a better source or is otherwise unaffected
-            return;
-        };
+            let was_consistent = stored_computed.is_none();
+            let old_computed = if was_consistent {
+                min(self.get_level_raw(to), MAX_LEVEL)
+            } else {
+                stored_computed.unwrap()
+            };
 
-        if computed_level != target_level {
-            let priority = min(min(to_level, computed_level), MAX_LEVEL);
-            self.enqueue(to, priority, computed_level);
-        } else if stored_computed.is_some() && computed_level == to_level {
+            if level_from == old_computed {
+                let level_to = if was_consistent {
+                    old_computed
+                } else {
+                    self.get_level_raw(to)
+                };
+                self.check_edge(
+                    from,
+                    to,
+                    MAX_LEVEL,
+                    level_to,
+                    stored_computed,
+                    false,
+                    get_ticket_level,
+                );
+            }
         }
     }
 
-    fn next_generation(&mut self) -> u32 {
-        let generation = self.next_generation;
-        self.next_generation = self.next_generation.wrapping_add(1);
-        generation
+    /// Core edge checking logic from Java's `DynamicGraphMinFixedPoint.checkEdge`.
+    fn check_edge(
+        &mut self,
+        from: i64,
+        to: i64,
+        new_level_from: u8,
+        level_to: u8,
+        stored_computed: Option<u8>,
+        only_decreased: bool,
+        get_ticket_level: &impl Fn(ChunkPos) -> u8,
+    ) {
+        let new_level_from = min(new_level_from, MAX_LEVEL);
+        let level_to = min(level_to, MAX_LEVEL);
+        let was_consistent = stored_computed.is_none();
+        let old_computed = stored_computed.unwrap_or(level_to);
+
+        let new_computed = if only_decreased {
+            min(old_computed, new_level_from)
+        } else {
+            min(
+                self.compute_level_raw(to, from, new_level_from, get_ticket_level),
+                MAX_LEVEL,
+            )
+        };
+
+        let old_priority = Self::calculate_priority(level_to, old_computed);
+
+        if level_to != new_computed {
+            let new_priority = Self::calculate_priority(level_to, new_computed);
+            if old_priority != new_priority && !was_consistent {
+                self.dequeue_node(to, old_priority, new_priority);
+            }
+            self.enqueue_node(to, new_priority);
+            self.computed_levels.insert(to, new_computed);
+        } else if !was_consistent {
+            self.dequeue_node(to, old_priority, LEVEL_COUNT);
+            self.computed_levels.remove(&to);
+        }
     }
 
     /// Computes the level for a node based on all neighbors and ticket level.
-    fn compute_level(
+    /// Matches Java's `getComputedLevel`.
+    fn compute_level_raw(
         &self,
-        pos: ChunkPos,
-        known_parent: ChunkPos,
+        key: i64,
+        known_parent: i64,
         known_level_from_parent: u8,
         get_ticket_level: &impl Fn(ChunkPos) -> u8,
     ) -> u8 {
+        let pos = ChunkPos::from_i64(key);
         let ticket_level = get_ticket_level(pos);
-        let mut best_level = min(ticket_level, known_level_from_parent);
+        let mut computed_level = min(known_level_from_parent, ticket_level);
 
-        if best_level == 0 {
+        if computed_level == 0 {
             return 0;
         }
 
-        let neighbors = [
-            ChunkPos::new(pos.0.x + 1, pos.0.y),
-            ChunkPos::new(pos.0.x - 1, pos.0.y),
-            ChunkPos::new(pos.0.x, pos.0.y + 1),
-            ChunkPos::new(pos.0.x, pos.0.y - 1),
-        ];
+        for neighbor_key in get_neighbor_keys(key) {
+            // Check if neighbor is the node itself (becomes source check)
+            let effective_neighbor = if neighbor_key == key {
+                i64::MAX // SOURCE
+            } else {
+                neighbor_key
+            };
 
-        for neighbor in neighbors {
-            if neighbor != known_parent {
-                let neighbor_level = self.get_level(neighbor);
-                let propagated = min(neighbor_level + 1, MAX_LEVEL);
-                best_level = min(best_level, propagated);
+            if effective_neighbor != known_parent {
+                let cost = if effective_neighbor == i64::MAX {
+                    get_ticket_level(pos) // getLevelFromSource
+                } else {
+                    min(self.get_level_raw(effective_neighbor) + 1, MAX_LEVEL)
+                };
 
-                if best_level == 0 {
+                if computed_level > cost {
+                    computed_level = cost;
+                }
+
+                if computed_level == 0 {
                     return 0;
                 }
             }
         }
 
-        best_level
+        computed_level
     }
 }
 
@@ -373,5 +469,31 @@ mod tests {
 
         assert_eq!(tracker.get_level(center), MAX_LEVEL);
         assert_eq!(tracker.get_level(neighbor), MAX_LEVEL);
+    }
+
+    #[test]
+    fn test_diagonal_propagation() {
+        let mut tracker = ChunkTracker::new();
+        let center = ChunkPos::new(0, 0);
+
+        // Add ticket at center
+        tracker.update(center, 31, |_| MAX_LEVEL);
+        tracker.process_all_updates(|p| if p == center { 31 } else { MAX_LEVEL });
+
+        assert_eq!(tracker.get_level(center), 31);
+
+        // Cardinal neighbors should be level 32
+        assert_eq!(tracker.get_level(ChunkPos::new(1, 0)), 32);
+        assert_eq!(tracker.get_level(ChunkPos::new(0, 1)), 32);
+
+        // Diagonal neighbors should ALSO be level 32 (not 33 like with 4-neighbor propagation)
+        // This is the key test - Java uses 8-neighbor propagation
+        assert_eq!(tracker.get_level(ChunkPos::new(1, 1)), 32);
+        assert_eq!(tracker.get_level(ChunkPos::new(-1, -1)), 32);
+        assert_eq!(tracker.get_level(ChunkPos::new(1, -1)), 32);
+        assert_eq!(tracker.get_level(ChunkPos::new(-1, 1)), 32);
+
+        // Chunks 2 away diagonally should be level 33
+        assert_eq!(tracker.get_level(ChunkPos::new(2, 2)), 33);
     }
 }

@@ -29,3 +29,13 @@ rand = "0.9.2"
 rsa = "0.10.0-rc.9"
 rsa-der = "0.3.0"
 hex = "0.4.3"
+parking_lot = { workspace = true, features = [
+    "deadlock_detection",
+], optional = true }
+
+[lints]
+workspace = true
+
+
+[features]
+deadlock_detection = ["dep:parking_lot"]

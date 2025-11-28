@@ -3,12 +3,15 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use parking_lot::Mutex as ParkingMutex;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::{ThreadPool, ThreadPoolBuilder};
 use rustc_hash::{FxBuildHasher, FxHashMap};
 
 use steel_protocol::packets::game::CSetChunkCenter;
 use steel_registry::blocks::BlockRegistry;
 use steel_registry::vanilla_blocks;
 use steel_utils::ChunkPos;
+use tokio::runtime::Runtime;
 use tokio_util::task::TaskTracker;
 
 use crate::chunk::chunk_holder::ChunkHolder;
@@ -39,12 +42,16 @@ pub struct ChunkMap {
     pub distance_manager: ParkingMutex<DistanceManager>,
     /// The world generation context.
     pub world_gen_context: Arc<WorldGenContext>,
+    /// The thread pool to use for generation.
+    pub thread_pool: Arc<ThreadPool>,
+    /// The runtime to use for chunk tasks.
+    pub chunk_runtime: Arc<Runtime>,
 }
 
 impl ChunkMap {
     /// Creates a new chunk map.
     #[must_use]
-    pub fn new(block_registry: &BlockRegistry) -> Self {
+    pub fn new(block_registry: &BlockRegistry, chunk_runtime: Arc<Runtime>) -> Self {
         Self {
             chunks: scc::HashMap::with_capacity_and_hasher(1000, FxBuildHasher),
             unloading_chunks: ParkingMutex::new(FxHashMap::with_capacity_and_hasher(
@@ -61,6 +68,8 @@ impl ChunkMap {
                     block_registry.get_default_state_id(vanilla_blocks::GRASS_BLOCK), // Grass Block
                 )),
             }),
+            thread_pool: Arc::new(ThreadPoolBuilder::new().build().unwrap()),
+            chunk_runtime,
         }
     }
 
@@ -70,7 +79,12 @@ impl ChunkMap {
         target_status: ChunkStatus,
         pos: ChunkPos,
     ) -> Arc<ChunkGenerationTask> {
-        let task = Arc::new(ChunkGenerationTask::new(pos, target_status, self.clone()));
+        let task = Arc::new(ChunkGenerationTask::new(
+            pos,
+            target_status,
+            self.clone(),
+            self.thread_pool.clone(),
+        ));
         self.pending_generation_tasks.lock().push(task.clone());
         task
     }
@@ -83,9 +97,12 @@ impl ChunkMap {
         }
         //log::info!("Running {} generation tasks", pending.len());
         for task in pending.drain(..) {
-            self.task_tracker.spawn(async move {
-                task.run().await;
-            });
+            self.task_tracker.spawn_on(
+                async move {
+                    task.run().await;
+                },
+                self.chunk_runtime.handle(),
+            );
         }
     }
 
@@ -94,37 +111,37 @@ impl ChunkMap {
     #[inline]
     pub fn update_chunk_level(
         self: &Arc<Self>,
-        pos: ChunkPos,
+        pos: &ChunkPos,
         new_level: u8,
     ) -> Option<Arc<ChunkHolder>> {
         // Recover from unloading if possible, else create new holder.
-        let chunk_holder = if let Some(holder) = self.chunks.get_sync(&pos) {
+        let chunk_holder = if let Some(holder) = self.chunks.get_sync(pos) {
             holder.get().clone()
         } else {
             if new_level >= MAX_LEVEL {
                 return None;
             }
 
-            if let Some(entry) = self.unloading_chunks.lock().remove(&pos) {
-                let _ = self.chunks.insert_sync(pos, entry.clone());
+            if let Some(entry) = self.unloading_chunks.lock().remove(pos) {
+                let _ = self.chunks.insert_sync(*pos, entry.clone());
                 entry
             } else {
-                let holder = Arc::new(ChunkHolder::new(pos, new_level));
-                let _ = self.chunks.insert_sync(pos, holder.clone());
+                let holder = Arc::new(ChunkHolder::new(*pos, new_level));
+                let _ = self.chunks.insert_sync(*pos, holder.clone());
                 holder
             }
         };
 
         if new_level >= MAX_LEVEL {
             //log::info!("Unloading chunk at {pos:?}");
-            //chunk_holder.cancel_generation_task();
+            chunk_holder.force_fail();
 
             // Check for two cause we are also holding a reference to the chunk
             if let Some((_, holder)) = self
                 .chunks
-                .remove_if_sync(&pos, |chunk| Arc::strong_count(chunk) == 2)
+                .remove_if_sync(pos, |chunk| Arc::strong_count(chunk) == 2)
             {
-                let _ = self.unloading_chunks.lock().insert(pos, holder);
+                let _ = self.unloading_chunks.lock().insert(*pos, holder);
             } else {
                 chunk_holder
                     .ticket_level
@@ -175,11 +192,10 @@ impl ChunkMap {
         let start_process_changes = tokio::time::Instant::now();
         let deduped_len = deduped.len();
 
-        // TODO: Use parallel iterator, when 4lve says it's time hehe
-        let updates_to_schedule: Vec<_> = deduped
+        let updates_to_schedule: Vec<(Arc<ChunkHolder>, u8)> = deduped
             .into_iter()
             .filter_map(|(pos, new_level)| {
-                self.update_chunk_level(pos, new_level)
+                self.update_chunk_level(&pos, new_level)
                     .map(|holder| (holder, new_level))
             })
             .collect();
@@ -204,25 +220,23 @@ impl ChunkMap {
         let schedule_start = tokio::time::Instant::now();
         let self_clone = self.clone();
         let update_len = updates_to_schedule.len();
-        // TODO: Use parallel iterator, when 4lve says it's time hehe
-        for (chunk_holder, new_level) in updates_to_schedule {
-            let target_status = ChunkLevel::generation_status(new_level);
+        updates_to_schedule
+            .par_iter()
+            .for_each(|(chunk_holder, new_level)| {
+                let target_status = ChunkLevel::generation_status(*new_level);
 
-            if let Some(status) = target_status
-                && status == ChunkStatus::Full
-            {
-                let chunk_holder_clone = chunk_holder.clone();
-                let map_clone = self_clone.clone();
-                chunk_holder_clone.schedule_chunk_generation_task_b(status, map_clone);
-            }
-        }
+                if let Some(status) = target_status
+                    && status == ChunkStatus::Full
+                {
+                    let chunk_holder_clone = chunk_holder.clone();
+                    let map_clone = self_clone.clone();
+                    chunk_holder_clone.schedule_chunk_generation_task_b(status, map_clone);
+                }
+            });
 
         let schedule_elapsed = schedule_start.elapsed();
         if schedule_elapsed >= SLOW_TASK_WARN_THRESHOLD {
-            log::warn!(
-                "tick_b schedule loop took: {schedule_elapsed:?} ({} updates)",
-                update_len
-            );
+            log::warn!("tick_b schedule loop took: {schedule_elapsed:?} ({update_len} updates)");
         }
 
         let start_gen = tokio::time::Instant::now();
@@ -260,24 +274,8 @@ impl ChunkMap {
         let _pos = chunk_holder.get_pos();
         // Access the chunk to ensure it's loaded and ready for saving
         // We use ChunkStatus::StructureReferences as the minimum requirement, effectively checking if any data exists.
-        let saved = chunk_holder.with_chunk(ChunkStatus::StructureReferences, |_chunk| {
-            // TODO: Serialize the chunk data here.
-            // Since serialization might be CPU intensive, we might want to do it inside this closure
-            // or clone the necessary data structure if possible (though deep cloning chunks is expensive).
-            // For now, we assume serialization happens here synchronously.
-            true
-        });
-
-        if saved.is_some() {
-            // TODO: Perform the actual disk I/O here (asynchronously).
-            // storage.write(pos, serialized_data).await;
-            //log::info!("Saved chunk at {:?}", pos);
-        } else {
-            //log::warn!(
-            //    "Skipping save for chunk at {:?}: Chunk not fully loaded",
-            //    pos
-            //);
-        }
+        let _saved = chunk_holder.try_chunk(ChunkStatus::StructureReferences);
+        //TODO: Save the chunk to disk
     }
 
     /// Processes chunks that are pending unload.
@@ -320,10 +318,10 @@ impl ChunkMap {
                 if last_view.center != new_view.center
                     || last_view.view_distance != new_view.view_distance
                 {
-                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                    distance_manager.remove_player(last_view.center, last_view.view_distance as u8);
-                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                    distance_manager.add_player(new_view.center, new_view.view_distance as u8);
+                    // Use view_distance for ticket calculation - all chunks in view distance
+                    // are both loaded and ticked (simplified single-tracker approach).
+                    distance_manager.remove_player(last_view.center, view_distance);
+                    distance_manager.add_player(new_view.center, view_distance);
 
                     connection.send_packet(CSetChunkCenter {
                         x: new_view.center.0.x,
@@ -332,19 +330,21 @@ impl ChunkMap {
                 }
 
                 // We lock here to ensure we have unique access for the duration of the diff
+                let mut chunk_sender = player.chunk_sender.lock();
                 ChunkTrackingView::difference(
                     last_view,
                     &new_view,
-                    |pos| {
-                        player.chunk_sender.lock().mark_chunk_pending_to_send(pos);
+                    |pos, chunk_sender| {
+                        chunk_sender.mark_chunk_pending_to_send(pos);
                     },
-                    |pos| {
-                        player.chunk_sender.lock().drop_chunk(connection, pos);
+                    |pos, chunk_sender| {
+                        chunk_sender.drop_chunk(connection, pos);
                     },
+                    &mut chunk_sender,
                 );
             } else {
-                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                distance_manager.add_player(new_view.center, new_view.view_distance as u8);
+                // First time adding this player.
+                distance_manager.add_player(new_view.center, view_distance);
 
                 let mut chunk_sender = player.chunk_sender.lock();
                 new_view.for_each(|pos| {
@@ -363,8 +363,8 @@ impl ChunkMap {
         if let Some(last_view) = last_view_guard.take() {
             drop(last_view_guard);
             let mut distance_manager = self.distance_manager.lock();
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            distance_manager.remove_player(last_view.center, last_view.view_distance as u8);
+            let view_distance = STEEL_CONFIG.view_distance;
+            distance_manager.remove_player(last_view.center, view_distance);
         }
     }
 }

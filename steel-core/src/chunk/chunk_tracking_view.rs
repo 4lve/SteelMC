@@ -101,11 +101,12 @@ impl ChunkTrackingView {
 
     /// Calculates the difference between two views, calling `on_added` for chunks in the new view but not the old,
     /// and `on_removed` for chunks in the old view but not the new.
-    pub fn difference(
+    pub fn difference<T>(
         old: &Self,
         new: &Self,
-        mut on_added: impl FnMut(ChunkPos),
-        mut on_removed: impl FnMut(ChunkPos),
+        mut on_added: impl FnMut(ChunkPos, &mut T),
+        mut on_removed: impl FnMut(ChunkPos, &mut T),
+        data: &mut T,
     ) {
         if old == new {
             return;
@@ -124,16 +125,16 @@ impl ChunkTrackingView {
                     let sees = new.contains(pos);
                     if saw != sees {
                         if sees {
-                            on_added(pos);
+                            on_added(pos, data);
                         } else {
-                            on_removed(pos);
+                            on_removed(pos, data);
                         }
                     }
                 }
             }
         } else {
-            old.for_each(on_removed);
-            new.for_each(on_added);
+            old.for_each(|pos| on_removed(pos, data));
+            new.for_each(|pos| on_added(pos, data));
         }
     }
 }
@@ -168,7 +169,13 @@ mod tests {
         let old_view = ChunkTrackingView::new(ChunkPos::new(0, 0), 2);
         let new_view = ChunkTrackingView::new(ChunkPos::new(1, 0), 2);
 
-        ChunkTrackingView::difference(&old_view, &new_view, |p| added.push(p), |p| removed.push(p));
+        ChunkTrackingView::difference(
+            &old_view,
+            &new_view,
+            |p, ()| added.push(p),
+            |p, ()| removed.push(p),
+            &mut (),
+        );
 
         // Just verify something happened
         assert!(!added.is_empty());
@@ -186,7 +193,13 @@ mod tests {
         let old_view = ChunkTrackingView::new(ChunkPos::new(0, 0), 2);
         let new_view = ChunkTrackingView::new(ChunkPos::new(100, 100), 2); // far away
 
-        ChunkTrackingView::difference(&old_view, &new_view, |p| added.push(p), |p| removed.push(p));
+        ChunkTrackingView::difference(
+            &old_view,
+            &new_view,
+            |p, ()| added.push(p),
+            |p, ()| removed.push(p),
+            &mut (),
+        );
 
         // Should be full remove and full add
         // Count for view distance 2:

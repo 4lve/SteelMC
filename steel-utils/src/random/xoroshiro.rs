@@ -128,12 +128,10 @@ impl Random for Xoroshiro {
         Self::new(self.next_random(), self.next_random())
     }
 
-    #[allow(clippy::cast_possible_truncation)]
     fn next_i32(&mut self) -> i32 {
         self.next_random() as i32
     }
 
-    #[allow(clippy::cast_sign_loss)]
     fn next_i32_bounded(&mut self, bound: i32) -> i32 {
         let mut l = (self.next_i32() as u64) & 0xFFFF_FFFF;
         let mut m = l.wrapping_mul(bound as u64);
@@ -150,17 +148,14 @@ impl Random for Xoroshiro {
         o as i32
     }
 
-    #[allow(clippy::cast_possible_wrap)]
     fn next_i64(&mut self) -> i64 {
         self.next_random() as i64
     }
 
-    #[allow(clippy::cast_precision_loss)]
     fn next_f32(&mut self) -> f32 {
         self.next(24) as f32 * 5.960_464_5e-8
     }
 
-    #[allow(clippy::cast_precision_loss)]
     fn next_f64(&mut self) -> f64 {
         self.next(53) as f64 * f64::from(1.110_223e-16_f32)
     }
@@ -183,7 +178,7 @@ impl Random for Xoroshiro {
 
 #[allow(missing_docs)]
 impl PositionalRandom for XoroshiroSplitter {
-    #[allow(clippy::many_single_char_names, clippy::cast_sign_loss)]
+    #[allow(clippy::many_single_char_names)]
     fn at(&self, x: i32, y: i32, z: i32) -> RandomSource {
         let l = get_seed(x, y, z) as u64;
         let m = l ^ self.seed_lo;
@@ -191,7 +186,6 @@ impl PositionalRandom for XoroshiroSplitter {
         RandomSource::Xoroshiro(Xoroshiro::new(m, self.seed_hi))
     }
 
-    #[allow(clippy::cast_sign_loss)]
     fn with_hash_of(&self, name: &str) -> RandomSource {
         let bytes = md5::compute(name.as_bytes());
         let l = u64::from_be_bytes(

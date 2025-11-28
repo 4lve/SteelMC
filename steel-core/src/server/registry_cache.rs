@@ -99,9 +99,7 @@ impl RegistryCache {
 
             for block in registry.blocks.iter_tag(tag_key) {
                 let block_id = *registry.blocks.get_id(block);
-                block_ids.push(VarInt(
-                    i32::try_from(block_id).expect("Failed to convert block id to i32"),
-                ));
+                block_ids.push(VarInt::from(block_id));
             }
 
             block_tags.push((tag_key.clone(), block_ids));
@@ -117,9 +115,7 @@ impl RegistryCache {
 
             for item in registry.items.iter_tag(tag_key) {
                 let item_id = *registry.items.get_id(item);
-                item_ids.push(VarInt(
-                    i32::try_from(item_id).expect("Failed to convert item id to i32"),
-                ));
+                item_ids.push(VarInt::from(item_id));
             }
 
             item_tags.push((tag_key.clone(), item_ids));

@@ -8,7 +8,10 @@ use steel_utils::ChunkPos;
 use tokio::task::spawn_blocking;
 
 use crate::{
-    chunk::{chunk_access::ChunkStatus, chunk_holder::ChunkHolder},
+    chunk::{
+        chunk_access::{ChunkAccess, ChunkStatus},
+        chunk_holder::ChunkHolder,
+    },
     player::networking::JavaConnection,
     world::World,
 };
@@ -62,13 +65,17 @@ impl ChunkSender {
                     let _ = spawn_blocking(move || {
                         let mut chunks_to_send = Vec::new();
                         for holder in chunks_to_process {
-                            if let Some(chunk) =
-                                holder.with_full_chunk(|chunk| CLevelChunkWithLight {
-                                    pos: chunk.pos,
-                                    chunk_data: chunk.extract_chunk_data(),
-                                    light_data: chunk.extract_light_data(),
-                                })
-                            {
+                            if let Some(chunk) = holder.try_chunk(ChunkStatus::Full).map(|chunk| {
+                                let chunk = chunk.read();
+                                match &*chunk {
+                                    Some(ChunkAccess::Full(chunk)) => CLevelChunkWithLight {
+                                        pos: holder.get_pos(),
+                                        chunk_data: chunk.extract_chunk_data(),
+                                        light_data: chunk.extract_light_data(),
+                                    },
+                                    _ => unreachable!(),
+                                }
+                            }) {
                                 chunks_to_send.push(chunk);
                             }
                         }

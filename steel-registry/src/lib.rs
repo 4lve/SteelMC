@@ -1,14 +1,3 @@
-#![warn(clippy::all, clippy::pedantic, clippy::cargo)]
-#![allow(
-    clippy::single_call_fn,
-    clippy::multiple_inherent_impl,
-    clippy::shadow_unrelated,
-    clippy::missing_errors_doc,
-    clippy::struct_excessive_bools,
-    clippy::needless_pass_by_value,
-    clippy::cargo_common_metadata,
-    clippy::missing_panics_doc
-)]
 #![feature(
     const_trait_impl,
     const_slice_make_iter,

@@ -11,7 +11,7 @@ fn count_parameters(text: &str) -> usize {
     let sequential = text.matches("%s").count();
     let mut positional = 0;
     for i in 1..=20 {
-        if text.contains(&format!("%{}$s", i)) {
+        if text.contains(&format!("%{i}$s")) {
             positional = positional.max(i);
         }
     }
@@ -55,15 +55,9 @@ pub(crate) fn build() -> TokenStream {
     let mut phf_map_entries = Vec::new();
 
     for (key, value) in translations_vec {
-        let text = match value.as_str() {
-            Some(t) => t,
-            None => {
-                eprintln!(
-                    "Warning: Translation key '{}' has non-string value, skipping",
-                    key
-                );
-                continue;
-            }
+        let Some(text) = value.as_str() else {
+            eprintln!("Warning: Translation key '{key}' has non-string value, skipping");
+            continue;
         };
 
         let param_count = count_parameters(text);
@@ -71,8 +65,7 @@ pub(crate) fn build() -> TokenStream {
         // Skip translations with more than 8 parameters
         if param_count > 8 {
             eprintln!(
-                "Warning: Translation '{}' has {} parameters (max 8 supported), skipping",
-                key, param_count
+                "Warning: Translation '{key}' has {param_count} parameters (max 8 supported), skipping"
             );
             continue;
         }
@@ -82,7 +75,7 @@ pub(crate) fn build() -> TokenStream {
         // Handle collisions by appending a number
         if let Some(count) = used_names.get_mut(&const_name_str) {
             *count += 1;
-            const_name_str = format!("{}_{}", const_name_str, count);
+            const_name_str = format!("{const_name_str}_{count}");
         } else {
             used_names.insert(const_name_str.clone(), 1);
         }
@@ -90,7 +83,7 @@ pub(crate) fn build() -> TokenStream {
         let const_name = Ident::new(&const_name_str, Span::call_site());
         let escaped_text = escape_string(text);
 
-        phf_map_entries.push((key.clone(), format!("\"{}\"", escaped_text)));
+        phf_map_entries.push((key.clone(), format!("\"{escaped_text}\"")));
 
         stream.extend(quote! {
             pub const #const_name: Translation<#param_count> = Translation::new(

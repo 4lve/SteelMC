@@ -446,6 +446,7 @@ impl JavaTcpClient {
 impl JavaTcpClient {
     /// Kicks the client with a given reason.
     pub async fn kick(&self, reason: TextComponent) {
+        log::info!("Kicking client {}: {:?}", self.id, reason);
         match self.protocol.load() {
             ConnectionProtocol::Login => {
                 let packet = CLoginDisconnect::new(reason);

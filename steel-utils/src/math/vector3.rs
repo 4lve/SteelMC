@@ -285,7 +285,6 @@ impl<T: Math + Copy + Into<f64>> Vector3<T> {
 }
 
 #[allow(missing_docs)]
-#[allow(clippy::cast_possible_truncation)]
 impl<T: Math + Copy + Into<f64>> Vector3<T> {
     #[must_use]
     pub fn to_i32(&self) -> Vector3<i32> {

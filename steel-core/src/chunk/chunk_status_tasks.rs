@@ -5,6 +5,7 @@ use std::sync::Arc;
 use crate::chunk::{
     chunk_access::{ChunkAccess, ChunkStatus},
     chunk_generation_task::StaticCache2D,
+    chunk_generator::YieldableGuard,
     chunk_holder::ChunkHolder,
     chunk_pyramid::ChunkStep,
     proto_chunk::ProtoChunk,
@@ -87,13 +88,12 @@ impl ChunkStatusTasks {
         _cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
         holder: Arc<ChunkHolder>,
     ) -> Result<(), anyhow::Error> {
-        holder
-            .with_chunk_mut(ChunkStatus::Biomes, |chunk| {
-                if let ChunkAccess::Proto(proto_chunk) = chunk {
-                    context.generator.fill_from_noise(proto_chunk);
-                }
-            })
+        let chunk = holder
+            .try_chunk(ChunkStatus::Biomes)
             .expect("Chunk not found at status Biomes");
+        context
+            .generator
+            .fill_from_noise(&mut YieldableGuard::new(chunk));
         Ok(())
     }
 

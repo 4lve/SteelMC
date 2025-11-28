@@ -1,16 +1,7 @@
 //! # Steel Macros
 //!
 //! Macros for the Steel Minecraft server.
-#![warn(clippy::all, clippy::pedantic, clippy::cargo, missing_docs)]
-#![allow(
-    clippy::single_call_fn,
-    clippy::multiple_inherent_impl,
-    clippy::shadow_unrelated,
-    clippy::missing_errors_doc,
-    clippy::struct_excessive_bools,
-    clippy::needless_pass_by_value,
-    clippy::cargo_common_metadata
-)]
+
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::quote;

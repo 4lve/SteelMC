@@ -13,7 +13,7 @@ use steel_protocol::packets::game::{CLogin, CommonPlayerSpawnInfo};
 use steel_registry::Registry;
 use steel_utils::{Identifier, types::GameType};
 use tick_rate_manager::TickRateManager;
-use tokio::task::spawn_blocking;
+use tokio::{runtime::Runtime, task::spawn_blocking};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
@@ -39,7 +39,7 @@ pub struct Server {
 
 impl Server {
     /// Creates a new server.
-    pub async fn new() -> Self {
+    pub async fn new(chunk_runtime: Arc<Runtime>) -> Self {
         let start = Instant::now();
         let mut registry = Registry::new_vanilla();
         registry.freeze();
@@ -50,7 +50,7 @@ impl Server {
 
         Server {
             key_store: KeyStore::create(),
-            worlds: vec![Arc::new(World::new(&registry.blocks))],
+            worlds: vec![Arc::new(World::new(&registry.blocks, chunk_runtime))],
             registry,
             registry_cache,
             tick_rate_manager: RwLock::new(TickRateManager::new()),
@@ -151,7 +151,9 @@ impl Server {
             tasks.push(spawn_blocking(move || world_clone.tick_b(tick_count)));
         }
         let start = Instant::now();
-        futures::future::join_all(tasks).await;
+        for task in tasks {
+            let _ = task.await;
+        }
         if start.elapsed().as_millis() > 1 {
             log::warn!(
                 "Worlds ticked in {:?}, tick count: {tick_count}",

@@ -142,7 +142,7 @@ impl Property<u8> for IntProperty {
     }
 
     fn value_from_index(&self, index: usize) -> u8 {
-        self.min + u8::try_from(index).unwrap()
+        self.min + index as u8
     }
 
     fn as_dyn(&self) -> &dyn DynProperty {

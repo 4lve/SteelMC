@@ -33,7 +33,7 @@ impl std::hash::Hash for ChunkPos {
 impl ChunkPos {
     #[must_use]
     /// Creates a new `ChunkPos` with the given x and y coordinates.
-    pub fn new(x: i32, y: i32) -> Self {
+    pub const fn new(x: i32, y: i32) -> Self {
         Self(Vector2::new(x, y))
     }
 

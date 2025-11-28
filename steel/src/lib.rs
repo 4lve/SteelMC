@@ -1,29 +1,14 @@
 //! # Steel
 //!
 //! The main library for the Steel Minecraft server.
-#![warn(
-    clippy::all,
-    clippy::pedantic,
-    clippy::cargo,
-    missing_docs,
-    clippy::unwrap_used
-)]
-#![allow(
-    clippy::single_call_fn,
-    clippy::multiple_inherent_impl,
-    clippy::shadow_unrelated,
-    clippy::missing_errors_doc,
-    clippy::struct_excessive_bools,
-    clippy::needless_pass_by_value,
-    clippy::cargo_common_metadata
-)]
+
 use crate::network::JavaTcpClient;
 use std::{
     net::{Ipv4Addr, SocketAddrV4},
     sync::Arc,
 };
 use steel_core::{config::STEEL_CONFIG, server::Server};
-use tokio::{net::TcpListener, select};
+use tokio::{net::TcpListener, runtime::Runtime, select};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 /// The networking module.
@@ -49,10 +34,10 @@ impl SteelServer {
     ///
     /// # Panics
     /// This function will panic if the TCP listener fails to bind to the server address.
-    pub async fn new() -> Self {
+    pub async fn new(chunk_runtime: Arc<Runtime>) -> Self {
         log::info!("Starting Steel Server");
 
-        let server = Server::new().await;
+        let server = Server::new(chunk_runtime).await;
 
         Self {
             tcp_listener: TcpListener::bind(SocketAddrV4::new(

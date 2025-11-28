@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use scc::HashMap;
 use steel_registry::blocks::BlockRegistry;
+use tokio::runtime::Runtime;
 use uuid::Uuid;
 
 use crate::{ChunkMap, player::Player};
@@ -21,9 +22,9 @@ impl World {
     /// Creates a new world.
     #[allow(clippy::new_without_default)]
     #[must_use]
-    pub fn new(block_registry: &BlockRegistry) -> Self {
+    pub fn new(block_registry: &BlockRegistry, chunk_runtime: Arc<Runtime>) -> Self {
         Self {
-            chunk_map: Arc::new(ChunkMap::new(block_registry)),
+            chunk_map: Arc::new(ChunkMap::new(block_registry, chunk_runtime)),
             players: HashMap::new(),
         }
     }
@@ -35,6 +36,7 @@ impl World {
         // Tick players
         self.players.iter_sync(|_uuid, player| {
             player.tick();
+
             true
         });
     }

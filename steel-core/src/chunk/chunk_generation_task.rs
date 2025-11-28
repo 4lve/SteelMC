@@ -8,6 +8,8 @@ use std::{
     },
 };
 
+use parking_lot::Mutex as ParkingMutex;
+use rayon::ThreadPool;
 use steel_utils::ChunkPos;
 
 use crate::chunk::{
@@ -36,7 +38,7 @@ impl<T> StaticCache2D<T> {
         let size = radius * 2 + 1;
         let min_x = center_x - radius;
         let min_z = center_z - radius;
-        let cap = usize::try_from(size * size).expect("Cache size negative");
+        let cap = (size * size) as usize;
         let mut cache = Vec::with_capacity(cap);
 
         for z_offset in 0..size {
@@ -58,13 +60,12 @@ impl<T> StaticCache2D<T> {
     /// # Panics
     /// Panics if coordinates are out of bounds.
     #[must_use]
-    #[allow(clippy::missing_panics_doc)]
     pub fn get(&self, x: i32, z: i32) -> &T {
         let rel_x = x - self.min_x;
         let rel_z = z - self.min_z;
 
         if rel_x >= 0 && rel_x < self.size && rel_z >= 0 && rel_z < self.size {
-            let index = usize::try_from(rel_z * self.size + rel_x).expect("Index error");
+            let index = (rel_z * self.size + rel_x) as usize;
             &self.cache[index]
         } else {
             panic!(
@@ -90,29 +91,33 @@ pub struct ChunkGenerationTask {
     /// The target generation status.
     pub target_status: ChunkStatus,
     /// The status scheduled for generation. Protected by a mutex for safe concurrent access.
-    pub scheduled_status: parking_lot::Mutex<Option<ChunkStatus>>,
+    pub scheduled_status: ParkingMutex<Option<ChunkStatus>>,
     /// Flag indicating if the task is cancelled.
     pub marked_for_cancel: AtomicBool,
     /// Futures for neighbors. Protected by a mutex.
-    pub neighbor_ready: parking_lot::Mutex<Vec<NeighborReady>>,
+    pub neighbor_ready: ParkingMutex<Vec<NeighborReady>>,
     /// Cache of required chunks.
     pub cache: Arc<StaticCache2D<Arc<ChunkHolder>>>,
     /// Whether generation is required for this task.
     pub needs_generation: AtomicBool,
+    /// The thread pool to use for generation.
+    pub thread_pool: Arc<ThreadPool>,
 }
 
 impl ChunkGenerationTask {
     /// Creates a new generation task.
     #[must_use]
     #[allow(clippy::unwrap_used, clippy::missing_panics_doc)]
-    pub fn new(pos: ChunkPos, target_status: ChunkStatus, chunk_map: Arc<ChunkMap>) -> Self {
-        let worst_case_radius = i32::try_from(
-            GENERATION_PYRAMID
-                .get_step_to(target_status)
-                .accumulated_dependencies
-                .get_radius_of(ChunkStatus::Empty),
-        )
-        .unwrap();
+    pub fn new(
+        pos: ChunkPos,
+        target_status: ChunkStatus,
+        chunk_map: Arc<ChunkMap>,
+        thread_pool: Arc<ThreadPool>,
+    ) -> Self {
+        let worst_case_radius = GENERATION_PYRAMID
+            .get_step_to(target_status)
+            .accumulated_dependencies
+            .get_radius_of(ChunkStatus::Empty) as i32;
 
         let chunk_map_clone = chunk_map.clone();
         let cache = StaticCache2D::create(pos.0.x, pos.0.y, worst_case_radius, move |x, y| {
@@ -132,6 +137,7 @@ impl ChunkGenerationTask {
             neighbor_ready: parking_lot::Mutex::new(Vec::new()),
             cache: Arc::new(cache),
             needs_generation: AtomicBool::new(true),
+            thread_pool,
         }
     }
 
@@ -185,6 +191,7 @@ impl ChunkGenerationTask {
             pyramid.get_step_to(status).clone(),
             self.chunk_map.clone(),
             self.cache.clone(),
+            self.thread_pool.clone(),
         );
 
         self.neighbor_ready.lock().push(future);
@@ -212,12 +219,10 @@ impl ChunkGenerationTask {
         } else {
             &*LOADING_PYRAMID
         };
-        i32::try_from(
-            pyramid
-                .get_step_to(self.target_status)
-                .get_accumulated_radius_of(status),
-        )
-        .expect("Radius too large")
+
+        pyramid
+            .get_step_to(self.target_status)
+            .get_accumulated_radius_of(status) as i32
     }
 
     /// Schedules the next layer of generation dependencies.
@@ -267,15 +272,12 @@ impl ChunkGenerationTask {
                 .get_step_to(self.target_status)
                 .accumulated_dependencies
                 .clone();
-            let range = i32::try_from(dependencies.get_radius()).expect("Radius too large");
+            let range = dependencies.get_radius() as i32;
 
             for x in (self.pos.0.x - range)..=(self.pos.0.x + range) {
                 for z in (self.pos.0.y - range)..=(self.pos.0.y + range) {
-                    let distance = usize::try_from(std::cmp::max(
-                        (self.pos.0.x - x).abs(),
-                        (self.pos.0.y - z).abs(),
-                    ))
-                    .expect("Distance negative");
+                    let distance =
+                        std::cmp::max((self.pos.0.x - x).abs(), (self.pos.0.y - z).abs()) as usize;
                     if let Some(required_status) = dependencies.get(distance) {
                         let neighbor = self.cache.get(x, z);
                         let persisted = neighbor.persisted_status();
@@ -305,7 +307,7 @@ impl ChunkGenerationTask {
                 || *self.scheduled_status.lock() == Some(self.target_status)
             {
                 let center_chunk = self.cache.get(self.pos.0.x, self.pos.0.y);
-                center_chunk.cancel_generation_task_async().await;
+                center_chunk.cancel_generation_task();
                 return;
             }
 
@@ -329,6 +331,7 @@ impl ChunkGenerationTask {
 
         for result in results {
             if result.is_none() {
+                //log::error!("Neighbor ready is none for chunk {:?}", self.pos);
                 self.mark_for_cancel();
                 break;
             }

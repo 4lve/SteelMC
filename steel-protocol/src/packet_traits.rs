@@ -120,7 +120,6 @@ impl EncodedPacket {
     ///
     /// # Errors
     /// - If the packet is too long.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
     pub fn from_data_uncompressed(mut packet_data: FrontVec) -> Result<Self, PacketError> {
         let data_len = packet_data.len();
         let varint_size = VarInt::written_size(data_len as i32);

@@ -48,7 +48,6 @@ impl Block {
 
     /// Const helper to calculate state offset from property indices and counts
     #[must_use]
-    #[allow(clippy::cast_possible_truncation)]
     pub const fn calculate_offset(property_indices: &[usize], property_counts: &[usize]) -> u16 {
         let mut offset = 0u16;
         let mut multiplier = 1u16;
@@ -127,7 +126,7 @@ impl BlockRegistry {
             self.state_to_block_id.push(id);
         }
 
-        self.next_state_id += u16::try_from(state_count).unwrap();
+        self.next_state_id += state_count as u16;
 
         id
     }
@@ -187,7 +186,7 @@ impl BlockRegistry {
         let mut property_values = Vec::with_capacity(block.properties.len());
 
         for prop in block.properties {
-            let count = u16::try_from(prop.get_possible_values().len()).unwrap();
+            let count = prop.get_possible_values().len() as u16;
             let current_index = (index % count) as usize;
 
             let possible_values = prop.get_possible_values();
@@ -222,7 +221,7 @@ impl BlockRegistry {
         let mut property_value_index = 0;
 
         for (i, prop) in block.properties.iter().enumerate() {
-            let count = u16::try_from(prop.get_possible_values().len()).unwrap();
+            let count = prop.get_possible_values().len() as u16;
             let current_index = (index % count) as usize;
 
             if i == property_index {
@@ -270,7 +269,7 @@ impl BlockRegistry {
         let mut property_indices = Vec::with_capacity(block.properties.len());
 
         for prop in block.properties {
-            let count = u16::try_from(prop.get_possible_values().len()).unwrap();
+            let count = prop.get_possible_values().len() as u16;
             property_indices.push((index % count) as usize);
             index /= count;
         }
@@ -283,9 +282,9 @@ impl BlockRegistry {
         let (new_relative_index, _) = property_indices.iter().zip(block.properties.iter()).fold(
             (0u16, 1u16),
             |(current_index, multiplier), (&value_idx, prop)| {
-                let count = u16::try_from(prop.get_possible_values().len()).unwrap();
+                let count = prop.get_possible_values().len() as u16;
                 (
-                    current_index + u16::try_from(value_idx).unwrap() * multiplier,
+                    current_index + value_idx as u16 * multiplier,
                     multiplier * count,
                 )
             },

@@ -107,7 +107,6 @@ impl<T: WriteTo, Z: WriteTo> WriteTo for (T, Z) {
 
 #[allow(missing_docs)]
 impl<K: WriteTo, V: WriteTo, S: ::std::hash::BuildHasher> WriteTo for HashMap<K, V, S> {
-    #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
     fn write(&self, writer: &mut impl Write) -> Result<()> {
         VarInt(self.len() as i32).write(writer)?;
         for (key, value) in self {

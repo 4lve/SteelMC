@@ -22,16 +22,13 @@ impl LegacyRandom {
     #[must_use]
     pub fn from_seed(seed: u64) -> Self {
         Self {
-            #[allow(clippy::cast_possible_wrap)]
             seed: (seed as i64 ^ 0x0005_DEEC_E66D) & 0xFFFF_FFFF_FFFF,
             next_gauissian: None,
         }
     }
 
     fn next(&mut self, bits: u64) -> i32 {
-        #[allow(clippy::cast_possible_truncation)]
-        let result = (self.next_random() >> (48 - bits)) as i32;
-        result
+        (self.next_random() >> (48 - bits)) as i32
     }
 
     fn next_random(&mut self) -> i64 {
@@ -54,7 +51,6 @@ impl MarsagliaPolarGaussian for LegacyRandom {
 
 impl Random for LegacyRandom {
     fn fork(&mut self) -> Self {
-        #[allow(clippy::cast_sign_loss)]
         Self::from_seed(self.next_i64() as u64)
     }
 
@@ -64,9 +60,7 @@ impl Random for LegacyRandom {
 
     fn next_i32_bounded(&mut self, bound: i32) -> i32 {
         if bound & bound.wrapping_sub(1) == 0 {
-            #[allow(clippy::cast_possible_truncation)]
-            let result = (i64::from(bound).wrapping_mul(i64::from(self.next(31))) >> 31) as i32;
-            result
+            (i64::from(bound).wrapping_mul(i64::from(self.next(31))) >> 31) as i32
         } else {
             loop {
                 let i = self.next(31);
@@ -85,16 +79,12 @@ impl Random for LegacyRandom {
     }
 
     fn next_f32(&mut self) -> f32 {
-        #[allow(clippy::cast_precision_loss)]
-        let result = self.next(24) as f32 * 5.960_464_5e-8_f32;
-        result
+        self.next(24) as f32 * 5.960_464_5e-8_f32
     }
 
     fn next_f64(&mut self) -> f64 {
-        #[allow(clippy::cast_precision_loss, clippy::cast_sign_loss)]
-        let result = (((self.next(26) as u64) << 27) | (self.next(27) as u64)) as f64
-            * f64::from(1.110_223e-16_f32);
-        result
+        (((self.next(26) as u64) << 27) | (self.next(27) as u64)) as f64
+            * f64::from(1.110_223e-16_f32)
     }
 
     fn next_bool(&mut self) -> bool {
@@ -122,7 +112,6 @@ impl LegacyRandomSplitter {
 impl PositionalRandom for LegacyRandomSplitter {
     fn at(&self, x: i32, y: i32, z: i32) -> RandomSource {
         let seed = get_seed(x, y, z);
-        #[allow(clippy::cast_sign_loss)]
         RandomSource::Legacy(LegacyRandom::from_seed((seed as u64) ^ (self.seed as u64)))
     }
 
@@ -131,7 +120,6 @@ impl PositionalRandom for LegacyRandomSplitter {
         for b in name.encode_utf16() {
             hash = hash.wrapping_mul(31).wrapping_add(i32::from(b));
         }
-        #[allow(clippy::cast_sign_loss)]
         RandomSource::Legacy(LegacyRandom::from_seed((hash as u64) ^ (self.seed as u64)))
     }
 
