@@ -25,7 +25,7 @@ pub struct StaticCache2D<T> {
     min_x: i32,
     min_z: i32,
     size: i32,
-    /// Cache stored in row-major order X-then-Z.
+    /// Cache stored in row-major order Z-then-X.
     cache: Vec<T>,
 }
 
