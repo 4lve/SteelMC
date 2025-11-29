@@ -4,7 +4,7 @@ use parking_lot::{Mutex as ParkingMutex, RwLock as ParkingRwLock};
 use replace_with::replace_with_or_abort;
 use std::fmt::Debug;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use steel_utils::ChunkPos;
 use tokio::select;
 use tokio::sync::{oneshot, watch};
@@ -57,6 +57,8 @@ pub struct ChunkHolder {
     /// The highest status that generation is allowed to reach.
     highest_allowed_status: watch::Receiver<u8>,
     highest_allowed_status_sender: watch::Sender<u8>,
+
+    pending_unload: AtomicBool,
 }
 
 impl ChunkHolder {
@@ -84,6 +86,7 @@ impl ChunkHolder {
             started_work: AtomicUsize::new(usize::MAX),
             highest_allowed_status: highest_allowed_status_receiver,
             highest_allowed_status_sender,
+            pending_unload: AtomicBool::new(false),
         }
     }
 
@@ -91,10 +94,26 @@ impl ChunkHolder {
     pub fn update_highest_allowed_status(&self, ticket_level: u8) {
         let new_status = ChunkLevel::generation_status(ticket_level)
             .map_or(STATUS_NONE, |s| s.get_index() as u8);
+        if new_status == *self.highest_allowed_status.borrow() {
+            return;
+        }
         self.highest_allowed_status_sender.send_replace(new_status);
     }
 
+    /// Marks this holder as pending unload. Returns true if it was newly marked.
+    pub fn mark_pending_unload(&self) -> bool {
+        self.pending_unload
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
+    }
+
+    /// Clears the pending unload flag so the chunk can enter normal scheduling again.
+    pub fn clear_pending_unload(&self) {
+        self.pending_unload.store(false, Ordering::SeqCst);
+    }
+
     /// Checks if the given status is disallowed.
+    #[inline]
     pub fn is_status_disallowed(&self, status: ChunkStatus) -> bool {
         let allowed = *self.highest_allowed_status.borrow();
         if allowed == STATUS_NONE {
@@ -129,6 +148,7 @@ impl ChunkHolder {
     }
 
     /// Reschedules the chunk task to the given status.
+    #[inline]
     pub(crate) fn reschedule_chunk_task_b(&self, status: ChunkStatus, chunk_map: Arc<ChunkMap>) {
         let new_task = chunk_map.schedule_generation_task_b(status, self.pos);
         let mut old_task_guard = self.generation_task.lock();

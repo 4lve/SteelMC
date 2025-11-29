@@ -122,7 +122,8 @@ impl ChunkMap {
                 return None;
             }
 
-            if let Some(entry) = self.unloading_chunks.lock().remove(pos) {
+            if let Some(entry) = self.remove_from_unloading(pos) {
+                entry.clear_pending_unload();
                 let _ = self.chunks.insert_sync(*pos, entry.clone());
                 entry
             } else {
@@ -134,14 +135,16 @@ impl ChunkMap {
 
         if new_level >= MAX_LEVEL {
             //log::info!("Unloading chunk at {pos:?}");
-            chunk_holder.force_fail();
+            if chunk_holder.mark_pending_unload() {
+                chunk_holder.force_fail();
+            }
 
             // Check for two cause we are also holding a reference to the chunk
             if let Some((_, holder)) = self
                 .chunks
                 .remove_if_sync(pos, |chunk| Arc::strong_count(chunk) == 2)
             {
-                let _ = self.unloading_chunks.lock().insert(*pos, holder);
+                self.insert_into_unloading(*pos, holder);
             } else {
                 chunk_holder
                     .ticket_level
@@ -151,11 +154,36 @@ impl ChunkMap {
             drop(chunk_holder);
             None
         } else {
+            chunk_holder.clear_pending_unload();
+
+            let current_level = chunk_holder.ticket_level.load(Ordering::Relaxed);
+            if current_level == new_level {
+                return Some(chunk_holder);
+            }
+
             chunk_holder
                 .ticket_level
                 .store(new_level, Ordering::Relaxed);
             chunk_holder.update_highest_allowed_status(new_level);
             Some(chunk_holder)
+        }
+    }
+
+    fn remove_from_unloading(&self, pos: &ChunkPos) -> Option<Arc<ChunkHolder>> {
+        if let Some(mut guard) = self.unloading_chunks.try_lock() {
+            guard.remove(pos)
+        } else {
+            let mut guard = self.unloading_chunks.lock();
+            guard.remove(pos)
+        }
+    }
+
+    fn insert_into_unloading(&self, pos: ChunkPos, holder: Arc<ChunkHolder>) {
+        if let Some(mut guard) = self.unloading_chunks.try_lock() {
+            let _ = guard.insert(pos, holder);
+        } else {
+            let mut guard = self.unloading_chunks.lock();
+            let _ = guard.insert(pos, holder);
         }
     }
 
@@ -185,14 +213,14 @@ impl ChunkMap {
         }
 
         let deduped: FxHashMap<_, _> = changes
-            .into_iter()
-            .map(|(pos, _, new_level)| (pos, new_level))
-            .collect();
+            .iter()
+            .map(|(pos, _, new_level)| (*pos, *new_level))
+            .collect();        
 
         let start_process_changes = tokio::time::Instant::now();
         let deduped_len = deduped.len();
 
-        let updates_to_schedule: Vec<(Arc<ChunkHolder>, u8)> = deduped
+        let updates_to_schedule: Vec<(_, _)> = deduped
             .into_iter()
             .filter_map(|(pos, new_level)| {
                 self.update_chunk_level(&pos, new_level)

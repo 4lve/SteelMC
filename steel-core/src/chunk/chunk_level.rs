@@ -6,15 +6,18 @@ use crate::chunk::chunk_tracker::MAX_LEVEL;
 pub struct ChunkLevel;
 
 impl ChunkLevel {
+    /// Ticket levels at or below this threshold require a full chunk.
+    pub const FULL_STATUS_LEVEL: u8 = 33;
+
     /// Returns the generation status for the given level.
     #[must_use]
     pub fn generation_status(level: u8) -> Option<ChunkStatus> {
         if level >= MAX_LEVEL {
             None
-        } else if level <= 33 {
+        } else if level <= Self::FULL_STATUS_LEVEL {
             Some(ChunkStatus::Full)
         } else {
-            let distance = (level - 33) as usize;
+            let distance = (level - Self::FULL_STATUS_LEVEL) as usize;
             // Fallback to None if distance is out of bounds (simulating Vanilla logic)
             GENERATION_PYRAMID
                 .get_step_to(ChunkStatus::Full)
