@@ -1,15 +1,17 @@
 //! `ChunkGenerationTask` handles the generation process for chunks.
 use std::{
     future::Future,
+    mem::MaybeUninit,
     pin::Pin,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
+    time::{Duration, Instant},
 };
 
 use parking_lot::Mutex as ParkingMutex;
-use rayon::ThreadPool;
+use rayon::{prelude::*, ThreadPool};
 use steel_utils::ChunkPos;
 
 use crate::chunk::{
@@ -24,27 +26,68 @@ pub struct StaticCache2D<T> {
     min_x: i32,
     min_z: i32,
     size: i32,
-    /// Cache stored in row-major order (Z-then-X).
+    /// Cache stored in row-major order X-then-Z.
     cache: Vec<T>,
 }
+
+const CACHE_BUILD_WARN_THRESHOLD: Duration = Duration::from_micros(250);
 
 impl<T> StaticCache2D<T> {
     /// Creates a `StaticCache2D` by populating it via a factory.
     #[allow(clippy::missing_panics_doc)]
-    pub fn create<F>(center_x: i32, center_z: i32, radius: i32, mut factory: F) -> Self
+    pub fn create<F>(center_x: i32, center_z: i32, radius: i32, factory: F) -> Self
     where
-        F: FnMut(i32, i32) -> T + Send + Sync + 'static,
+        T: Send,
+        F: Fn(i32, i32) -> T + Send + Sync + 'static,
     {
         let size = radius * 2 + 1;
         let min_x = center_x - radius;
         let min_z = center_z - radius;
         let cap = (size * size) as usize;
-        let mut cache = Vec::with_capacity(cap);
+        let build_start = Instant::now();
 
-        for z_offset in 0..size {
-            for x_offset in 0..size {
-                cache.push(factory(min_x + x_offset, min_z + z_offset));
+        let cache = if cap <= 64 {
+            // Small caches avoid rayon overhead and retain the original sequential fill path.
+            let factory_ref = &factory;
+            let mut cache = Vec::with_capacity(cap);
+            for z_offset in 0..size {
+                for x_offset in 0..size {
+                    cache.push(factory_ref(min_x + x_offset, min_z + z_offset));
+                }
             }
+            cache
+        } else {
+            let factory_ref = &factory;
+            let mut cache: Vec<MaybeUninit<T>> = Vec::with_capacity(cap);
+            cache.resize_with(cap, MaybeUninit::uninit);
+            let size_usize = size as usize;
+
+            cache
+                .par_iter_mut()
+                .enumerate()
+                .for_each(|(index, slot)| {
+                    let x_offset = (index % size_usize) as i32;
+                    let z_offset = (index / size_usize) as i32;
+                    slot.write(factory_ref(min_x + x_offset, min_z + z_offset));
+                });
+
+            unsafe {
+                // SAFETY: All elements initialized by par_iter_mut above via slot.write()
+                std::mem::transmute::<Vec<MaybeUninit<T>>, Vec<T>>(cache)
+            }
+        };
+
+        let build_elapsed = build_start.elapsed();
+        if build_elapsed >= CACHE_BUILD_WARN_THRESHOLD {
+            log::warn!(
+                "StaticCache2D build slow: center=({}, {}), radius={}, size={}, entries={} took {:?}",
+                center_x,
+                center_z,
+                radius,
+                size,
+                cap,
+                build_elapsed
+            );
         }
 
         Self {
