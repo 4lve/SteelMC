@@ -18,11 +18,17 @@ impl ChunkLevel {
             Some(ChunkStatus::Full)
         } else {
             let distance = (level - Self::FULL_STATUS_LEVEL) as usize;
-            // Fallback to None if distance is out of bounds (simulating Vanilla logic)
-            GENERATION_PYRAMID
+
+            let deps = &GENERATION_PYRAMID
                 .get_step_to(ChunkStatus::Full)
-                .accumulated_dependencies
-                .get(distance)
+                .accumulated_dependencies;
+
+            let max_distance = deps.get_radius();
+            let clamped_distance = distance.min(max_distance);
+
+            deps
+                .get(clamped_distance)
+                .or_else(|| deps.get(max_distance))
         }
     }
 
@@ -31,4 +37,5 @@ impl ChunkLevel {
     pub fn full_status(level: u8) -> Option<ChunkStatus> {
         Self::generation_status(level)
     }
+
 }

@@ -7,7 +7,6 @@ use std::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
-    time::{Duration, Instant},
 };
 
 use parking_lot::Mutex as ParkingMutex;
@@ -30,8 +29,6 @@ pub struct StaticCache2D<T> {
     cache: Vec<T>,
 }
 
-const CACHE_BUILD_WARN_THRESHOLD: Duration = Duration::from_micros(250);
-
 impl<T> StaticCache2D<T> {
     /// Creates a `StaticCache2D` by populating it via a factory.
     #[allow(clippy::missing_panics_doc)]
@@ -44,7 +41,6 @@ impl<T> StaticCache2D<T> {
         let min_x = center_x - radius;
         let min_z = center_z - radius;
         let cap = (size * size) as usize;
-        let build_start = Instant::now();
 
         let cache = if cap <= 64 {
             // Small caches avoid rayon overhead and retain the original sequential fill path.
@@ -76,19 +72,6 @@ impl<T> StaticCache2D<T> {
                 std::mem::transmute::<Vec<MaybeUninit<T>>, Vec<T>>(cache)
             }
         };
-
-        let build_elapsed = build_start.elapsed();
-        if build_elapsed >= CACHE_BUILD_WARN_THRESHOLD {
-            log::warn!(
-                "StaticCache2D build slow: center=({}, {}), radius={}, size={}, entries={} took {:?}",
-                center_x,
-                center_z,
-                radius,
-                size,
-                cap,
-                build_elapsed
-            );
-        }
 
         Self {
             min_x,

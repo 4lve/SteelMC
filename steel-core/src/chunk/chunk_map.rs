@@ -1,6 +1,6 @@
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, Instant};
+use std::sync::atomic::Ordering;
+use std::time::Duration;
 
 use parking_lot::Mutex as ParkingMutex;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -249,13 +249,9 @@ impl ChunkMap {
         let self_clone = self.clone();
         let update_len = updates_to_schedule.len();
 
-        let schedule_task_total_micros = AtomicU64::new(0);
-        let schedule_task_slowest_micros = AtomicU64::new(0);
-
         updates_to_schedule
             .par_iter()
             .for_each(|(chunk_holder, new_level)| {
-                let task_start = Instant::now();
                 let target_status = ChunkLevel::generation_status(*new_level);
 
                 if let Some(status) = target_status
@@ -265,59 +261,10 @@ impl ChunkMap {
                     let map_clone = self_clone.clone();
                     chunk_holder_clone.schedule_chunk_generation_task_b(status, map_clone);
                 }
-
-                let elapsed = task_start.elapsed();
-                let elapsed_micros = elapsed.as_micros() as u64;
-                schedule_task_total_micros.fetch_add(elapsed_micros, Ordering::Relaxed);
-
-                let mut current_max = schedule_task_slowest_micros.load(Ordering::Relaxed);
-                while elapsed_micros > current_max
-                    && schedule_task_slowest_micros
-                        .compare_exchange(
-                            current_max,
-                            elapsed_micros,
-                            Ordering::Relaxed,
-                            Ordering::Relaxed,
-                        )
-                        .is_err()
-                {
-                    current_max = schedule_task_slowest_micros.load(Ordering::Relaxed);
-                }
             });
 
         let schedule_elapsed = schedule_start.elapsed();
-        let total_task_micros = schedule_task_total_micros.load(Ordering::Relaxed);
-        let slowest_task_micros = schedule_task_slowest_micros.load(Ordering::Relaxed);
-
-        if update_len > 0 {
-            let avg_task_micros = total_task_micros as f64 / update_len as f64;
-            let slowest_task_duration = Duration::from_micros(slowest_task_micros);
-
-            if log::log_enabled!(log::Level::Debug) {
-                log::debug!(
-                    "schedule_chunk_gen stats: avg {:.2}µs/task, slowest {:?} across {} tasks",
-                    avg_task_micros,
-                    slowest_task_duration,
-                    update_len
-                );
-            }
-
-            if schedule_elapsed >= SLOW_TASK_WARN_THRESHOLD {
-                log::warn!(
-                    "tick_b schedule loop took: {schedule_elapsed:?} ({} updates, avg {:.2}µs/task, slowest {:?})",
-                    update_len,
-                    avg_task_micros,
-                    slowest_task_duration
-                );
-            } else if slowest_task_duration >= SLOW_TASK_WARN_THRESHOLD {
-                log::warn!(
-                    "schedule_chunk_gen slow task: slowest {:?} (avg {:.2}µs/task across {} tasks)",
-                    slowest_task_duration,
-                    avg_task_micros,
-                    update_len
-                );
-            }
-        } else if schedule_elapsed >= SLOW_TASK_WARN_THRESHOLD {
+        if schedule_elapsed >= SLOW_TASK_WARN_THRESHOLD {
             log::warn!("tick_b schedule loop took: {schedule_elapsed:?} ({update_len} updates)");
         }
 
