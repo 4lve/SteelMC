@@ -215,7 +215,7 @@ impl ChunkMap {
         let deduped: FxHashMap<_, _> = changes
             .iter()
             .map(|(pos, _, new_level)| (*pos, *new_level))
-            .collect();        
+            .collect();
 
         let start_process_changes = tokio::time::Instant::now();
         let deduped_len = deduped.len();

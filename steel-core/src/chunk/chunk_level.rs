@@ -26,8 +26,7 @@ impl ChunkLevel {
             let max_distance = deps.get_radius();
             let clamped_distance = distance.min(max_distance);
 
-            deps
-                .get(clamped_distance)
+            deps.get(clamped_distance)
                 .or_else(|| deps.get(max_distance))
         }
     }
@@ -37,5 +36,4 @@ impl ChunkLevel {
     pub fn full_status(level: u8) -> Option<ChunkStatus> {
         Self::generation_status(level)
     }
-
 }

@@ -10,7 +10,7 @@ use std::{
 };
 
 use parking_lot::Mutex as ParkingMutex;
-use rayon::{prelude::*, ThreadPool};
+use rayon::{ThreadPool, prelude::*};
 use steel_utils::ChunkPos;
 
 use crate::chunk::{
@@ -58,14 +58,11 @@ impl<T> StaticCache2D<T> {
             cache.resize_with(cap, MaybeUninit::uninit);
             let size_usize = size as usize;
 
-            cache
-                .par_iter_mut()
-                .enumerate()
-                .for_each(|(index, slot)| {
-                    let x_offset = (index % size_usize) as i32;
-                    let z_offset = (index / size_usize) as i32;
-                    slot.write(factory_ref(min_x + x_offset, min_z + z_offset));
-                });
+            cache.par_iter_mut().enumerate().for_each(|(index, slot)| {
+                let x_offset = (index % size_usize) as i32;
+                let z_offset = (index / size_usize) as i32;
+                slot.write(factory_ref(min_x + x_offset, min_z + z_offset));
+            });
 
             unsafe {
                 // SAFETY: All elements initialized by par_iter_mut above via slot.write()
