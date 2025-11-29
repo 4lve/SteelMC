@@ -9,8 +9,7 @@ use steel_utils::ChunkPos;
 /// Variants are ordered by priority (lowest value = highest priority).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum TicketType {
-    /// A ticket created by a player. Level is calculated as `31 - view_distance`.
-    /// All chunks within view distance are loaded and ticked.
+    /// A ticket created by a player.
     Player,
     /// A forced ticket.
     Forced,

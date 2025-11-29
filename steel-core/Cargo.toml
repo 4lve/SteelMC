@@ -29,7 +29,6 @@ enum_dispatch.workspace = true
 anyhow.workspace = true
 rustc-hash = "2.1.1"
 rayon.workspace = true
-indexmap = "2.12.1"
 
 [lints]
 workspace = true

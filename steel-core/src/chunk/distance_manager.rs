@@ -41,15 +41,9 @@ impl DistanceManager {
         self.update_chunk_tracker(pos);
     }
 
-    /// Adds a player ticket for chunk loading.
-    ///
-    /// The ticket level is calculated as `31 - view_distance`, which propagates
-    /// outward such that chunks at `view_distance` away reach level 31.
-    /// All chunks within view distance are both loaded and ticked (simplified approach).
+    /// Adds a player ticket (simulates player loading).
     pub fn add_player(&mut self, pos: ChunkPos, view_distance: u8) {
-        // Level 31 is entity ticking (full chunk).
-        // By setting the player's chunk to level (31 - view_distance),
-        // chunks at view_distance away will be at level 31.
+        // Level 31 is entity ticking.
         let level = 31_u8.saturating_sub(view_distance);
         self.add_ticket(
             pos,

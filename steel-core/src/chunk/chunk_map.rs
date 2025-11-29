@@ -318,10 +318,10 @@ impl ChunkMap {
                 if last_view.center != new_view.center
                     || last_view.view_distance != new_view.view_distance
                 {
-                    // Use view_distance for ticket calculation - all chunks in view distance
-                    // are both loaded and ticked (simplified single-tracker approach).
-                    distance_manager.remove_player(last_view.center, view_distance);
-                    distance_manager.add_player(new_view.center, view_distance);
+                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                    distance_manager.remove_player(last_view.center, last_view.view_distance as u8);
+                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                    distance_manager.add_player(new_view.center, new_view.view_distance as u8);
 
                     connection.send_packet(CSetChunkCenter {
                         x: new_view.center.0.x,
@@ -343,8 +343,8 @@ impl ChunkMap {
                     &mut chunk_sender,
                 );
             } else {
-                // First time adding this player.
-                distance_manager.add_player(new_view.center, view_distance);
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                distance_manager.add_player(new_view.center, new_view.view_distance as u8);
 
                 let mut chunk_sender = player.chunk_sender.lock();
                 new_view.for_each(|pos| {
@@ -363,8 +363,8 @@ impl ChunkMap {
         if let Some(last_view) = last_view_guard.take() {
             drop(last_view_guard);
             let mut distance_manager = self.distance_manager.lock();
-            let view_distance = STEEL_CONFIG.view_distance;
-            distance_manager.remove_player(last_view.center, view_distance);
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            distance_manager.remove_player(last_view.center, last_view.view_distance as u8);
         }
     }
 }
