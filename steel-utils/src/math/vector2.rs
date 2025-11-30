@@ -16,6 +16,7 @@ pub struct Vector2<T> {
 
 #[allow(missing_docs)]
 impl<T: Math + Copy> Vector2<T> {
+    #[inline]
     pub const fn new(x: T, y: T) -> Self {
         Vector2 { x, y }
     }

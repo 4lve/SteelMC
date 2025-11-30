@@ -1,3 +1,4 @@
+use rustc_hash::FxHashMap;
 use steel_utils::ChunkPos;
 
 use crate::chunk::{
@@ -75,11 +76,24 @@ impl DistanceManager {
         });
     }
 
-    /// Runs pending updates and returns a list of changes.
-    pub fn run_updates(&mut self) -> Vec<(ChunkPos, u8, u8)> {
+    /// Runs pending updates and returns a deduplicated map of chunk level changes.
+    ///
+    /// Like Java's `LoadingChunkTracker`, uses a `HashSet`-like structure to collect
+    /// chunks that need updating. Each chunk appears at most once with its final level.
+    pub fn run_updates(&mut self) -> FxHashMap<ChunkPos, u8> {
         let ticket_storage = &self.ticket_storage;
-        self.tracker
-            .process_all_updates(|p| ticket_level_or_max(ticket_storage, p))
+        let mut chunks_to_update: FxHashMap<ChunkPos, u8> = FxHashMap::default();
+
+        self.tracker.process_all_updates(
+            |p| ticket_level_or_max(ticket_storage, p),
+            |pos, new_level| {
+                // Like Java's chunksToUpdateFutures.add(chunk), this deduplicates.
+                // The last level written wins (which is the final level after all updates).
+                chunks_to_update.insert(pos, new_level);
+            },
+        );
+
+        chunks_to_update
     }
 
     /// Purges expired tickets and updates the tracker.
