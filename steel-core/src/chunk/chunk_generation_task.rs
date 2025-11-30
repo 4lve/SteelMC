@@ -25,7 +25,7 @@ pub struct StaticCache2D<T> {
     min_x: i32,
     min_z: i32,
     size: i32,
-    /// Cache stored in row-major order X-then-Z.
+    /// Cache stored in row-major order Z-then-X.
     cache: Vec<T>,
 }
 
@@ -131,6 +131,7 @@ impl ChunkGenerationTask {
     /// Creates a new generation task.
     #[must_use]
     #[allow(clippy::unwrap_used, clippy::missing_panics_doc)]
+    #[inline]
     pub fn new(
         pos: ChunkPos,
         target_status: ChunkStatus,
@@ -148,7 +149,6 @@ impl ChunkGenerationTask {
                 .chunks
                 .read_sync(&ChunkPos::new(x, y), |_, chunk_holder| chunk_holder.clone())
                 .expect("The chunkholder should be created by distance manager before the generation task is scheduled. This occurring means there is a bug in the distance manager or you called this yourself.")
-                .clone()
         });
 
         Self {

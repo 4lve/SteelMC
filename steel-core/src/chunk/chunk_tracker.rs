@@ -146,25 +146,29 @@ impl ChunkTracker {
     }
 
     /// Processes all pending updates in the queue.
+    ///
+    /// Calls `set_level(pos, new_level)` for each chunk whose level changes.
+    /// Like Java's `DynamicGraphMinFixedPoint.runUpdates`, this may call `set_level`
+    /// multiple times for the same chunk during a single run (e.g., first to MAX_LEVEL,
+    /// then to the final level). Use a `HashSet` in the callback to deduplicate if needed.
     #[inline]
     pub fn process_all_updates(
         &mut self,
         get_ticket_level: impl Fn(ChunkPos) -> u8,
-    ) -> Vec<(ChunkPos, u8, u8)> {
-        let mut changes = Vec::new();
-
+        mut set_level: impl FnMut(ChunkPos, u8),
+    ) {
         while let Some((pos, computed_level)) = self.dequeue() {
             let current_level = self.get_level(pos);
 
             if computed_level < current_level {
                 // Level is decreasing - update and propagate decrease to neighbors
                 self.levels.insert(pos, computed_level);
-                changes.push((pos, current_level, computed_level));
+                set_level(pos, computed_level);
                 self.check_neighbors_after_update(pos, computed_level, true, &get_ticket_level);
             } else if computed_level > current_level {
                 // Level is increasing - first set to MAX, then propagate
                 self.levels.insert(pos, MAX_LEVEL);
-                changes.push((pos, current_level, MAX_LEVEL));
+                set_level(pos, MAX_LEVEL);
 
                 // Re-enqueue if not yet at desired level
                 if computed_level != MAX_LEVEL {
@@ -175,8 +179,6 @@ impl ChunkTracker {
                 self.check_neighbors_after_update(pos, current_level, false, &get_ticket_level);
             }
         }
-
-        changes
     }
 
     /// Checks and updates neighbors after a level change.
@@ -302,7 +304,7 @@ mod tests {
 
         // Add ticket
         tracker.update(pos, 31, |_| MAX_LEVEL);
-        tracker.process_all_updates(|p| if p == pos { 31 } else { MAX_LEVEL });
+        tracker.process_all_updates(|p| if p == pos { 31 } else { MAX_LEVEL }, |_, _| {});
 
         assert_eq!(tracker.get_level(pos), 31);
         assert_eq!(tracker.get_level(ChunkPos::new(1, 0)), 32);
@@ -315,11 +317,11 @@ mod tests {
 
         // Setup initial state
         tracker.update(pos, 31, |_| MAX_LEVEL);
-        tracker.process_all_updates(|p| if p == pos { 31 } else { MAX_LEVEL });
+        tracker.process_all_updates(|p| if p == pos { 31 } else { MAX_LEVEL }, |_, _| {});
 
         // Remove ticket
         tracker.update(pos, MAX_LEVEL, |_| MAX_LEVEL);
-        tracker.process_all_updates(|_| MAX_LEVEL);
+        tracker.process_all_updates(|_| MAX_LEVEL, |_, _| {});
 
         assert_eq!(tracker.get_level(pos), MAX_LEVEL);
         assert_eq!(tracker.get_level(ChunkPos::new(1, 0)), MAX_LEVEL);
@@ -336,15 +338,18 @@ mod tests {
         tracker.update(center, 31, |_| MAX_LEVEL);
         tracker.update(neighbor, 33, |_| MAX_LEVEL);
 
-        tracker.process_all_updates(|p| {
-            if p == center {
-                31
-            } else if p == neighbor {
-                33
-            } else {
-                MAX_LEVEL
-            }
-        });
+        tracker.process_all_updates(
+            |p| {
+                if p == center {
+                    31
+                } else if p == neighbor {
+                    33
+                } else {
+                    MAX_LEVEL
+                }
+            },
+            |_, _| {},
+        );
 
         assert_eq!(tracker.get_level(center), 31);
         assert_eq!(tracker.get_level(neighbor), 32); // Propagated from center is better than 33
@@ -352,7 +357,7 @@ mod tests {
         // Remove center ticket. Neighbor ticket remains 33.
         // Center should become 34 (from neighbor 33). Neighbor becomes 33 (its ticket).
         tracker.update(center, MAX_LEVEL, |_| MAX_LEVEL);
-        tracker.process_all_updates(|p| if p == neighbor { 33 } else { MAX_LEVEL });
+        tracker.process_all_updates(|p| if p == neighbor { 33 } else { MAX_LEVEL }, |_, _| {});
 
         assert_eq!(tracker.get_level(neighbor), 33);
         assert_eq!(tracker.get_level(center), 34);
@@ -366,14 +371,14 @@ mod tests {
 
         // Setup: Center has ticket 31.
         tracker.update(center, 31, |_| MAX_LEVEL);
-        tracker.process_all_updates(|p| if p == center { 31 } else { MAX_LEVEL });
+        tracker.process_all_updates(|p| if p == center { 31 } else { MAX_LEVEL }, |_, _| {});
 
         assert_eq!(tracker.get_level(center), 31);
         assert_eq!(tracker.get_level(neighbor), 32);
 
         // Remove ticket. Both should unload.
         tracker.update(center, MAX_LEVEL, |_| MAX_LEVEL);
-        tracker.process_all_updates(|_| MAX_LEVEL);
+        tracker.process_all_updates(|_| MAX_LEVEL, |_, _| {});
 
         assert_eq!(tracker.get_level(center), MAX_LEVEL);
         assert_eq!(tracker.get_level(neighbor), MAX_LEVEL);

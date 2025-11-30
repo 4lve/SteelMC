@@ -74,6 +74,7 @@ impl ChunkMap {
     }
 
     /// Schedules a new generation task.
+    #[inline]
     pub(crate) fn schedule_generation_task_b(
         self: &Arc<Self>,
         target_status: ChunkStatus,
@@ -210,7 +211,7 @@ impl ChunkMap {
             .collect();
 
         let start_process_changes = tokio::time::Instant::now();
-        let deduped_len = deduped.len();
+        let changes_len = changes.len();
 
         let updates_to_schedule: Vec<(_, _)> = deduped
             .into_iter()
@@ -227,11 +228,10 @@ impl ChunkMap {
         {
             let per_change =
                 process_elapsed.as_secs_f64() * 1_000_000.0 / updates_to_schedule.len() as f64;
-            // Show unique (deduped) vs scheduled counts. Avoid unsigned underflow from incorrect subtraction.
             log::warn!(
-                "process changes: {:?} ({} unique, {} scheduled, {:.2}µs/change)",
+                "process changes: {:?} ({} changes, {} scheduled, {:.2}µs/change)",
                 process_elapsed,
-                deduped_len,
+                changes_len,
                 updates_to_schedule.len(),
                 per_change
             );
