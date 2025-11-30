@@ -146,7 +146,7 @@ impl ChunkGenerationTask {
         let cache = StaticCache2D::create(pos.0.x, pos.0.y, worst_case_radius, move |x, y| {
             chunk_map_clone
                 .chunks
-                .get_sync(&ChunkPos::new(x, y))
+                .read_sync(&ChunkPos::new(x, y), |_, chunk_holder| chunk_holder.clone())
                 .expect("The chunkholder should be created by distance manager before the generation task is scheduled. This occurring means there is a bug in the distance manager or you called this yourself.")
                 .clone()
         });

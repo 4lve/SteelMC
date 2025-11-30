@@ -170,21 +170,13 @@ impl ChunkMap {
     }
 
     fn remove_from_unloading(&self, pos: &ChunkPos) -> Option<Arc<ChunkHolder>> {
-        if let Some(mut guard) = self.unloading_chunks.try_lock() {
-            guard.remove(pos)
-        } else {
-            let mut guard = self.unloading_chunks.lock();
-            guard.remove(pos)
-        }
+        let mut guard = self.unloading_chunks.lock();
+        guard.remove(pos)
     }
 
     fn insert_into_unloading(&self, pos: ChunkPos, holder: Arc<ChunkHolder>) {
-        if let Some(mut guard) = self.unloading_chunks.try_lock() {
-            let _ = guard.insert(pos, holder);
-        } else {
-            let mut guard = self.unloading_chunks.lock();
-            let _ = guard.insert(pos, holder);
-        }
+        let mut guard = self.unloading_chunks.lock();
+        let _ = guard.insert(pos, holder);
     }
 
     /// Processes chunk updates.
