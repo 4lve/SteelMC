@@ -27,7 +27,6 @@ impl ChunkLevel {
             let clamped_distance = distance.min(max_distance);
 
             deps.get(clamped_distance)
-                .or_else(|| deps.get(max_distance))
         }
     }
 
