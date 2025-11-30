@@ -205,15 +205,10 @@ impl ChunkMap {
             log::warn!("distance_manager run_updates slow: {updates_elapsed:?}");
         }
 
-        let deduped: FxHashMap<_, _> = changes
-            .iter()
-            .map(|(pos, _, new_level)| (*pos, *new_level))
-            .collect();
-
         let start_process_changes = tokio::time::Instant::now();
         let changes_len = changes.len();
 
-        let updates_to_schedule: Vec<(_, _)> = deduped
+        let updates_to_schedule: Vec<(_, _)> = changes
             .into_iter()
             .filter_map(|(pos, new_level)| {
                 self.update_chunk_level(&pos, new_level)
