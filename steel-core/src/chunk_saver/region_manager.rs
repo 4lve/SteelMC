@@ -677,10 +677,23 @@ impl RegionManager {
         pos: ChunkPos,
         status: ChunkStatus,
     ) -> ChunkAccess {
+        use crate::chunk::light_storage::LightStorage;
+
         let sections: Vec<ChunkSection> = persistent
             .sections
             .iter()
             .map(|section| self.persistent_to_section(section, persistent))
+            .collect();
+
+        let section_count = sections.len();
+
+        // Initialize light storage for loaded chunks
+        // TODO: Load actual light data from persistent storage
+        let sky_light = (0..(section_count + 2))
+            .map(|_| LightStorage::new_empty())
+            .collect();
+        let block_light = (0..(section_count + 2))
+            .map(|_| LightStorage::new_empty())
             .collect();
 
         match status {
@@ -690,6 +703,8 @@ impl RegionManager {
                         .into_iter()
                         .map(|section| Arc::new(SyncRwLock::new(section)))
                         .collect(),
+                    sky_light,
+                    block_light,
                 },
                 pos,
             )),
@@ -699,6 +714,8 @@ impl RegionManager {
                         .into_iter()
                         .map(|section| Arc::new(SyncRwLock::new(section)))
                         .collect(),
+                    sky_light,
+                    block_light,
                 },
                 pos,
             )),

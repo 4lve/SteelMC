@@ -3,13 +3,22 @@ use std::{fmt::Debug, io::Cursor, sync::Arc};
 
 use steel_utils::{BlockStateId, locks::SyncRwLock, serial::WriteTo};
 
-use crate::chunk::paletted_container::{BiomePalette, BlockPalette};
+use crate::chunk::{
+    light_storage::LightStorage,
+    paletted_container::{BiomePalette, BlockPalette},
+};
 
 /// A collection of chunk sections.
 #[derive(Debug, Clone)]
 pub struct Sections {
     /// The sections in the collection.
     pub sections: Box<[Arc<SyncRwLock<ChunkSection>>]>,
+    /// Sky light data for each section.
+    /// Note: Length is `sections.len() + 2` for padding above and below.
+    pub sky_light: Box<[LightStorage]>,
+    /// Block light data for each section.
+    /// Note: Length is `sections.len() + 2` for padding above and below.
+    pub block_light: Box<[LightStorage]>,
 }
 
 impl Sections {

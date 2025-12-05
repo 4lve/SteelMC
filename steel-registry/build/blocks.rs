@@ -71,6 +71,13 @@ pub struct Collision {
 }
 
 #[derive(Deserialize, Clone, Debug)]
+pub struct BlockState {
+    pub id: u16,
+    pub luminance: u8,
+    pub opacity: u8,
+}
+
+#[derive(Deserialize, Clone, Debug)]
 pub struct Block {
     #[allow(dead_code)]
     pub id: u16,
@@ -80,6 +87,7 @@ pub struct Block {
     pub default_properties: Vec<String>,
     pub behavior_properties: BlockBehaviourProperties,
     pub collisions: Collision,
+    pub states: Vec<BlockState>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -341,17 +349,66 @@ pub(crate) fn build() -> TokenStream {
         });
     }
 
+    // Collect all block states for light data lookup
+    let mut all_states: Vec<(u16, u8, u8)> = Vec::new();
+    for block in &block_assets.blocks {
+        for state in &block.states {
+            all_states.push((state.id, state.luminance, state.opacity));
+        }
+    }
+    // Sort by state ID to ensure consistent ordering
+    all_states.sort_by_key(|(id, _, _)| *id);
+
+    // Find the maximum state ID to determine array size
+    let max_state_id = all_states
+        .iter()
+        .map(|(id, _, _)| *id as usize)
+        .max()
+        .unwrap_or(0);
+
+    // Create arrays for luminance and opacity indexed by state ID
+    let mut luminance_array = vec![0u8; max_state_id + 1];
+    let mut opacity_array = vec![0u8; max_state_id + 1];
+
+    for (id, luminance, opacity) in &all_states {
+        luminance_array[*id as usize] = *luminance;
+        opacity_array[*id as usize] = *opacity;
+    }
+
+    // Generate const arrays as token streams
+    let luminance_values = luminance_array.iter().map(|v| quote! { #v });
+    let opacity_values = opacity_array.iter().map(|v| quote! { #v });
+    let array_size = max_state_id + 1;
+
     quote! {
         use crate::{
             blocks::{behaviour::{BlockBehaviourProperties, PushReaction}, Block, offset, BlockRegistry},
             blocks::properties::{self, BlockStateProperties, NoteBlockInstrument}
         };
-        use steel_utils::Identifier;
+        use steel_utils::{Identifier, BlockStateId};
 
         #stream
 
         pub fn register_blocks(registry: &mut BlockRegistry) {
             #register_stream
+        }
+
+        /// Lookup table for block light emission (luminance) indexed by BlockStateId
+        pub const BLOCK_LUMINANCE: [u8; #array_size] = [#(#luminance_values),*];
+
+        /// Lookup table for light opacity indexed by BlockStateId
+        pub const BLOCK_OPACITY: [u8; #array_size] = [#(#opacity_values),*];
+
+        /// Gets the light emission level (0-15) for a block state
+        #[inline]
+        pub fn get_block_luminance(state: BlockStateId) -> u8 {
+            BLOCK_LUMINANCE.get(state.0 as usize).copied().unwrap_or(0)
+        }
+
+        /// Gets the light opacity (0-15) for a block state
+        #[inline]
+        pub fn get_block_opacity(state: BlockStateId) -> u8 {
+            BLOCK_OPACITY.get(state.0 as usize).copied().unwrap_or(0)
         }
     }
 }

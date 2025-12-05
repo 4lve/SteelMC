@@ -78,11 +78,19 @@ impl LevelChunk {
         let mut sky_updates = Vec::new();
         let mut block_updates = Vec::new();
 
-        for i in 0..section_count {
+        // Extract light data from stored sections
+        // Note: sky_light and block_light have section_count + 2 entries (padding above/below)
+        // Indices: 0 = bottom padding, 1..=section_count = actual sections, section_count+1 = top padding
+        // We skip the TOP padding (always Homogeneous(15)) but include bottom padding (can have light if bedrock broken)
+        // So we send indices 0 through section_count (inclusive), which is section_count+1 total sections
+        for i in 0..=section_count {
+            // Set masks to indicate we have light data for this section
             sky_y_mask.set(i, true);
             block_y_mask.set(i, true);
-            sky_updates.push(vec![0xFF; 2048]);
-            block_updates.push(vec![0xFF; 2048]);
+
+            // Get the packet data for this section (index i maps directly to storage)
+            sky_updates.push(self.sections.sky_light[i].to_packet_data());
+            block_updates.push(self.sections.block_light[i].to_packet_data());
         }
 
         LightUpdatePacketData {

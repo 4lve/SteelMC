@@ -23,12 +23,38 @@ impl ChunkStatusTasks {
         _cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
         holder: Arc<ChunkHolder>,
     ) -> Result<(), anyhow::Error> {
+        use crate::chunk::light_storage::LightStorage;
+
+        // TODO: Check if chunk exists on disk and load it.
+        // For now, create a new empty chunk.
         let sections = (0..24) // Standard height?
             .map(|_| ChunkSection::new_empty())
             .collect::<Vec<_>>()
             .into_boxed_slice();
 
-        let proto_chunk = ProtoChunk::new(Sections::from_owned(sections), holder.get_pos());
+        let section_count = sections.len();
+
+        // Initialize light storage (sections.len() + 2 for padding above and below)
+        // Sky light starts at 0, block light starts at 0
+        let sky_light = (0..(section_count + 2))
+            .map(|_| LightStorage::new_empty())
+            .collect();
+        let block_light = (0..(section_count + 2))
+            .map(|_| LightStorage::new_empty())
+            .collect();
+
+        // TODO: Use upgrade_to_full if the loaded chunk is full.
+        let proto_chunk = ProtoChunk::new(
+            Sections {
+                sections: sections
+                    .into_iter()
+                    .map(|section| Arc::new(SyncRwLock::new(section)))
+                    .collect(),
+                sky_light,
+                block_light,
+            },
+            holder.get_pos(),
+        );
 
         //log::info!("Inserted proto chunk for {:?}", holder.get_pos());
 
@@ -119,12 +145,122 @@ impl ChunkStatusTasks {
         Ok(())
     }
 
+    /// Initializes lighting for the chunk.
+    ///
+    /// # Panics
+    /// Panics if the chunk is not at `ChunkStatus::Features` or higher.
     pub fn initialize_light(
         _context: Arc<WorldGenContext>,
         _step: &ChunkStep,
         _cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
-        _holder: Arc<ChunkHolder>,
+        holder: Arc<ChunkHolder>,
     ) -> Result<(), anyhow::Error> {
+        use crate::chunk::light_storage::LightStorage;
+        use steel_registry::vanilla_blocks::get_block_opacity;
+        use steel_utils::BlockStateId;
+
+        let chunk = holder
+            .try_chunk(ChunkStatus::Features)
+            .expect("Chunk not found at status Features");
+
+        let mut chunk_guard = ChunkGuard::new(chunk);
+        let sections = match &mut *chunk_guard {
+            ChunkAccess::Proto(proto_chunk) => &mut proto_chunk.sections,
+            ChunkAccess::Full(level_chunk) => &mut level_chunk.sections,
+        };
+
+        let num_sections = sections.sections.len();
+        debug_assert_eq!(sections.sky_light.len(), num_sections + 2);
+        debug_assert_eq!(sections.block_light.len(), num_sections + 2);
+
+        // Block light: stays at 0 (already initialized in empty stage)
+
+        // Sky light: Fill homogeneous sections from top down until we hit non-air blocks
+        let mut current_section = 0;
+
+        // Scan from top to bottom to find sections that are all air
+        for index in (0..num_sections + 2).rev() {
+            // First section (bottom padding) is always empty (0)
+            if index == 0 {
+                sections.sky_light[index] = LightStorage::new_empty();
+            } else if index == num_sections + 1 {
+                // Top padding is always full light
+                sections.sky_light[index] = LightStorage::new_filled(15);
+            } else if let Some(section) = sections.sections.get(index - 1) {
+                // Check if section is all air (homogeneous with value 0)
+                let is_all_air = match &section.states {
+                    crate::chunk::paletted_container::PalettedContainer::Homogeneous(id) => {
+                        *id == BlockStateId(0)
+                    }
+                    crate::chunk::paletted_container::PalettedContainer::Heterogeneous(_) => false,
+                };
+
+                if is_all_air {
+                    sections.sky_light[index] = LightStorage::new_filled(15);
+                    current_section = index;
+                } else {
+                    // Hit a section with blocks, stop filling homogeneous
+                    break;
+                }
+            }
+        }
+
+        // Now do per-block light propagation for remaining sections
+        // current_section is the highest section with all air (or 0 if none)
+        let start_section = if current_section > 0 {
+            current_section - 1
+        } else {
+            0
+        };
+
+        for x in 0..16 {
+            for z in 0..16 {
+                let mut light = 15u8;
+
+                // Iterate from top section down to bottom
+                for section_idx in (0..=start_section).rev() {
+                    if section_idx == 0 {
+                        // Bottom padding, skip
+                        continue;
+                    }
+
+                    let actual_section_idx = section_idx - 1;
+                    if actual_section_idx >= num_sections {
+                        continue;
+                    }
+
+                    let section = &sections.sections[actual_section_idx];
+
+                    // Iterate through y in this section from top to bottom
+                    for y in (0..16).rev() {
+                        let block_state = section.states.get(x, y, z);
+                        let is_air = block_state == BlockStateId(0);
+
+                        if is_air {
+                            // Air block: set full light
+                            sections.sky_light[section_idx].set(x, y, z, light);
+                        } else {
+                            // Non-air block: reduce light by opacity
+                            let opacity = get_block_opacity(block_state);
+
+                            light = light.saturating_sub(opacity);
+
+                            sections.sky_light[section_idx].set(x, y, z, light);
+
+                            // If light reaches 0, stop propagating down this column
+                            if light == 0 {
+                                break;
+                            }
+                        }
+                    }
+
+                    if light == 0 {
+                        break;
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
 
