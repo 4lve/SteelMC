@@ -8,10 +8,12 @@ use crate::chunk::{
     chunk_generator::ChunkGenerator,
     chunk_holder::ChunkHolder,
     chunk_pyramid::ChunkStep,
+    light_storage::LightStorage,
     proto_chunk::ProtoChunk,
     section::{ChunkSection, Sections},
     world_gen_context::WorldGenContext,
 };
+use steel_utils::BlockStateId;
 
 pub struct ChunkStatusTasks;
 
@@ -155,10 +157,6 @@ impl ChunkStatusTasks {
         _cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
         holder: Arc<ChunkHolder>,
     ) -> Result<(), anyhow::Error> {
-        use crate::chunk::light_storage::LightStorage;
-        use steel_registry::vanilla_blocks::get_block_opacity;
-        use steel_utils::BlockStateId;
-
         let chunk = holder
             .try_chunk(ChunkStatus::Features)
             .expect("Chunk not found at status Features");
@@ -215,8 +213,6 @@ impl ChunkStatusTasks {
 
         for x in 0..16 {
             for z in 0..16 {
-                let mut light = 15u8;
-
                 // Iterate from top section down to bottom
                 for section_idx in (0..=start_section).rev() {
                     if section_idx == 0 {
@@ -237,25 +233,12 @@ impl ChunkStatusTasks {
                         let is_air = block_state == BlockStateId(0);
 
                         if is_air {
-                            // Air block: set full light
-                            sections.sky_light[section_idx].set(x, y, z, light);
+                            // Air block: set full light (15)
+                            sections.sky_light[section_idx].set(x, y, z, 15);
                         } else {
-                            // Non-air block: reduce light by opacity
-                            let opacity = get_block_opacity(block_state);
-
-                            light = light.saturating_sub(opacity);
-
-                            sections.sky_light[section_idx].set(x, y, z, light);
-
-                            // If light reaches 0, stop propagating down this column
-                            if light == 0 {
-                                break;
-                            }
+                            // Hit a non-air block: stop propagating down this column
+                            break;
                         }
-                    }
-
-                    if light == 0 {
-                        break;
                     }
                 }
             }
@@ -270,6 +253,11 @@ impl ChunkStatusTasks {
         _cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
         _holder: Arc<ChunkHolder>,
     ) -> Result<(), anyhow::Error> {
+        // TODO: Implement light propagation
+        // Now that all light sources are in place, propagate light throughout the chunk.
+        // (Block light sources are blocks that have non-zero light emission values.)
+        // The sky light was initialized to 15 from the top down in the initialize_light step.
+        // Now, we just need to propagate light from these sources.
         Ok(())
     }
 
