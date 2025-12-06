@@ -189,7 +189,7 @@ impl ChunkStatusTasks {
     pub fn light(
         context: Arc<WorldGenContext>,
         _step: &ChunkStep,
-        _cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
+        cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
         holder: Arc<ChunkHolder>,
     ) -> Result<(), anyhow::Error> {
         let chunk = holder
@@ -197,7 +197,8 @@ impl ChunkStatusTasks {
             .expect("Chunk not found at status InitializeLight");
 
         let is_lighted = true; // TODO: Implement isLighted(chunk) check
-        context.light_engine.light_chunk(chunk, is_lighted)?;
+        let mut guard = ChunkGuard::new(chunk);
+        context.light_engine.light_chunk_with_cache(&mut guard, cache, is_lighted)?;
 
         Ok(())
     }

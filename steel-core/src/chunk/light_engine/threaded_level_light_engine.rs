@@ -3,12 +3,12 @@
 //! This extends the base `LightEngine` with asynchronous task scheduling and batched execution.
 //! Tasks are divided into `PRE_UPDATE` (setup) and `POST_UPDATE` (completion) phases.
 
-use std::sync::Arc;
+use std::{cell::RefCell, sync::Arc};
 
 use parking_lot::{Mutex, RwLock as ParkingRwLock};
 use steel_utils::{BlockPos, BlockStateId, ChunkPos};
 
-use crate::chunk::{chunk_access::ChunkAccess, section::{ChunkSection, Sections}};
+use crate::chunk::{chunk_access::{ChunkAccess, ChunkStatus}, chunk_generation_task::StaticCache2D, chunk_generator::ChunkGuard, section::{ChunkSection}};
 
 use super::base::{LightChunkAccess, LightEngine};
 
@@ -16,78 +16,218 @@ use super::base::{LightChunkAccess, LightEngine};
 ///
 /// This is used during chunk generation when neighbors may not be loaded yet.
 /// Light propagation is limited to within the chunk boundaries.
-struct SingleChunkLightAccess<'a> {
-    sections: &'a mut Sections,
-    chunk_pos: ChunkPos,
+/// Multi-chunk light access implementation for cross-chunk light propagation.
+///
+/// This implementation accesses the center chunk and up to 8 neighboring chunks,
+/// using the `yield_lock` pattern to safely access neighbor chunks during propagation.
+struct ChunkLightAccess<'access, 'guard> {
+    /// The center chunk guard (uses RefCell for interior mutability to support yield_lock).
+    center_guard: RefCell<&'access mut crate::chunk::chunk_generator::ChunkGuard<'guard>>,
+    /// Cache of all chunks in a radius (includes center and neighbors).
+    cache: &'access crate::chunk::chunk_generation_task::StaticCache2D<Arc<crate::chunk::chunk_holder::ChunkHolder>>,
+    /// Minimum Y coordinate of the world.
     chunk_min_y: i32,
 }
 
-impl<'a> SingleChunkLightAccess<'a> {
-    fn new(sections: &'a mut Sections, chunk_pos: ChunkPos, chunk_min_y: i32) -> Self {
+impl<'access, 'guard> ChunkLightAccess<'access, 'guard> {
+    fn new(
+        center_guard: &'access mut crate::chunk::chunk_generator::ChunkGuard<'guard>,
+        cache: &'access crate::chunk::chunk_generation_task::StaticCache2D<Arc<crate::chunk::chunk_holder::ChunkHolder>>,
+        chunk_min_y: i32,
+    ) -> Self {
         Self {
-            sections,
-            chunk_pos,
+            center_guard: std::cell::RefCell::new(center_guard),
+            cache,
             chunk_min_y,
         }
     }
 
-    /// Converts world block position to chunk-relative coordinates.
-    /// Returns None if position is outside this chunk.
-    fn world_to_chunk_relative(&self, pos: BlockPos) -> Option<(usize, usize, usize)> {
-        let chunk_min_x = self.chunk_pos.0.x * 16;
-        let chunk_min_z = self.chunk_pos.0.y * 16;
+    /// Gets the chunk position and sections for a given world block position.
+    /// Returns None if the chunk is not available in the cache.
+    fn get_chunk_for_pos(&self, pos: BlockPos) -> Option<(ChunkPos, i32, i32)> {
+        let chunk_x = pos.0.x >> 4; // Divide by 16
+        let chunk_z = pos.0.z >> 4;
+        let chunk_pos = ChunkPos(steel_utils::math::Vector2::new(chunk_x, chunk_z));
 
-        let rel_x = pos.0.x - chunk_min_x;
+        let rel_x = pos.0.x & 15; // Modulo 16
         let rel_y = pos.0.y - self.chunk_min_y;
-        let rel_z = pos.0.z - chunk_min_z;
+        let rel_z = pos.0.z & 15;
 
-        if rel_x >= 0 && rel_x < 16 && rel_z >= 0 && rel_z < 16 && rel_y >= 0 {
-            Some((rel_x as usize, rel_y as usize, rel_z as usize))
-        } else {
-            None
-        }
+        Some((chunk_pos, rel_x | (rel_y << 4) | (rel_z << 20), rel_y))
+    }
+
+    /// Unpacks the packed coordinates.
+    fn unpack_coords(packed: i32) -> (usize, usize, usize) {
+        let rel_x = (packed & 15) as usize;
+        let rel_y = ((packed >> 4) & 0xFFFF) as usize;
+        let rel_z = ((packed >> 20) & 15) as usize;
+        (rel_x, rel_y, rel_z)
     }
 }
 
-impl<'a> LightChunkAccess for SingleChunkLightAccess<'a> {
+impl<'access, 'guard> LightChunkAccess for ChunkLightAccess<'access, 'guard> {
     fn get_light(&self, pos: BlockPos) -> u8 {
-        let Some((rel_x, rel_y, rel_z)) = self.world_to_chunk_relative(pos) else {
-            return 0; // Out of bounds = no light
+        let Some((chunk_pos, packed_coords, _rel_y)) = self.get_chunk_for_pos(pos) else {
+            return 0;
         };
 
-        let section_idx = rel_y / 16;
-        let section_y = rel_y % 16;
-        let light_section_idx = section_idx + 1; // +1 for padding
+        let center_guard = self.center_guard.borrow();
+        let center_pos = match &***center_guard {
+            ChunkAccess::Proto(proto) => proto.pos,
+            ChunkAccess::Full(full) => full.pos,
+        };
 
-        if light_section_idx < self.sections.block_light.len() {
-            self.sections.block_light[light_section_idx].get(rel_x, section_y, rel_z)
+        if chunk_pos == center_pos {
+            // Fast path: access center chunk directly
+            let (rel_x, rel_y, rel_z) = Self::unpack_coords(packed_coords);
+            let sections = match &***center_guard {
+                ChunkAccess::Proto(proto) => &proto.sections,
+                ChunkAccess::Full(full) => &full.sections,
+            };
+
+            let section_idx = rel_y / 16;
+            let section_y = rel_y % 16;
+            let light_section_idx = section_idx + 1;
+
+            if light_section_idx < sections.block_light.len() {
+                sections.block_light[light_section_idx].get(rel_x, section_y, rel_z)
+            } else {
+                0
+            }
         } else {
-            0
+            // Slow path: yield lock and access neighbor chunk
+            drop(center_guard);
+            let mut center_guard_mut = self.center_guard.borrow_mut();
+            center_guard_mut.yield_lock(|| {
+                let chunk_holder = self.cache.get(chunk_pos.0.x, chunk_pos.0.y);
+                if let Some(chunk_lock) = chunk_holder.try_chunk(ChunkStatus::Light) {
+                    let chunk_guard_inner = chunk_lock.read();
+                    if let Some(chunk_access) = &*chunk_guard_inner {
+                        let (rel_x, rel_y, rel_z) = Self::unpack_coords(packed_coords);
+                        let sections = match chunk_access {
+                            ChunkAccess::Proto(proto) => &proto.sections,
+                            ChunkAccess::Full(full) => &full.sections,
+                        };
+
+                        let section_idx = rel_y / 16;
+                        let section_y = rel_y % 16;
+                        let light_section_idx = section_idx + 1;
+
+                        if light_section_idx < sections.block_light.len() {
+                            sections.block_light[light_section_idx].get(rel_x, section_y, rel_z)
+                        } else {
+                            0
+                        }
+                    } else {
+                        0
+                    }
+                } else {
+                    0
+                }
+            })
         }
     }
 
     fn set_light(&mut self, pos: BlockPos, level: u8) {
-        let Some((rel_x, rel_y, rel_z)) = self.world_to_chunk_relative(pos) else {
-            return; // Out of bounds = ignore
+        let Some((chunk_pos, packed_coords, _rel_y)) = self.get_chunk_for_pos(pos) else {
+            return;
         };
 
-        let section_idx = rel_y / 16;
-        let section_y = rel_y % 16;
-        let light_section_idx = section_idx + 1; // +1 for padding
+        let mut center_guard = self.center_guard.borrow_mut();
+        let center_pos = match &***center_guard {
+            ChunkAccess::Proto(proto) => proto.pos,
+            ChunkAccess::Full(full) => full.pos,
+        };
 
-        if light_section_idx < self.sections.block_light.len() {
-            self.sections.block_light[light_section_idx].set(rel_x, section_y, rel_z, level);
+        if chunk_pos == center_pos {
+            // Fast path: access center chunk directly
+            let (rel_x, rel_y, rel_z) = Self::unpack_coords(packed_coords);
+            let sections = match &mut ***center_guard {
+                ChunkAccess::Proto(proto) => &mut proto.sections,
+                ChunkAccess::Full(full) => &mut full.sections,
+            };
+
+            let section_idx = rel_y / 16;
+            let section_y = rel_y % 16;
+            let light_section_idx = section_idx + 1;
+
+            if light_section_idx < sections.block_light.len() {
+                sections.block_light[light_section_idx].set(rel_x, section_y, rel_z, level);
+            }
+        } else {
+            // Slow path: yield lock and access neighbor chunk
+            center_guard.yield_lock(|| {
+                let chunk_holder = self.cache.get(chunk_pos.0.x, chunk_pos.0.y);
+                if let Some(chunk_lock) = chunk_holder.try_chunk(ChunkStatus::Light) {
+                    let mut chunk_guard_inner = chunk_lock.write();
+                    if let Some(chunk_access) = &mut *chunk_guard_inner {
+                        let (rel_x, rel_y, rel_z) = Self::unpack_coords(packed_coords);
+                        let sections = match chunk_access {
+                            ChunkAccess::Proto(proto) => &mut proto.sections,
+                            ChunkAccess::Full(full) => &mut full.sections,
+                        };
+
+                        let section_idx = rel_y / 16;
+                        let section_y = rel_y % 16;
+                        let light_section_idx = section_idx + 1;
+
+                        if light_section_idx < sections.block_light.len() {
+                            sections.block_light[light_section_idx].set(rel_x, section_y, rel_z, level);
+                        }
+                    }
+                }
+            });
         }
     }
 
     fn get_block_state(&self, pos: BlockPos) -> BlockStateId {
-        let Some((rel_x, rel_y, rel_z)) = self.world_to_chunk_relative(pos) else {
-            return BlockStateId(0); // Out of bounds = air
+        let Some((chunk_pos, packed_coords, _)) = self.get_chunk_for_pos(pos) else {
+            return BlockStateId(0);
         };
 
-        self.sections
-            .get_relative_block(rel_x, rel_y, rel_z)
-            .unwrap_or(BlockStateId(0))
+        let center_guard = self.center_guard.borrow();
+        let center_pos = match &***center_guard {
+            ChunkAccess::Proto(proto) => proto.pos,
+            ChunkAccess::Full(full) => full.pos,
+        };
+
+        if chunk_pos == center_pos {
+            // Fast path: access center chunk directly
+            let (rel_x, rel_y, rel_z) = Self::unpack_coords(packed_coords);
+            let sections = match &***center_guard {
+                ChunkAccess::Proto(proto) => &proto.sections,
+                ChunkAccess::Full(full) => &full.sections,
+            };
+
+            sections
+                .get_relative_block(rel_x, rel_y, rel_z)
+                .unwrap_or(BlockStateId(0))
+        } else {
+            // Slow path: yield lock and access neighbor chunk
+            drop(center_guard);
+            let mut center_guard_mut = self.center_guard.borrow_mut();
+            center_guard_mut.yield_lock(|| {
+                let chunk_holder = self.cache.get(chunk_pos.0.x, chunk_pos.0.y);
+                if let Some(chunk_lock) = chunk_holder.try_chunk(ChunkStatus::Light) {
+                    let chunk_guard_inner = chunk_lock.read();
+                    if let Some(chunk_access) = &*chunk_guard_inner {
+                        let (rel_x, rel_y, rel_z) = Self::unpack_coords(packed_coords);
+                        let sections = match chunk_access {
+                            ChunkAccess::Proto(proto) => &proto.sections,
+                            ChunkAccess::Full(full) => &full.sections,
+                        };
+
+                        sections
+                            .get_relative_block(rel_x, rel_y, rel_z)
+                            .unwrap_or(BlockStateId(0))
+                    } else {
+                        BlockStateId(0)
+                    }
+                } else {
+                    BlockStateId(0)
+                }
+            })
+        }
     }
 
     fn is_empty_shape(&self, pos: BlockPos) -> bool {
@@ -97,7 +237,7 @@ impl<'a> LightChunkAccess for SingleChunkLightAccess<'a> {
         if let Some(block) = REGISTRY.blocks.by_state_id(block_state) {
             !block.behaviour.has_collision
         } else {
-            true // Unknown blocks treated as empty
+            true
         }
     }
 }
@@ -272,26 +412,29 @@ impl ThreadedLevelLightEngine {
         }
     }
 
-    /// Propagates light throughout a chunk.
+    /// Propagates light throughout a chunk with cross-chunk support.
     ///
     /// This method:
     /// 1. Initializes sky light (fills air columns from top)
     /// 2. Scans for block light sources (blocks with luminance > 0)
     /// 3. Enqueues all light sources for propagation
-    /// 4. Runs the flood-fill light propagation algorithm
-    pub fn light_chunk(
+    /// 4. Runs the flood-fill light propagation algorithm with cross-chunk access
+    ///
+    /// Unlike `light_chunk`, this version uses a cache of neighboring chunks to enable
+    /// light propagation across chunk boundaries.
+    pub fn light_chunk_with_cache(
         &self,
-        chunk: &ParkingRwLock<Option<ChunkAccess>>,
+        chunk_guard: &mut ChunkGuard<'_>,
+        cache: &StaticCache2D<Arc<crate::chunk::chunk_holder::ChunkHolder>>,
         _light_enabled: bool,
     ) -> Result<(), anyhow::Error> {
-        use crate::chunk::{chunk_generator::ChunkGuard, light_storage::LightStorage};
+        use crate::chunk::light_storage::LightStorage;
         use steel_registry::vanilla_blocks;
         use steel_utils::{BlockPos, BlockStateId, math::Vector3};
 
         use super::queue_entry::QueueEntry;
 
-        let mut chunk_guard = ChunkGuard::new(chunk);
-        let (chunk_pos, sections) = match &mut *chunk_guard {
+        let (chunk_pos, sections) = match &mut **chunk_guard {
             ChunkAccess::Proto(proto_chunk) => (proto_chunk.pos, &mut proto_chunk.sections),
             ChunkAccess::Full(level_chunk) => (level_chunk.pos, &mut level_chunk.sections),
         };
@@ -398,17 +541,14 @@ impl ThreadedLevelLightEngine {
             }
         }
 
-        // ===== STEP 3: Create chunk access adapter and propagate =====
-        // Create a single-chunk access adapter (doesn't access neighbors)
-        let mut chunk_access = SingleChunkLightAccess::new(sections, chunk_pos, chunk_min_y);
+        // ===== STEP 3: Create multi-chunk access adapter and propagate =====
+        // Create a multi-chunk access adapter that can access neighbors
+        let mut chunk_access = ChunkLightAccess::new(chunk_guard, cache, chunk_min_y);
 
-        // Run the flood-fill light propagation algorithm
+        // Run the flood-fill light propagation algorithm with cross-chunk support
         engine.run_light_updates_with_access(&mut chunk_access);
 
-        // Note: Lights at chunk boundaries won't propagate to neighbors
-        // since SingleChunkLightAccess returns 0/air for out-of-chunk positions.
-        // Cross-chunk propagation will be added later once the chunk access
-        // architecture supports reading neighbor chunks during generation.
+        // Light now propagates across chunk boundaries via the yield_lock pattern!
 
         Ok(())
     }
