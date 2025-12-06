@@ -71,10 +71,22 @@ pub struct Collision {
 }
 
 #[derive(Deserialize, Clone, Debug)]
-pub struct BlockState {
-    pub id: u16,
+pub struct LightPropertiesDefault {
     pub luminance: u8,
     pub opacity: u8,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct LightOverwrite {
+    pub offset: u16,
+    pub luminance: u8,
+    pub opacity: u8,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct LightPropertiesData {
+    pub default: LightPropertiesDefault,
+    pub overwrites: Vec<LightOverwrite>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -87,7 +99,8 @@ pub struct Block {
     pub default_properties: Vec<String>,
     pub behavior_properties: BlockBehaviourProperties,
     pub collisions: Collision,
-    pub states: Vec<BlockState>,
+    pub light_properties: LightPropertiesData,
+    pub state_count: u16,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -350,10 +363,31 @@ pub(crate) fn build() -> TokenStream {
     }
 
     // Collect all block states for light data lookup
+    // Expand the default + overwrites pattern into a flat array
     let mut all_states: Vec<(u16, u8, u8)> = Vec::new();
+
+    // Track the next state ID (blocks are ordered, states are sequential)
+    let mut current_state_id = 0u16;
+
     for block in &block_assets.blocks {
-        for state in &block.states {
-            all_states.push((state.id, state.luminance, state.opacity));
+        let default_luminance = block.light_properties.default.luminance;
+        let default_opacity = block.light_properties.default.opacity;
+
+        // Create a map of offsets to their light properties
+        let mut offset_map = std::collections::HashMap::new();
+        for overwrite in &block.light_properties.overwrites {
+            offset_map.insert(overwrite.offset, (overwrite.luminance, overwrite.opacity));
+        }
+
+        // Iterate through states and assign light properties
+        for offset in 0..block.state_count {
+            let (luminance, opacity) = offset_map
+                .get(&offset)
+                .copied()
+                .unwrap_or((default_luminance, default_opacity));
+
+            all_states.push((current_state_id, luminance, opacity));
+            current_state_id += 1;
         }
     }
     // Sort by state ID to ensure consistent ordering
