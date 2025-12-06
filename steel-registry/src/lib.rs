@@ -7,7 +7,8 @@
 )]
 #![allow(internal_features)]
 
-use std::sync::LazyLock;
+use std::sync::Arc;
+
 use steel_utils::Identifier;
 
 use crate::{
@@ -219,7 +220,7 @@ pub const ZOMBIE_NAUTILUS_VARIANT_REGISTRY: Identifier =
 pub const TIMELINE_REGISTRY: Identifier = Identifier::vanilla_static("timeline");
 
 pub struct Registry {
-    pub blocks: BlockRegistry,
+    pub blocks: Arc<BlockRegistry>,
     pub items: ItemRegistry,
     pub data_components: DataComponentRegistry,
     pub biomes: BiomeRegistry,
@@ -322,7 +323,7 @@ impl Registry {
         vanilla_timeline_tags::register_timeline_tags(&mut timeline_registry);
 
         Self {
-            blocks: block_registry,
+            blocks: Arc::new(block_registry),
             data_components: data_component_registry,
             items: item_registry,
             biomes: biome_registry,
@@ -349,7 +350,9 @@ impl Registry {
     }
 
     pub fn freeze(&mut self) {
-        self.blocks.freeze();
+        Arc::get_mut(&mut self.blocks)
+            .expect("Cannot freeze BlockRegistry with multiple references")
+            .freeze();
         self.data_components.freeze();
         self.items.freeze();
         self.biomes.freeze();
@@ -374,15 +377,3 @@ impl Registry {
         self.timelines.freeze();
     }
 }
-
-/// Global vanilla registry instance.
-///
-/// This is lazily initialized on first access and contains all vanilla game registries
-/// (blocks, items, biomes, etc.). Use this for quick access to block/item properties.
-///
-/// # Example
-/// ```
-/// use steel_registry::REGISTRY;
-/// let block = REGISTRY.blocks.by_state_id(state_id);
-/// ```
-pub static REGISTRY: LazyLock<Registry> = LazyLock::new(Registry::new_vanilla);

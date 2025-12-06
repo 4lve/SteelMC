@@ -6,6 +6,7 @@
 use std::{cell::RefCell, sync::Arc};
 
 use parking_lot::{Mutex, RwLock as ParkingRwLock};
+use steel_registry::{blocks::BlockRegistry};
 use steel_utils::{BlockPos, BlockStateId, ChunkPos};
 
 use crate::chunk::{chunk_access::{ChunkAccess, ChunkStatus}, chunk_generation_task::StaticCache2D, chunk_generator::ChunkGuard, section::{ChunkSection}};
@@ -27,6 +28,7 @@ struct ChunkLightAccess<'access, 'guard> {
     cache: &'access crate::chunk::chunk_generation_task::StaticCache2D<Arc<crate::chunk::chunk_holder::ChunkHolder>>,
     /// Minimum Y coordinate of the world.
     chunk_min_y: i32,
+    block_registry: Arc<BlockRegistry>,
 }
 
 impl<'access, 'guard> ChunkLightAccess<'access, 'guard> {
@@ -34,11 +36,13 @@ impl<'access, 'guard> ChunkLightAccess<'access, 'guard> {
         center_guard: &'access mut crate::chunk::chunk_generator::ChunkGuard<'guard>,
         cache: &'access crate::chunk::chunk_generation_task::StaticCache2D<Arc<crate::chunk::chunk_holder::ChunkHolder>>,
         chunk_min_y: i32,
+        block_registry: Arc<BlockRegistry>,
     ) -> Self {
         Self {
             center_guard: std::cell::RefCell::new(center_guard),
             cache,
             chunk_min_y,
+            block_registry,
         }
     }
 
@@ -175,7 +179,7 @@ impl<'access, 'guard> LightChunkAccess for ChunkLightAccess<'access, 'guard> {
                             sections.block_light[light_section_idx].set(rel_x, section_y, rel_z, level);
                         }
                     }
-                }
+               }
             });
         }
     }
@@ -231,10 +235,8 @@ impl<'access, 'guard> LightChunkAccess for ChunkLightAccess<'access, 'guard> {
     }
 
     fn is_empty_shape(&self, pos: BlockPos) -> bool {
-        use steel_registry::REGISTRY;
-
         let block_state = self.get_block_state(pos);
-        if let Some(block) = REGISTRY.blocks.by_state_id(block_state) {
+        if let Some(block) = self.block_registry.by_state_id(block_state) {
             !block.behaviour.has_collision
         } else {
             true
@@ -280,15 +282,18 @@ pub struct ThreadedLevelLightEngine {
     light_engine: Arc<Mutex<LightEngine>>,
     /// Queued tasks waiting to be executed.
     light_tasks: Arc<Mutex<Vec<LightTask>>>,
+    /// Block registry for block properties.
+    block_registry: Arc<BlockRegistry>,
 }
 
 impl ThreadedLevelLightEngine {
     /// Creates a new threaded light engine.
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(block_registry: Arc<BlockRegistry>) -> Self {
         Self {
             light_engine: Arc::new(Mutex::new(LightEngine::new())),
             light_tasks: Arc::new(Mutex::new(Vec::new())),
+            block_registry,
         }
     }
 
@@ -530,7 +535,7 @@ impl ThreadedLevelLightEngine {
                             sections.block_light[light_section_idx].set(x, y, z, luminance);
 
                             // Enqueue for propagation in all directions
-                            let is_empty_shape = !Self::has_collision(block_state);
+                            let is_empty_shape = !self.has_collision(block_state);
                             engine.enqueue_increase(
                                 pos,
                                 QueueEntry::increase_from_emission(luminance, is_empty_shape),
@@ -543,7 +548,7 @@ impl ThreadedLevelLightEngine {
 
         // ===== STEP 3: Create multi-chunk access adapter and propagate =====
         // Create a multi-chunk access adapter that can access neighbors
-        let mut chunk_access = ChunkLightAccess::new(chunk_guard, cache, chunk_min_y);
+        let mut chunk_access = ChunkLightAccess::new(chunk_guard, cache, chunk_min_y, self.block_registry.clone());
 
         // Run the flood-fill light propagation algorithm with cross-chunk support
         engine.run_light_updates_with_access(&mut chunk_access);
@@ -554,10 +559,8 @@ impl ThreadedLevelLightEngine {
     }
 
     /// Helper to check if a block has collision (inverse of is_empty_shape).
-    fn has_collision(block_state: BlockStateId) -> bool {
-        use steel_registry::REGISTRY;
-
-        if let Some(block) = REGISTRY.blocks.by_state_id(block_state) {
+    fn has_collision(&self, block_state: BlockStateId) -> bool {
+        if let Some(block) = self.block_registry.by_state_id(block_state) {
             block.behaviour.has_collision
         } else {
             false // Unknown blocks treated as no collision
@@ -579,8 +582,3 @@ impl ThreadedLevelLightEngine {
     }
 }
 
-impl Default for ThreadedLevelLightEngine {
-    fn default() -> Self {
-        Self::new()
-    }
-}
