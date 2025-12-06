@@ -120,15 +120,17 @@ impl QueueEntry {
 
     /// Creates a queue entry for increasing light in all directions except one.
     #[must_use]
-    pub fn increase_skip_one_direction(level: u8, from_empty_shape: bool, skip_dir: Direction) -> Self {
+    pub fn increase_skip_one_direction(
+        level: u8,
+        from_empty_shape: bool,
+        skip_dir: Direction,
+    ) -> Self {
         debug_assert!(level <= 15, "Light level must be 0-15");
         let mut entry = Self::DIRECTIONS_MASK;
         if from_empty_shape {
             entry |= Self::EMPTY_SHAPE_FLAG;
         }
-        Self(entry)
-            .without_direction(skip_dir)
-            .with_level(level)
+        Self(entry).without_direction(skip_dir).with_level(level)
     }
 
     /// Creates a queue entry for increasing light in only one direction.
@@ -139,9 +141,7 @@ impl QueueEntry {
         if from_empty_shape {
             entry |= Self::EMPTY_SHAPE_FLAG;
         }
-        Self(entry)
-            .with_direction(dir)
-            .with_level(level)
+        Self(entry).with_direction(dir).with_level(level)
     }
 
     /// Creates a queue entry for sky light propagation with selective directions.

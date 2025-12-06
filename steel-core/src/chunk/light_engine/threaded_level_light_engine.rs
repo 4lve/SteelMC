@@ -74,7 +74,11 @@ impl ThreadedLevelLightEngine {
     /// - Enables lighting for the chunk
     ///
     /// Actual light propagation happens later in the LIGHT chunk status.
-    pub fn initialize_light(&self, chunk: &ParkingRwLock<Option<ChunkAccess>>, light_enabled: bool) -> Result<(), anyhow::Error> {
+    pub fn initialize_light(
+        &self,
+        chunk: &ParkingRwLock<Option<ChunkAccess>>,
+        light_enabled: bool,
+    ) -> Result<(), anyhow::Error> {
         use crate::chunk::chunk_generator::ChunkGuard;
 
         let chunk_guard = ChunkGuard::new(chunk);
@@ -134,9 +138,7 @@ impl ThreadedLevelLightEngine {
     fn is_section_empty(section: &ChunkSection) -> bool {
         // A section is empty if it only contains air (BlockStateId 0)
         match &section.states {
-            crate::chunk::paletted_container::PalettedContainer::Homogeneous(id) => {
-                id.0 == 0
-            }
+            crate::chunk::paletted_container::PalettedContainer::Homogeneous(id) => id.0 == 0,
             crate::chunk::paletted_container::PalettedContainer::Heterogeneous(_) => {
                 // If it's heterogeneous, it has different block types, so not empty
                 false
@@ -190,7 +192,11 @@ impl ThreadedLevelLightEngine {
     /// # Note
     /// This is currently a TEMPORARY stub implementation that directly sets sky light.
     /// The proper implementation will use the queue-based flood-fill algorithm.
-    pub fn light_chunk(&self, chunk: &ParkingRwLock<Option<ChunkAccess>>, _light_enabled: bool) -> Result<(), anyhow::Error> {
+    pub fn light_chunk(
+        &self,
+        chunk: &ParkingRwLock<Option<ChunkAccess>>,
+        _light_enabled: bool,
+    ) -> Result<(), anyhow::Error> {
         use crate::chunk::{chunk_generator::ChunkGuard, light_storage::LightStorage};
         use steel_utils::BlockStateId;
 
@@ -254,7 +260,7 @@ impl ThreadedLevelLightEngine {
                     let section = &sections.sections[actual_section_idx];
 
                     for y in (0..16).rev() {
-                        let block_state = section.states.get(x, y-1, z);
+                        let block_state = section.states.get(x, y - 1, z);
                         let is_air = block_state == BlockStateId(0);
 
                         if is_air {

@@ -103,8 +103,14 @@ mod tests {
     #[test]
     fn test_clear() {
         let mut queue = LightQueue::new();
-        queue.enqueue(BlockPos(Vector3::new(0, 0, 0)), QueueEntry::decrease_all_directions(10));
-        queue.enqueue(BlockPos(Vector3::new(1, 1, 1)), QueueEntry::decrease_all_directions(5));
+        queue.enqueue(
+            BlockPos(Vector3::new(0, 0, 0)),
+            QueueEntry::decrease_all_directions(10),
+        );
+        queue.enqueue(
+            BlockPos(Vector3::new(1, 1, 1)),
+            QueueEntry::decrease_all_directions(5),
+        );
 
         assert_eq!(queue.len(), 2);
         queue.clear();
