@@ -6,11 +6,101 @@
 use std::sync::Arc;
 
 use parking_lot::{Mutex, RwLock as ParkingRwLock};
-use steel_utils::ChunkPos;
+use steel_utils::{BlockPos, BlockStateId, ChunkPos};
 
-use crate::chunk::{chunk_access::ChunkAccess, section::ChunkSection};
+use crate::chunk::{chunk_access::ChunkAccess, section::{ChunkSection, Sections}};
 
-use super::base::LightEngine;
+use super::base::{LightChunkAccess, LightEngine};
+
+/// Light chunk access implementation for single-chunk operations (no neighbor access).
+///
+/// This is used during chunk generation when neighbors may not be loaded yet.
+/// Light propagation is limited to within the chunk boundaries.
+struct SingleChunkLightAccess<'a> {
+    sections: &'a mut Sections,
+    chunk_pos: ChunkPos,
+    chunk_min_y: i32,
+}
+
+impl<'a> SingleChunkLightAccess<'a> {
+    fn new(sections: &'a mut Sections, chunk_pos: ChunkPos, chunk_min_y: i32) -> Self {
+        Self {
+            sections,
+            chunk_pos,
+            chunk_min_y,
+        }
+    }
+
+    /// Converts world block position to chunk-relative coordinates.
+    /// Returns None if position is outside this chunk.
+    fn world_to_chunk_relative(&self, pos: BlockPos) -> Option<(usize, usize, usize)> {
+        let chunk_min_x = self.chunk_pos.0.x * 16;
+        let chunk_min_z = self.chunk_pos.0.y * 16;
+
+        let rel_x = pos.0.x - chunk_min_x;
+        let rel_y = pos.0.y - self.chunk_min_y;
+        let rel_z = pos.0.z - chunk_min_z;
+
+        if rel_x >= 0 && rel_x < 16 && rel_z >= 0 && rel_z < 16 && rel_y >= 0 {
+            Some((rel_x as usize, rel_y as usize, rel_z as usize))
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a> LightChunkAccess for SingleChunkLightAccess<'a> {
+    fn get_light(&self, pos: BlockPos) -> u8 {
+        let Some((rel_x, rel_y, rel_z)) = self.world_to_chunk_relative(pos) else {
+            return 0; // Out of bounds = no light
+        };
+
+        let section_idx = rel_y / 16;
+        let section_y = rel_y % 16;
+        let light_section_idx = section_idx + 1; // +1 for padding
+
+        if light_section_idx < self.sections.block_light.len() {
+            self.sections.block_light[light_section_idx].get(rel_x, section_y, rel_z)
+        } else {
+            0
+        }
+    }
+
+    fn set_light(&mut self, pos: BlockPos, level: u8) {
+        let Some((rel_x, rel_y, rel_z)) = self.world_to_chunk_relative(pos) else {
+            return; // Out of bounds = ignore
+        };
+
+        let section_idx = rel_y / 16;
+        let section_y = rel_y % 16;
+        let light_section_idx = section_idx + 1; // +1 for padding
+
+        if light_section_idx < self.sections.block_light.len() {
+            self.sections.block_light[light_section_idx].set(rel_x, section_y, rel_z, level);
+        }
+    }
+
+    fn get_block_state(&self, pos: BlockPos) -> BlockStateId {
+        let Some((rel_x, rel_y, rel_z)) = self.world_to_chunk_relative(pos) else {
+            return BlockStateId(0); // Out of bounds = air
+        };
+
+        self.sections
+            .get_relative_block(rel_x, rel_y, rel_z)
+            .unwrap_or(BlockStateId(0))
+    }
+
+    fn is_empty_shape(&self, pos: BlockPos) -> bool {
+        use steel_registry::REGISTRY;
+
+        let block_state = self.get_block_state(pos);
+        if let Some(block) = REGISTRY.blocks.by_state_id(block_state) {
+            !block.behaviour.has_collision
+        } else {
+            true // Unknown blocks treated as empty
+        }
+    }
+}
 
 /// Task type for light engine operations.
 ///
@@ -184,36 +274,32 @@ impl ThreadedLevelLightEngine {
 
     /// Propagates light throughout a chunk.
     ///
-    /// This method should:
-    /// 1. Call `propagateLightSources()` for both block and sky light
-    /// 2. Call `run_light_updates()` to propagate all queued light
-    /// 3. Mark chunk as `light_correct`
-    ///
-    /// # Note
-    /// This is currently a TEMPORARY stub implementation that directly sets sky light.
-    /// The proper implementation will use the queue-based flood-fill algorithm.
+    /// This method:
+    /// 1. Initializes sky light (fills air columns from top)
+    /// 2. Scans for block light sources (blocks with luminance > 0)
+    /// 3. Enqueues all light sources for propagation
+    /// 4. Runs the flood-fill light propagation algorithm
     pub fn light_chunk(
         &self,
         chunk: &ParkingRwLock<Option<ChunkAccess>>,
         _light_enabled: bool,
     ) -> Result<(), anyhow::Error> {
         use crate::chunk::{chunk_generator::ChunkGuard, light_storage::LightStorage};
-        use steel_utils::BlockStateId;
+        use steel_registry::vanilla_blocks;
+        use steel_utils::{BlockPos, BlockStateId, math::Vector3};
 
-        // TEMPORARY: Direct sky light initialization
-        // TODO: Replace with proper light engine implementation:
-        // - propagate_sky_light_sources(chunk_pos)
-        // - propagate_block_light_sources(chunk_pos)
-        // - run_light_updates()
+        use super::queue_entry::QueueEntry;
 
         let mut chunk_guard = ChunkGuard::new(chunk);
-        let sections = match &mut *chunk_guard {
-            ChunkAccess::Proto(proto_chunk) => &mut proto_chunk.sections,
-            ChunkAccess::Full(level_chunk) => &mut level_chunk.sections,
+        let (chunk_pos, sections) = match &mut *chunk_guard {
+            ChunkAccess::Proto(proto_chunk) => (proto_chunk.pos, &mut proto_chunk.sections),
+            ChunkAccess::Full(level_chunk) => (level_chunk.pos, &mut level_chunk.sections),
         };
 
         let num_sections = sections.sections.len();
+        let chunk_min_y = -64; // TODO: Get from world height settings
 
+        // ===== STEP 1: Initialize sky light (simple vertical fill) =====
         let mut current_section = 0;
 
         // Scan from top to bottom to find sections that are all air
@@ -245,6 +331,7 @@ impl ThreadedLevelLightEngine {
             0
         };
 
+        // Fill sky light columns for non-empty sections
         for x in 0..16 {
             for z in 0..16 {
                 for section_idx in (0..=start_section).rev() {
@@ -273,7 +360,68 @@ impl ThreadedLevelLightEngine {
             }
         }
 
+        // ===== STEP 2: Scan for block light sources and enqueue =====
+        let mut engine = self.light_engine.lock();
+
+        // Scan all blocks in the chunk for light emitters
+        for section_idx in 0..num_sections {
+            let section = &sections.sections[section_idx];
+            let section_y = chunk_min_y + (section_idx as i32 * 16);
+
+            for y in 0..16 {
+                for z in 0..16 {
+                    for x in 0..16 {
+                        let block_state = section.states.get(x, y, z);
+                        let luminance = vanilla_blocks::get_block_luminance(block_state);
+
+                        if luminance > 0 {
+                            // Found a light source! Enqueue it for propagation
+                            let world_y = section_y + y as i32;
+                            let world_x = (chunk_pos.0.x * 16) + x as i32;
+                            let world_z = (chunk_pos.0.y * 16) + z as i32;
+
+                            let pos = BlockPos(Vector3::new(world_x, world_y, world_z));
+
+                            // Set the light at this position
+                            let light_section_idx = section_idx + 1; // +1 for padding
+                            sections.block_light[light_section_idx].set(x, y, z, luminance);
+
+                            // Enqueue for propagation in all directions
+                            let is_empty_shape = !Self::has_collision(block_state);
+                            engine.enqueue_increase(
+                                pos,
+                                QueueEntry::increase_from_emission(luminance, is_empty_shape),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        // ===== STEP 3: Create chunk access adapter and propagate =====
+        // Create a single-chunk access adapter (doesn't access neighbors)
+        let mut chunk_access = SingleChunkLightAccess::new(sections, chunk_pos, chunk_min_y);
+
+        // Run the flood-fill light propagation algorithm
+        engine.run_light_updates_with_access(&mut chunk_access);
+
+        // Note: Lights at chunk boundaries won't propagate to neighbors
+        // since SingleChunkLightAccess returns 0/air for out-of-chunk positions.
+        // Cross-chunk propagation will be added later once the chunk access
+        // architecture supports reading neighbor chunks during generation.
+
         Ok(())
+    }
+
+    /// Helper to check if a block has collision (inverse of is_empty_shape).
+    fn has_collision(block_state: BlockStateId) -> bool {
+        use steel_registry::REGISTRY;
+
+        if let Some(block) = REGISTRY.blocks.by_state_id(block_state) {
+            block.behaviour.has_collision
+        } else {
+            false // Unknown blocks treated as no collision
+        }
     }
 
     /// Checks if there are any pending tasks or light updates.

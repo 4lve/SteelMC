@@ -7,6 +7,7 @@
 )]
 #![allow(internal_features)]
 
+use std::sync::LazyLock;
 use steel_utils::Identifier;
 
 use crate::{
@@ -373,3 +374,15 @@ impl Registry {
         self.timelines.freeze();
     }
 }
+
+/// Global vanilla registry instance.
+///
+/// This is lazily initialized on first access and contains all vanilla game registries
+/// (blocks, items, biomes, etc.). Use this for quick access to block/item properties.
+///
+/// # Example
+/// ```
+/// use steel_registry::REGISTRY;
+/// let block = REGISTRY.blocks.by_state_id(state_id);
+/// ```
+pub static REGISTRY: LazyLock<Registry> = LazyLock::new(Registry::new_vanilla);

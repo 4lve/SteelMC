@@ -10,16 +10,19 @@ pub struct FlatChunkGenerator {
     pub dirt: BlockStateId,
     /// The block state id for grass blocks.
     pub grass: BlockStateId,
+    /// The block state id for torch.
+    pub torch: BlockStateId,
 }
 
 impl FlatChunkGenerator {
     /// Creates a new `FlatChunkGenerator`.
     #[must_use]
-    pub fn new(bedrock: BlockStateId, dirt: BlockStateId, grass: BlockStateId) -> Self {
+    pub fn new(bedrock: BlockStateId, dirt: BlockStateId, grass: BlockStateId, torch: BlockStateId) -> Self {
         Self {
             bedrock,
             dirt,
             grass,
+            torch,
         }
     }
 }
@@ -52,6 +55,8 @@ impl ChunkGenerator for FlatChunkGenerator {
                 chunk.set_relative_block(x, 3, z, self.grass);
             }
         }
+
+        chunk_guard.set_relative_block(0, 4, 0, self.torch);
     }
 
     fn build_surface(&self, _chunk: &ChunkAccess) {}
