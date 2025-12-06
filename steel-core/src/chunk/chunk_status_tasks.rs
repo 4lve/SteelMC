@@ -8,12 +8,10 @@ use crate::chunk::{
     chunk_generator::ChunkGenerator,
     chunk_holder::ChunkHolder,
     chunk_pyramid::ChunkStep,
-    light_storage::LightStorage,
     proto_chunk::ProtoChunk,
     section::{ChunkSection, Sections},
     world_gen_context::WorldGenContext,
 };
-use steel_utils::BlockStateId;
 
 pub struct ChunkStatusTasks;
 
@@ -149,10 +147,18 @@ impl ChunkStatusTasks {
 
     /// Initializes lighting for the chunk.
     ///
+    /// This method follows vanilla Minecraft's approach:
+    /// 1. Builds the sky light heightmap (`chunk.initializeLightSources()`)
+    /// 2. Sets the light engine reference on the proto chunk
+    /// 3. Calls `light_engine.initialize_light()` which marks non-empty sections
+    ///
+    /// **Important**: This does NOT set light values. Actual light propagation
+    /// happens later in the LIGHT chunk status via `light_engine.lightChunk()`.
+    ///
     /// # Panics
     /// Panics if the chunk is not at `ChunkStatus::Features` or higher.
     pub fn initialize_light(
-        _context: Arc<WorldGenContext>,
+        context: Arc<WorldGenContext>,
         _step: &ChunkStep,
         _cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
         holder: Arc<ChunkHolder>,
@@ -161,103 +167,38 @@ impl ChunkStatusTasks {
             .try_chunk(ChunkStatus::Features)
             .expect("Chunk not found at status Features");
 
-        let mut chunk_guard = ChunkGuard::new(chunk);
-        let sections = match &mut *chunk_guard {
-            ChunkAccess::Proto(proto_chunk) => &mut proto_chunk.sections,
-            ChunkAccess::Full(level_chunk) => &mut level_chunk.sections,
-        };
+        // TODO: Implement chunk.initializeLightSources()
+        // This should build the ChunkSkyLightSources heightmap by scanning
+        // each (x,z) column top-to-bottom to find where sky light is blocked
 
-        let num_sections = sections.sections.len();
-        debug_assert_eq!(sections.sky_light.len(), num_sections + 2);
-        debug_assert_eq!(sections.block_light.len(), num_sections + 2);
+        // TODO: Set light engine reference on proto chunk
+        // ((ProtoChunk)chunk).setLightEngine(threadedLevelLightEngine);
 
-        // Block light: stays at 0 (already initialized in empty stage)
-
-        // Sky light: Fill homogeneous sections from top down until we hit non-air blocks
-        let mut current_section = 0;
-
-        // Scan from top to bottom to find sections that are all air
-        for index in (0..num_sections + 2).rev() {
-            // First section (bottom padding) is always empty (0)
-            if index == 0 {
-                sections.sky_light[index] = LightStorage::new_empty();
-            } else if index == num_sections + 1 {
-                // Top padding is always full light
-                sections.sky_light[index] = LightStorage::new_filled(15);
-            } else if let Some(section) = sections.sections.get(index - 1) {
-                // Check if section is all air (homogeneous with value 0)
-                let is_all_air = match &section.states {
-                    crate::chunk::paletted_container::PalettedContainer::Homogeneous(id) => {
-                        *id == BlockStateId(0)
-                    }
-                    crate::chunk::paletted_container::PalettedContainer::Heterogeneous(_) => false,
-                };
-
-                if is_all_air {
-                    sections.sky_light[index] = LightStorage::new_filled(15);
-                    current_section = index;
-                } else {
-                    // Hit a section with blocks, stop filling homogeneous
-                    break;
-                }
-            }
-        }
-
-        // Now do per-block light propagation for remaining sections
-        // current_section is the highest section with all air (or 0 if none)
-        let start_section = if current_section > 0 {
-            current_section - 1
-        } else {
-            0
-        };
-
-        for x in 0..16 {
-            for z in 0..16 {
-                // Iterate from top section down to bottom
-                for section_idx in (0..=start_section).rev() {
-                    if section_idx == 0 {
-                        // Bottom padding, skip
-                        continue;
-                    }
-
-                    let actual_section_idx = section_idx - 1;
-                    if actual_section_idx >= num_sections {
-                        continue;
-                    }
-
-                    let section = &sections.sections[actual_section_idx];
-
-                    // Iterate through y in this section from top to bottom
-                    for y in (0..16).rev() {
-                        let block_state = section.states.get(x, y, z);
-                        let is_air = block_state == BlockStateId(0);
-
-                        if is_air {
-                            // Air block: set full light (15)
-                            sections.sky_light[section_idx].set(x, y, z, 15);
-                        } else {
-                            // Hit a non-air block: stop propagating down this column
-                            break;
-                        }
-                    }
-                }
-            }
-        }
+        // Call the light engine's initialize_light method
+        // This will queue tasks to mark non-empty sections and enable lighting
+        let is_lighted = true; // TODO: Implement isLighted(chunk) check
+        context.light_engine.initialize_light(chunk, is_lighted)?;
 
         Ok(())
     }
 
+    /// Propagates light throughout the chunk.
+    ///
+    /// # Panics
+    /// Panics if the chunk is not at `ChunkStatus::InitializeLight` or higher.
     pub fn light(
-        _context: Arc<WorldGenContext>,
+        context: Arc<WorldGenContext>,
         _step: &ChunkStep,
         _cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
-        _holder: Arc<ChunkHolder>,
+        holder: Arc<ChunkHolder>,
     ) -> Result<(), anyhow::Error> {
-        // TODO: Implement light propagation
-        // Now that all light sources are in place, propagate light throughout the chunk.
-        // (Block light sources are blocks that have non-zero light emission values.)
-        // The sky light was initialized to 15 from the top down in the initialize_light step.
-        // Now, we just need to propagate light from these sources.
+        let chunk = holder
+            .try_chunk(ChunkStatus::InitializeLight)
+            .expect("Chunk not found at status InitializeLight");
+
+        let is_lighted = true; // TODO: Implement isLighted(chunk) check
+        context.light_engine.light_chunk(chunk, is_lighted)?;
+
         Ok(())
     }
 

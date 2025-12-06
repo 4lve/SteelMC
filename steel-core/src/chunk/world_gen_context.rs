@@ -7,6 +7,7 @@ use enum_dispatch::enum_dispatch;
 use crate::chunk::{
     chunk_access::ChunkAccess, chunk_generator::ChunkGenerator,
     flat_chunk_generator::FlatChunkGenerator,
+    light_engine::ThreadedLevelLightEngine,
 };
 
 #[allow(missing_docs)]
@@ -20,10 +21,11 @@ pub enum ChunkGeneratorType {
 pub struct WorldGenContext {
     /// The chunk generator to use.
     pub generator: Arc<ChunkGeneratorType>,
+    /// The light engine for chunk lighting.
+    pub light_engine: Arc<ThreadedLevelLightEngine>,
     // Add other fields as needed:
     // pub level: ServerLevel,
     // pub structure_manager: StructureTemplateManager,
-    // pub light_engine: ThreadedLevelLightEngine,
     // pub main_thread_executor: Executor,
     // pub unsaved_listener: UnsavedListener,
 }

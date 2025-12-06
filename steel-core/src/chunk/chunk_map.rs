@@ -73,6 +73,7 @@ impl ChunkMap {
                         .blocks
                         .get_default_state_id(vanilla_blocks::GRASS_BLOCK), // Grass Block
                 ))),
+                light_engine: Arc::new(crate::chunk::light_engine::ThreadedLevelLightEngine::new()),
             }),
             thread_pool: Arc::new(ThreadPoolBuilder::new().build().unwrap()),
             chunk_runtime,
