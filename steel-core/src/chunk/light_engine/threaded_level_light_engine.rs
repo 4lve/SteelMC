@@ -260,7 +260,7 @@ impl ThreadedLevelLightEngine {
                     let section = &sections.sections[actual_section_idx];
 
                     for y in (0..16).rev() {
-                        let block_state = section.states.get(x, y - 1, z);
+                        let block_state = section.states.get(x, y, z);
                         let is_air = block_state == BlockStateId(0);
 
                         if is_air {
