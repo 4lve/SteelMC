@@ -72,7 +72,11 @@ impl LevelChunk {
     /// * `sky_changed` - Bit flags indicating which sky light sections changed
     /// * `block_changed` - Bit flags indicating which block light sections changed
     #[must_use]
-    pub fn extract_changed_light_data(&self, sky_changed: u32, block_changed: u32) -> LightUpdatePacketData {
+    pub fn extract_changed_light_data(
+        &self,
+        sky_changed: u32,
+        block_changed: u32,
+    ) -> LightUpdatePacketData {
         use crate::chunk::light_storage::LightStorage;
 
         let section_count = self.sections.sections.len();
@@ -81,8 +85,10 @@ impl LevelChunk {
 
         let mut sky_y_mask = BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
         let mut block_y_mask = BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
-        let mut empty_sky_y_mask = BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
-        let mut empty_block_y_mask = BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
+        let mut empty_sky_y_mask =
+            BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
+        let mut empty_block_y_mask =
+            BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
 
         let mut sky_updates = Vec::new();
         let mut block_updates = Vec::new();
@@ -137,7 +143,8 @@ impl LevelChunk {
         let mut sky_y_mask = BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
         let mut block_y_mask = BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
         let empty_sky_y_mask = BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
-        let empty_block_y_mask = BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
+        let empty_block_y_mask =
+            BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
 
         let mut sky_updates = Vec::new();
         let mut block_updates = Vec::new();

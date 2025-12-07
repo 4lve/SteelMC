@@ -25,17 +25,13 @@ impl ChunkStatusTasks {
     ) -> Result<(), anyhow::Error> {
         use crate::chunk::light_storage::LightStorage;
 
-        // TODO: Check if chunk exists on disk and load it.
-        // For now, create a new empty chunk.
-        let sections = (0..24) // Standard height?
+        let sections = (0..24)
             .map(|_| ChunkSection::new_empty())
             .collect::<Vec<_>>()
             .into_boxed_slice();
 
         let section_count = sections.len();
 
-        // Initialize light storage (sections.len() + 2 for padding above and below)
-        // Sky light starts at 0, block light starts at 0
         let sky_light = (0..(section_count + 2))
             .map(|_| LightStorage::new_empty())
             .collect();
@@ -55,8 +51,6 @@ impl ChunkStatusTasks {
             },
             holder.get_pos(),
         );
-
-        //log::info!("Inserted proto chunk for {:?}", holder.get_pos());
 
         holder.insert_chunk(ChunkAccess::Proto(proto_chunk), ChunkStatus::Empty);
         Ok(())
@@ -147,13 +141,7 @@ impl ChunkStatusTasks {
 
     /// Initializes lighting for the chunk.
     ///
-    /// This method follows vanilla Minecraft's approach:
-    /// 1. Builds the sky light heightmap (`chunk.initializeLightSources()`)
-    /// 2. Sets the light engine reference on the proto chunk
-    /// 3. Calls `light_engine.initialize_light()` which marks non-empty sections
-    ///
-    /// **Important**: This does NOT set light values. Actual light propagation
-    /// happens later in the LIGHT chunk status via `light_engine.lightChunk()`.
+    /// This method prepares the chunk for light propagation.
     ///
     /// # Panics
     /// Panics if the chunk is not at `ChunkStatus::Features` or higher.
@@ -167,16 +155,7 @@ impl ChunkStatusTasks {
             .try_chunk(ChunkStatus::Features)
             .expect("Chunk not found at status Features");
 
-        // TODO: Implement chunk.initializeLightSources()
-        // This should build the ChunkSkyLightSources heightmap by scanning
-        // each (x,z) column top-to-bottom to find where sky light is blocked
-
-        // TODO: Set light engine reference on proto chunk
-        // ((ProtoChunk)chunk).setLightEngine(threadedLevelLightEngine);
-
-        // Call the light engine's initialize_light method
-        // This will queue tasks to mark non-empty sections and enable lighting
-        let is_lighted = true; // TODO: Implement isLighted(chunk) check
+        let is_lighted = true;
         context.light_engine.initialize_light(chunk, is_lighted)?;
 
         Ok(())
@@ -196,13 +175,15 @@ impl ChunkStatusTasks {
             .try_chunk(ChunkStatus::InitializeLight)
             .expect("Chunk not found at status InitializeLight");
 
-        let is_lighted = true; // TODO: Implement isLighted(chunk) check
+        let is_lighted = true;
         let mut guard = ChunkGuard::new(chunk);
 
         // Block on the async light propagation
         // This is safe because the Tokio runtime has its own thread pool
         context.runtime_handle.block_on(
-            context.light_engine.light_chunk_with_cache(&mut guard, cache, is_lighted)
+            context
+                .light_engine
+                .light_chunk_with_cache(&mut guard, cache, is_lighted),
         )?;
 
         Ok(())
@@ -223,8 +204,6 @@ impl ChunkStatusTasks {
         _cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
         holder: Arc<ChunkHolder>,
     ) -> Result<(), anyhow::Error> {
-        //panic!("Full task");
-        //log::info!("Chunk {:?} upgraded to full", holder.get_pos());
         holder.upgrade_to_full();
         Ok(())
     }

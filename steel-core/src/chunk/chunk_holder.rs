@@ -381,7 +381,8 @@ impl ChunkHolder {
         let min_section_y = -4; // -64 / 16
         let section_index = (section_y - min_section_y) as u32;
 
-        if section_index < 32 { // u32 has 32 bits (more than enough for 26 sections)
+        if section_index < 32 {
+            // u32 has 32 bits (more than enough for 26 sections)
             let bit_mask = 1u32 << section_index;
             let sections = if is_sky_light {
                 &self.sky_changed_sections
@@ -405,8 +406,13 @@ impl ChunkHolder {
     ///
     /// # Returns
     /// `true` if the section was newly marked (wasn't already marked), `false` otherwise
-    pub fn mark_light_storage_section_changed(&self, storage_index: u32, is_sky_light: bool) -> bool {
-        if storage_index < 32 { // u32 has 32 bits (more than enough for 26 sections)
+    pub fn mark_light_storage_section_changed(
+        &self,
+        storage_index: u32,
+        is_sky_light: bool,
+    ) -> bool {
+        if storage_index < 32 {
+            // u32 has 32 bits (more than enough for 26 sections)
             let bit_mask = 1u32 << storage_index;
             let sections = if is_sky_light {
                 &self.sky_changed_sections

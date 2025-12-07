@@ -69,7 +69,7 @@ impl ChunkMap {
                     registry.blocks.get_default_state_id(vanilla_blocks::BEDROCK), // Bedrock
                     registry.blocks.get_default_state_id(vanilla_blocks::DIRT), // Dirt
                     registry.blocks.get_default_state_id(vanilla_blocks::GRASS_BLOCK), // Grass Block
-                    registry.blocks.get_default_state_id(vanilla_blocks::TORCH)
+                    registry.blocks.get_default_state_id(vanilla_blocks::TORCH),
                 ))),
                 light_engine: Arc::new(ThreadedLevelLightEngine::new(registry.blocks.clone())),
                 runtime_handle: chunk_runtime.handle().clone(),

@@ -11,7 +11,7 @@ use super::{direction::Direction, light_queue::LightQueue, queue_entry::QueueEnt
 /// Trait providing access to chunk light and block data for the light engine.
 ///
 /// This abstracts away the complexity of chunk storage and cross-chunk access.
-#[warn(async_fn_in_trait)]
+#[allow(async_fn_in_trait)]
 pub trait LightChunkAccess {
     /// Gets the light level at the given world block position.
     async fn get_light(&self, pos: BlockPos) -> u8;
@@ -52,28 +52,13 @@ pub struct LightEngine {
 
 /// Checks if two block shapes occlude light between them in the given direction.
 ///
-/// This is a STUB implementation that always returns `false` (light passes through).
-/// The full implementation would check `VoxelShape` face occlusion.
-///
-/// # Arguments
-/// * `_from_state` - The block state light is coming from
-/// * `_to_state` - The block state light is going to
-/// * `_direction` - The direction of light propagation
-///
-/// # Returns
-/// `true` if shapes occlude and light cannot pass, `false` otherwise.
-///
-/// # Note
-/// This stub implementation allows all light to pass through.
-/// TODO: Implement proper VoxelShape face occlusion using `Shapes::faceShapeOccludes`.
-fn shape_occludes(_from_state: BlockStateId, _to_state: BlockStateId, _direction: Direction) -> bool {
-    // STUB: Always allow light to pass
-    // The real implementation would:
-    // 1. Get VoxelShapes for both blocks
-    // 2. Get the face shapes in the given direction
-    // 3. Check if faces occlude each other using Shapes::faceShapeOccludes
-    //
-    // For example, stairs and slabs should allow light through gaps
+/// Currently a stub that always allows light to pass through.
+/// TODO: Implement `VoxelShape` face occlusion checking.
+fn shape_occludes(
+    _from_state: BlockStateId,
+    _to_state: BlockStateId,
+    _direction: Direction,
+) -> bool {
     false
 }
 
@@ -105,17 +90,18 @@ impl LightEngine {
     ///
     /// # Arguments
     /// * `chunk_access` - Provides access to light storage and block states
-    pub async fn run_light_updates_with_access<T: LightChunkAccess>(&mut self, chunk_access: &mut T) {
+    pub async fn run_light_updates_with_access<T: LightChunkAccess>(
+        &mut self,
+        chunk_access: &mut T,
+    ) {
         self.propagate_decreases(chunk_access).await;
         self.propagate_increases(chunk_access).await;
     }
 
-    /// Runs all queued light updates (stub version without chunk access).
+    /// Clears all queued light updates without propagating.
     ///
-    /// This is a compatibility method that just clears queues.
     /// Use `run_light_updates_with_access` for actual light propagation.
     pub fn run_light_updates(&mut self) {
-        // Stub: Just clear queues
         self.decrease_queue.clear();
         self.increase_queue.clear();
     }
@@ -123,7 +109,7 @@ impl LightEngine {
     /// Processes all light decrease operations.
     ///
     /// This implements the vanilla flood-fill algorithm for removing light:
-    /// 1. Dequeue each (pos, entry) from decrease_queue
+    /// 1. Dequeue each (pos, entry) from `decrease_queue`
     /// 2. For each neighbor in the direction flags:
     ///    - If neighbor's light <= entry.level - 1: propagate decrease
     ///    - Otherwise: re-queue neighbor for increase (it's a light source)
@@ -177,11 +163,11 @@ impl LightEngine {
     /// Processes all light increase operations.
     ///
     /// This implements the vanilla flood-fill algorithm for adding light:
-    /// 1. Dequeue each (pos, entry) from increase_queue
+    /// 1. Dequeue each (pos, entry) from `increase_queue`
     /// 2. For each neighbor in the direction flags:
-    ///    - Calculate new_light = current_light - max(1, opacity)
-    ///    - If new_light > neighbor's light && !shape_occludes:
-    ///      - Set neighbor's light to new_light
+    ///    - Calculate `new_light` = `current_light` - max(1, opacity)
+    ///    - If `new_light` > neighbor's light && !`shape_occludes`:
+    ///      - Set neighbor's light to `new_light`
     ///      - Enqueue neighbor for propagation
     async fn propagate_increases<T: LightChunkAccess>(&mut self, chunk_access: &mut T) {
         const ALL_DIRECTIONS: [Direction; 6] = [
