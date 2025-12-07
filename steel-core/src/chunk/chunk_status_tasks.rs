@@ -151,7 +151,6 @@ impl ChunkStatusTasks {
         _cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
         holder: Arc<ChunkHolder>,
     ) -> Result<(), anyhow::Error> {
-        let start_time = std::time::Instant::now();
         let chunk_pos = holder.get_pos();
 
         let chunk = holder
@@ -160,13 +159,6 @@ impl ChunkStatusTasks {
 
         let is_lighted = true;
         context.light_engine.initialize_light(chunk, is_lighted)?;
-
-        let duration = start_time.elapsed();
-        log::info!(
-            "initialize_light for chunk {:?} took {:?}",
-            chunk_pos,
-            duration
-        );
 
         Ok(())
     }
@@ -181,7 +173,6 @@ impl ChunkStatusTasks {
         cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
         holder: Arc<ChunkHolder>,
     ) -> Result<(), anyhow::Error> {
-        let start_time = std::time::Instant::now();
         let chunk_pos = holder.get_pos();
 
         let chunk = holder
@@ -198,13 +189,6 @@ impl ChunkStatusTasks {
                 .light_engine
                 .light_chunk_with_cache(&mut guard, cache, is_lighted),
         )?;
-
-        let duration = start_time.elapsed();
-        log::info!(
-            "light for chunk {:?} took {:?}",
-            chunk_pos,
-            duration
-        );
 
         Ok(())
     }
