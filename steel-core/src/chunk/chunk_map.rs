@@ -72,6 +72,7 @@ impl ChunkMap {
                     registry.blocks.get_default_state_id(vanilla_blocks::TORCH)
                 ))),
                 light_engine: Arc::new(ThreadedLevelLightEngine::new(registry.blocks.clone())),
+                runtime_handle: chunk_runtime.handle().clone(),
             }),
             thread_pool: Arc::new(ThreadPoolBuilder::new().build().unwrap()),
             chunk_runtime,

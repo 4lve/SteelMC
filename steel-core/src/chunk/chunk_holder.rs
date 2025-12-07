@@ -3,7 +3,7 @@ use arc_swap::{ArcSwapOption, Guard};
 use futures::Future;
 use std::fmt::Debug;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU32, AtomicUsize, Ordering};
 use steel_utils::{ChunkPos, locks::SyncMutex};
 use tokio::select;
 use tokio::sync::{oneshot, watch};
@@ -56,6 +56,10 @@ pub struct ChunkHolder {
     /// The highest status that generation is allowed to reach.
     highest_allowed_status: watch::Receiver<u8>,
     highest_allowed_status_sender: watch::Sender<u8>,
+    /// Tracks which sky light sections have changed and need to be broadcast (bit flags).
+    pub sky_changed_sections: AtomicU32,
+    /// Tracks which block light sections have changed and need to be broadcast (bit flags).
+    pub block_changed_sections: AtomicU32,
 }
 
 impl ChunkHolder {
@@ -82,6 +86,8 @@ impl ChunkHolder {
             started_work: AtomicUsize::new(usize::MAX),
             highest_allowed_status: highest_allowed_status_receiver,
             highest_allowed_status_sender,
+            sky_changed_sections: AtomicU32::new(0),
+            block_changed_sections: AtomicU32::new(0),
         }
     }
 
@@ -359,6 +365,83 @@ impl ChunkHolder {
         let mut task_guard = self.generation_task.lock();
         if let Some(task) = task_guard.take() {
             task.mark_for_cancel();
+        }
+    }
+
+    /// Marks a light section as changed, to be broadcast to clients.
+    ///
+    /// # Arguments
+    /// * `section_y` - The Y coordinate of the section (world section coordinates)
+    /// * `is_sky_light` - True for sky light, false for block light
+    ///
+    /// # Returns
+    /// `true` if the section was newly marked (wasn't already marked), `false` otherwise
+    pub fn mark_light_section_changed(&self, section_y: i32, is_sky_light: bool) -> bool {
+        // Convert world section Y to bit index (section 0 is at Y=-64, each section is 16 blocks)
+        let min_section_y = -4; // -64 / 16
+        let section_index = (section_y - min_section_y) as u32;
+
+        if section_index < 32 { // u32 has 32 bits (more than enough for 26 sections)
+            let bit_mask = 1u32 << section_index;
+            let sections = if is_sky_light {
+                &self.sky_changed_sections
+            } else {
+                &self.block_changed_sections
+            };
+
+            let old_value = sections.fetch_or(bit_mask, Ordering::Relaxed);
+            (old_value & bit_mask) == 0 // Return true if bit wasn't already set
+        } else {
+            false
+        }
+    }
+
+    /// Marks a light storage section as changed, to be broadcast to clients.
+    /// This version takes the light storage array index directly (0-25 for 26 sections).
+    ///
+    /// # Arguments
+    /// * `storage_index` - The index into the light storage array (0-25)
+    /// * `is_sky_light` - True for sky light, false for block light
+    ///
+    /// # Returns
+    /// `true` if the section was newly marked (wasn't already marked), `false` otherwise
+    pub fn mark_light_storage_section_changed(&self, storage_index: u32, is_sky_light: bool) -> bool {
+        if storage_index < 32 { // u32 has 32 bits (more than enough for 26 sections)
+            let bit_mask = 1u32 << storage_index;
+            let sections = if is_sky_light {
+                &self.sky_changed_sections
+            } else {
+                &self.block_changed_sections
+            };
+
+            let old_value = sections.fetch_or(bit_mask, Ordering::Relaxed);
+            (old_value & bit_mask) == 0 // Return true if bit wasn't already set
+        } else {
+            false
+        }
+    }
+
+    /// Checks if there are any changed light sections that need to be broadcast.
+    pub fn has_light_changes(&self) -> bool {
+        self.sky_changed_sections.load(Ordering::Relaxed) != 0
+            || self.block_changed_sections.load(Ordering::Relaxed) != 0
+    }
+
+    /// Clears all light change flags.
+    pub fn clear_light_changes(&self) {
+        self.sky_changed_sections.store(0, Ordering::Relaxed);
+        self.block_changed_sections.store(0, Ordering::Relaxed);
+    }
+
+    /// Forces the chunk to fail.
+    pub fn force_fail(&self) {
+        let mut task_guard = self.generation_task.lock();
+        if let Some(task) = task_guard.take() {
+            task.mark_for_cancel();
+            log::info!("Force failing chunk at {:?}", self.pos);
+
+            //self.sender.send_replace(ChunkResult::Failed);
+            self.sender.send_replace(ChunkResult::Unloaded);
         }
     }
 }

@@ -198,7 +198,12 @@ impl ChunkStatusTasks {
 
         let is_lighted = true; // TODO: Implement isLighted(chunk) check
         let mut guard = ChunkGuard::new(chunk);
-        context.light_engine.light_chunk_with_cache(&mut guard, cache, is_lighted)?;
+
+        // Block on the async light propagation
+        // This is safe because the Tokio runtime has its own thread pool
+        context.runtime_handle.block_on(
+            context.light_engine.light_chunk_with_cache(&mut guard, cache, is_lighted)
+        )?;
 
         Ok(())
     }

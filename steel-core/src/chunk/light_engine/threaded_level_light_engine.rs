@@ -70,7 +70,7 @@ impl<'access, 'guard> ChunkLightAccess<'access, 'guard> {
 }
 
 impl<'access, 'guard> LightChunkAccess for ChunkLightAccess<'access, 'guard> {
-    fn get_light(&self, pos: BlockPos) -> u8 {
+    async fn get_light(&self, pos: BlockPos) -> u8 {
         let Some((chunk_pos, packed_coords, _rel_y)) = self.get_chunk_for_pos(pos) else {
             return 0;
         };
@@ -102,9 +102,10 @@ impl<'access, 'guard> LightChunkAccess for ChunkLightAccess<'access, 'guard> {
             // Slow path: yield lock and access neighbor chunk
             drop(center_guard);
             let mut center_guard_mut = self.center_guard.borrow_mut();
-            center_guard_mut.yield_lock(|| {
+            center_guard_mut.yield_lock(|| async {
                 let chunk_holder = self.cache.get(chunk_pos.0.x, chunk_pos.0.y);
-                if let Some(chunk_lock) = chunk_holder.try_chunk(ChunkStatus::Light) {
+                // Use InitializeLight instead of Light to avoid circular dependencies
+                if let Some(chunk_lock) = chunk_holder.await_chunk(ChunkStatus::InitializeLight).await {
                     let chunk_guard_inner = chunk_lock.read();
                     if let Some(chunk_access) = &*chunk_guard_inner {
                         let (rel_x, rel_y, rel_z) = Self::unpack_coords(packed_coords);
@@ -128,11 +129,11 @@ impl<'access, 'guard> LightChunkAccess for ChunkLightAccess<'access, 'guard> {
                 } else {
                     0
                 }
-            })
+            }).await
         }
     }
 
-    fn set_light(&mut self, pos: BlockPos, level: u8) {
+    async fn set_light(&mut self, pos: BlockPos, level: u8) {
         let Some((chunk_pos, packed_coords, _rel_y)) = self.get_chunk_for_pos(pos) else {
             return;
         };
@@ -160,9 +161,11 @@ impl<'access, 'guard> LightChunkAccess for ChunkLightAccess<'access, 'guard> {
             }
         } else {
             // Slow path: yield lock and access neighbor chunk
-            center_guard.yield_lock(|| {
+            center_guard.yield_lock(|| async {
                 let chunk_holder = self.cache.get(chunk_pos.0.x, chunk_pos.0.y);
-                if let Some(chunk_lock) = chunk_holder.try_chunk(ChunkStatus::Light) {
+                // Use InitializeLight instead of Light to avoid circular dependencies
+                // Neighbors don't need to be fully lit, just initialized
+                if let Some(chunk_lock) = chunk_holder.await_chunk(ChunkStatus::InitializeLight).await {
                     let mut chunk_guard_inner = chunk_lock.write();
                     if let Some(chunk_access) = &mut *chunk_guard_inner {
                         let (rel_x, rel_y, rel_z) = Self::unpack_coords(packed_coords);
@@ -177,14 +180,17 @@ impl<'access, 'guard> LightChunkAccess for ChunkLightAccess<'access, 'guard> {
 
                         if light_section_idx < sections.block_light.len() {
                             sections.block_light[light_section_idx].set(rel_x, section_y, rel_z, level);
+                            // Mark the light storage section index as changed for broadcasting
+                            // light_section_idx is the actual index into the light storage array
+                            chunk_holder.mark_light_storage_section_changed(light_section_idx as u32, false);
                         }
                     }
                }
-            });
+            }).await;
         }
     }
 
-    fn get_block_state(&self, pos: BlockPos) -> BlockStateId {
+    async fn get_block_state(&self, pos: BlockPos) -> BlockStateId {
         let Some((chunk_pos, packed_coords, _)) = self.get_chunk_for_pos(pos) else {
             return BlockStateId(0);
         };
@@ -210,9 +216,10 @@ impl<'access, 'guard> LightChunkAccess for ChunkLightAccess<'access, 'guard> {
             // Slow path: yield lock and access neighbor chunk
             drop(center_guard);
             let mut center_guard_mut = self.center_guard.borrow_mut();
-            center_guard_mut.yield_lock(|| {
+            center_guard_mut.yield_lock(|| async {
                 let chunk_holder = self.cache.get(chunk_pos.0.x, chunk_pos.0.y);
-                if let Some(chunk_lock) = chunk_holder.try_chunk(ChunkStatus::Light) {
+                // Use InitializeLight instead of Light to avoid circular dependencies
+                if let Some(chunk_lock) = chunk_holder.await_chunk(ChunkStatus::InitializeLight).await {
                     let chunk_guard_inner = chunk_lock.read();
                     if let Some(chunk_access) = &*chunk_guard_inner {
                         let (rel_x, rel_y, rel_z) = Self::unpack_coords(packed_coords);
@@ -230,12 +237,12 @@ impl<'access, 'guard> LightChunkAccess for ChunkLightAccess<'access, 'guard> {
                 } else {
                     BlockStateId(0)
                 }
-            })
+            }).await
         }
     }
 
-    fn is_empty_shape(&self, pos: BlockPos) -> bool {
-        let block_state = self.get_block_state(pos);
+    async fn is_empty_shape(&self, pos: BlockPos) -> bool {
+        let block_state = self.get_block_state(pos).await;
         if let Some(block) = self.block_registry.by_state_id(block_state) {
             !block.behaviour.has_collision
         } else {
@@ -427,7 +434,7 @@ impl ThreadedLevelLightEngine {
     ///
     /// Unlike `light_chunk`, this version uses a cache of neighboring chunks to enable
     /// light propagation across chunk boundaries.
-    pub fn light_chunk_with_cache(
+    pub async fn light_chunk_with_cache(
         &self,
         chunk_guard: &mut ChunkGuard<'_>,
         cache: &StaticCache2D<Arc<crate::chunk::chunk_holder::ChunkHolder>>,
@@ -509,7 +516,8 @@ impl ThreadedLevelLightEngine {
         }
 
         // ===== STEP 2: Scan for block light sources and enqueue =====
-        let mut engine = self.light_engine.lock();
+        // Create a new light engine instance for this chunk to avoid lock contention
+        let mut engine = super::base::LightEngine::new();
 
         // Scan all blocks in the chunk for light emitters
         for section_idx in 0..num_sections {
@@ -551,7 +559,8 @@ impl ThreadedLevelLightEngine {
         let mut chunk_access = ChunkLightAccess::new(chunk_guard, cache, chunk_min_y, self.block_registry.clone());
 
         // Run the flood-fill light propagation algorithm with cross-chunk support
-        engine.run_light_updates_with_access(&mut chunk_access);
+        // Each chunk has its own engine instance, so no lock contention
+        engine.run_light_updates_with_access(&mut chunk_access).await;
 
         // Light now propagates across chunk boundaries via the yield_lock pattern!
 

@@ -23,6 +23,8 @@ pub struct WorldGenContext {
     pub generator: Arc<ChunkGeneratorType>,
     /// The light engine for chunk lighting.
     pub light_engine: Arc<ThreadedLevelLightEngine>,
+    /// Tokio runtime handle for async operations in sync contexts.
+    pub runtime_handle: tokio::runtime::Handle,
     // Add other fields as needed:
     // pub level: ServerLevel,
     // pub structure_manager: StructureTemplateManager,

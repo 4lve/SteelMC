@@ -11,18 +11,19 @@ use super::{direction::Direction, light_queue::LightQueue, queue_entry::QueueEnt
 /// Trait providing access to chunk light and block data for the light engine.
 ///
 /// This abstracts away the complexity of chunk storage and cross-chunk access.
+#[warn(async_fn_in_trait)]
 pub trait LightChunkAccess {
     /// Gets the light level at the given world block position.
-    fn get_light(&self, pos: BlockPos) -> u8;
+    async fn get_light(&self, pos: BlockPos) -> u8;
 
     /// Sets the light level at the given world block position.
-    fn set_light(&mut self, pos: BlockPos, level: u8);
+    async fn set_light(&mut self, pos: BlockPos, level: u8) -> ();
 
     /// Gets the block state at the given world block position.
-    fn get_block_state(&self, pos: BlockPos) -> BlockStateId;
+    async fn get_block_state(&self, pos: BlockPos) -> BlockStateId;
 
     /// Checks if the block at the given position has an empty collision shape.
-    fn is_empty_shape(&self, pos: BlockPos) -> bool;
+    async fn is_empty_shape(&self, pos: BlockPos) -> bool;
 }
 
 /// Base light engine that handles light propagation using a flood-fill algorithm.
@@ -104,9 +105,9 @@ impl LightEngine {
     ///
     /// # Arguments
     /// * `chunk_access` - Provides access to light storage and block states
-    pub fn run_light_updates_with_access<T: LightChunkAccess>(&mut self, chunk_access: &mut T) {
-        self.propagate_decreases(chunk_access);
-        self.propagate_increases(chunk_access);
+    pub async fn run_light_updates_with_access<T: LightChunkAccess>(&mut self, chunk_access: &mut T) {
+        self.propagate_decreases(chunk_access).await;
+        self.propagate_increases(chunk_access).await;
     }
 
     /// Runs all queued light updates (stub version without chunk access).
@@ -126,7 +127,7 @@ impl LightEngine {
     /// 2. For each neighbor in the direction flags:
     ///    - If neighbor's light <= entry.level - 1: propagate decrease
     ///    - Otherwise: re-queue neighbor for increase (it's a light source)
-    fn propagate_decreases<T: LightChunkAccess>(&mut self, chunk_access: &mut T) {
+    async fn propagate_decreases<T: LightChunkAccess>(&mut self, chunk_access: &mut T) {
         const ALL_DIRECTIONS: [Direction; 6] = [
             Direction::Down,
             Direction::Up,
@@ -145,7 +146,7 @@ impl LightEngine {
                 }
 
                 let neighbor_pos = direction.relative(pos);
-                let neighbor_light = chunk_access.get_light(neighbor_pos);
+                let neighbor_light = chunk_access.get_light(neighbor_pos).await;
 
                 if neighbor_light == 0 {
                     continue; // Already dark
@@ -153,7 +154,7 @@ impl LightEngine {
 
                 if neighbor_light <= from_level.saturating_sub(1) {
                     // This neighbor's light came from us, remove it
-                    chunk_access.set_light(neighbor_pos, 0);
+                    chunk_access.set_light(neighbor_pos, 0).await;
                     self.enqueue_decrease(
                         neighbor_pos,
                         QueueEntry::decrease_all_directions(neighbor_light),
@@ -164,7 +165,7 @@ impl LightEngine {
                         neighbor_pos,
                         QueueEntry::increase_skip_one_direction(
                             neighbor_light,
-                            chunk_access.is_empty_shape(neighbor_pos),
+                            chunk_access.is_empty_shape(neighbor_pos).await,
                             direction.opposite(),
                         ),
                     );
@@ -182,7 +183,7 @@ impl LightEngine {
     ///    - If new_light > neighbor's light && !shape_occludes:
     ///      - Set neighbor's light to new_light
     ///      - Enqueue neighbor for propagation
-    fn propagate_increases<T: LightChunkAccess>(&mut self, chunk_access: &mut T) {
+    async fn propagate_increases<T: LightChunkAccess>(&mut self, chunk_access: &mut T) {
         const ALL_DIRECTIONS: [Direction; 6] = [
             Direction::Down,
             Direction::Up,
@@ -193,7 +194,7 @@ impl LightEngine {
         ];
 
         while let Some((pos, entry)) = self.increase_queue.dequeue() {
-            let current_light = chunk_access.get_light(pos);
+            let current_light = chunk_access.get_light(pos).await;
 
             // Only propagate if light level matches (prevents duplicate processing)
             if current_light != entry.level() {
@@ -206,10 +207,10 @@ impl LightEngine {
                 }
 
                 let neighbor_pos = direction.relative(pos);
-                let neighbor_block = chunk_access.get_block_state(neighbor_pos);
+                let neighbor_block = chunk_access.get_block_state(neighbor_pos).await;
 
                 // Check shape occlusion between blocks
-                let pos_block = chunk_access.get_block_state(pos);
+                let pos_block = chunk_access.get_block_state(pos).await;
                 if shape_occludes(pos_block, neighbor_block, direction) {
                     continue;
                 }
@@ -219,15 +220,15 @@ impl LightEngine {
                 let reduction = opacity.max(1);
 
                 let new_light = current_light.saturating_sub(reduction);
-                let neighbor_light = chunk_access.get_light(neighbor_pos);
+                let neighbor_light = chunk_access.get_light(neighbor_pos).await;
 
                 if new_light > neighbor_light {
-                    chunk_access.set_light(neighbor_pos, new_light);
+                    chunk_access.set_light(neighbor_pos, new_light).await;
                     self.enqueue_increase(
                         neighbor_pos,
                         QueueEntry::increase_skip_one_direction(
                             new_light,
-                            chunk_access.is_empty_shape(neighbor_pos),
+                            chunk_access.is_empty_shape(neighbor_pos).await,
                             direction.opposite(),
                         ),
                     );

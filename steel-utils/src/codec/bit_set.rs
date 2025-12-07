@@ -36,6 +36,13 @@ impl ReadFrom for BitSet {
 #[allow(missing_docs)]
 impl WriteTo for BitSet {
     fn write(&self, writer: &mut impl Write) -> Result<()> {
-        self.0.write_prefixed::<VarInt>(writer)
+        // Trim trailing zero u64s to match Java's BitSet.toLongArray() behavior
+        let mut trimmed_len = self.0.len();
+        while trimmed_len > 0 && self.0[trimmed_len - 1] == 0 {
+            trimmed_len -= 1;
+        }
+
+        // Write the trimmed slice
+        self.0[..trimmed_len].write_prefixed::<VarInt>(writer)
     }
 }

@@ -66,14 +66,78 @@ impl LevelChunk {
         }
     }
 
+    /// Extracts only the changed light sections for sending to the client.
+    ///
+    /// # Arguments
+    /// * `sky_changed` - Bit flags indicating which sky light sections changed
+    /// * `block_changed` - Bit flags indicating which block light sections changed
+    #[must_use]
+    pub fn extract_changed_light_data(&self, sky_changed: u32, block_changed: u32) -> LightUpdatePacketData {
+        use crate::chunk::light_storage::LightStorage;
+
+        let section_count = self.sections.sections.len();
+        // Note: light storage has section_count + 2 entries (padding above and below)
+        let light_section_count = section_count + 1; // We send section_count + 1 sections (skip top padding)
+
+        let mut sky_y_mask = BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
+        let mut block_y_mask = BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
+        let mut empty_sky_y_mask = BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
+        let mut empty_block_y_mask = BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
+
+        let mut sky_updates = Vec::new();
+        let mut block_updates = Vec::new();
+
+        // Only extract sections that changed
+        // Iterate through light storage indices (0 to section_count inclusive)
+        for i in 0..light_section_count {
+            let has_sky_change = (sky_changed & (1 << i)) != 0;
+            let has_block_change = (block_changed & (1 << i)) != 0;
+
+            if has_sky_change && i < self.sections.sky_light.len() {
+                // Check if section is empty (all 0s) or has data
+                if let LightStorage::Homogeneous(0) = self.sections.sky_light[i] {
+                    // Section is empty - set in empty mask, don't send data
+                    empty_sky_y_mask.set(i, true);
+                } else {
+                    // Section has data - set in data mask and send array
+                    sky_y_mask.set(i, true);
+                    sky_updates.push(self.sections.sky_light[i].to_packet_data());
+                }
+            }
+
+            if has_block_change && i < self.sections.block_light.len() {
+                // Check if section is empty (all 0s) or has data
+                if let LightStorage::Homogeneous(0) = self.sections.block_light[i] {
+                    // Section is empty - set in empty mask, don't send data
+                    empty_block_y_mask.set(i, true);
+                } else {
+                    // Section has data - set in data mask and send array
+                    block_y_mask.set(i, true);
+                    block_updates.push(self.sections.block_light[i].to_packet_data());
+                }
+            }
+        }
+
+        LightUpdatePacketData {
+            sky_y_mask,
+            block_y_mask,
+            empty_sky_y_mask,
+            empty_block_y_mask,
+            sky_updates,
+            block_updates,
+        }
+    }
+
     /// Extracts the light data for sending to the client.
     #[must_use]
     pub fn extract_light_data(&self) -> LightUpdatePacketData {
         let section_count = self.sections.sections.len();
-        let mut sky_y_mask = BitSet(vec![0; section_count.div_ceil(64)].into_boxed_slice());
-        let mut block_y_mask = BitSet(vec![0; section_count.div_ceil(64)].into_boxed_slice());
-        let empty_sky_y_mask = BitSet(vec![0; section_count.div_ceil(64)].into_boxed_slice());
-        let empty_block_y_mask = BitSet(vec![0; section_count.div_ceil(64)].into_boxed_slice());
+        // We send section_count + 1 sections (indices 0 through section_count inclusive)
+        let light_section_count = section_count + 1;
+        let mut sky_y_mask = BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
+        let mut block_y_mask = BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
+        let empty_sky_y_mask = BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
+        let empty_block_y_mask = BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
 
         let mut sky_updates = Vec::new();
         let mut block_updates = Vec::new();
