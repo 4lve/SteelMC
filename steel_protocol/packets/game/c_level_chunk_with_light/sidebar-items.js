@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["CLevelChunkWithLight"]};
+window.SIDEBAR_ITEMS = {"enum":["HeightmapType"],"struct":["BlockEntityInfo","CLevelChunkWithLight","ChunkPacketData","Heightmaps","LightUpdatePacketData"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["MAX_UNACKNOWLEDGED_BATCHES"],"struct":["ChunkSender"]};
+window.SIDEBAR_ITEMS = {"struct":["ChunkSender"]};

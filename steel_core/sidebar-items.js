@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["chunk","config","player","server","world"],"struct":["Level"]};
+window.SIDEBAR_ITEMS = {"mod":["chunk","chunk_saver","config","player","server","world"]};
