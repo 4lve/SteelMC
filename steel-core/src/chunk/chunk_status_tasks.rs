@@ -151,8 +151,6 @@ impl ChunkStatusTasks {
         _cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
         holder: Arc<ChunkHolder>,
     ) -> Result<(), anyhow::Error> {
-        let chunk_pos = holder.get_pos();
-
         let chunk = holder
             .try_chunk(ChunkStatus::Features)
             .expect("Chunk not found at status Features");
@@ -173,8 +171,6 @@ impl ChunkStatusTasks {
         cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
         holder: Arc<ChunkHolder>,
     ) -> Result<(), anyhow::Error> {
-        let chunk_pos = holder.get_pos();
-
         let chunk = holder
             .try_chunk(ChunkStatus::InitializeLight)
             .expect("Chunk not found at status InitializeLight");
