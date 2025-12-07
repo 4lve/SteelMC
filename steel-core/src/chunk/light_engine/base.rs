@@ -17,7 +17,7 @@ pub trait LightChunkAccess {
     async fn get_light(&self, pos: BlockPos) -> u8;
 
     /// Sets the light level at the given world block position.
-    async fn set_light(&mut self, pos: BlockPos, level: u8) -> ();
+    async fn set_light(&mut self, pos: BlockPos, level: u8);
 
     /// Gets the block state at the given world block position.
     async fn get_block_state(&self, pos: BlockPos) -> BlockStateId;

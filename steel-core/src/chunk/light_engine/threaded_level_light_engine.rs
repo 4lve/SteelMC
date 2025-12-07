@@ -6,16 +6,22 @@
 use std::sync::Arc;
 
 use parking_lot::{Mutex, RwLock as ParkingRwLock};
-use steel_registry::blocks::BlockRegistry;
-use steel_utils::{BlockPos, BlockStateId, ChunkPos};
+use steel_registry::{blocks::BlockRegistry, vanilla_blocks};
+use steel_utils::{BlockPos, BlockStateId, ChunkPos, math::Vector3};
 
 use crate::chunk::{
     chunk_access::{ChunkAccess, ChunkStatus},
     chunk_generation_task::StaticCache2D,
     chunk_generator::ChunkGuard,
+    chunk_holder::ChunkHolder,
+    light_storage::LightStorage,
+    paletted_container::PalettedContainer,
 };
 
-use super::base::{LightChunkAccess, LightEngine};
+use super::{
+    base::{LightChunkAccess, LightEngine},
+    queue_entry::QueueEntry,
+};
 
 /// Multi-chunk light access implementation for cross-chunk light propagation.
 ///
@@ -23,11 +29,9 @@ use super::base::{LightChunkAccess, LightEngine};
 /// using the `yield_lock` pattern to safely access neighbor chunks during propagation.
 struct ChunkLightAccess<'access, 'guard> {
     /// The center chunk guard.
-    center_guard: Mutex<&'access mut crate::chunk::chunk_generator::ChunkGuard<'guard>>,
+    center_guard: Mutex<&'access mut ChunkGuard<'guard>>,
     /// Cache of all chunks in a radius (includes center and neighbors).
-    cache: &'access crate::chunk::chunk_generation_task::StaticCache2D<
-        Arc<crate::chunk::chunk_holder::ChunkHolder>,
-    >,
+    cache: &'access StaticCache2D<Arc<ChunkHolder>>,
     /// Minimum Y coordinate of the world.
     chunk_min_y: i32,
     block_registry: Arc<BlockRegistry>,
@@ -35,10 +39,8 @@ struct ChunkLightAccess<'access, 'guard> {
 
 impl<'access, 'guard> ChunkLightAccess<'access, 'guard> {
     fn new(
-        center_guard: &'access mut crate::chunk::chunk_generator::ChunkGuard<'guard>,
-        cache: &'access crate::chunk::chunk_generation_task::StaticCache2D<
-            Arc<crate::chunk::chunk_holder::ChunkHolder>,
-        >,
+        center_guard: &'access mut ChunkGuard<'guard>,
+        cache: &'access StaticCache2D<Arc<ChunkHolder>>,
         chunk_min_y: i32,
         block_registry: Arc<BlockRegistry>,
     ) -> Self {
@@ -344,8 +346,6 @@ impl ThreadedLevelLightEngine {
         chunk: &ParkingRwLock<Option<ChunkAccess>>,
         light_enabled: bool,
     ) -> Result<(), anyhow::Error> {
-        use crate::chunk::chunk_generator::ChunkGuard;
-
         let chunk_guard = ChunkGuard::new(chunk);
         let chunk_pos = match &*chunk_guard {
             ChunkAccess::Proto(proto) => proto.pos,
@@ -422,15 +422,9 @@ impl ThreadedLevelLightEngine {
     pub async fn light_chunk_with_cache(
         &self,
         chunk_guard: &mut ChunkGuard<'_>,
-        cache: &StaticCache2D<Arc<crate::chunk::chunk_holder::ChunkHolder>>,
+        cache: &StaticCache2D<Arc<ChunkHolder>>,
         _light_enabled: bool,
     ) -> Result<(), anyhow::Error> {
-        use crate::chunk::light_storage::LightStorage;
-        use steel_registry::vanilla_blocks;
-        use steel_utils::{BlockPos, BlockStateId, math::Vector3};
-
-        use super::queue_entry::QueueEntry;
-
         let (chunk_pos, sections) = match &mut **chunk_guard {
             ChunkAccess::Proto(proto_chunk) => (proto_chunk.pos, &mut proto_chunk.sections),
             ChunkAccess::Full(level_chunk) => (level_chunk.pos, &mut level_chunk.sections),
@@ -450,10 +444,8 @@ impl ThreadedLevelLightEngine {
                 sections.sky_light[index] = LightStorage::new_filled(15);
             } else if let Some(section) = sections.sections.get(index - 1) {
                 let is_all_air = match &section.states {
-                    crate::chunk::paletted_container::PalettedContainer::Homogeneous(id) => {
-                        *id == BlockStateId(0)
-                    }
-                    crate::chunk::paletted_container::PalettedContainer::Heterogeneous(_) => false,
+                    PalettedContainer::Homogeneous(id) => *id == BlockStateId(0),
+                    PalettedContainer::Heterogeneous(_) => false,
                 };
 
                 if is_all_air {
