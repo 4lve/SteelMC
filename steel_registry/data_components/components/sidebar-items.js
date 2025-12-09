@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["DataComponentMap","DataComponentRegistry","DataComponentType"],"trait":["ComponentValue"]};
+window.SIDEBAR_ITEMS = {"enum":["ComponentPatchEntry"],"fn":["effective_components_equal","get_effective_value"],"struct":["DataComponentMap","DataComponentPatch","DataComponentRegistry","DataComponentType"],"trait":["ComponentValue"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["IN_END_TAG","IN_NETHER_TAG","IN_OVERWORLD_TAG","UNIVERSAL_TAG"],"fn":["register_timeline_tags"]};
