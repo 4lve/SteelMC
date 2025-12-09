@@ -1,19 +1,29 @@
 //! This module contains all things player-related.
 pub mod chunk_sender;
 mod game_profile;
+mod message_validator;
 /// This module contains the networking implementation for the player.
 pub mod networking;
+mod signature_cache;
 
 use std::sync::{
     Arc,
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, AtomicI32, Ordering},
 };
 
 pub use game_profile::GameProfile;
+use message_validator::LastSeenMessagesValidator;
 use parking_lot::Mutex;
+pub use signature_cache::{LastSeen, MessageCache};
 
-use steel_protocol::packets::{common::SCustomPayload, game::SMovePlayer};
-use steel_utils::{ChunkPos, math::Vector3, translations};
+use steel_protocol::packets::{
+    common::SCustomPayload,
+    game::{CPlayerChat, FilterType, PreviousMessage, SChat, SMovePlayer},
+};
+use steel_utils::{ChunkPos, codec::VarInt, math::Vector3, text::TextComponent, translations};
+
+/// Re-export `PreviousMessage` as `PreviousMessageEntry` for use in `signature_cache`
+pub type PreviousMessageEntry = PreviousMessage;
 
 use crate::{
     chunk::player_chunk_view::PlayerChunkView,
@@ -42,6 +52,17 @@ pub struct Player {
     pub last_tracking_view: Mutex<Option<PlayerChunkView>>,
     /// The chunk sender for the player.
     pub chunk_sender: Mutex<ChunkSender>,
+
+    /// Counter for chat messages sent BY this player
+    messages_sent: AtomicI32,
+    /// Counter for chat messages received BY this player
+    messages_received: AtomicI32,
+
+    /// Message signature cache for tracking chat messages
+    pub signature_cache: Mutex<MessageCache>,
+
+    /// Validator for client acknowledgements of messages we've sent
+    pub message_validator: Mutex<LastSeenMessagesValidator>,
 }
 
 impl Player {
@@ -61,6 +82,10 @@ impl Player {
             last_chunk_pos: Mutex::new(ChunkPos::new(0, 0)),
             last_tracking_view: Mutex::new(None),
             chunk_sender: Mutex::new(ChunkSender::default()),
+            messages_sent: AtomicI32::new(0),
+            messages_received: AtomicI32::new(0),
+            signature_cache: Mutex::new(MessageCache::new()),
+            message_validator: Mutex::new(LastSeenMessagesValidator::new()),
         }
     }
 
@@ -105,6 +130,43 @@ impl Player {
     /// Handles the end of a client tick.
     pub fn handle_client_tick_end(&self) {
         //log::info!("Hello from the other side!");
+    }
+
+    /// Gets the next `messages_received` counter and increments it
+    pub fn get_and_increment_messages_received(&self) -> i32 {
+        self.messages_received.fetch_add(1, Ordering::Relaxed)
+    }
+
+    /// Handles a chat message from the player.
+    pub fn handle_chat(&self, packet: SChat, player: Arc<Player>) {
+        let chat_message = packet.message;
+        let sender_index = player
+            .messages_sent
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
+        let chat_packet = CPlayerChat::new(
+            VarInt(0),
+            player.gameprofile.id,
+            VarInt(sender_index),
+            None,
+            chat_message.clone(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as i64,
+            0,
+            Box::new([]),
+            Some(TextComponent::new().text(chat_message.clone())),
+            FilterType::PassThrough,
+            steel_protocol::packets::game::ChatTypeBound {
+                registry_id: VarInt(0),
+                sender_name: TextComponent::new().text(player.gameprofile.name.clone()),
+                target_name: None,
+            },
+        );
+
+        self.world
+            .broadcast_unsigned_chat(chat_packet, &player.gameprofile.name, &chat_message);
     }
 
     fn is_invalid_position(x: f64, y: f64, z: f64, rot_x: f32, rot_y: f32) -> bool {

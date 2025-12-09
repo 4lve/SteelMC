@@ -31,6 +31,17 @@ impl World {
             return;
         }
 
+        // Register player in tab list (required for chat)
+        let player_info_packet = steel_protocol::packets::game::CPlayerInfoUpdate::add_player(
+            player.gameprofile.id,
+            player.gameprofile.name.clone(),
+        );
+
+        self.players.iter_sync(|_, p| {
+            p.connection.send_packet(player_info_packet.clone());
+            true
+        });
+
         player.connection.send_packet(CGameEvent {
             event: GameEventType::LevelChunksLoadStart,
             data: 0.0,

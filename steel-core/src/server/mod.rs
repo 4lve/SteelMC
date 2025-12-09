@@ -81,7 +81,7 @@ impl Server {
                 portal_cooldown: 0,
                 sea_level: 64,
             },
-            enforces_secure_chat: true,
+            enforces_secure_chat: false,
         });
         self.worlds[0].add_player(player);
     }

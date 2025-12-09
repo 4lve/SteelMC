@@ -13,8 +13,8 @@ use steel_protocol::{
     packets::{
         common::{CDisconnect, CKeepAlive, SCustomPayload, SKeepAlive},
         game::{
-            SChunkBatchReceived, SClientTickEnd, SMovePlayerPos, SMovePlayerPosRot, SMovePlayerRot,
-            SPlayerLoad,
+            SChat, SChunkBatchReceived, SClientTickEnd, SMovePlayerPos, SMovePlayerPosRot,
+            SMovePlayerRot, SPlayerLoad,
         },
     },
     utils::{ConnectionProtocol, EnqueuedPacket, PacketError, RawPacket},
@@ -173,6 +173,9 @@ impl JavaConnection {
         match packet.id {
             play::C_CUSTOM_PAYLOAD => {
                 player.handle_custom_payload(SCustomPayload::read_packet(data)?);
+            }
+            play::S_CHAT => {
+                player.handle_chat(SChat::read_packet(data)?, Arc::clone(&player));
             }
             play::S_CLIENT_TICK_END => {
                 let _ = SClientTickEnd::read_packet(data)?;
