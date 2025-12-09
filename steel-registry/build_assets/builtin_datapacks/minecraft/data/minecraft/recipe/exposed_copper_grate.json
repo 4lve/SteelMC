@@ -1,6 +1,7 @@
 {
   "type": "minecraft:crafting_shaped",
   "category": "building",
+  "group": "exposed_copper_grate",
   "key": {
     "M": "minecraft:exposed_copper"
   },

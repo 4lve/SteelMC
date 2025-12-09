@@ -47263,7 +47263,7 @@
       },
       "behavior_properties": {
         "hasCollision": true,
-        "canOcclude": true,
+        "canOcclude": false,
         "explosionResistance": 1.0,
         "isRandomlyTicking": false,
         "forceSolidOff": false,
@@ -47376,7 +47376,7 @@
       },
       "behavior_properties": {
         "hasCollision": true,
-        "canOcclude": true,
+        "canOcclude": false,
         "explosionResistance": 1.0,
         "isRandomlyTicking": false,
         "forceSolidOff": false,
@@ -47489,7 +47489,7 @@
       },
       "behavior_properties": {
         "hasCollision": true,
-        "canOcclude": true,
+        "canOcclude": false,
         "explosionResistance": 1.0,
         "isRandomlyTicking": false,
         "forceSolidOff": false,
@@ -47602,7 +47602,7 @@
       },
       "behavior_properties": {
         "hasCollision": true,
-        "canOcclude": true,
+        "canOcclude": false,
         "explosionResistance": 1.0,
         "isRandomlyTicking": false,
         "forceSolidOff": false,
@@ -47715,7 +47715,7 @@
       },
       "behavior_properties": {
         "hasCollision": true,
-        "canOcclude": true,
+        "canOcclude": false,
         "explosionResistance": 1.0,
         "isRandomlyTicking": false,
         "forceSolidOff": false,
@@ -47828,7 +47828,7 @@
       },
       "behavior_properties": {
         "hasCollision": true,
-        "canOcclude": true,
+        "canOcclude": false,
         "explosionResistance": 1.0,
         "isRandomlyTicking": false,
         "forceSolidOff": false,
@@ -47941,7 +47941,7 @@
       },
       "behavior_properties": {
         "hasCollision": true,
-        "canOcclude": true,
+        "canOcclude": false,
         "explosionResistance": 1.0,
         "isRandomlyTicking": false,
         "forceSolidOff": false,
@@ -159123,7 +159123,7 @@
       },
       "behavior_properties": {
         "hasCollision": true,
-        "canOcclude": true,
+        "canOcclude": false,
         "explosionResistance": 6.0,
         "isRandomlyTicking": false,
         "forceSolidOff": false,
@@ -159163,7 +159163,7 @@
       },
       "behavior_properties": {
         "hasCollision": true,
-        "canOcclude": true,
+        "canOcclude": false,
         "explosionResistance": 6.0,
         "isRandomlyTicking": false,
         "forceSolidOff": false,
@@ -159203,7 +159203,7 @@
       },
       "behavior_properties": {
         "hasCollision": true,
-        "canOcclude": true,
+        "canOcclude": false,
         "explosionResistance": 6.0,
         "isRandomlyTicking": false,
         "forceSolidOff": false,
@@ -159243,7 +159243,7 @@
       },
       "behavior_properties": {
         "hasCollision": true,
-        "canOcclude": true,
+        "canOcclude": false,
         "explosionResistance": 6.0,
         "isRandomlyTicking": false,
         "forceSolidOff": false,
@@ -159283,7 +159283,7 @@
       },
       "behavior_properties": {
         "hasCollision": true,
-        "canOcclude": true,
+        "canOcclude": false,
         "explosionResistance": 6.0,
         "isRandomlyTicking": false,
         "forceSolidOff": false,
@@ -159323,7 +159323,7 @@
       },
       "behavior_properties": {
         "hasCollision": true,
-        "canOcclude": true,
+        "canOcclude": false,
         "explosionResistance": 6.0,
         "isRandomlyTicking": false,
         "forceSolidOff": false,
@@ -159363,7 +159363,7 @@
       },
       "behavior_properties": {
         "hasCollision": true,
-        "canOcclude": true,
+        "canOcclude": false,
         "explosionResistance": 6.0,
         "isRandomlyTicking": false,
         "forceSolidOff": false,
@@ -159403,7 +159403,7 @@
       },
       "behavior_properties": {
         "hasCollision": true,
-        "canOcclude": true,
+        "canOcclude": false,
         "explosionResistance": 6.0,
         "isRandomlyTicking": false,
         "forceSolidOff": false,
@@ -174550,7 +174550,7 @@
       },
       "behavior_properties": {
         "hasCollision": true,
-        "canOcclude": true,
+        "canOcclude": false,
         "explosionResistance": 0.1,
         "isRandomlyTicking": false,
         "forceSolidOff": false,

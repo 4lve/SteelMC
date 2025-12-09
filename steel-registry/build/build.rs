@@ -19,10 +19,13 @@ mod jukebox_songs;
 mod packets;
 mod painting_variants;
 mod pig_variants;
+mod timeline_tags;
+mod timelines;
 mod trim_materials;
 mod trim_patterns;
 mod wolf_sound_variants;
 mod wolf_variants;
+mod zombie_nautilus_variants;
 
 const FMT: bool = cfg!(feature = "fmt");
 
@@ -51,6 +54,9 @@ const DAMAGE_TYPES: &str = "damage_types";
 const JUKEBOX_SONGS: &str = "jukebox_songs";
 const INSTRUMENTS: &str = "instruments";
 const DIALOGS: &str = "dialogs";
+const TIMELINES: &str = "timelines";
+const TIMELINE_TAGS: &str = "timeline_tags";
+const ZOMBIE_NAUTILUS_VARIANTS: &str = "zombie_nautilus_variants";
 
 pub fn main() {
     if !Path::new(OUT_DIR).exists() {
@@ -81,6 +87,9 @@ pub fn main() {
         (jukebox_songs::build(), JUKEBOX_SONGS),
         (instruments::build(), INSTRUMENTS),
         (dialogs::build(), DIALOGS),
+        (timelines::build(), TIMELINES),
+        (timeline_tags::build(), TIMELINE_TAGS),
+        (zombie_nautilus_variants::build(), ZOMBIE_NAUTILUS_VARIANTS),
     ];
 
     for (content, file_name) in vanilla_builds {

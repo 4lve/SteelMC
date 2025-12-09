@@ -1,7 +1,7 @@
 {
   "type": "minecraft:crafting_shapeless",
   "category": "building",
-  "group": "waxed_weathered_copper_bars",
+  "group": "waxed_copper_bar",
   "ingredients": [
     "minecraft:weathered_copper_bars",
     "minecraft:honeycomb"

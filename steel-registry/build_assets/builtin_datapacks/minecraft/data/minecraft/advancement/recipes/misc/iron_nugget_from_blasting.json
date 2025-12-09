@@ -111,6 +111,16 @@
       },
       "trigger": "minecraft:inventory_changed"
     },
+    "has_iron_nautilus_armor": {
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:iron_nautilus_armor"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
     "has_iron_pickaxe": {
       "conditions": {
         "items": [
@@ -126,6 +136,16 @@
         "items": [
           {
             "items": "minecraft:iron_shovel"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_iron_spear": {
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:iron_spear"
           }
         ]
       },
@@ -156,6 +176,7 @@
       "has_iron_axe",
       "has_iron_hoe",
       "has_iron_sword",
+      "has_iron_spear",
       "has_iron_helmet",
       "has_iron_chestplate",
       "has_iron_leggings",
@@ -164,7 +185,8 @@
       "has_chainmail_helmet",
       "has_chainmail_chestplate",
       "has_chainmail_leggings",
-      "has_chainmail_boots"
+      "has_chainmail_boots",
+      "has_iron_nautilus_armor"
     ]
   ],
   "rewards": {

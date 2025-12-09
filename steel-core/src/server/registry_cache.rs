@@ -14,8 +14,8 @@ use steel_registry::{
     CHAT_TYPE_REGISTRY, CHICKEN_VARIANT_REGISTRY, COW_VARIANT_REGISTRY, DAMAGE_TYPE_REGISTRY,
     DIMENSION_TYPE_REGISTRY, FROG_VARIANT_REGISTRY, INSTRUMENT_REGISTRY, ITEMS_REGISTRY,
     JUKEBOX_SONG_REGISTRY, PAINTING_VARIANT_REGISTRY, PIG_VARIANT_REGISTRY, Registry,
-    TRIM_MATERIAL_REGISTRY, TRIM_PATTERN_REGISTRY, WOLF_SOUND_VARIANT_REGISTRY,
-    WOLF_VARIANT_REGISTRY,
+    TIMELINE_REGISTRY, TRIM_MATERIAL_REGISTRY, TRIM_PATTERN_REGISTRY, WOLF_SOUND_VARIANT_REGISTRY,
+    WOLF_VARIANT_REGISTRY, ZOMBIE_NAUTILUS_VARIANT_REGISTRY,
 };
 use steel_utils::Identifier;
 use steel_utils::codec::VarInt;
@@ -78,12 +78,14 @@ impl RegistryCache {
         add_registry!(DIMENSION_TYPE_REGISTRY, dimension_types);
         add_registry!(DAMAGE_TYPE_REGISTRY, damage_types);
         add_registry!(BANNER_PATTERN_REGISTRY, banner_patterns);
+        add_registry!(ZOMBIE_NAUTILUS_VARIANT_REGISTRY, zombie_nautilus_variants);
 
         // TODO: Add enchantments when implemented in the registry
         //add_registry!(Identifier::vanilla_static("enchantments"), enchantments);
 
         add_registry!(JUKEBOX_SONG_REGISTRY, jukebox_songs);
         add_registry!(INSTRUMENT_REGISTRY, instruments);
+        add_registry!(TIMELINE_REGISTRY, timelines);
 
         packets
     }
@@ -122,6 +124,22 @@ impl RegistryCache {
         }
 
         tags_by_registry.push((ITEMS_REGISTRY, item_tags));
+
+        // Build timeline tags
+        let mut timeline_tags: Vec<(Identifier, Vec<VarInt>)> =
+            Vec::with_capacity(registry.timelines.tag_keys().count());
+        for tag_key in registry.timelines.tag_keys() {
+            let mut timeline_ids = Vec::with_capacity(registry.timelines.iter_tag(tag_key).count());
+
+            for timeline in registry.timelines.iter_tag(tag_key) {
+                let timeline_id = *registry.timelines.get_id(timeline);
+                timeline_ids.push(VarInt::from(timeline_id));
+            }
+
+            timeline_tags.push((tag_key.clone(), timeline_ids));
+        }
+
+        tags_by_registry.push((TIMELINE_REGISTRY, timeline_tags));
 
         // Build and return a CUpdateTagsPacket based on the registry data
         CUpdateTags::new(tags_by_registry)

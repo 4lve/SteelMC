@@ -1,13 +1,13 @@
 {
   "type": "minecraft:crafting_shaped",
   "category": "building",
-  "group": "waxed_cut_copper_chiseled",
+  "group": "waxed_chiseled_copper",
   "key": {
-    "#": "minecraft:waxed_cut_copper_slab"
+    "M": "minecraft:waxed_cut_copper_slab"
   },
   "pattern": [
-    "#",
-    "#"
+    " M ",
+    " M "
   ],
   "result": {
     "count": 1,

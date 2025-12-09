@@ -27,6 +27,7 @@
     "minecraft:stalagmite",
     "minecraft:outside_border",
     "minecraft:generic_kill",
-    "minecraft:campfire"
+    "minecraft:campfire",
+    "minecraft:spear"
   ]
 }

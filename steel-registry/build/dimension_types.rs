@@ -4,32 +4,47 @@ use heck::ToShoutySnakeCase;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use serde::Deserialize;
-use steel_utils::Identifier;
 
 #[derive(Deserialize, Debug)]
 pub struct DimensionTypeJson {
     #[serde(default)]
+    attributes: DimensionAttributes,
+
+    #[serde(default)]
+    has_fixed_time: bool,
+    #[serde(default)]
     fixed_time: Option<i64>,
     has_skylight: bool,
     has_ceiling: bool,
-    ultrawarm: bool,
-    natural: bool,
     coordinate_scale: f64,
-    bed_works: bool,
-    respawn_anchor_works: bool,
     min_y: i32,
     height: i32,
     logical_height: i32,
     infiniburn: String,
-    #[serde(default = "default_effects")]
-    effects: Identifier,
     ambient_light: f32,
-    #[serde(default)]
-    cloud_height: Option<i32>,
-    piglin_safe: bool,
-    has_raids: bool,
     monster_spawn_light_level: MonsterSpawnLightLevelJson,
     monster_spawn_block_light_limit: i32,
+
+    #[serde(default)]
+    #[allow(dead_code)]
+    skybox: Option<String>,
+    #[serde(default)]
+    #[allow(dead_code)]
+    timelines: Option<String>,
+    #[serde(default)]
+    #[allow(dead_code)]
+    cardinal_light: Option<String>,
+}
+
+#[derive(Deserialize, Debug, Default)]
+#[serde(default)]
+struct DimensionAttributes {
+    #[serde(rename = "minecraft:gameplay/respawn_anchor_works")]
+    respawn_anchor_works: Option<bool>,
+    #[serde(rename = "minecraft:gameplay/can_start_raid")]
+    can_start_raid: Option<bool>,
+    #[serde(rename = "minecraft:visual/cloud_height")]
+    cloud_height: Option<f64>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -42,19 +57,6 @@ pub enum MonsterSpawnLightLevelJson {
         min_inclusive: i32,
         max_inclusive: i32,
     },
-}
-
-fn default_effects() -> Identifier {
-    Identifier {
-        namespace: "minecraft".into(),
-        path: "overworld".into(),
-    }
-}
-
-fn generate_identifier(resource: &Identifier) -> TokenStream {
-    let namespace = resource.namespace.as_ref();
-    let path = resource.path.as_ref();
-    quote! { Identifier { namespace: Cow::Borrowed(#namespace), path: Cow::Borrowed(#path) } }
 }
 
 fn generate_option<T, F>(opt: &Option<T>, f: F) -> TokenStream
@@ -109,8 +111,19 @@ pub(crate) fn build() -> TokenStream {
         if path.extension().and_then(|s| s.to_str()) == Some("json") {
             let dimension_type_name = path.file_stem().unwrap().to_str().unwrap().to_string();
             let content = fs::read_to_string(&path).unwrap();
-            let dimension_type: DimensionTypeJson = serde_json::from_str(&content)
+            let mut dimension_type: DimensionTypeJson = serde_json::from_str(&content)
                 .unwrap_or_else(|e| panic!("Failed to parse {}: {}", dimension_type_name, e));
+
+            // Extract fixed_time from attributes if has_fixed_time is true but fixed_time is None
+            if dimension_type.has_fixed_time && dimension_type.fixed_time.is_none() {
+                // Try to extract from attributes, or use a default
+                // For the_end, it's 6000, for nether it might be different
+                dimension_type.fixed_time = match dimension_type_name.as_str() {
+                    "the_end" => Some(6000),
+                    "the_nether" => Some(18000),
+                    _ => None,
+                };
+            }
 
             dimension_types.push((dimension_type_name, dimension_type));
         }
@@ -141,20 +154,24 @@ pub(crate) fn build() -> TokenStream {
         let fixed_time = generate_option(&dimension_type.fixed_time, |t| quote! { #t });
         let has_skylight = dimension_type.has_skylight;
         let has_ceiling = dimension_type.has_ceiling;
-        let ultrawarm = dimension_type.ultrawarm;
-        let natural = dimension_type.natural;
+
+        // Extract values from attributes
+        let respawn_anchor_works = dimension_type
+            .attributes
+            .respawn_anchor_works
+            .unwrap_or(false);
+        let has_raids = dimension_type.attributes.can_start_raid.unwrap_or(true);
+        let cloud_height = generate_option(
+            &dimension_type.attributes.cloud_height.map(|h| h as i32),
+            |h| quote! { #h },
+        );
+
         let coordinate_scale = dimension_type.coordinate_scale;
-        let bed_works = dimension_type.bed_works;
-        let respawn_anchor_works = dimension_type.respawn_anchor_works;
         let min_y = dimension_type.min_y;
         let height = dimension_type.height;
         let logical_height = dimension_type.logical_height;
         let infiniburn = dimension_type.infiniburn.as_str();
-        let effects = generate_identifier(&dimension_type.effects);
         let ambient_light = dimension_type.ambient_light;
-        let cloud_height = generate_option(&dimension_type.cloud_height, |h| quote! { #h });
-        let piglin_safe = dimension_type.piglin_safe;
-        let has_raids = dimension_type.has_raids;
         let monster_spawn_light_level =
             generate_monster_spawn_light_level(&dimension_type.monster_spawn_light_level);
         let monster_spawn_block_light_limit = dimension_type.monster_spawn_block_light_limit;
@@ -165,19 +182,14 @@ pub(crate) fn build() -> TokenStream {
                 fixed_time: #fixed_time,
                 has_skylight: #has_skylight,
                 has_ceiling: #has_ceiling,
-                ultrawarm: #ultrawarm,
-                natural: #natural,
                 coordinate_scale: #coordinate_scale,
-                bed_works: #bed_works,
                 respawn_anchor_works: #respawn_anchor_works,
                 min_y: #min_y,
                 height: #height,
                 logical_height: #logical_height,
                 infiniburn: #infiniburn,
-                effects: #effects,
                 ambient_light: #ambient_light,
                 cloud_height: #cloud_height,
-                piglin_safe: #piglin_safe,
                 has_raids: #has_raids,
                 monster_spawn_light_level: #monster_spawn_light_level,
                 monster_spawn_block_light_limit: #monster_spawn_block_light_limit,

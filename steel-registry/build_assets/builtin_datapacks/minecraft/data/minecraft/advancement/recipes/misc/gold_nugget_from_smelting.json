@@ -71,6 +71,16 @@
       },
       "trigger": "minecraft:inventory_changed"
     },
+    "has_golden_nautilus_armor": {
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:golden_nautilus_armor"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
     "has_golden_pickaxe": {
       "conditions": {
         "items": [
@@ -86,6 +96,16 @@
         "items": [
           {
             "items": "minecraft:golden_shovel"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_golden_spear": {
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:golden_spear"
           }
         ]
       },
@@ -116,11 +136,13 @@
       "has_golden_axe",
       "has_golden_hoe",
       "has_golden_sword",
+      "has_golden_spear",
       "has_golden_helmet",
       "has_golden_chestplate",
       "has_golden_leggings",
       "has_golden_boots",
-      "has_golden_horse_armor"
+      "has_golden_horse_armor",
+      "has_golden_nautilus_armor"
     ]
   ],
   "rewards": {

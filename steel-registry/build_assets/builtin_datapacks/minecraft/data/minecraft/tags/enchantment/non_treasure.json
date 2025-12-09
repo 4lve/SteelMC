@@ -34,6 +34,7 @@
     "minecraft:quick_charge",
     "minecraft:piercing",
     "minecraft:density",
-    "minecraft:breach"
+    "minecraft:breach",
+    "minecraft:lunge"
   ]
 }

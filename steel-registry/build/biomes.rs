@@ -4,6 +4,7 @@ use heck::ToShoutySnakeCase;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use steel_utils::Identifier;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -28,8 +29,30 @@ where
     }
 }
 
+/// Parse a hex color string (#RRGGBB) to an i32 RGB value
+fn parse_hex_color(hex: &str) -> i32 {
+    if let Some(hex_str) = hex.strip_prefix('#') {
+        if hex_str.len() == 6 {
+            let r =
+                u8::from_str_radix(&hex_str[0..2], 16).expect("Invalid hex color red component");
+            let g =
+                u8::from_str_radix(&hex_str[2..4], 16).expect("Invalid hex color green component");
+            let b =
+                u8::from_str_radix(&hex_str[4..6], 16).expect("Invalid hex color blue component");
+            (i32::from(r) << 16) | (i32::from(g) << 8) | i32::from(b)
+        } else {
+            panic!("Hex color must be 6 characters: {}", hex);
+        }
+    } else {
+        panic!("Hex color must start with #: {}", hex);
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct BiomeJson {
+    #[serde(default)]
+    attributes: HashMap<String, Value>,
+
     has_precipitation: bool,
     temperature: f32,
     downfall: f32,
@@ -51,6 +74,7 @@ pub struct BiomeJson {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(from = "BiomeEffectsJson")]
 pub struct BiomeEffects {
     fog_color: i32,
     sky_color: i32,
@@ -61,6 +85,8 @@ pub struct BiomeEffects {
     foliage_color: Option<i32>,
     #[serde(default)]
     grass_color: Option<i32>,
+    #[serde(default)]
+    dry_foliage_color: Option<i32>,
 
     #[serde(default)]
     grass_color_modifier: GrassColorModifier,
@@ -76,6 +102,44 @@ pub struct BiomeEffects {
     mood_sound: Option<MoodSound>,
     #[serde(default)]
     particle: Option<Particle>,
+}
+
+#[derive(Deserialize)]
+struct BiomeEffectsJson {
+    #[serde(default = "default_water_color")]
+    water_color: String,
+    #[serde(default)]
+    foliage_color: Option<String>,
+    #[serde(default)]
+    grass_color: Option<String>,
+    #[serde(default)]
+    dry_foliage_color: Option<String>,
+    #[serde(default)]
+    grass_color_modifier: GrassColorModifier,
+}
+
+fn default_water_color() -> String {
+    "#3f76e4".to_string()
+}
+
+impl From<BiomeEffectsJson> for BiomeEffects {
+    fn from(json: BiomeEffectsJson) -> Self {
+        BiomeEffects {
+            fog_color: 12638463, // Default value, will be overridden from attributes
+            sky_color: 8103167,  // Default value, will be overridden from attributes
+            water_color: parse_hex_color(&json.water_color),
+            water_fog_color: 329011, // Default value, will be overridden from attributes
+            foliage_color: json.foliage_color.map(|s| parse_hex_color(&s)),
+            grass_color: json.grass_color.map(|s| parse_hex_color(&s)),
+            dry_foliage_color: json.dry_foliage_color.map(|s| parse_hex_color(&s)),
+            grass_color_modifier: json.grass_color_modifier,
+            music: None,           // Will be populated from attributes
+            ambient_sound: None,   // Will be populated from attributes
+            additions_sound: None, // Will be populated from attributes
+            mood_sound: None,      // Will be populated from attributes
+            particle: None,        // Will be populated from attributes
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -150,6 +214,96 @@ pub struct Particle {
 pub struct ParticleOptions {
     #[serde(rename = "type")]
     particle_type: Identifier,
+}
+
+#[derive(Deserialize, Debug)]
+struct BackgroundMusicEntry {
+    max_delay: i32,
+    min_delay: i32,
+    sound: Identifier,
+}
+
+#[derive(Deserialize, Debug)]
+#[allow(dead_code)]
+struct BackgroundMusic {
+    #[serde(default)]
+    default: Option<BackgroundMusicEntry>,
+    #[serde(default)]
+    creative: Option<BackgroundMusicEntry>,
+    #[serde(default)]
+    underwater: Option<BackgroundMusicEntry>,
+}
+
+#[derive(Deserialize, Debug)]
+struct AmbientSounds {
+    #[serde(default)]
+    additions: Option<AdditionsSound>,
+    #[serde(default, rename = "loop")]
+    loop_sound: Option<Identifier>,
+    #[serde(default)]
+    mood: Option<MoodSound>,
+}
+
+#[derive(Deserialize, Debug)]
+struct AmbientParticle {
+    particle: ParticleOptions,
+    probability: f32,
+}
+
+fn extract_attributes_to_effects(effects: &mut BiomeEffects, attributes: &HashMap<String, Value>) {
+    // Extract sky_color
+    if let Some(Value::String(sky_color)) = attributes.get("minecraft:visual/sky_color") {
+        effects.sky_color = parse_hex_color(sky_color);
+    }
+
+    // Extract fog_color
+    if let Some(Value::String(fog_color)) = attributes.get("minecraft:visual/fog_color") {
+        effects.fog_color = parse_hex_color(fog_color);
+    }
+
+    // Extract water_fog_color
+    if let Some(Value::String(water_fog_color)) = attributes.get("minecraft:visual/water_fog_color")
+    {
+        effects.water_fog_color = parse_hex_color(water_fog_color);
+    }
+
+    // Extract background_music
+    if let Some(music_value) = attributes.get("minecraft:audio/background_music")
+        && let Ok(music) = serde_json::from_value::<BackgroundMusic>(music_value.clone())
+        && let Some(default) = music.default
+    {
+        effects.music = Some(vec![WeightedMusic {
+            data: Music {
+                replace_current_music: false,
+                max_delay: default.max_delay,
+                min_delay: default.min_delay,
+                sound: default.sound,
+            },
+            weight: 1,
+        }]);
+    }
+
+    // Extract ambient_sounds
+    if let Some(ambient_value) = attributes.get("minecraft:audio/ambient_sounds")
+        && let Ok(ambient) = serde_json::from_value::<AmbientSounds>(ambient_value.clone())
+    {
+        effects.ambient_sound = ambient.loop_sound;
+        effects.additions_sound = ambient.additions;
+        effects.mood_sound = ambient.mood;
+    }
+
+    // Extract ambient_particles
+    if let Some(Value::Array(particles)) = attributes.get("minecraft:visual/ambient_particles")
+        && let Some(first) = particles.first()
+        && let Ok(particle) = serde_json::from_value::<AmbientParticle>(first.clone())
+    {
+        effects.particle = Some(Particle {
+            options: ParticleOptions {
+                particle_type: particle.particle.particle_type,
+            },
+            probability: particle.probability,
+        });
+    }
 }
 
 fn generate_temperature_modifier(modifier: &TemperatureModifier) -> TokenStream {
@@ -328,6 +482,7 @@ fn generate_biome_effects(effects: &BiomeEffects) -> TokenStream {
     let water_fog_color = effects.water_fog_color;
     let foliage_color = generate_option(&effects.foliage_color, |&v| quote! { #v });
     let grass_color = generate_option(&effects.grass_color, |&v| quote! { #v });
+    let dry_foliage_color = generate_option(&effects.dry_foliage_color, |&v| quote! { #v });
     let grass_color_modifier = generate_grass_color_modifier(&effects.grass_color_modifier);
     let music = generate_option(&effects.music, |m| generate_vec(m, generate_weighted_music));
     let ambient_sound = generate_option(&effects.ambient_sound, generate_identifier);
@@ -343,6 +498,7 @@ fn generate_biome_effects(effects: &BiomeEffects) -> TokenStream {
             water_fog_color: #water_fog_color,
             foliage_color: #foliage_color,
             grass_color: #grass_color,
+            dry_foliage_color: #dry_foliage_color,
             grass_color_modifier: #grass_color_modifier,
             music: #music,
             ambient_sound: #ambient_sound,
@@ -369,8 +525,11 @@ pub(crate) fn build() -> TokenStream {
         if path.extension().and_then(|s| s.to_str()) == Some("json") {
             let biome_name = path.file_stem().unwrap().to_str().unwrap().to_string();
             let content = fs::read_to_string(&path).unwrap();
-            let biome: BiomeJson = serde_json::from_str(&content)
+            let mut biome: BiomeJson = serde_json::from_str(&content)
                 .unwrap_or_else(|e| panic!("Failed to parse {}: {}", biome_name, e));
+
+            // Extract attributes and populate effects
+            extract_attributes_to_effects(&mut biome.effects, &biome.attributes);
 
             biomes.push((biome_name, biome));
         }

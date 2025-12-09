@@ -27,10 +27,12 @@ use crate::{
     jukebox_song::JukeboxSongRegistry,
     painting_variant::PaintingVariantRegistry,
     pig_variant::PigVariantRegistry,
+    timeline::TimelineRegistry,
     trim_material::TrimMaterialRegistry,
     trim_pattern::TrimPatternRegistry,
     wolf_sound_variant::WolfSoundVariantRegistry,
     wolf_variant::WolfVariantRegistry,
+    zombie_nautilus_variant::ZombieNautilusVariantRegistry,
 };
 pub mod banner_pattern;
 pub mod biome;
@@ -45,14 +47,17 @@ pub mod dialog;
 pub mod dimension_type;
 pub mod frog_variant;
 pub mod instrument;
+pub mod item_stack;
 pub mod items;
 pub mod jukebox_song;
 pub mod painting_variant;
 pub mod pig_variant;
+pub mod timeline;
 pub mod trim_material;
 pub mod trim_pattern;
 pub mod wolf_sound_variant;
 pub mod wolf_variant;
+pub mod zombie_nautilus_variant;
 
 #[allow(warnings)]
 #[rustfmt::skip]
@@ -163,6 +168,21 @@ pub mod vanilla_dialogs;
 
 #[allow(warnings)]
 #[rustfmt::skip]
+#[path = "generated/vanilla_zombie_nautilus_variants.rs"]
+pub mod vanilla_zombie_nautilus_variants;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_timelines.rs"]
+pub mod vanilla_timelines;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_timeline_tags.rs"]
+pub mod vanilla_timeline_tags;
+
+#[allow(warnings)]
+#[rustfmt::skip]
 #[path = "generated/vanilla_packets.rs"]
 pub mod packets;
 
@@ -193,6 +213,9 @@ pub const BANNER_PATTERN_REGISTRY: Identifier = Identifier::vanilla_static("bann
 pub const JUKEBOX_SONG_REGISTRY: Identifier = Identifier::vanilla_static("jukebox_song");
 pub const INSTRUMENT_REGISTRY: Identifier = Identifier::vanilla_static("instrument");
 pub const DIALOG_REGISTRY: Identifier = Identifier::vanilla_static("dialog");
+pub const ZOMBIE_NAUTILUS_VARIANT_REGISTRY: Identifier =
+    Identifier::vanilla_static("zombie_nautilus_variant");
+pub const TIMELINE_REGISTRY: Identifier = Identifier::vanilla_static("timeline");
 
 pub struct Registry {
     pub blocks: BlockRegistry,
@@ -216,6 +239,8 @@ pub struct Registry {
     pub jukebox_songs: JukeboxSongRegistry,
     pub instruments: InstrumentRegistry,
     pub dialogs: DialogRegistry,
+    pub zombie_nautilus_variants: ZombieNautilusVariantRegistry,
+    pub timelines: TimelineRegistry,
 }
 
 impl Registry {
@@ -286,6 +311,15 @@ impl Registry {
         let mut dialog_registry = DialogRegistry::new();
         vanilla_dialogs::register_dialogs(&mut dialog_registry);
 
+        let mut zombie_nautilus_variant_registry = ZombieNautilusVariantRegistry::new();
+        vanilla_zombie_nautilus_variants::register_zombie_nautilus_variants(
+            &mut zombie_nautilus_variant_registry,
+        );
+
+        let mut timeline_registry = TimelineRegistry::new();
+        vanilla_timelines::register_timelines(&mut timeline_registry);
+        vanilla_timeline_tags::register_timeline_tags(&mut timeline_registry);
+
         Self {
             blocks: block_registry,
             data_components: data_component_registry,
@@ -308,6 +342,8 @@ impl Registry {
             jukebox_songs: jukebox_song_registry,
             instruments: instrument_registry,
             dialogs: dialog_registry,
+            zombie_nautilus_variants: zombie_nautilus_variant_registry,
+            timelines: timeline_registry,
         }
     }
 
@@ -333,5 +369,7 @@ impl Registry {
         self.jukebox_songs.freeze();
         self.instruments.freeze();
         self.dialogs.freeze();
+        self.zombie_nautilus_variants.freeze();
+        self.timelines.freeze();
     }
 }

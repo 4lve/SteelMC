@@ -71,6 +71,16 @@
       },
       "trigger": "minecraft:inventory_changed"
     },
+    "has_copper_nautilus_armor": {
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:copper_nautilus_armor"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
     "has_copper_pickaxe": {
       "conditions": {
         "items": [
@@ -86,6 +96,16 @@
         "items": [
           {
             "items": "minecraft:copper_shovel"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_copper_spear": {
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:copper_spear"
           }
         ]
       },
@@ -116,11 +136,13 @@
       "has_copper_axe",
       "has_copper_hoe",
       "has_copper_sword",
+      "has_copper_spear",
       "has_copper_helmet",
       "has_copper_chestplate",
       "has_copper_leggings",
       "has_copper_boots",
-      "has_copper_horse_armor"
+      "has_copper_horse_armor",
+      "has_copper_nautilus_armor"
     ]
   ],
   "rewards": {

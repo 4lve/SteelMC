@@ -10,6 +10,8 @@
     "minecraft:dolphin",
     "minecraft:squid",
     "minecraft:glow_squid",
-    "minecraft:tadpole"
+    "minecraft:tadpole",
+    "minecraft:nautilus",
+    "minecraft:zombie_nautilus"
   ]
 }

@@ -26,6 +26,7 @@ pub struct BiomeEffects {
     pub water_fog_color: i32,
     pub foliage_color: Option<i32>,
     pub grass_color: Option<i32>,
+    pub dry_foliage_color: Option<i32>,
     pub grass_color_modifier: GrassColorModifier,
     pub music: Option<Vec<WeightedMusic>>,
     pub ambient_sound: Option<Identifier>,

@@ -1,6 +1,6 @@
 {
   "values": [
-    "#minecraft:swords",
+    "#minecraft:enchantable/melee_weapon",
     "#minecraft:axes"
   ]
 }

@@ -7,6 +7,9 @@
     "minecraft:mule",
     "minecraft:pig",
     "minecraft:strider",
-    "minecraft:camel"
+    "minecraft:camel",
+    "minecraft:camel_husk",
+    "minecraft:nautilus",
+    "minecraft:zombie_nautilus"
   ]
 }

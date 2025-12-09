@@ -15,7 +15,7 @@ use tokio_util::{sync::CancellationToken, task::TaskTracker};
 pub mod network;
 
 /// The supported Minecraft version.
-pub const MC_VERSION: &str = "1.21.10";
+pub const MC_VERSION: &str = "1.21.11";
 
 /// The main server struct.
 pub struct SteelServer {

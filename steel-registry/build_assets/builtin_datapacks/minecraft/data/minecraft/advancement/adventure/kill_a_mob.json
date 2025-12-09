@@ -43,6 +43,20 @@
       },
       "trigger": "minecraft:player_killed_entity"
     },
+    "minecraft:camel_husk": {
+      "conditions": {
+        "entity": [
+          {
+            "condition": "minecraft:entity_properties",
+            "entity": "this",
+            "predicate": {
+              "type": "minecraft:camel_husk"
+            }
+          }
+        ]
+      },
+      "trigger": "minecraft:player_killed_entity"
+    },
     "minecraft:cave_spider": {
       "conditions": {
         "entity": [
@@ -233,6 +247,20 @@
             "entity": "this",
             "predicate": {
               "type": "minecraft:magma_cube"
+            }
+          }
+        ]
+      },
+      "trigger": "minecraft:player_killed_entity"
+    },
+    "minecraft:parched": {
+      "conditions": {
+        "entity": [
+          {
+            "condition": "minecraft:entity_properties",
+            "entity": "this",
+            "predicate": {
+              "type": "minecraft:parched"
             }
           }
         ]
@@ -491,6 +519,34 @@
       },
       "trigger": "minecraft:player_killed_entity"
     },
+    "minecraft:zombie_horse": {
+      "conditions": {
+        "entity": [
+          {
+            "condition": "minecraft:entity_properties",
+            "entity": "this",
+            "predicate": {
+              "type": "minecraft:zombie_horse"
+            }
+          }
+        ]
+      },
+      "trigger": "minecraft:player_killed_entity"
+    },
+    "minecraft:zombie_nautilus": {
+      "conditions": {
+        "entity": [
+          {
+            "condition": "minecraft:entity_properties",
+            "entity": "this",
+            "predicate": {
+              "type": "minecraft:zombie_nautilus"
+            }
+          }
+        ]
+      },
+      "trigger": "minecraft:player_killed_entity"
+    },
     "minecraft:zombie_villager": {
       "conditions": {
         "entity": [
@@ -537,6 +593,7 @@
       "minecraft:blaze",
       "minecraft:bogged",
       "minecraft:breeze",
+      "minecraft:camel_husk",
       "minecraft:cave_spider",
       "minecraft:creaking",
       "minecraft:creeper",
@@ -551,6 +608,7 @@
       "minecraft:hoglin",
       "minecraft:husk",
       "minecraft:magma_cube",
+      "minecraft:parched",
       "minecraft:phantom",
       "minecraft:piglin",
       "minecraft:piglin_brute",
@@ -570,7 +628,9 @@
       "minecraft:zoglin",
       "minecraft:zombie_villager",
       "minecraft:zombie",
-      "minecraft:zombified_piglin"
+      "minecraft:zombie_horse",
+      "minecraft:zombified_piglin",
+      "minecraft:zombie_nautilus"
     ]
   ],
   "sends_telemetry_event": true

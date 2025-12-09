@@ -1,6 +1,6 @@
 {
   "type": "minecraft:crafting_shapeless",
-  "category": "building",
+  "category": "redstone",
   "group": "waxed_copper_bulb",
   "ingredients": [
     "minecraft:copper_bulb",

@@ -1,6 +1,6 @@
 {
   "type": "minecraft:crafting_shapeless",
-  "category": "building",
+  "category": "redstone",
   "group": "waxed_copper_door",
   "ingredients": [
     "minecraft:copper_door",

@@ -10,6 +10,8 @@
     "minecraft:squid",
     "minecraft:glow_squid",
     "minecraft:tadpole",
-    "minecraft:creaking"
+    "minecraft:creaking",
+    "minecraft:nautilus",
+    "minecraft:zombie_nautilus"
   ]
 }

@@ -1,6 +1,7 @@
 {
   "type": "minecraft:crafting_shaped",
   "category": "building",
+  "group": "waxed_weathered_copper_grate",
   "key": {
     "M": "minecraft:waxed_weathered_copper"
   },
