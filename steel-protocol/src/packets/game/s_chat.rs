@@ -9,7 +9,7 @@ pub struct SChat {
 
     pub salt: i64,
 
-    pub signature: Option<[u8; 256]>,
+    pub signature: Option<[u8; 128]>,
 
     #[read(as = "var_int")]
     pub message_count: i32,

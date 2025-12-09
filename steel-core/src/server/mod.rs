@@ -81,7 +81,7 @@ impl Server {
                 portal_cooldown: 0,
                 sea_level: 64,
             },
-            enforces_secure_chat: false,
+            enforces_secure_chat: STEEL_CONFIG.enforce_secure_chat,
         });
         self.worlds[0].add_player(player);
     }

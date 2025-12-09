@@ -198,7 +198,6 @@ impl TextComponent {
     /// writing the NBT compound to bytes fails.
     #[must_use]
     pub fn encode(&self) -> Vec<u8> {
-
         let nbt_tag = simdnbt::ToNbtTag::to_nbt_tag(self.clone());
         log::debug!("TextComponent NBT tag: {nbt_tag:?}");
         match nbt_tag {
@@ -365,7 +364,10 @@ impl TextComponent {
         Ok(())
     }
 
-    fn write_nbt_list_string(writer: &mut Vec<u8>, v: &[simdnbt::Mutf8String]) -> std::io::Result<()> {
+    fn write_nbt_list_string(
+        writer: &mut Vec<u8>,
+        v: &[simdnbt::Mutf8String],
+    ) -> std::io::Result<()> {
         writer.write_all(&[0x08])?;
         writer.write_all(&(v.len() as i32).to_be_bytes())?;
         for s in v {
@@ -457,7 +459,6 @@ impl TextComponent {
             );
         }
 
-        log::info!("compound: {compound:?}");
         compound
     }
 }

@@ -62,6 +62,56 @@ impl MessageCache {
         Self::default()
     }
 
+    /// Reconstructs the `LastSeen` from a `BitSet` acknowledgment.
+    ///
+    /// The `message_count` is the offset, and the `acknowledged` `BitSet` indicates
+    /// which of the last 20 messages were seen.
+    ///
+    /// Returns None if the cache doesn't contain the required messages.
+    #[must_use]
+    pub fn unpack_acknowledged(
+        &self,
+        _message_count: i32,
+        acknowledged: &[u8; 3], // FixedBitSet(20) = 3 bytes
+    ) -> Option<LastSeen> {
+        // Parse the 20-bit BitSet from 3 bytes
+        let mut bits = [false; MAX_PREVIOUS_MESSAGES];
+        for (i, bit) in bits.iter_mut().enumerate() {
+            let byte_index = i / 8;
+            let bit_index = i % 8;
+            *bit = (acknowledged[byte_index] & (1 << bit_index)) != 0;
+        }
+
+        // Collect acknowledged signatures from the cache
+        let mut signatures = Vec::new();
+
+        // Iterate through the bits to find acknowledged messages
+        for (i, &is_acknowledged) in bits.iter().enumerate() {
+            if !is_acknowledged {
+                continue; // This message was not acknowledged
+            }
+
+            // Calculate the index in the full_cache
+            // message_count is the total messages sent by this player
+            // We need to look back (i + 1) messages from message_count
+            let cache_index = i;
+
+            if cache_index >= self.full_cache.len() {
+                // Cache doesn't have this message
+                log::warn!(
+                    "Cache miss: trying to access index {} but cache only has {} entries",
+                    cache_index,
+                    self.full_cache.len()
+                );
+                return None;
+            }
+
+            signatures.push(self.full_cache[cache_index].clone());
+        }
+
+        Some(LastSeen(signatures))
+    }
+
     /// Cache signatures from senders that the recipient hasn't seen yet.
     /// Not used for caching seen messages. Only for non-indexed signatures from senders.
     pub fn cache_signatures(&mut self, signatures: &[Box<[u8]>]) {

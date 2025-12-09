@@ -11,12 +11,14 @@ stand-alone = []
 steel-utils = { path = "../steel-utils" }
 steel-protocol = { path = "../steel-protocol" }
 steel-registry = { path = "../steel-registry" }
+steel-crypto = { path = "../steel-crypto" }
 scc.workspace = true
 uuid.workspace = true
 serde.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 log.workspace = true
+thiserror.workspace = true
 replace_with = { version = "0.1.8", features = ["nightly"] }
 rsa = "0.10.0-rc.9"
 rsa-der = "0.3.0"

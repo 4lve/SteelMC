@@ -2,8 +2,8 @@
 use std::sync::Arc;
 
 use scc::HashMap;
-use steel_registry::Registry;
 use steel_protocol::packets::game::{CPlayerChat, CSystemChat};
+use steel_registry::Registry;
 use steel_utils::codec::VarInt;
 use tokio::runtime::Runtime;
 use uuid::Uuid;
@@ -52,7 +52,7 @@ impl World {
         mut packet: CPlayerChat,
         sender: Arc<Player>,
         sender_last_seen: LastSeen,
-        message_signature: Option<[u8; 256]>,
+        message_signature: Option<[u8; 128]>,
     ) {
         self.players.iter_sync(|_, recipient| {
             let messages_received = recipient.get_and_increment_messages_received();
