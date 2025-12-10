@@ -170,7 +170,7 @@ impl Player {
     fn verify_chat_signature(
         &self,
         packet: &SChat,
-    ) -> Result<message_chain::SignedMessageLink, String> {
+    ) -> Result<(message_chain::SignedMessageLink, LastSeen), String> {
         const MESSAGE_EXPIRES_AFTER: Duration = Duration::from_secs(5 * 60);
 
         // Check if we have a chat session
@@ -214,23 +214,30 @@ impl Player {
             ));
         }
 
-        // Reconstruct LastSeen from the acknowledged field
-        // If we can't reconstruct it (client has state we don't have), use empty LastSeen.
-        // This is a workaround for clients that have history from previous sessions.
-        // The signature will fail verification, but in non-enforced mode the message still goes through.
-        let last_seen = {
-            let signature_cache = self.signature_cache.lock();
-            signature_cache
-                .unpack_acknowledged(packet.message_count, &packet.acknowledged)
-                .unwrap_or_else(|| {
-                    log::debug!(
-                        "Cannot reconstruct LastSeen for {} (offset={}, cache empty). Using empty LastSeen - signature will fail.",
-                        self.gameprofile.name,
-                        packet.message_count
-                    );
-                    LastSeen::default()
-                })
+        // Apply the update to the message validator to get the last seen messages
+        // The validator tracks messages sent TO this player, and the client's Update
+        // tells us which of those messages they've seen.
+        //
+        // Note: On first connection, the client may have state from previous sessions
+        // that we don't know about. In this case, we just use an empty LastSeen.
+        let last_seen_signatures = match self
+            .message_validator
+            .lock()
+            .apply_update(packet.acknowledged, packet.offset, packet.checksum)
+        {
+            Ok(sigs) => sigs,
+            Err(err) => {
+                log::debug!(
+                    "Player {} sent last seen update with offset we can't satisfy ({}), using empty LastSeen. This is normal on first connection.",
+                    self.gameprofile.name,
+                    err
+                );
+                // Use empty LastSeen - the signature will fail but that's okay for unsigned mode
+                Vec::new()
+            }
         };
+
+        let last_seen = LastSeen::new(last_seen_signatures);
 
         let body = message_chain::SignedMessageBody::new(
             packet.message.clone(),
@@ -256,7 +263,8 @@ impl Player {
                 .map_err(|e| format!("Signature validation error: {e}"))?;
 
         if is_valid {
-            Ok(link)
+            // Return both the link and the last_seen for broadcast
+            Ok((link, body.last_seen.clone()))
         } else {
             Err("Invalid signature".to_string())
         }
@@ -282,7 +290,7 @@ impl Player {
         // Try to verify signature if present
         let verification_result = if let Some(signature) = &packet.signature {
             match self.verify_chat_signature(&packet) {
-                Ok(link) => {
+                Ok((link, last_seen)) => {
                     log::info!(
                         "Player {} sent valid signed message (index: {})",
                         self.gameprofile.name,
@@ -292,7 +300,7 @@ impl Player {
                     // Add the signature to the cache for future LastSeen tracking
                     self.signature_cache.lock().add_seen_signature(signature);
 
-                    Some(Ok(link))
+                    Some(Ok((link, last_seen)))
                 }
                 Err(err) => {
                     log::warn!(
@@ -369,14 +377,18 @@ impl Player {
 
         // Use the appropriate broadcast method based on whether we have a valid signature
         if let Some(ref sig_box) = signature {
-            // Convert Box<[u8]> to [u8; 128] for broadcast_chat
-            if sig_box.len() == 128 {
-                let mut sig_array = [0u8; 128];
+            // Convert Box<[u8]> to [u8; 256] for broadcast_chat
+            if sig_box.len() == 256 {
+                let mut sig_array = [0u8; 256];
                 sig_array.copy_from_slice(&sig_box[..]);
 
-                // For signed messages, we need to construct the LastSeen
-                // For now, use empty LastSeen - full reconstruction will come in Phase 4
-                let last_seen = LastSeen::default();
+                // Extract the last_seen from the verification result
+                let last_seen = if let Some(Ok((_, ref last_seen))) = verification_result {
+                    last_seen.clone()
+                } else {
+                    // If verification failed or no signature, use empty
+                    LastSeen::default()
+                };
 
                 log::info!("<{}> {}", player.gameprofile.name, chat_message);
                 self.world.broadcast_chat(
@@ -453,6 +465,22 @@ impl Player {
         // Initialize the message chain for this session
         let chain = SignedMessageChain::new(self.gameprofile.id, session.session_id);
 
+        // Convert session to data for broadcasting
+        let session_data = session.as_data();
+        let protocol_data = match session_data.to_protocol_data() {
+            Ok(data) => data,
+            Err(err) => {
+                log::error!(
+                    "Failed to convert chat session to protocol data for {}: {:?}",
+                    self.gameprofile.name,
+                    err
+                );
+                *self.chat_session.lock() = Some(session);
+                *self.message_chain.lock() = Some(chain);
+                return;
+            }
+        };
+
         *self.chat_session.lock() = Some(session);
         *self.message_chain.lock() = Some(chain);
 
@@ -460,6 +488,17 @@ impl Player {
             "Player {} initialized signed chat session",
             self.gameprofile.name
         );
+
+        // Broadcast the chat session to all players so they can verify this player's signatures
+        let update_packet = steel_protocol::packets::game::CPlayerInfoUpdate::update_chat_session(
+            self.gameprofile.id,
+            protocol_data,
+        );
+
+        self.world.players.iter_sync(|_, player| {
+            player.connection.send_packet(update_packet.clone());
+            true
+        });
     }
 
     /// Gets a reference to the player's chat session if present

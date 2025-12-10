@@ -62,8 +62,8 @@ pub struct ArgumentSignature {
     /// The argument name
     pub name: String,
 
-    /// The signature bytes (128 bytes for RSA 1024-bit)
-    pub signature: [u8; 128],
+    /// The signature bytes (256 bytes for RSA 2048-bit)
+    pub signature: [u8; 256],
 }
 
 impl ReadFrom for ArgumentSignature {
@@ -72,7 +72,7 @@ impl ReadFrom for ArgumentSignature {
         let name = String::read_prefixed_bound::<VarInt>(reader, 16)?;
 
         // Read signature
-        let mut signature = [0u8; 128];
+        let mut signature = [0u8; 256];
         reader.read_exact(&mut signature)?;
 
         Ok(Self { name, signature })

@@ -4,6 +4,9 @@ use steel_utils::codec::VarInt;
 use steel_utils::serial::PrefixedWrite;
 use uuid::Uuid;
 
+// Import RemoteChatSessionData for chat session transmission
+use super::chat_session_data::RemoteChatSessionData;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum PlayerInfoAction {
@@ -18,7 +21,7 @@ pub enum PlayerInfoAction {
 pub struct PlayerInfoEntry {
     pub uuid: Uuid,
     pub name: Option<String>,
-    pub chat_session: Option<()>,
+    pub chat_session: Option<RemoteChatSessionData>,
     pub game_mode: Option<VarInt>,
     pub listed: Option<bool>,
     pub latency: Option<VarInt>,
@@ -45,6 +48,20 @@ impl CPlayerInfoUpdate {
             }],
         }
     }
+
+    pub fn update_chat_session(uuid: Uuid, chat_session: RemoteChatSessionData) -> Self {
+        Self {
+            actions: PlayerInfoAction::InitializeChat as u8,
+            entries: vec![PlayerInfoEntry {
+                uuid,
+                name: None,
+                chat_session: Some(chat_session),
+                game_mode: None,
+                listed: None,
+                latency: None,
+            }],
+        }
+    }
 }
 
 impl steel_utils::serial::WriteTo for CPlayerInfoUpdate {
@@ -63,7 +80,13 @@ impl steel_utils::serial::WriteTo for CPlayerInfoUpdate {
             }
 
             if self.actions & (PlayerInfoAction::InitializeChat as u8) != 0 {
-                false.write(writer)?;
+                // Write nullable chat session data
+                if let Some(ref session_data) = entry.chat_session {
+                    true.write(writer)?;
+                    session_data.write(writer)?;
+                } else {
+                    false.write(writer)?;
+                }
             }
 
             if self.actions & (PlayerInfoAction::UpdateGameMode as u8) != 0

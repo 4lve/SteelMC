@@ -14,6 +14,12 @@ const MAX_PREVIOUS_MESSAGES: usize = 20;
 pub struct LastSeen(Vec<Box<[u8]>>);
 
 impl LastSeen {
+    /// Creates a new LastSeen from a vector of signatures
+    #[must_use]
+    pub fn new(signatures: Vec<Box<[u8]>>) -> Self {
+        Self(signatures)
+    }
+
     /// Gets the underlying vector of signatures
     #[must_use]
     pub fn as_slice(&self) -> &[Box<[u8]>] {
@@ -64,14 +70,20 @@ impl MessageCache {
 
     /// Reconstructs the `LastSeen` from a `BitSet` acknowledgment.
     ///
-    /// The `message_count` is the offset, and the `acknowledged` `BitSet` indicates
+    /// The `offset` indicates how many old messages to skip (not used for unpacking,
+    /// but used by the validator), and the `acknowledged` `BitSet` indicates
     /// which of the last 20 messages were seen.
     ///
     /// Returns None if the cache doesn't contain the required messages.
+    ///
+    /// Note: The offset is primarily used by the `LastSeenMessagesValidator` to advance
+    /// the tracking window. For unpacking acknowledged messages, we just need to look
+    /// at which bits are set in the acknowledged bitset and retrieve those signatures
+    /// from the cache at the corresponding indices.
     #[must_use]
     pub fn unpack_acknowledged(
         &self,
-        _message_count: i32,
+        _offset: i32,
         acknowledged: &[u8; 3], // FixedBitSet(20) = 3 bytes
     ) -> Option<LastSeen> {
         // Parse the 20-bit BitSet from 3 bytes
@@ -86,14 +98,14 @@ impl MessageCache {
         let mut signatures = Vec::new();
 
         // Iterate through the bits to find acknowledged messages
+        // The cache is ordered with most recent messages first (index 0)
+        // The acknowledged bitset maps directly to cache indices
         for (i, &is_acknowledged) in bits.iter().enumerate() {
             if !is_acknowledged {
                 continue; // This message was not acknowledged
             }
 
-            // Calculate the index in the full_cache
-            // message_count is the total messages sent by this player
-            // We need to look back (i + 1) messages from message_count
+            // The index in the acknowledged bitset corresponds to the cache index
             let cache_index = i;
 
             if cache_index >= self.full_cache.len() {

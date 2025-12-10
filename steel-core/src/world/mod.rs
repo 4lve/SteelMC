@@ -52,7 +52,7 @@ impl World {
         mut packet: CPlayerChat,
         sender: Arc<Player>,
         sender_last_seen: LastSeen,
-        message_signature: Option<[u8; 128]>,
+        message_signature: Option<[u8; 256]>,
     ) {
         self.players.iter_sync(|_, recipient| {
             let messages_received = recipient.get_and_increment_messages_received();
@@ -62,7 +62,15 @@ impl World {
                 let recipient_cache = recipient.signature_cache.lock();
                 recipient_cache.index_previous_messages(&sender_last_seen)
             };
-            packet.previous_messages = previous_messages;
+            packet.previous_messages = previous_messages.clone();
+
+            log::debug!(
+                "Sending chat to {}: global_index={}, sender_last_seen.len()={}, previous_messages.len()={}",
+                recipient.gameprofile.name,
+                packet.global_index.0,
+                sender_last_seen.len(),
+                previous_messages.len()
+            );
 
             recipient.connection.send_packet(packet.clone());
 

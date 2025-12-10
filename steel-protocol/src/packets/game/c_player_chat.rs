@@ -106,9 +106,22 @@ impl steel_utils::serial::WriteTo for CPlayerChat {
 
         VarInt(self.previous_messages.len() as i32).write(writer)?;
         for msg in self.previous_messages.iter() {
+            // Write ID. In Minecraft's packed format:
+            // - If id is 0: write 0 (VarInt(0)), then write full signature (256 bytes)
+            // - If id is N > 0: write N (VarInt(N)), no signature bytes
+            // Our id field already contains the correct value (0 for full, cache_index+1 for referenced)
             msg.id.write(writer)?;
-            if let Some(sig) = &msg.signature {
-                writer.write_all(sig)?;
+            // Only write signature if id is 0 (full signature)
+            if msg.id.0 == 0 {
+                if let Some(sig) = &msg.signature {
+                    writer.write_all(sig)?;
+                } else {
+                    // This should never happen - id=0 means full signature must be present
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "PreviousMessage with id=0 must have signature",
+                    ));
+                }
             }
         }
 

@@ -8,6 +8,7 @@ mod c_player_chat;
 mod c_player_info_update;
 mod c_set_chunk_center;
 mod c_system_chat;
+mod chat_session_data;
 mod s_chat;
 mod s_chat_ack;
 mod s_chat_command_signed;
@@ -32,6 +33,7 @@ pub use c_player_chat::{CPlayerChat, ChatTypeBound, FilterType, PreviousMessage}
 pub use c_player_info_update::CPlayerInfoUpdate;
 pub use c_set_chunk_center::CSetChunkCenter;
 pub use c_system_chat::CSystemChat;
+pub use chat_session_data::RemoteChatSessionData;
 pub use s_chat::SChat;
 pub use s_chat_ack::SChatAck;
 pub use s_chat_command_signed::{ArgumentSignature, LastSeenMessagesUpdate, SChatCommandSigned};

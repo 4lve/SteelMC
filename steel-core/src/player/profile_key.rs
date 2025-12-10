@@ -331,6 +331,21 @@ impl RemoteChatSessionData {
             ProfilePublicKey::create_validated(profile_id, self.profile_public_key, validator)?;
         Ok(RemoteChatSession::new(self.session_id, public_key))
     }
+
+    /// Converts to network-serializable format for transmission
+    ///
+    /// # Errors
+    /// Returns `ValidationError` if key encoding fails
+    pub fn to_protocol_data(&self) -> Result<steel_protocol::packets::game::RemoteChatSessionData, ValidationError> {
+        let key_bytes = public_key_to_bytes(&self.profile_public_key.key)?;
+
+        Ok(steel_protocol::packets::game::RemoteChatSessionData::new(
+            self.session_id,
+            self.profile_public_key.expires_at,
+            key_bytes,
+            self.profile_public_key.key_signature.clone(),
+        ))
+    }
 }
 
 // Helper struct for byte slice updater
