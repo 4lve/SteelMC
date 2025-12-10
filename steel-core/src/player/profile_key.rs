@@ -336,7 +336,9 @@ impl RemoteChatSessionData {
     ///
     /// # Errors
     /// Returns `ValidationError` if key encoding fails
-    pub fn to_protocol_data(&self) -> Result<steel_protocol::packets::game::RemoteChatSessionData, ValidationError> {
+    pub fn to_protocol_data(
+        &self,
+    ) -> Result<steel_protocol::packets::game::RemoteChatSessionData, ValidationError> {
         let key_bytes = public_key_to_bytes(&self.profile_public_key.key)?;
 
         Ok(steel_protocol::packets::game::RemoteChatSessionData::new(

@@ -156,30 +156,15 @@ impl Player {
         self.messages_received.fetch_add(1, Ordering::Relaxed)
     }
 
-    /// Verifies a signed chat message with comprehensive security checks.
-    ///
-    /// Returns `Ok(link)` if the signature is valid, or `Err` with a description if invalid.
-    ///
-    /// Checks performed:
-    /// - Chat session exists
-    /// - Signature is present
-    /// - Key hasn't expired (with grace period)
-    /// - Message isn't expired (5 minute window)
-    /// - Message chain is valid (ordering, sequence)
-    /// - RSA signature is cryptographically valid
     fn verify_chat_signature(
         &self,
         packet: &SChat,
     ) -> Result<(message_chain::SignedMessageLink, LastSeen), String> {
         const MESSAGE_EXPIRES_AFTER: Duration = Duration::from_secs(5 * 60);
 
-        // Check if we have a chat session
         let session = self.chat_session.lock().clone().ok_or("No chat session")?;
-
-        // Check if signature is present
         let signature = packet.signature.as_ref().ok_or("No signature present")?;
 
-        // Check if the profile key has expired (with 8-hour grace period)
         if session
             .profile_public_key
             .data()
@@ -188,20 +173,16 @@ impl Player {
             return Err("Profile key has expired".to_string());
         }
 
-        // Get the message chain
         let mut chain_guard = self.message_chain.lock();
         let chain = chain_guard.as_mut().ok_or("No message chain")?;
 
-        // Check if chain is broken
         if chain.is_broken() {
             return Err("Message chain is broken".to_string());
         }
 
-        // Convert timestamp from millis to SystemTime
         let timestamp =
             UNIX_EPOCH + Duration::from_millis(packet.timestamp.try_into().unwrap_or(0));
 
-        // Check message expiry (5 minutes as per Minecraft)
         let now = SystemTime::now();
         let message_age = now
             .duration_since(timestamp)
@@ -214,28 +195,11 @@ impl Player {
             ));
         }
 
-        // Apply the update to the message validator to get the last seen messages
-        // The validator tracks messages sent TO this player, and the client's Update
-        // tells us which of those messages they've seen.
-        //
-        // Note: On first connection, the client may have state from previous sessions
-        // that we don't know about. In this case, we just use an empty LastSeen.
-        let last_seen_signatures = match self
+        let last_seen_signatures = self
             .message_validator
             .lock()
             .apply_update(packet.acknowledged, packet.offset, packet.checksum)
-        {
-            Ok(sigs) => sigs,
-            Err(err) => {
-                log::debug!(
-                    "Player {} sent last seen update with offset we can't satisfy ({}), using empty LastSeen. This is normal on first connection.",
-                    self.gameprofile.name,
-                    err
-                );
-                // Use empty LastSeen - the signature will fail but that's okay for unsigned mode
-                Vec::new()
-            }
-        };
+            .unwrap_or_default();
 
         let last_seen = LastSeen::new(last_seen_signatures);
 
@@ -246,24 +210,18 @@ impl Player {
             last_seen,
         );
 
-        // Validate and get the link (this checks ordering and advances the chain)
         let link = chain
             .validate_and_advance(&body)
             .map_err(|e| format!("Chain validation failed: {e}"))?;
 
-        // Create the signature updater
         let updater = message_chain::MessageSignatureUpdater::new(&link, &body);
-
-        // Get the validator from the session's public key
         let validator = session.profile_public_key.create_signature_validator();
 
-        // Verify the signature (call validate on the trait object)
         let is_valid =
             steel_crypto::signature::SignatureValidator::validate(&validator, &updater, signature)
                 .map_err(|e| format!("Signature validation error: {e}"))?;
 
         if is_valid {
-            // Return both the link and the last_seen for broadcast
             Ok((link, body.last_seen.clone()))
         } else {
             Err("Invalid signature".to_string())
@@ -275,31 +233,10 @@ impl Player {
     pub fn handle_chat(&self, packet: SChat, player: Arc<Player>) {
         let chat_message = packet.message.clone();
 
-        log::info!(
-            "Player {} chat message '{}': has_signature={}, signature_len={}, has_session={}, timestamp={}, salt={}",
-            self.gameprofile.name,
-            chat_message,
-            packet.signature.is_some(),
-            packet.signature.as_ref().map_or(0, |s| s.len()),
-            self.chat_session.lock().is_some(),
-            packet.timestamp,
-            packet.salt
-        );
-        log::info!("Full chat packet: {packet:?}");
-
-        // Try to verify signature if present
         let verification_result = if let Some(signature) = &packet.signature {
             match self.verify_chat_signature(&packet) {
                 Ok((link, last_seen)) => {
-                    log::info!(
-                        "Player {} sent valid signed message (index: {})",
-                        self.gameprofile.name,
-                        link.index
-                    );
-
-                    // Add the signature to the cache for future LastSeen tracking
                     self.signature_cache.lock().add_seen_signature(signature);
-
                     Some(Ok((link, last_seen)))
                 }
                 Err(err) => {
@@ -311,33 +248,19 @@ impl Player {
                 }
             }
         } else {
-            log::debug!("Player {} sent unsigned message", self.gameprofile.name);
             None
         };
 
-        // Phase 4: Enforce secure chat if configured
         if STEEL_CONFIG.enforce_secure_chat {
             match &verification_result {
-                Some(Ok(_)) => {
-                    // Valid signature - proceed
-                }
+                Some(Ok(_)) => {}
                 Some(Err(err)) => {
-                    // Invalid signature with enforcement enabled - kick player
-                    log::error!(
-                        "Player {} kicked for invalid chat signature: {err}",
-                        self.gameprofile.name
-                    );
                     self.connection.disconnect(
                         TextComponent::new().text(format!("Chat message validation failed: {err}")),
                     );
                     return;
                 }
                 None => {
-                    // No signature with enforcement enabled - kick player
-                    log::error!(
-                        "Player {} kicked for sending unsigned chat message",
-                        self.gameprofile.name
-                    );
                     self.connection.disconnect(TextComponent::new().text(
                         "Secure chat is enforced on this server, but your message was not signed",
                     ));
@@ -346,7 +269,6 @@ impl Player {
             }
         }
 
-        // Determine which signature to use for broadcast
         let signature = if matches!(verification_result, Some(Ok(_))) {
             packet.signature.map(|sig| Box::new(sig) as Box<[u8]>)
         } else {
@@ -375,18 +297,14 @@ impl Player {
             },
         );
 
-        // Use the appropriate broadcast method based on whether we have a valid signature
         if let Some(ref sig_box) = signature {
-            // Convert Box<[u8]> to [u8; 256] for broadcast_chat
             if sig_box.len() == 256 {
                 let mut sig_array = [0u8; 256];
                 sig_array.copy_from_slice(&sig_box[..]);
 
-                // Extract the last_seen from the verification result
                 let last_seen = if let Some(Ok((_, ref last_seen))) = verification_result {
                     last_seen.clone()
                 } else {
-                    // If verification failed or no signature, use empty
                     LastSeen::default()
                 };
 
@@ -398,11 +316,6 @@ impl Player {
                     Some(sig_array),
                 );
             } else {
-                log::warn!(
-                    "Player {} signature has wrong length: {}",
-                    player.gameprofile.name,
-                    sig_box.len()
-                );
                 self.world.broadcast_unsigned_chat(
                     chat_packet,
                     &player.gameprofile.name,
@@ -541,18 +454,12 @@ impl Player {
             }
         };
 
-        // Create profile key data
         let profile_key_data =
             profile_key::ProfilePublicKeyData::new(expires_at, public_key, packet.key_signature);
 
-        // For now, we skip Mojang signature validation of the profile key itself
-        // The player's key signature should be validated against Mojang's Yggdrasil public key,
-        // but since we don't have that hardcoded yet, we'll accept the key as-is
-        // TODO: Validate profile key signature against Yggdrasil public keys
         let validator = Box::new(steel_crypto::signature::NoValidation)
             as Box<dyn steel_crypto::SignatureValidator>;
 
-        // Create session data and validate
         let session_data = profile_key::RemoteChatSessionData {
             session_id: packet.session_id,
             profile_public_key: profile_key_data,
@@ -560,11 +467,6 @@ impl Player {
 
         match session_data.validate(self.gameprofile.id, &*validator) {
             Ok(session) => {
-                log::info!(
-                    "Player {} has valid chat session (expires: {:?})",
-                    self.gameprofile.name,
-                    session.profile_public_key.data().expires_at
-                );
                 self.set_chat_session(session);
             }
             Err(err) => {
@@ -572,12 +474,7 @@ impl Player {
                     "Player {} sent invalid chat session: {err}",
                     self.gameprofile.name
                 );
-                // Phase 4: Kick if enforcement is enabled
                 if STEEL_CONFIG.enforce_secure_chat {
-                    log::error!(
-                        "Player {} kicked for invalid chat session",
-                        self.gameprofile.name
-                    );
                     self.connection.disconnect(
                         TextComponent::new().text(format!("Chat session validation failed: {err}")),
                     );
@@ -587,20 +484,11 @@ impl Player {
     }
 
     /// Handles a chat acknowledgment packet from the client.
-    ///
-    /// This updates the message validator to track which messages the client has seen.
     pub fn handle_chat_ack(&self, packet: SChatAck) {
-        // Apply the offset to remove old acknowledged messages
         if let Err(err) = self.message_validator.lock().apply_offset(packet.offset.0) {
             log::warn!(
                 "Player {} sent invalid chat acknowledgment: {err}",
                 self.gameprofile.name
-            );
-        } else {
-            log::debug!(
-                "Player {} acknowledged messages up to offset {}",
-                self.gameprofile.name,
-                packet.offset.0
             );
         }
     }

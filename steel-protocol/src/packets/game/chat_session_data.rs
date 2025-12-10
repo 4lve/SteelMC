@@ -1,5 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use steel_utils::codec::VarInt;
 use steel_utils::serial::WriteTo;
 use uuid::Uuid;
 
@@ -44,9 +45,6 @@ impl RemoteChatSessionData {
 
 impl WriteTo for RemoteChatSessionData {
     fn write(&self, writer: &mut impl std::io::Write) -> std::io::Result<()> {
-        use steel_utils::codec::VarInt;
-
-        // Write session ID
         self.session_id.write(writer)?;
 
         // Write expires_at (i64 millis)

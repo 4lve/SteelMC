@@ -62,15 +62,7 @@ impl World {
                 let recipient_cache = recipient.signature_cache.lock();
                 recipient_cache.index_previous_messages(&sender_last_seen)
             };
-            packet.previous_messages = previous_messages.clone();
-
-            log::debug!(
-                "Sending chat to {}: global_index={}, sender_last_seen.len()={}, previous_messages.len()={}",
-                recipient.gameprofile.name,
-                packet.global_index.0,
-                sender_last_seen.len(),
-                previous_messages.len()
-            );
+            packet.previous_messages.clone_from(&previous_messages);
 
             recipient.connection.send_packet(packet.clone());
 

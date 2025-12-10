@@ -14,7 +14,7 @@ const MAX_PREVIOUS_MESSAGES: usize = 20;
 pub struct LastSeen(Vec<Box<[u8]>>);
 
 impl LastSeen {
-    /// Creates a new LastSeen from a vector of signatures
+    /// Creates a new `LastSeen` from a vector of signatures
     #[must_use]
     pub fn new(signatures: Vec<Box<[u8]>>) -> Self {
         Self(signatures)
