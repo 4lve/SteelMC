@@ -98,6 +98,14 @@ impl ServerConfig {
                 return Err("Compression level must be between 1 and 9");
             }
         }
+        if self.enforce_secure_chat {
+            if !self.online_mode {
+                return Err("online_mode must be true when enforce_secure_chat is enabled");
+            }
+            if !self.encryption {
+                return Err("encryption must be true when enforce_secure_chat is enabled");
+            }
+        }
         Ok(())
     }
 
