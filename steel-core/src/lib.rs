@@ -6,6 +6,7 @@ use crate::chunk::chunk_map::ChunkMap;
 
 pub mod chunk;
 pub mod chunk_saver;
+pub mod command;
 pub mod config;
 pub mod player;
 pub mod server;

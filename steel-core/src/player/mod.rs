@@ -8,13 +8,9 @@ pub mod networking;
 pub mod profile_key;
 mod signature_cache;
 
-use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicBool, AtomicI32, Ordering},
-    },
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub use game_profile::GameProfile;
 use message_chain::SignedMessageChain;
@@ -36,11 +32,9 @@ use steel_utils::{ChunkPos, codec::VarInt, math::Vector3, text::TextComponent, t
 /// Re-export `PreviousMessage` as `PreviousMessageEntry` for use in `signature_cache`
 pub type PreviousMessageEntry = PreviousMessage;
 
-use crate::{
-    chunk::player_chunk_view::PlayerChunkView,
-    player::{chunk_sender::ChunkSender, networking::JavaConnection},
-    world::World,
-};
+use crate::chunk::player_chunk_view::PlayerChunkView;
+use crate::player::{chunk_sender::ChunkSender, networking::JavaConnection};
+use crate::world::World;
 
 /// A struct representing a player.
 pub struct Player {
@@ -345,6 +339,16 @@ impl Player {
         }
 
         false
+    }
+
+    /// Teleports the player to a new position with optional yaw and pitch.
+    pub fn teleport(
+        self: Arc<Self>,
+        _position: Vector3<f64>,
+        _yaw: Option<f32>,
+        _pitch: Option<f32>,
+    ) {
+        // TODO: Implement teleportation logic
     }
 
     #[allow(clippy::unused_self)]

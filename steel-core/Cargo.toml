@@ -32,6 +32,7 @@ smallvec = "1.15.1"
 wincode.workspace = true
 zstd = "0.13"
 rsa.workspace = true
+rand.workspace = true
 arc-swap.workspace = true
 
 [lints]

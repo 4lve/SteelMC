@@ -192,3 +192,9 @@ impl<'de> Deserialize<'de> for Color {
         }
     }
 }
+
+impl From<NamedColor> for Color {
+    fn from(value: NamedColor) -> Self {
+        Self::Named(value)
+    }
+}

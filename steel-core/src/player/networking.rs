@@ -1,34 +1,30 @@
 //! This module contains the `JavaConnection` struct, which is used to represent a connection to a Java client.
-use std::{
-    io::Cursor,
-    sync::{Arc, Weak, atomic::Ordering},
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::io::Cursor;
+use std::sync::atomic::Ordering;
+use std::sync::{Arc, Weak};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::player::Player;
-use steel_protocol::{
-    packet_reader::TCPNetworkDecoder,
-    packet_traits::{ClientPacket, CompressionInfo, EncodedPacket, ServerPacket},
-    packet_writer::TCPNetworkEncoder,
-    packets::{
-        common::{CDisconnect, CKeepAlive, SCustomPayload, SKeepAlive},
-        game::{
-            SChat, SChatAck, SChatSessionUpdate, SChunkBatchReceived, SClientTickEnd,
-            SMovePlayerPos, SMovePlayerPosRot, SMovePlayerRot, SPlayerLoad,
-        },
-    },
-    utils::{ConnectionProtocol, EnqueuedPacket, PacketError, RawPacket},
+use steel_protocol::packet_reader::TCPNetworkDecoder;
+use steel_protocol::packet_traits::{ClientPacket, CompressionInfo, EncodedPacket, ServerPacket};
+use steel_protocol::packet_writer::TCPNetworkEncoder;
+use steel_protocol::packets::common::{CDisconnect, CKeepAlive, SCustomPayload, SKeepAlive};
+use steel_protocol::packets::game::{
+    SChat, SChatAck, SChatSessionUpdate, SChunkBatchReceived, SClientTickEnd, SMovePlayerPos,
+    SMovePlayerPosRot, SMovePlayerRot, SPlayerLoad,
 };
+use steel_protocol::utils::{ConnectionProtocol, EnqueuedPacket, PacketError, RawPacket};
 use steel_registry::packets::play;
 use steel_utils::locks::{AsyncMutex, SyncMutex};
 use steel_utils::{text::TextComponent, translations};
-use tokio::{
-    io::{BufReader, BufWriter},
-    net::tcp::{OwnedReadHalf, OwnedWriteHalf},
-    select,
-    sync::mpsc::{UnboundedReceiver, UnboundedSender},
-};
+use tokio::io::{BufReader, BufWriter};
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
+use tokio::select;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio_util::sync::CancellationToken;
+
+use crate::command::sender::CommandSender;
+use crate::player::Player;
+use crate::server::Server;
 
 #[allow(clippy::struct_field_names)]
 struct KeepAliveTracker {
@@ -165,6 +161,7 @@ impl JavaConnection {
         self: &Arc<Self>,
         packet: RawPacket,
         player: Arc<Player>,
+        server: Arc<Server>,
     ) -> Result<(), PacketError> {
         let data = &mut Cursor::new(packet.payload);
 
@@ -208,6 +205,13 @@ impl JavaConnection {
                 let _ = SPlayerLoad::read_packet(data)?;
                 player.client_loaded.store(true, Ordering::Relaxed);
             }
+            play::S_CHAT_COMMAND => {
+                server.command_dispatcher.read().handle_command(
+                    CommandSender::Player(player),
+                    SChatCommand::read_packet(data)?.command,
+                    server.clone(),
+                );
+            }
             id => log::info!("play packet id {id} is not known"),
         }
         Ok(())
@@ -217,6 +221,7 @@ impl JavaConnection {
     pub async fn listener(
         self: Arc<Self>,
         mut reader: TCPNetworkDecoder<BufReader<OwnedReadHalf>>,
+        server: Arc<Server>,
     ) {
         loop {
             select! {
@@ -226,13 +231,13 @@ impl JavaConnection {
                 packet = reader.get_raw_packet() => {
                     match packet {
                         Ok(packet) => {
-                            if let Some(player) = self.player.upgrade()
-                                && let Err(err) = self.process_packet(packet, player) {
+                            if let Some(player) = self.player.upgrade(){
+                                if let Err(err) = self.process_packet(packet, player, server.clone()) {
                                     log::warn!(
                                         "Failed to get packet from client {}: {err}",
                                         self.id
                                     );
-                                }
+                                }}
                         }
                         Err(err) => {
                             log::debug!("Failed to get raw packet from client {}: {err}", self.id);

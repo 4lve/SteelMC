@@ -22,8 +22,8 @@ simplelog = "0.12.2"
 sha2 = "0.10.9"
 sha1 = "0.10.6"
 reqwest.workspace = true
-rand = "0.9.2"
-rsa = "0.10.0-rc.9"
+rand.workspace = true
+rsa.workspace = true
 rsa-der = "0.3.0"
 hex = "0.4.3"
 parking_lot = { workspace = true, features = [

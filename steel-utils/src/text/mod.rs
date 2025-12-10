@@ -117,8 +117,8 @@ impl TextComponent {
 
     /// Sets the color of the text component.
     #[must_use]
-    pub fn color(mut self, color: Color) -> Self {
-        self.style = self.style.color(color);
+    pub fn color(mut self, color: impl Into<Color>) -> Self {
+        self.style = self.style.color(color.into());
         self
     }
 

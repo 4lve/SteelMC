@@ -330,22 +330,17 @@ impl JavaTcpClient {
                         }
                     }
                     connection_update = connection_updates_recv.recv() => {
-
                         match connection_update {
-                            Ok(connection_update) => {
-                                match connection_update {
-                                    ConnectionUpdate::EnableEncryption(key) => {
-                                        reader.set_encryption(&key);
-                                    }
-                                    ConnectionUpdate::EnableCompression(compression) => {
-                                        reader.set_compression(compression.threshold);
-                                        connection_updated.notify_waiters();
-                                    },
-                                    ConnectionUpdate::Upgrade(upgrade) => {
-                                        connection = Some(upgrade);
-                                        break;
-                                    }
-                                }
+                            Ok(ConnectionUpdate::EnableEncryption(key)) => {
+                                reader.set_encryption(&key);
+                            }
+                            Ok(ConnectionUpdate::EnableCompression(compression)) => {
+                                reader.set_compression(compression.threshold);
+                                connection_updated.notify_waiters();
+                            },
+                            Ok(ConnectionUpdate::Upgrade(upgrade)) => {
+                                connection = Some(upgrade);
+                                break;
                             }
                             Err(err) => {
                                 if err != RecvError::Closed {
@@ -361,10 +356,12 @@ impl JavaTcpClient {
             drop(cancel_token);
             drop(connection_updates_recv);
             drop(connection_updated);
-            drop(self_clone);
 
             if let Some(connection) = connection {
-                connection.listener(reader).await;
+                let server = self_clone.server.clone();
+                drop(self_clone);
+
+                connection.listener(reader, server).await;
             }
         });
     }
