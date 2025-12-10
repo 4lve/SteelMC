@@ -58,10 +58,21 @@ impl World {
             let messages_received = recipient.get_and_increment_messages_received();
             packet.global_index = VarInt(messages_received);
 
+            // Cache sender's last_seen signatures BEFORE indexing them
+            // This ensures the recipient's cache contains all signatures we're about to reference
+            // Even for the sender themselves, we need to cache these to track acknowledgments
+            if recipient.gameprofile.id != sender.gameprofile.id {
+                recipient
+                    .signature_cache
+                    .lock()
+                    .cache_signatures(sender_last_seen.as_slice());
+            }
+
             let previous_messages = {
                 let recipient_cache = recipient.signature_cache.lock();
                 recipient_cache.index_previous_messages(&sender_last_seen)
             };
+
             packet.previous_messages.clone_from(&previous_messages);
 
             recipient.connection.send_packet(packet.clone());
@@ -75,18 +86,13 @@ impl World {
                 recipient.message_validator.lock().add_pending(None);
             }
 
+            // Add the current message's signature to recipient's cache
+            // This includes the sender - they need it in their cache for future messages
             if let Some(signature) = &message_signature {
                 recipient
                     .signature_cache
                     .lock()
                     .add_seen_signature(signature);
-
-                if recipient.gameprofile.id != sender.gameprofile.id {
-                    recipient
-                        .signature_cache
-                        .lock()
-                        .cache_signatures(sender_last_seen.as_slice());
-                }
             }
 
             true

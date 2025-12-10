@@ -160,6 +160,7 @@ impl MessageCache {
         sender_last_seen: &LastSeen,
     ) -> Box<[crate::player::PreviousMessageEntry]> {
         let mut indexed = Vec::new();
+
         for signature in sender_last_seen.as_slice() {
             let index = self.full_cache.iter().position(|s| s == signature);
 

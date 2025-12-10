@@ -199,7 +199,10 @@ impl Player {
             .message_validator
             .lock()
             .apply_update(packet.acknowledged, packet.offset, packet.checksum)
-            .unwrap_or_default();
+            .map_err(|e| {
+                log::error!("Message acknowledgment validation failed: {e}");
+                e
+            })?;
 
         let last_seen = LastSeen::new(last_seen_signatures);
 
@@ -233,10 +236,11 @@ impl Player {
     pub fn handle_chat(&self, packet: SChat, player: Arc<Player>) {
         let chat_message = packet.message.clone();
 
-        let verification_result = if let Some(signature) = &packet.signature {
+        let verification_result = if let Some(_signature) = &packet.signature {
             match self.verify_chat_signature(&packet) {
                 Ok((link, last_seen)) => {
-                    self.signature_cache.lock().add_seen_signature(signature);
+                    // Don't add to cache here - will be added during broadcast
+                    // to avoid cache state mismatch with client
                     Some(Ok((link, last_seen)))
                 }
                 Err(err) => {
