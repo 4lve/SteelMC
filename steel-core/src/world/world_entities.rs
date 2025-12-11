@@ -31,7 +31,32 @@ impl World {
             return;
         }
 
-        // Register player in tab list (required for chat)
+        // Send existing players to the new player (ADD_PLAYER without chat sessions yet)
+        // The chat sessions will be sent separately when they become available
+        self.players.iter_sync(|_, existing_player| {
+            if existing_player.gameprofile.id != player.gameprofile.id {
+                let add_existing = steel_protocol::packets::game::CPlayerInfoUpdate::add_player(
+                    existing_player.gameprofile.id,
+                    existing_player.gameprofile.name.clone(),
+                );
+                player.connection.send_packet(add_existing);
+
+                // If the existing player has a chat session, send it too
+                if let Some(session) = existing_player.chat_session()
+                    && let Ok(protocol_data) = session.as_data().to_protocol_data()
+                {
+                    let session_packet =
+                        steel_protocol::packets::game::CPlayerInfoUpdate::update_chat_session(
+                            existing_player.gameprofile.id,
+                            protocol_data,
+                        );
+                    player.connection.send_packet(session_packet);
+                }
+            }
+            true
+        });
+
+        // Broadcast new player to all existing players (ADD_PLAYER)
         let player_info_packet = steel_protocol::packets::game::CPlayerInfoUpdate::add_player(
             player.gameprofile.id,
             player.gameprofile.name.clone(),

@@ -25,6 +25,7 @@ impl TrackedEntry {
 #[derive(Debug)]
 pub struct LastSeenMessagesValidator {
     tracked_messages: VecDeque<Option<TrackedEntry>>,
+    last_pending_signature: Option<Box<[u8]>>,
 }
 
 impl Default for LastSeenMessagesValidator {
@@ -40,16 +41,25 @@ impl LastSeenMessagesValidator {
         for _ in 0..MAX_TRACKED_MESSAGES {
             tracked_messages.push_back(None);
         }
-        Self { tracked_messages }
+        Self {
+            tracked_messages,
+            last_pending_signature: None,
+        }
     }
 
     /// Adds a pending message signature that the client should acknowledge
+    /// Matches vanilla's deduplication: only adds if different from last pending message
     pub fn add_pending(&mut self, signature: Option<Box<[u8]>>) {
-        let entry = TrackedEntry {
-            signature,
-            pending: true,
-        };
-        self.tracked_messages.push_back(Some(entry));
+        // Only add if this signature is different from the last one we added
+        // This prevents duplicates when the same message is processed multiple times
+        if signature.as_ref() != self.last_pending_signature.as_ref() {
+            let entry = TrackedEntry {
+                signature: signature.clone(),
+                pending: true,
+            };
+            self.tracked_messages.push_back(Some(entry));
+            self.last_pending_signature = signature;
+        }
     }
 
     /// Gets the number of tracked messages
@@ -84,6 +94,14 @@ impl LastSeenMessagesValidator {
         offset: i32,
         checksum: u8,
     ) -> Result<Vec<Box<[u8]>>, String> {
+        log::debug!(
+            "apply_update: offset={}, checksum={}, tracked_messages.len()={}, acknowledged={:?}",
+            offset,
+            checksum,
+            self.tracked_messages.len(),
+            acknowledged
+        );
+
         // First apply the offset to remove old messages
         self.apply_offset(offset)?;
 
@@ -100,12 +118,20 @@ impl LastSeenMessagesValidator {
                 if is_acknowledged {
                     // Client acknowledged this message
                     if let Some(entry) = entry_opt {
+                        log::debug!(
+                            "Index {}: Client acknowledged message (pending={})",
+                            i,
+                            entry.pending
+                        );
                         let acknowledged_entry = entry.clone().acknowledge();
                         if let Some(sig) = &entry.signature {
                             acknowledged_signatures.push(sig.clone());
                         }
                         *entry_opt = Some(acknowledged_entry);
                     } else {
+                        log::error!(
+                            "Index {i}: Client acknowledged unknown/ignored message! tracked_messages[{i}] = None"
+                        );
                         return Err(format!(
                             "Last seen update acknowledged unknown or previously ignored message at index {i}"
                         ));
@@ -115,15 +141,22 @@ impl LastSeenMessagesValidator {
                     if let Some(entry) = entry_opt
                         && !entry.pending
                     {
+                        log::error!("Index {i}: Client ignored previously acknowledged message!");
                         return Err(format!(
                             "Last seen update ignored previously acknowledged message at index {i}"
                         ));
                     }
+                    log::debug!("Index {i}: Client did not acknowledge (setting to None)");
                     // Set to None if not acknowledged
                     *entry_opt = None;
                 }
             }
         }
+
+        log::debug!(
+            "apply_update: Successfully acknowledged {} signatures",
+            acknowledged_signatures.len()
+        );
 
         // TODO: Verify checksum if needed (checksum == 0 means skip validation)
         if checksum != 0 {

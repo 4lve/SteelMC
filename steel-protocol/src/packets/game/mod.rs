@@ -1,5 +1,6 @@
 mod c_chunk_batch_finished;
 mod c_chunk_batch_start;
+mod c_disguised_chat;
 mod c_forget_level_chunk;
 mod c_game_event;
 mod c_level_chunk_with_light;
@@ -20,6 +21,7 @@ mod s_player_load;
 
 pub use c_chunk_batch_finished::CChunkBatchFinished;
 pub use c_chunk_batch_start::CChunkBatchStart;
+pub use c_disguised_chat::CDisguisedChat;
 pub use c_forget_level_chunk::CForgetLevelChunk;
 pub use c_game_event::CGameEvent;
 pub use c_game_event::GameEventType;

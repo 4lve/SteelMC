@@ -152,6 +152,80 @@ impl MessageCache {
         self.full_cache.push_front(signature.into()); // Since recipient saw this message it will be most recent in cache
     }
 
+    /// Pushes signatures into the cache using vanilla's algorithm.
+    /// This should be called AFTER sending a chat packet to a recipient.
+    ///
+    /// The signatures are pushed in order: all lastSeen signatures first, then the current message signature.
+    /// This matches vanilla's MessageSignatureCache.push(SignedMessageBody, `MessageSignature`) behavior.
+    ///
+    /// # Panics
+    /// Panics if the deque is empty while attempting to pop (should never happen as we check `!deque.is_empty()`).
+    pub fn push(&mut self, last_seen_signatures: &LastSeen, current_signature: Option<&[u8; 256]>) {
+        use std::collections::{HashSet, VecDeque};
+
+        log::debug!(
+            "push: adding {} lastSeen + {} current = {} total signatures to cache (current cache size: {})",
+            last_seen_signatures.len(),
+            i32::from(current_signature.is_some()),
+            last_seen_signatures.len() + usize::from(current_signature.is_some()),
+            self.full_cache.len()
+        );
+
+        // Build a deque with all signatures to push: lastSeen + current
+        // Vanilla: addAll(list) then add(signature)
+        let mut deque: VecDeque<Box<[u8]>> = VecDeque::new();
+
+        // Add all lastSeen signatures (in order)
+        for sig in last_seen_signatures.as_slice() {
+            deque.push_back(sig.clone());
+        }
+
+        // Add current signature if present
+        if let Some(sig) = current_signature {
+            deque.push_back(Box::new(*sig));
+        }
+
+        // Create a set of all signatures we're pushing for O(1) lookup
+        let push_set: HashSet<Box<[u8]>> = deque.iter().cloned().collect();
+
+        // Vanilla's push algorithm:
+        // for(int i = 0; !deque.isEmpty() && i < this.entries.length; ++i) {
+        //     MessageSignature old = this.entries[i];
+        //     this.entries[i] = deque.removeLast();  // Take from end (most recent)
+        //     if (old != null && !set.contains(old)) {
+        //         deque.addFirst(old);  // Re-add to front if not in push set
+        //     }
+        // }
+
+        // Convert VecDeque to fixed-size array-like structure
+        // We need to ensure cache has exactly 128 slots
+        let mut new_cache = VecDeque::with_capacity(MAX_CACHED_SIGNATURES);
+
+        let mut i = 0;
+        while !deque.is_empty() && i < MAX_CACHED_SIGNATURES {
+            // Get old entry at position i
+            let old_entry = self.full_cache.get(i).cloned();
+
+            // Take most recent from deque (from back)
+            let new_entry = deque
+                .pop_back()
+                .expect("deque should not be empty due to loop condition");
+            new_cache.push_back(new_entry);
+
+            // If old entry exists and is not in our push set, add it back to process
+            if let Some(old) = old_entry
+                && !push_set.contains(&old)
+            {
+                deque.push_front(old);
+            }
+
+            i += 1;
+        }
+
+        self.full_cache = new_cache;
+        log::debug!("push: cache updated, new size: {}", self.full_cache.len());
+    }
+
     /// Convert the sender's `last_seen` signatures to IDs if the recipient has them in their cache.
     /// Otherwise, the full signature is sent. (ID:0 indicates full signature is being sent)
     #[must_use]
@@ -161,16 +235,29 @@ impl MessageCache {
     ) -> Box<[crate::player::PreviousMessageEntry]> {
         let mut indexed = Vec::new();
 
-        for signature in sender_last_seen.as_slice() {
+        log::debug!(
+            "index_previous_messages: sender has {} lastSeen signatures, recipient cache size: {}",
+            sender_last_seen.len(),
+            self.full_cache.len()
+        );
+
+        for (i, signature) in sender_last_seen.as_slice().iter().enumerate() {
             let index = self.full_cache.iter().position(|s| s == signature);
 
             if let Some(index) = index {
+                log::debug!(
+                    "  lastSeen[{}]: found in cache at index {} -> sending ID={}",
+                    i,
+                    index,
+                    index + 1
+                );
                 indexed.push(crate::player::PreviousMessageEntry {
                     // Send ID reference to recipient's cache (index + 1 because 0 is reserved for full signature)
                     id: VarInt(1 + index as i32),
                     signature: None,
                 });
             } else {
+                log::debug!("  lastSeen[{i}]: NOT in cache -> sending full signature (ID=0)");
                 indexed.push(crate::player::PreviousMessageEntry {
                     // Send ID as 0 for full signature
                     id: VarInt(0),
