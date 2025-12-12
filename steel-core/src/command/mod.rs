@@ -9,21 +9,33 @@ use std::sync::Arc;
 
 use steel_utils::text::{TextComponent, color::NamedColor};
 
-use crate::command::commands::*;
+use crate::command::commands::CommandHandler;
 use crate::command::context::CommandContext;
-use crate::command::error::CommandError::{self, *};
+use crate::command::error::CommandError;
 use crate::command::sender::CommandSender;
 use crate::server::Server;
 
 /// A struct that parses and dispatches commands to their appropriate handlers.
+#[derive(Default)]
 pub struct CommandDispatcher {
     /// A map of command names to their handlers.
-    handlers: scc::HashMap<&'static str, Arc<dyn CommandHandler>>,
+    handlers: scc::HashMap<&'static str, Arc<CommandHandler>>,
 }
 
 impl CommandDispatcher {
-    /// Creates a new command dispatcher with no handlers.
+    /// Creates a new command dispatcher with vanilla handlers.
+    #[must_use]
     pub fn new() -> Self {
+        let dispatcher = CommandDispatcher::new_empty();
+        // dispatcher.register(commands::gamemode::command_handler());
+        // dispatcher.register(commands::teleport::command_handler());
+        dispatcher.register(commands::weather::command_handler());
+        dispatcher
+    }
+
+    /// Creates a new command dispatcher with no handlers.
+    #[must_use]
+    pub fn new_empty() -> Self {
         CommandDispatcher {
             handlers: scc::HashMap::new(),
         }
@@ -38,25 +50,25 @@ impl CommandDispatcher {
 
         if let Err(error) = self.execute(&mut context, &command, server) {
             let text = match error {
-                InvalidConsumption(s) => {
+                CommandError::InvalidConsumption(s) => {
                     log::error!(
                         "Error while parsing command \"{command}\": {s:?} was consumed, but couldn't be parsed"
                     );
                     TextComponent::const_text("Internal error (See logs for details)")
                 }
-                InvalidRequirement => {
+                CommandError::InvalidRequirement => {
                     log::error!(
                         "Error while parsing command \"{command}\": a requirement that was expected was not met."
                     );
                     TextComponent::const_text("Internal error (See logs for details)")
                 }
-                PermissionDenied => {
+                CommandError::PermissionDenied => {
                     log::warn!("Permission denied for command \"{command}\"");
                     TextComponent::const_text(
                         "I'm sorry, but you do not have permission to perform this command. Please contact the server administrator if you believe this is an error.",
                     )
                 }
-                CommandFailed(text_component) => text_component,
+                CommandError::CommandFailed(text_component) => *text_component,
             };
 
             // TODO: Use vanilla error messages
@@ -65,18 +77,18 @@ impl CommandDispatcher {
     }
 
     /// Executes a command.
-    pub fn execute(
+    fn execute(
         &self,
         context: &mut CommandContext,
-        command: &String,
+        command: &str,
         server: Arc<Server>,
     ) -> Result<(), CommandError> {
         let (command, command_args) = Self::split_command(command)?;
 
         let Some(handler) = self.handlers.read_sync(command, |_, v| v.clone()) else {
-            return Err(CommandFailed(
+            return Err(CommandError::CommandFailed(Box::new(
                 format!("Command {command} does not exist").into(),
-            ));
+            )));
         };
 
         // TODO: Implement permission checking logic here
@@ -86,20 +98,19 @@ impl CommandDispatcher {
         //     return Err(PermissionDenied);
         // };
 
-        match handler.parse(&command_args, context) {
-            Some(parsed_args) => handler.execute(parsed_args, context, server),
-            None => Err(CommandFailed(format!("Invalid Syntax.").into())),
-        }
+        handler.handle(&command_args, server, context)
     }
 
     /// Parses a command string into its components.
     fn split_command(command: &str) -> Result<(&str, Box<[&str]>), CommandError> {
         let command = command.trim();
         if command.is_empty() {
-            return Err(CommandFailed(TextComponent::const_text("Empty Command")));
+            return Err(CommandError::CommandFailed(Box::new(
+                TextComponent::const_text("Empty Command"),
+            )));
         }
 
-        let Some((command, command_args)) = command.split_once(" ") else {
+        let Some((command, command_args)) = command.split_once(' ') else {
             return Ok((command, Box::new([])));
         };
 
@@ -109,12 +120,12 @@ impl CommandDispatcher {
     }
 
     /// Registers a command handler.
-    pub fn register(&self, names: &[&'static str], handler: impl CommandHandler + 'static) {
+    pub fn register(&self, handler: CommandHandler) {
         let handler = Arc::new(handler);
 
-        for name in names {
+        for name in handler.names {
             if let Err((name, _)) = self.handlers.insert_sync(name, handler.clone()) {
-                log::warn!("Command {} is already registered", name);
+                log::warn!("Command {name} is already registered");
             }
         }
     }
@@ -124,14 +135,5 @@ impl CommandDispatcher {
         for name in names {
             self.handlers.remove_sync(name);
         }
-    }
-}
-
-impl Default for CommandDispatcher {
-    fn default() -> Self {
-        let dispatcher = Self::new();
-        dispatcher.register(&gamemode::NAMES, gamemode::GameModeCommandHandler);
-        dispatcher.register(&teleport::NAMES, teleport::TeleportCommandHandler);
-        dispatcher
     }
 }

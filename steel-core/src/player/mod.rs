@@ -341,16 +341,6 @@ impl Player {
         false
     }
 
-    /// Teleports the player to a new position with optional yaw and pitch.
-    pub fn teleport(
-        self: Arc<Self>,
-        _position: Vector3<f64>,
-        _yaw: Option<f32>,
-        _pitch: Option<f32>,
-    ) {
-        // TODO: Implement teleportation logic
-    }
-
     #[allow(clippy::unused_self)]
     fn update_awaiting_teleport(&self) -> bool {
         //TODO: Implement this

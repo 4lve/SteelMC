@@ -14,5 +14,5 @@ pub enum CommandError {
     PermissionDenied,
     /// A general error occurred during command execution that doesn't fit into
     /// more specific `CommandError` variants.
-    CommandFailed(TextComponent),
+    CommandFailed(Box<TextComponent>),
 }

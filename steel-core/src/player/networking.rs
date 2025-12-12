@@ -9,8 +9,8 @@ use steel_protocol::packet_traits::{ClientPacket, CompressionInfo, EncodedPacket
 use steel_protocol::packet_writer::TCPNetworkEncoder;
 use steel_protocol::packets::common::{CDisconnect, CKeepAlive, SCustomPayload, SKeepAlive};
 use steel_protocol::packets::game::{
-    SChat, SChatAck, SChatSessionUpdate, SChunkBatchReceived, SClientTickEnd, SMovePlayerPos,
-    SMovePlayerPosRot, SMovePlayerRot, SPlayerLoad,
+    SChat, SChatAck, SChatCommand, SChatSessionUpdate, SChunkBatchReceived, SClientTickEnd,
+    SMovePlayerPos, SMovePlayerPosRot, SMovePlayerRot, SPlayerLoad,
 };
 use steel_protocol::utils::{ConnectionProtocol, EnqueuedPacket, PacketError, RawPacket};
 use steel_registry::packets::play;
@@ -231,13 +231,13 @@ impl JavaConnection {
                 packet = reader.get_raw_packet() => {
                     match packet {
                         Ok(packet) => {
-                            if let Some(player) = self.player.upgrade(){
-                                if let Err(err) = self.process_packet(packet, player, server.clone()) {
-                                    log::warn!(
-                                        "Failed to get packet from client {}: {err}",
-                                        self.id
-                                    );
-                                }}
+                            if let Some(player) = self.player.upgrade()
+                                && let Err(err) = self.process_packet(packet, player, server.clone()) {
+                                log::warn!(
+                                    "Failed to get packet from client {}: {err}",
+                                    self.id
+                                );
+                            }
                         }
                         Err(err) => {
                             log::debug!("Failed to get raw packet from client {}: {err}", self.id);
