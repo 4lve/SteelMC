@@ -3,10 +3,13 @@ use std::sync::Arc;
 
 use steel_utils::math::Vector3;
 
+use crate::command::sender::CommandSender;
 use crate::player::Player;
 
 /// The context of a command.
 pub struct CommandContext {
+    /// The sender of the command.
+    pub sender: CommandSender,
     /// The player who sent the command.
     pub player: Option<Arc<Player>>,
     /// The position from which the command was sent.

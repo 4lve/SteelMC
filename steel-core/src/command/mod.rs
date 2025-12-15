@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use steel_utils::text::{TextComponent, color::NamedColor};
 
-use crate::command::commands::CommandHandler;
+use crate::command::commands::CommandHandlerDyn;
 use crate::command::context::CommandContext;
 use crate::command::error::CommandError;
 use crate::command::sender::CommandSender;
@@ -19,7 +19,7 @@ use crate::server::Server;
 #[derive(Default)]
 pub struct CommandDispatcher {
     /// A map of command names to their handlers.
-    handlers: scc::HashMap<&'static str, Arc<CommandHandler>>,
+    handlers: scc::HashMap<&'static str, Arc<dyn CommandHandlerDyn + Send + Sync>>,
 }
 
 impl CommandDispatcher {
@@ -44,6 +44,7 @@ impl CommandDispatcher {
     /// Executes a command.
     pub fn handle_command(&self, sender: CommandSender, command: String, server: Arc<Server>) {
         let mut context = CommandContext {
+            sender: sender.clone(),
             player: sender.get_player().cloned(),
             position: sender.get_player().map(|p| *p.position.lock()),
         };
@@ -120,10 +121,9 @@ impl CommandDispatcher {
     }
 
     /// Registers a command handler.
-    pub fn register(&self, handler: CommandHandler) {
+    pub fn register(&self, handler: impl CommandHandlerDyn + Send + Sync + 'static) {
         let handler = Arc::new(handler);
-
-        for name in handler.names {
+        for name in handler.names() {
             if let Err((name, _)) = self.handlers.insert_sync(name, handler.clone()) {
                 log::warn!("Command {name} is already registered");
             }

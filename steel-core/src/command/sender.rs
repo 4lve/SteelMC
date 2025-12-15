@@ -7,6 +7,7 @@ use steel_utils::text::TextComponent;
 use crate::player::Player;
 
 /// The sender of a command.
+#[derive(Clone)]
 pub enum CommandSender {
     /// The command was sent by a player via the chat.
     Player(Arc<Player>),

@@ -21,81 +21,161 @@ pub trait CommandExecutor<S> {
     ) -> Result<(), CommandError>;
 }
 
-/// The struct that holds command handler data and executor.
-pub struct CommandHandler {
-    /// The name and aliases of this command.
-    pub names: &'static [&'static str],
-    /// A description of this command.
-    pub description: &'static str,
-    /// The permission required to execute this command.
-    pub permission: &'static str,
-    /// The command parser chain for this command.
-    executor: Option<Box<dyn CommandParserExecutor<()> + Send + Sync>>,
+/// The builder struct that holds command handler data and executor.
+pub struct CommandHandlerBuilder {
+    names: &'static [&'static str],
+    description: &'static str,
+    permission: &'static str,
 }
 
-impl CommandHandler {
-    /// Creates a new command handler.
+/// The struct that holds command handler data and executor.
+pub struct CommandHandler<E> {
+    names: &'static [&'static str],
+    description: &'static str,
+    permission: &'static str,
+    executor: E,
+}
+
+/// Defines a command handler that can be dynamically dispatched.
+pub trait CommandHandlerDyn {
+    /// Returns the names of the command.
+    fn names(&self) -> &'static [&'static str];
+
+    /// Returns the description of the command.
+    fn description(&self) -> &'static str;
+
+    /// Returns the permission of the command.
+    fn permission(&self) -> &'static str;
+
+    /// Handles the execution of a command sent by a player.
+    fn handle(
+        &self,
+        command_args: &[&str],
+        server: Arc<Server>,
+        context: &mut CommandContext,
+    ) -> Result<(), CommandError>;
+}
+
+impl CommandHandlerBuilder {
+    /// Creates a new command handler builder.
     #[must_use]
     pub fn new(
         names: &'static [&'static str],
         description: &'static str,
         permission: &'static str,
-    ) -> Self {
-        CommandHandler {
+    ) -> CommandHandlerBuilder {
+        CommandHandlerBuilder {
             names,
             description,
             permission,
-            executor: None,
         }
     }
 
     /// Chains a command executor to this command handler.
     #[must_use]
-    pub fn then(
-        mut self,
-        executor: impl CommandParserExecutor<()> + Send + Sync + 'static,
-    ) -> Self {
-        self.executor = Some(Box::new(executor));
-        self
+    pub fn then<E>(self, executor: E) -> CommandHandler<E>
+    where
+        E: CommandParserExecutor<()>,
+    {
+        CommandHandler {
+            names: self.names,
+            description: self.description,
+            permission: self.permission,
+            executor,
+        }
     }
 
-    /// Chains a command executor to this command handler.
+    /// Executes the command executor if the command was ran without arguments.
+    pub fn executes<E>(self, executor: E) -> CommandHandler<CommandParserLeafExecutor<(), E>>
+    where
+        E: CommandExecutor<()>,
+    {
+        CommandHandler {
+            names: self.names,
+            description: self.description,
+            permission: self.permission,
+            executor: CommandParserLeafExecutor {
+                executor,
+                _source: PhantomData,
+            },
+        }
+    }
+}
+
+impl<E1> CommandHandler<E1> {
+    /// Chains a command executor that parses arguments.
     #[must_use]
-    pub fn executes(
-        mut self,
-        executor: impl CommandParserExecutor<()> + Send + Sync + 'static,
-    ) -> Self {
-        self.executor = Some(Box::new(executor));
-        self
+    pub fn then<E2>(self, executor: E2) -> CommandHandler<CommandParserSplitExecutor<(), E1, E2>>
+    where
+        E2: CommandParserExecutor<()>,
+    {
+        CommandHandler {
+            names: self.names,
+            description: self.description,
+            permission: self.permission,
+            executor: CommandParserSplitExecutor {
+                first_executor: self.executor,
+                second_executor: executor,
+                _source: PhantomData,
+            },
+        }
+    }
+
+    /// Executes the command executor if the command was ran without arguments.
+    pub fn executes<E2>(self, executor: E2) -> CommandHandler<CommandParserLeafExecutor<(), E2>>
+    where
+        E2: CommandExecutor<()>,
+    {
+        CommandHandler {
+            names: self.names,
+            description: self.description,
+            permission: self.permission,
+            executor: CommandParserLeafExecutor {
+                executor,
+                _source: PhantomData,
+            },
+        }
+    }
+}
+
+impl<E> CommandHandlerDyn for CommandHandler<E>
+where
+    E: CommandParserExecutor<()>,
+{
+    /// Returns the names of the command.
+    fn names(&self) -> &'static [&'static str] {
+        self.names
+    }
+
+    /// Returns the description of the command.
+    fn description(&self) -> &'static str {
+        self.description
+    }
+
+    /// Returns the permission of the command.
+    fn permission(&self) -> &'static str {
+        self.permission
     }
 
     /// Handles the execution of a command sent by a player.
-    pub fn handle(
+    fn handle(
         &self,
         command_args: &[&str],
         server: Arc<Server>,
         context: &mut CommandContext,
     ) -> Result<(), CommandError> {
-        let Some(executor) = &self.executor else {
-            unimplemented!(
-                "Command {} has no executor defined. Please call `then()` or `executes()` on the CommandHandler.",
-                self.names[0]
-            );
-        };
-
-        let Some(result) = executor.execute(command_args, (), &server, context) else {
-            return Err(CommandError::CommandFailed(Box::new(
+        match self.executor.execute(command_args, (), &server, context) {
+            Some(result) => result,
+            None => Err(CommandError::CommandFailed(Box::new(
                 "Invalid Syntax.".into(),
-            )));
-        };
-
-        result
+            ))),
+        }
     }
 }
 
 impl<S, A, E> CommandParserExecutor<S> for CommandParserArgumentExecutor<S, A, E>
 where
-    E: CommandParserExecutor<(A, S)>,
+    E: CommandParserExecutor<(S, A)>,
 {
     fn execute(
         &self,
@@ -105,7 +185,7 @@ where
         context: &mut CommandContext,
     ) -> Option<Result<(), CommandError>> {
         let (args, arg) = self.argument.parse(args, context)?;
-        self.executor.execute(args, (arg, parsed), server, context)
+        self.executor.execute(args, (parsed, arg), server, context)
     }
 }
 
@@ -210,7 +290,7 @@ impl<S, A> CommandParserArgumentBuilder<S, A> {
     /// Executes the command argument executor after the argument is parsed.
     pub fn then<E>(self, executor: E) -> CommandParserArgumentExecutor<S, A, E>
     where
-        E: CommandParserExecutor<(A, S)>,
+        E: CommandParserExecutor<(S, A)>,
     {
         CommandParserArgumentExecutor {
             argument: self.argument,
@@ -223,9 +303,9 @@ impl<S, A> CommandParserArgumentBuilder<S, A> {
     pub fn executes<E>(
         self,
         executor: E,
-    ) -> CommandParserArgumentExecutor<S, A, CommandParserLeafExecutor<(A, S), E>>
+    ) -> CommandParserArgumentExecutor<S, A, CommandParserLeafExecutor<(S, A), E>>
     where
-        E: CommandExecutor<(A, S)>,
+        E: CommandExecutor<(S, A)>,
     {
         CommandParserArgumentExecutor {
             argument: self.argument,
@@ -243,9 +323,9 @@ impl<S, A, E1> CommandParserArgumentExecutor<S, A, E1> {
     pub fn then<E2>(
         self,
         executor: E2,
-    ) -> CommandParserArgumentExecutor<S, A, CommandParserSplitExecutor<(A, S), E1, E2>>
+    ) -> CommandParserArgumentExecutor<S, A, CommandParserSplitExecutor<(S, A), E1, E2>>
     where
-        E2: CommandParserExecutor<(A, S)>,
+        E2: CommandParserExecutor<(S, A)>,
     {
         CommandParserArgumentExecutor {
             argument: self.argument,
@@ -262,9 +342,9 @@ impl<S, A, E1> CommandParserArgumentExecutor<S, A, E1> {
     pub fn executes<E2>(
         self,
         executor: E2,
-    ) -> CommandParserArgumentExecutor<S, A, SplitLeafExecutor<(A, S), E1, E2>>
+    ) -> CommandParserArgumentExecutor<S, A, SplitLeafExecutor<(S, A), E1, E2>>
     where
-        E2: CommandExecutor<(A, S)>,
+        E2: CommandExecutor<(S, A)>,
     {
         CommandParserArgumentExecutor {
             argument: self.argument,

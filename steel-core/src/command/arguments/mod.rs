@@ -20,8 +20,6 @@ pub trait CommandArgument: Send + Sync {
     ) -> Option<(&'a [&'a str], Self::Output)>;
 }
 
-// TODO: https://minecraft.wiki/w/Argument_types
-
 struct Helper;
 
 impl Helper {
