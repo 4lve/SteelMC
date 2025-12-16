@@ -365,29 +365,17 @@
 <a href=#365 id=365 data-nosnippet>365</a>            task.mark_for_cancel();
 <a href=#366 id=366 data-nosnippet>366</a>        }
 <a href=#367 id=367 data-nosnippet>367</a>    }
-<a href=#368 id=368 data-nosnippet>368</a>
-<a href=#369 id=369 data-nosnippet>369</a>    <span class="doccomment">/// Forces the chunk to fail.
-<a href=#370 id=370 data-nosnippet>370</a>    </span><span class="kw">pub fn </span>force_fail(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-<a href=#371 id=371 data-nosnippet>371</a>        <span class="kw">let </span><span class="kw-2">mut </span>task_guard = <span class="self">self</span>.generation_task.lock();
-<a href=#372 id=372 data-nosnippet>372</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(task) = task_guard.take() {
-<a href=#373 id=373 data-nosnippet>373</a>            task.mark_for_cancel();
-<a href=#374 id=374 data-nosnippet>374</a>            <span class="macro">log::info!</span>(<span class="string">"Force failing chunk at {:?}"</span>, <span class="self">self</span>.pos);
-<a href=#375 id=375 data-nosnippet>375</a>
-<a href=#376 id=376 data-nosnippet>376</a>            <span class="comment">//self.sender.send_replace(ChunkResult::Failed);
-<a href=#377 id=377 data-nosnippet>377</a>            </span><span class="self">self</span>.sender.send_replace(ChunkResult::Unloaded);
-<a href=#378 id=378 data-nosnippet>378</a>        }
-<a href=#379 id=379 data-nosnippet>379</a>    }
+<a href=#368 id=368 data-nosnippet>368</a>}
+<a href=#369 id=369 data-nosnippet>369</a>
+<a href=#370 id=370 data-nosnippet>370</a><span class="kw">fn </span>rayon_spawn&lt;F, R&gt;(thread_pool: <span class="kw-2">&amp;</span>rayon::ThreadPool, func: F) -&gt; <span class="kw">impl </span>Future&lt;Output = R&gt;
+<a href=#371 id=371 data-nosnippet>371</a><span class="kw">where
+<a href=#372 id=372 data-nosnippet>372</a>    </span>F: FnOnce() -&gt; R + Send + <span class="lifetime">'static</span>,
+<a href=#373 id=373 data-nosnippet>373</a>    R: Send + <span class="lifetime">'static </span>+ Debug,
+<a href=#374 id=374 data-nosnippet>374</a>{
+<a href=#375 id=375 data-nosnippet>375</a>    <span class="kw">let </span>(sender, receiver) = oneshot::channel();
+<a href=#376 id=376 data-nosnippet>376</a>    thread_pool.spawn(<span class="kw">move </span>|| {
+<a href=#377 id=377 data-nosnippet>377</a>        sender.send(func()).expect(<span class="string">"Failed to send result"</span>);
+<a href=#378 id=378 data-nosnippet>378</a>    });
+<a href=#379 id=379 data-nosnippet>379</a>    <span class="kw">async move </span>{ receiver.<span class="kw">await</span>.expect(<span class="string">"Failed to receive rayon task result"</span>) }
 <a href=#380 id=380 data-nosnippet>380</a>}
-<a href=#381 id=381 data-nosnippet>381</a>
-<a href=#382 id=382 data-nosnippet>382</a><span class="kw">fn </span>rayon_spawn&lt;F, R&gt;(thread_pool: <span class="kw-2">&amp;</span>rayon::ThreadPool, func: F) -&gt; <span class="kw">impl </span>Future&lt;Output = R&gt;
-<a href=#383 id=383 data-nosnippet>383</a><span class="kw">where
-<a href=#384 id=384 data-nosnippet>384</a>    </span>F: FnOnce() -&gt; R + Send + <span class="lifetime">'static</span>,
-<a href=#385 id=385 data-nosnippet>385</a>    R: Send + <span class="lifetime">'static </span>+ Debug,
-<a href=#386 id=386 data-nosnippet>386</a>{
-<a href=#387 id=387 data-nosnippet>387</a>    <span class="kw">let </span>(sender, receiver) = oneshot::channel();
-<a href=#388 id=388 data-nosnippet>388</a>    thread_pool.spawn(<span class="kw">move </span>|| {
-<a href=#389 id=389 data-nosnippet>389</a>        sender.send(func()).expect(<span class="string">"Failed to send result"</span>);
-<a href=#390 id=390 data-nosnippet>390</a>    });
-<a href=#391 id=391 data-nosnippet>391</a>    <span class="kw">async move </span>{ receiver.<span class="kw">await</span>.expect(<span class="string">"Failed to receive rayon task result"</span>) }
-<a href=#392 id=392 data-nosnippet>392</a>}
 </code></pre></div></section></main></body></html>
