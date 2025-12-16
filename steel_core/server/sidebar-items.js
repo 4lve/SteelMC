@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["key_store","registry_cache","tick_rate_manager"],"struct":["Server"]};
+window.SIDEBAR_ITEMS = {"mod":["registry_cache","tick_rate_manager"],"struct":["Server"]};

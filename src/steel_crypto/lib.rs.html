@@ -5,20 +5,21 @@
 <a href=#5 id=5 data-nosnippet>5</a>//! signed chat system, including RSA key pair generation, SHA256withRSA signing,
 <a href=#6 id=6 data-nosnippet>6</a>//! and signature verification.
 <a href=#7 id=7 data-nosnippet>7</a>
-<a href=#8 id=8 data-nosnippet>8</a></span><span class="kw">pub mod </span>mojang_api;
-<a href=#9 id=9 data-nosnippet>9</a><span class="kw">pub mod </span>rsa_utils;
-<a href=#10 id=10 data-nosnippet>10</a><span class="kw">pub mod </span>signature;
-<a href=#11 id=11 data-nosnippet>11</a>
-<a href=#12 id=12 data-nosnippet>12</a><span class="kw">pub use </span>rsa_utils::{CryptError, generate_key_pair, public_key_from_bytes, public_key_to_bytes};
-<a href=#13 id=13 data-nosnippet>13</a><span class="kw">pub use </span>signature::{SignatureUpdater, SignatureValidator, Signer};
-<a href=#14 id=14 data-nosnippet>14</a>
-<a href=#15 id=15 data-nosnippet>15</a><span class="doccomment">/// Signing algorithm used for chat messages (SHA256withRSA)
-<a href=#16 id=16 data-nosnippet>16</a></span><span class="kw">pub const </span>SIGNING_ALGORITHM: <span class="kw-2">&amp;</span>str = <span class="string">"SHA256withRSA"</span>;
-<a href=#17 id=17 data-nosnippet>17</a>
-<a href=#18 id=18 data-nosnippet>18</a><span class="doccomment">/// Size of RSA signatures in bytes (for 1024-bit RSA keys, signatures are 128 bytes)
-<a href=#19 id=19 data-nosnippet>19</a>/// Note: Minecraft protocol specifies 256 bytes, but 1024-bit RSA produces 128-byte signatures
-<a href=#20 id=20 data-nosnippet>20</a></span><span class="kw">pub const </span>SIGNATURE_BYTES: usize = <span class="number">128</span>;
-<a href=#21 id=21 data-nosnippet>21</a>
-<a href=#22 id=22 data-nosnippet>22</a><span class="doccomment">/// Size of RSA keys in bits
-<a href=#23 id=23 data-nosnippet>23</a></span><span class="kw">pub const </span>RSA_KEY_BITS: usize = <span class="number">1024</span>;
+<a href=#8 id=8 data-nosnippet>8</a></span><span class="kw">pub mod </span>key_store;
+<a href=#9 id=9 data-nosnippet>9</a><span class="kw">pub mod </span>mojang_api;
+<a href=#10 id=10 data-nosnippet>10</a><span class="kw">pub mod </span>rsa_utils;
+<a href=#11 id=11 data-nosnippet>11</a><span class="kw">pub mod </span>signature;
+<a href=#12 id=12 data-nosnippet>12</a>
+<a href=#13 id=13 data-nosnippet>13</a><span class="kw">pub use </span>rsa_utils::{CryptError, generate_key_pair, public_key_from_bytes, public_key_to_bytes};
+<a href=#14 id=14 data-nosnippet>14</a><span class="kw">pub use </span>signature::{SignatureUpdater, SignatureValidator, Signer};
+<a href=#15 id=15 data-nosnippet>15</a>
+<a href=#16 id=16 data-nosnippet>16</a><span class="doccomment">/// Signing algorithm used for chat messages (SHA256withRSA)
+<a href=#17 id=17 data-nosnippet>17</a></span><span class="kw">pub const </span>SIGNING_ALGORITHM: <span class="kw-2">&amp;</span>str = <span class="string">"SHA256withRSA"</span>;
+<a href=#18 id=18 data-nosnippet>18</a>
+<a href=#19 id=19 data-nosnippet>19</a><span class="doccomment">/// Size of RSA signatures in bytes (for 1024-bit RSA keys, signatures are 128 bytes)
+<a href=#20 id=20 data-nosnippet>20</a>/// Note: Minecraft protocol specifies 256 bytes, but 1024-bit RSA produces 128-byte signatures
+<a href=#21 id=21 data-nosnippet>21</a></span><span class="kw">pub const </span>SIGNATURE_BYTES: usize = <span class="number">128</span>;
+<a href=#22 id=22 data-nosnippet>22</a>
+<a href=#23 id=23 data-nosnippet>23</a><span class="doccomment">/// Size of RSA keys in bits
+<a href=#24 id=24 data-nosnippet>24</a></span><span class="kw">pub const </span>RSA_KEY_BITS: usize = <span class="number">1024</span>;
 </code></pre></div></section></main></body></html>

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["RSA_KEY_BITS","SIGNATURE_BYTES","SIGNING_ALGORITHM"],"mod":["mojang_api","rsa_utils","signature"]};
+window.SIDEBAR_ITEMS = {"constant":["RSA_KEY_BITS","SIGNATURE_BYTES","SIGNING_ALGORITHM"],"mod":["key_store","mojang_api","rsa_utils","signature"]};
