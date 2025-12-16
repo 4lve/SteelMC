@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["EXPIRY_GRACE_PERIOD","MAX_KEY_SIGNATURE_SIZE"],"enum":["ValidationError"],"mod":["signature_helpers"],"struct":["ProfilePublicKey","ProfilePublicKeyData","RemoteChatSession","RemoteChatSessionData"]};

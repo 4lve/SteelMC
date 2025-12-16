@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["chunk_sender","game_profile","networking"],"struct":["GameProfile","Player"]};
+window.SIDEBAR_ITEMS = {"mod":["chunk_sender","game_profile","message_chain","message_validator","networking","profile_key","signature_cache"],"struct":["GameProfile","LastSeen","MessageCache","Player"],"type":["PreviousMessageEntry"]};
