@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `steel-core/src/player/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-80aa586b.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="steel_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.0-nightly (21ff67df1 2025-12-15)" data-channel="nightly" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-3e30299d.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">steel_core/player/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! This module contains all things player-related.
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `steel-core/src/player/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-80aa586b.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="steel_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.0-nightly (31010ca61 2025-12-16)" data-channel="nightly" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-3e30299d.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">steel_core/player/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! This module contains all things player-related.
 <a href=#2 id=2 data-nosnippet>2</a></span><span class="kw">pub mod </span>chunk_sender;
 <a href=#3 id=3 data-nosnippet>3</a><span class="kw">mod </span>game_profile;
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">pub mod </span>message_chain;
@@ -19,9 +19,9 @@
 <a href=#19 id=19 data-nosnippet>19</a><span class="kw">pub use </span>game_profile::GameProfile;
 <a href=#20 id=20 data-nosnippet>20</a><span class="kw">use </span>message_chain::SignedMessageChain;
 <a href=#21 id=21 data-nosnippet>21</a><span class="kw">use </span>message_validator::LastSeenMessagesValidator;
-<a href=#22 id=22 data-nosnippet>22</a><span class="kw">use </span>parking_lot::Mutex;
-<a href=#23 id=23 data-nosnippet>23</a><span class="kw">use </span>profile_key::RemoteChatSession;
-<a href=#24 id=24 data-nosnippet>24</a><span class="kw">pub use </span>signature_cache::{LastSeen, MessageCache};
+<a href=#22 id=22 data-nosnippet>22</a><span class="kw">use </span>profile_key::RemoteChatSession;
+<a href=#23 id=23 data-nosnippet>23</a><span class="kw">pub use </span>signature_cache::{LastSeen, MessageCache};
+<a href=#24 id=24 data-nosnippet>24</a><span class="kw">use </span>steel_utils::locks::SyncMutex;
 <a href=#25 id=25 data-nosnippet>25</a>
 <a href=#26 id=26 data-nosnippet>26</a><span class="kw">use </span><span class="kw">crate</span>::config::STEEL_CONFIG;
 <a href=#27 id=27 data-nosnippet>27</a>
@@ -56,13 +56,13 @@
 <a href=#56 id=56 data-nosnippet>56</a>    </span><span class="kw">pub </span>client_loaded: AtomicBool,
 <a href=#57 id=57 data-nosnippet>57</a>
 <a href=#58 id=58 data-nosnippet>58</a>    <span class="doccomment">/// The player's position.
-<a href=#59 id=59 data-nosnippet>59</a>    </span><span class="kw">pub </span>position: Mutex&lt;Vector3&lt;f64&gt;&gt;,
+<a href=#59 id=59 data-nosnippet>59</a>    </span><span class="kw">pub </span>position: SyncMutex&lt;Vector3&lt;f64&gt;&gt;,
 <a href=#60 id=60 data-nosnippet>60</a>    <span class="doccomment">/// The last chunk position of the player.
-<a href=#61 id=61 data-nosnippet>61</a>    </span><span class="kw">pub </span>last_chunk_pos: Mutex&lt;ChunkPos&gt;,
+<a href=#61 id=61 data-nosnippet>61</a>    </span><span class="kw">pub </span>last_chunk_pos: SyncMutex&lt;ChunkPos&gt;,
 <a href=#62 id=62 data-nosnippet>62</a>    <span class="doccomment">/// The last chunk tracking view of the player.
-<a href=#63 id=63 data-nosnippet>63</a>    </span><span class="kw">pub </span>last_tracking_view: Mutex&lt;<span class="prelude-ty">Option</span>&lt;PlayerChunkView&gt;&gt;,
+<a href=#63 id=63 data-nosnippet>63</a>    </span><span class="kw">pub </span>last_tracking_view: SyncMutex&lt;<span class="prelude-ty">Option</span>&lt;PlayerChunkView&gt;&gt;,
 <a href=#64 id=64 data-nosnippet>64</a>    <span class="doccomment">/// The chunk sender for the player.
-<a href=#65 id=65 data-nosnippet>65</a>    </span><span class="kw">pub </span>chunk_sender: Mutex&lt;ChunkSender&gt;,
+<a href=#65 id=65 data-nosnippet>65</a>    </span><span class="kw">pub </span>chunk_sender: SyncMutex&lt;ChunkSender&gt;,
 <a href=#66 id=66 data-nosnippet>66</a>
 <a href=#67 id=67 data-nosnippet>67</a>    <span class="doccomment">/// Counter for chat messages sent BY this player
 <a href=#68 id=68 data-nosnippet>68</a>    </span>messages_sent: AtomicI32,
@@ -70,16 +70,16 @@
 <a href=#70 id=70 data-nosnippet>70</a>    </span>messages_received: AtomicI32,
 <a href=#71 id=71 data-nosnippet>71</a>
 <a href=#72 id=72 data-nosnippet>72</a>    <span class="doccomment">/// Message signature cache for tracking chat messages
-<a href=#73 id=73 data-nosnippet>73</a>    </span><span class="kw">pub </span>signature_cache: Mutex&lt;MessageCache&gt;,
+<a href=#73 id=73 data-nosnippet>73</a>    </span><span class="kw">pub </span>signature_cache: SyncMutex&lt;MessageCache&gt;,
 <a href=#74 id=74 data-nosnippet>74</a>
 <a href=#75 id=75 data-nosnippet>75</a>    <span class="doccomment">/// Validator for client acknowledgements of messages we've sent
-<a href=#76 id=76 data-nosnippet>76</a>    </span><span class="kw">pub </span>message_validator: Mutex&lt;LastSeenMessagesValidator&gt;,
+<a href=#76 id=76 data-nosnippet>76</a>    </span><span class="kw">pub </span>message_validator: SyncMutex&lt;LastSeenMessagesValidator&gt;,
 <a href=#77 id=77 data-nosnippet>77</a>
 <a href=#78 id=78 data-nosnippet>78</a>    <span class="doccomment">/// Remote chat session containing the player's public key (if signed chat is enabled)
-<a href=#79 id=79 data-nosnippet>79</a>    </span><span class="kw">pub </span>chat_session: Mutex&lt;<span class="prelude-ty">Option</span>&lt;RemoteChatSession&gt;&gt;,
+<a href=#79 id=79 data-nosnippet>79</a>    </span><span class="kw">pub </span>chat_session: SyncMutex&lt;<span class="prelude-ty">Option</span>&lt;RemoteChatSession&gt;&gt;,
 <a href=#80 id=80 data-nosnippet>80</a>
 <a href=#81 id=81 data-nosnippet>81</a>    <span class="doccomment">/// Message chain state for tracking signed message sequence
-<a href=#82 id=82 data-nosnippet>82</a>    </span><span class="kw">pub </span>message_chain: Mutex&lt;<span class="prelude-ty">Option</span>&lt;SignedMessageChain&gt;&gt;,
+<a href=#82 id=82 data-nosnippet>82</a>    </span><span class="kw">pub </span>message_chain: SyncMutex&lt;<span class="prelude-ty">Option</span>&lt;SignedMessageChain&gt;&gt;,
 <a href=#83 id=83 data-nosnippet>83</a>}
 <a href=#84 id=84 data-nosnippet>84</a>
 <a href=#85 id=85 data-nosnippet>85</a><span class="kw">impl </span>Player {
@@ -95,16 +95,16 @@
 <a href=#95 id=95 data-nosnippet>95</a>
 <a href=#96 id=96 data-nosnippet>96</a>            world,
 <a href=#97 id=97 data-nosnippet>97</a>            client_loaded: AtomicBool::new(<span class="bool-val">false</span>),
-<a href=#98 id=98 data-nosnippet>98</a>            position: Mutex::new(Vector3::default()),
-<a href=#99 id=99 data-nosnippet>99</a>            last_chunk_pos: Mutex::new(ChunkPos::new(<span class="number">0</span>, <span class="number">0</span>)),
-<a href=#100 id=100 data-nosnippet>100</a>            last_tracking_view: Mutex::new(<span class="prelude-val">None</span>),
-<a href=#101 id=101 data-nosnippet>101</a>            chunk_sender: Mutex::new(ChunkSender::default()),
+<a href=#98 id=98 data-nosnippet>98</a>            position: SyncMutex::new(Vector3::default()),
+<a href=#99 id=99 data-nosnippet>99</a>            last_chunk_pos: SyncMutex::new(ChunkPos::new(<span class="number">0</span>, <span class="number">0</span>)),
+<a href=#100 id=100 data-nosnippet>100</a>            last_tracking_view: SyncMutex::new(<span class="prelude-val">None</span>),
+<a href=#101 id=101 data-nosnippet>101</a>            chunk_sender: SyncMutex::new(ChunkSender::default()),
 <a href=#102 id=102 data-nosnippet>102</a>            messages_sent: AtomicI32::new(<span class="number">0</span>),
 <a href=#103 id=103 data-nosnippet>103</a>            messages_received: AtomicI32::new(<span class="number">0</span>),
-<a href=#104 id=104 data-nosnippet>104</a>            signature_cache: Mutex::new(MessageCache::new()),
-<a href=#105 id=105 data-nosnippet>105</a>            message_validator: Mutex::new(LastSeenMessagesValidator::new()),
-<a href=#106 id=106 data-nosnippet>106</a>            chat_session: Mutex::new(<span class="prelude-val">None</span>),
-<a href=#107 id=107 data-nosnippet>107</a>            message_chain: Mutex::new(<span class="prelude-val">None</span>),
+<a href=#104 id=104 data-nosnippet>104</a>            signature_cache: SyncMutex::new(MessageCache::new()),
+<a href=#105 id=105 data-nosnippet>105</a>            message_validator: SyncMutex::new(LastSeenMessagesValidator::new()),
+<a href=#106 id=106 data-nosnippet>106</a>            chat_session: SyncMutex::new(<span class="prelude-val">None</span>),
+<a href=#107 id=107 data-nosnippet>107</a>            message_chain: SyncMutex::new(<span class="prelude-val">None</span>),
 <a href=#108 id=108 data-nosnippet>108</a>        }
 <a href=#109 id=109 data-nosnippet>109</a>    }
 <a href=#110 id=110 data-nosnippet>110</a>
