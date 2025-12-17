@@ -4,10 +4,10 @@
 //! to entity properties and efficiently broadcasts only dirty (changed) values.
 
 use rustc_hash::FxHashMap;
-use steel_utils::locks::SyncRwLock;
 use std::any::{Any, TypeId};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use steel_utils::locks::SyncRwLock;
 
 use super::Pose;
 

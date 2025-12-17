@@ -9,13 +9,13 @@ use uuid::Uuid;
 
 use super::{Entity, packet_helpers::entity_data_to_packet_entries};
 use crate::player::Player;
-use steel_utils::locks::{SyncMutex, SyncRwLock};
 use steel_protocol::packets::game::{
     CAddEntity, CMoveEntityPos, CMoveEntityPosRot, CMoveEntityRot, CRemoveEntities, CRotateHead,
     CSetEntityData, CTeleportEntity,
 };
 use steel_registry::vanilla_entities;
 use steel_utils::codec::VarInt;
+use steel_utils::locks::{SyncMutex, SyncRwLock};
 
 /// Wrapper around an entity that tracks visibility to players
 pub struct TrackedEntity {
