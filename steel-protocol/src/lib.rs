@@ -7,3 +7,6 @@ pub mod packet_traits;
 pub mod packet_writer;
 pub mod packets;
 pub mod utils;
+
+// Re-export commonly used traits
+pub use packet_traits::{ClientPacket, ServerPacket};
