@@ -4,16 +4,22 @@ use std::sync::atomic::Ordering;
 use std::sync::{Arc, Weak};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use steel_protocol::packet_reader::TCPNetworkDecoder;
-use steel_protocol::packet_traits::{ClientPacket, CompressionInfo, EncodedPacket, ServerPacket};
-use steel_protocol::packet_writer::TCPNetworkEncoder;
-use steel_protocol::packets::common::{CDisconnect, CKeepAlive, SCustomPayload, SKeepAlive};
-use steel_protocol::packets::game::{
-    SChat, SChatAck, SChatCommand, SChatSessionUpdate, SChunkBatchReceived, SClientTickEnd,
-    SContainerButtonClick, SContainerClick, SContainerClose, SContainerSlotStateChanged,
-    SMovePlayerPos, SMovePlayerPosRot, SMovePlayerRot, SPlayerLoad, SSetCreativeModeSlot,
+use steel_protocol::{
+    packet_reader::TCPNetworkDecoder,
+    packet_traits::{ClientPacket, CompressionInfo, EncodedPacket, ServerPacket},
+    packet_writer::TCPNetworkEncoder,
+    packets::{
+        common::{CDisconnect, CKeepAlive, SCustomPayload, SKeepAlive},
+        game::{
+            SAcceptTeleportation, SChat, SChatAck, SChatCommand, SChatSessionUpdate,
+            SChunkBatchReceived, SClientTickEnd, SContainerButtonClick, SContainerClick,
+            SContainerClose, SContainerSlotStateChanged, SMovePlayerPos, SMovePlayerPosRot,
+            SMovePlayerRot, SPlayerCommand, SPlayerInput, SPlayerLoad, SSetCreativeModeSlot,
+            SSwing,
+        },
+    },
+    utils::{ConnectionProtocol, EnqueuedPacket, PacketError, RawPacket},
 };
-use steel_protocol::utils::{ConnectionProtocol, EnqueuedPacket, PacketError, RawPacket};
 use steel_registry::packets::play;
 use steel_utils::locks::{AsyncMutex, SyncMutex};
 use steel_utils::{text::TextComponent, translations};
@@ -232,6 +238,19 @@ impl JavaConnection {
             play::S_SET_CREATIVE_MODE_SLOT => {
                 player.handle_set_creative_mode_slot(SSetCreativeModeSlot::read_packet(data)?);
             }
+            play::S_SWING => {
+                player.handle_swing(SSwing::read_packet(data)?);
+            }
+            play::S_PLAYER_COMMAND => {
+                player.handle_player_command(SPlayerCommand::read_packet(data)?);
+            }
+            play::S_PLAYER_INPUT => {
+                player.handle_player_input(SPlayerInput::read_packet(data)?);
+            }
+            play::S_ACCEPT_TELEPORTATION => {
+                let packet = SAcceptTeleportation::read_packet(data)?;
+                player.handle_accept_teleportation(packet.teleport_id.0);
+            }
             id => log::info!("play packet id {id} is not known"),
         }
         Ok(())
@@ -301,10 +320,6 @@ impl JavaConnection {
                         }
 
                     } else {
-                        //log::warn!(
-                        //    "Internal packet_sender_recv channel closed for client {}",
-                        //    self.id
-                        //);
                         self.close();
                     }
                 }

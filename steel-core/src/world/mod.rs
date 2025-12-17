@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use crate::{
     ChunkMap,
+    entity::EntityTracker,
     player::{LastSeen, Player},
 };
 
@@ -20,6 +21,8 @@ pub struct World {
     pub chunk_map: Arc<ChunkMap>,
     /// A map of all the players in the world.
     pub players: HashMap<Uuid, Arc<Player>>,
+    /// Entity tracker for player visibility
+    pub entity_tracker: Arc<EntityTracker>,
 }
 
 impl World {
@@ -30,6 +33,7 @@ impl World {
         Self {
             chunk_map: Arc::new(ChunkMap::new(chunk_runtime)),
             players: HashMap::new(),
+            entity_tracker: Arc::new(EntityTracker::new()),
         }
     }
 
@@ -41,12 +45,24 @@ impl World {
         let start = tokio::time::Instant::now();
         self.players.iter_sync(|_uuid, player| {
             player.tick();
-
             true
         });
         let player_tick_elapsed = start.elapsed();
         if player_tick_elapsed >= Duration::from_millis(100) {
             log::warn!("Player tick slow: {player_tick_elapsed:?}");
+        }
+
+        // Update entity tracking (player visibility)
+        let entity_start = tokio::time::Instant::now();
+        let mut players = Vec::new();
+        self.players.iter_sync(|_, p| {
+            players.push(p.clone());
+            true
+        });
+        self.entity_tracker.tick(&players);
+        let entity_elapsed = entity_start.elapsed();
+        if entity_elapsed >= Duration::from_millis(50) {
+            log::warn!("Entity tracking slow: {entity_elapsed:?}");
         }
     }
 

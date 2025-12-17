@@ -1,10 +1,13 @@
 //! This module contains the implementation of the world's entity-related methods.
 use std::sync::Arc;
 
-use steel_protocol::packets::game::{CGameEvent, GameEventType};
+use steel_protocol::packets::game::{
+    CGameEvent, CPlayerInfoUpdate, CRemovePlayerInfo, GameEventType,
+};
 use tokio::time::Instant;
 
-use crate::{player::Player, world::World};
+use crate::{entity::PlayerEntity, player::Player, world::World};
+use steel_registry::vanilla_entities;
 
 impl World {
     /// Removes a player from the world.
@@ -14,6 +17,20 @@ impl World {
         if self.players.remove_async(&uuid).await.is_some() {
             let self_clone = self.clone();
             let start = Instant::now();
+
+            // Remove from entity tracker if they have an entity
+            if let Some(entity_id) = *player.entity_id.lock() {
+                self_clone.entity_tracker.remove_entity(entity_id);
+                self_clone.entity_tracker.remove_player(uuid);
+            }
+
+            // Broadcast player removal from tab list to all players
+            let remove_info_packet = CRemovePlayerInfo { uuids: vec![uuid] };
+            self.players.iter_sync(|_, p| {
+                p.connection.send_packet(remove_info_packet.clone());
+                true
+            });
+
             self_clone.chunk_map.remove_player(&player);
             player.cleanup();
             log::info!("Player {uuid} removed in {:?}", start.elapsed());
@@ -35,9 +52,10 @@ impl World {
         // The chat sessions will be sent separately when they become available
         self.players.iter_sync(|_, existing_player| {
             if existing_player.gameprofile.id != player.gameprofile.id {
-                let add_existing = steel_protocol::packets::game::CPlayerInfoUpdate::add_player(
+                let add_existing = CPlayerInfoUpdate::add_player(
                     existing_player.gameprofile.id,
                     existing_player.gameprofile.name.clone(),
+                    existing_player.gameprofile.properties.clone(),
                 );
                 player.connection.send_packet(add_existing);
 
@@ -45,11 +63,10 @@ impl World {
                 if let Some(session) = existing_player.chat_session()
                     && let Ok(protocol_data) = session.as_data().to_protocol_data()
                 {
-                    let session_packet =
-                        steel_protocol::packets::game::CPlayerInfoUpdate::update_chat_session(
-                            existing_player.gameprofile.id,
-                            protocol_data,
-                        );
+                    let session_packet = CPlayerInfoUpdate::update_chat_session(
+                        existing_player.gameprofile.id,
+                        protocol_data,
+                    );
                     player.connection.send_packet(session_packet);
                 }
             }
@@ -57,9 +74,10 @@ impl World {
         });
 
         // Broadcast new player to all existing players (ADD_PLAYER)
-        let player_info_packet = steel_protocol::packets::game::CPlayerInfoUpdate::add_player(
+        let player_info_packet = CPlayerInfoUpdate::add_player(
             player.gameprofile.id,
             player.gameprofile.name.clone(),
+            player.gameprofile.properties.clone(),
         );
 
         self.players.iter_sync(|_, p| {
@@ -75,6 +93,31 @@ impl World {
         player.connection.send_packet(CGameEvent {
             event: GameEventType::ChangeGameMode,
             data: player.game_mode.load().into(),
+        });
+
+        // Register player as an entity for visibility tracking
+        // Entity ID should already be assigned in server.add_player()
+        let entity_id = player
+            .entity_id
+            .lock()
+            .expect("Player should have entity ID by now");
+        let player_entity = Arc::new(PlayerEntity::new(entity_id, player.clone()));
+
+        // Add to entity tracker so other players can see them
+        self.entity_tracker
+            .add_entity(player_entity, Some(vanilla_entities::PLAYER.tracking_range));
+
+        // Immediately update visibility (matches vanilla's updatePlayers() call)
+        // This pairs the new player with existing players without waiting for next tick
+        self.entity_tracker.update_player_visibility(&player);
+
+        // Also update visibility for all existing players to see the new player
+        self.players.iter_sync(|_, existing_player| {
+            if existing_player.gameprofile.id != player.gameprofile.id {
+                self.entity_tracker
+                    .update_player_visibility(existing_player);
+            }
+            true
         });
     }
 }
