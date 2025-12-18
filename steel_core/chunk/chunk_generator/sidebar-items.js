@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ChunkGuard"],"trait":["ChunkGenerator"]};
+window.SIDEBAR_ITEMS = {"trait":["ChunkGenerator"]};
