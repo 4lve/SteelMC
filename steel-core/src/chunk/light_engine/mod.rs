@@ -34,7 +34,7 @@ pub mod queue_entry;
 pub mod threaded_level_light_engine;
 
 // Re-export main types for convenience
-pub use base::{LightChunkAccess, LightEngine};
+pub use base::{BoundaryCrossing, CenterChunkLightAccess, LightChunkAccess, LightEngine};
 pub use direction::Direction;
 pub use light_queue::LightQueue;
 pub use queue_entry::QueueEntry;

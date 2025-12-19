@@ -16,262 +16,113 @@ use crate::chunk::{
     chunk_holder::ChunkHolder,
     light_storage::LightStorage,
     paletted_container::PalettedContainer,
+    section::Sections,
 };
 
 use super::{
-    base::{LightChunkAccess, LightEngine},
+    base::{BoundaryCrossing, CenterChunkLightAccess, LightEngine},
     queue_entry::QueueEntry,
 };
 
-/// Multi-chunk light access implementation for cross-chunk light propagation.
+/// Synchronous center-chunk-only light access for lock-free propagation.
 ///
-/// This implementation accesses the center chunk and up to 8 neighboring chunks,
-/// using the `yield_lock` pattern to safely access neighbor chunks during propagation.
-struct ChunkLightAccess<'access, 'guard> {
-    /// The center chunk guard.
-    center_guard: Mutex<&'access mut ChunkGuard<'guard>>,
-    /// Cache of all chunks in a radius (includes center and neighbors).
-    cache: &'access StaticCache2D<Arc<ChunkHolder>>,
+/// Returns `None` when accessing positions outside the center chunk bounds,
+/// allowing boundary crossings to be collected for batch processing.
+struct CenterOnlyChunkAccess<'a> {
+    /// The center chunk position.
+    chunk_pos: ChunkPos,
+    /// Reference to the center chunk's sections.
+    sections: &'a mut Sections,
     /// Minimum Y coordinate of the world.
     chunk_min_y: i32,
+    /// Block registry for block properties.
     block_registry: Arc<BlockRegistry>,
 }
 
-impl<'access, 'guard> ChunkLightAccess<'access, 'guard> {
+impl<'a> CenterOnlyChunkAccess<'a> {
     fn new(
-        center_guard: &'access mut ChunkGuard<'guard>,
-        cache: &'access StaticCache2D<Arc<ChunkHolder>>,
+        chunk_pos: ChunkPos,
+        sections: &'a mut Sections,
         chunk_min_y: i32,
         block_registry: Arc<BlockRegistry>,
     ) -> Self {
         Self {
-            center_guard: Mutex::new(center_guard),
-            cache,
+            chunk_pos,
+            sections,
             chunk_min_y,
             block_registry,
         }
     }
 
-    /// Gets the chunk position and sections for a given world block position.
-    /// Returns None if the chunk is not available in the cache.
-    fn get_chunk_for_pos(&self, pos: BlockPos) -> (ChunkPos, i32, i32) {
-        let chunk_x = pos.0.x >> 4; // Divide by 16
+    /// Checks if a position is within the center chunk.
+    fn is_in_center_chunk(&self, pos: BlockPos) -> bool {
+        let chunk_x = pos.0.x >> 4;
         let chunk_z = pos.0.z >> 4;
-        let chunk_pos = ChunkPos(steel_utils::math::Vector2::new(chunk_x, chunk_z));
-
-        let rel_x = pos.0.x & 15; // Modulo 16
-        let rel_y = pos.0.y - self.chunk_min_y;
-        let rel_z = pos.0.z & 15;
-
-        (chunk_pos, rel_x | (rel_y << 4) | (rel_z << 20), rel_y)
+        chunk_x == self.chunk_pos.0.x && chunk_z == self.chunk_pos.0.y
     }
 
-    /// Unpacks the packed coordinates.
-    fn unpack_coords(packed: i32) -> (usize, usize, usize) {
-        let rel_x = (packed & 15) as usize;
-        let rel_y = ((packed >> 4) & 0xFFFF) as usize;
-        let rel_z = ((packed >> 20) & 15) as usize;
-        (rel_x, rel_y, rel_z)
+    /// Converts world position to chunk-relative coordinates.
+    fn to_relative_coords(&self, pos: BlockPos) -> Option<(usize, usize, usize)> {
+        if !self.is_in_center_chunk(pos) {
+            return None;
+        }
+
+        let rel_x = (pos.0.x & 15) as usize;
+        let rel_y = (pos.0.y - self.chunk_min_y) as usize;
+        let rel_z = (pos.0.z & 15) as usize;
+
+        Some((rel_x, rel_y, rel_z))
     }
 }
 
-impl LightChunkAccess for ChunkLightAccess<'_, '_> {
-    async fn get_light(&self, pos: BlockPos) -> u8 {
-        let (chunk_pos, packed_coords, _rel_y) = self.get_chunk_for_pos(pos);
+impl CenterChunkLightAccess for CenterOnlyChunkAccess<'_> {
+    fn center_chunk_pos(&self) -> ChunkPos {
+        self.chunk_pos
+    }
 
-        let center_pos = {
-            let center_guard = self.center_guard.lock();
-            match &***center_guard {
-                ChunkAccess::Proto(proto) => proto.pos,
-                ChunkAccess::Full(full) => full.pos,
-            }
-        };
+    fn get_light(&self, pos: BlockPos) -> Option<u8> {
+        let (rel_x, rel_y, rel_z) = self.to_relative_coords(pos)?;
 
-        if chunk_pos == center_pos {
-            // Fast path: access center chunk directly
-            let (rel_x, rel_y, rel_z) = Self::unpack_coords(packed_coords);
-            let center_guard = self.center_guard.lock();
-            let sections = match &***center_guard {
-                ChunkAccess::Proto(proto) => &proto.sections,
-                ChunkAccess::Full(full) => &full.sections,
-            };
+        let section_idx = rel_y / 16;
+        let section_y = rel_y % 16;
+        let light_section_idx = section_idx + 1; // +1 for padding
 
-            let section_idx = rel_y / 16;
-            let section_y = rel_y % 16;
-            let light_section_idx = section_idx + 1;
-
-            if light_section_idx < sections.block_light.len() {
-                sections.block_light[light_section_idx].get(rel_x, section_y, rel_z)
-            } else {
-                0
-            }
+        if light_section_idx < self.sections.block_light.len() {
+            Some(self.sections.block_light[light_section_idx].get(rel_x, section_y, rel_z))
         } else {
-            // Slow path: yield lock and access neighbor chunk
-            let future = {
-                let mut center_guard_mut = self.center_guard.lock();
-                let cache = &self.cache;
-                center_guard_mut.yield_lock(|| async move {
-                    let chunk_holder = cache.get(chunk_pos.0.x, chunk_pos.0.y);
-                    if let Some(chunk_lock) =
-                        chunk_holder.await_chunk(ChunkStatus::InitializeLight).await
-                    {
-                        let chunk_guard_inner = chunk_lock.read();
-                        if let Some(chunk_access) = &*chunk_guard_inner {
-                            let (rel_x, rel_y, rel_z) = Self::unpack_coords(packed_coords);
-                            let sections = match chunk_access {
-                                ChunkAccess::Proto(proto) => &proto.sections,
-                                ChunkAccess::Full(full) => &full.sections,
-                            };
-
-                            let section_idx = rel_y / 16;
-                            let section_y = rel_y % 16;
-                            let light_section_idx = section_idx + 1;
-
-                            if light_section_idx < sections.block_light.len() {
-                                sections.block_light[light_section_idx].get(rel_x, section_y, rel_z)
-                            } else {
-                                0
-                            }
-                        } else {
-                            0
-                        }
-                    } else {
-                        0
-                    }
-                })
-            };
-            future.await
+            Some(0)
         }
     }
 
-    async fn set_light(&mut self, pos: BlockPos, level: u8) {
-        let (chunk_pos, packed_coords, _rel_y) = self.get_chunk_for_pos(pos);
-
-        let center_pos = {
-            let center_guard = self.center_guard.lock();
-            match &***center_guard {
-                ChunkAccess::Proto(proto) => proto.pos,
-                ChunkAccess::Full(full) => full.pos,
-            }
+    fn set_light(&mut self, pos: BlockPos, level: u8) -> bool {
+        let Some((rel_x, rel_y, rel_z)) = self.to_relative_coords(pos) else {
+            return false;
         };
 
-        if chunk_pos == center_pos {
-            // Fast path: access center chunk directly
-            let (rel_x, rel_y, rel_z) = Self::unpack_coords(packed_coords);
-            let mut center_guard = self.center_guard.lock();
-            let sections = match &mut ***center_guard {
-                ChunkAccess::Proto(proto) => &mut proto.sections,
-                ChunkAccess::Full(full) => &mut full.sections,
-            };
+        let section_idx = rel_y / 16;
+        let section_y = rel_y % 16;
+        let light_section_idx = section_idx + 1; // +1 for padding
 
-            let section_idx = rel_y / 16;
-            let section_y = rel_y % 16;
-            let light_section_idx = section_idx + 1;
-
-            if light_section_idx < sections.block_light.len() {
-                sections.block_light[light_section_idx].set(rel_x, section_y, rel_z, level);
-            }
+        if light_section_idx < self.sections.block_light.len() {
+            self.sections.block_light[light_section_idx].set(rel_x, section_y, rel_z, level);
+            true
         } else {
-            // Slow path: yield lock and access neighbor chunk
-            let future = {
-                let mut center_guard = self.center_guard.lock();
-                let cache = &self.cache;
-                center_guard.yield_lock(|| async move {
-                    let chunk_holder = cache.get(chunk_pos.0.x, chunk_pos.0.y);
-                    if let Some(chunk_lock) =
-                        chunk_holder.await_chunk(ChunkStatus::InitializeLight).await
-                    {
-                        let mut chunk_guard_inner = chunk_lock.write();
-                        if let Some(chunk_access) = &mut *chunk_guard_inner {
-                            let (rel_x, rel_y, rel_z) = Self::unpack_coords(packed_coords);
-                            let sections = match chunk_access {
-                                ChunkAccess::Proto(proto) => &mut proto.sections,
-                                ChunkAccess::Full(full) => &mut full.sections,
-                            };
-
-                            let section_idx = rel_y / 16;
-                            let section_y = rel_y % 16;
-                            let light_section_idx = section_idx + 1;
-
-                            if light_section_idx < sections.block_light.len() {
-                                sections.block_light[light_section_idx]
-                                    .set(rel_x, section_y, rel_z, level);
-                                chunk_holder.mark_light_storage_section_changed(
-                                    light_section_idx as u32,
-                                    false,
-                                );
-                            }
-                        }
-                    }
-                })
-            };
-            future.await;
+            false
         }
     }
 
-    async fn get_block_state(&self, pos: BlockPos) -> BlockStateId {
-        let (chunk_pos, packed_coords, _) = self.get_chunk_for_pos(pos);
-
-        let center_pos = {
-            let center_guard = self.center_guard.lock();
-            match &***center_guard {
-                ChunkAccess::Proto(proto) => proto.pos,
-                ChunkAccess::Full(full) => full.pos,
-            }
-        };
-
-        if chunk_pos == center_pos {
-            // Fast path: access center chunk directly
-            let (rel_x, rel_y, rel_z) = Self::unpack_coords(packed_coords);
-            let center_guard = self.center_guard.lock();
-            let sections = match &***center_guard {
-                ChunkAccess::Proto(proto) => &proto.sections,
-                ChunkAccess::Full(full) => &full.sections,
-            };
-
-            sections
-                .get_relative_block(rel_x, rel_y, rel_z)
-                .unwrap_or(BlockStateId(0))
-        } else {
-            // Slow path: yield lock and access neighbor chunk
-            let future = {
-                let mut center_guard_mut = self.center_guard.lock();
-                let cache = &self.cache;
-                center_guard_mut.yield_lock(|| async move {
-                    let chunk_holder = cache.get(chunk_pos.0.x, chunk_pos.0.y);
-                    if let Some(chunk_lock) =
-                        chunk_holder.await_chunk(ChunkStatus::InitializeLight).await
-                    {
-                        let chunk_guard_inner = chunk_lock.read();
-                        if let Some(chunk_access) = &*chunk_guard_inner {
-                            let (rel_x, rel_y, rel_z) = Self::unpack_coords(packed_coords);
-                            let sections = match chunk_access {
-                                ChunkAccess::Proto(proto) => &proto.sections,
-                                ChunkAccess::Full(full) => &full.sections,
-                            };
-
-                            sections
-                                .get_relative_block(rel_x, rel_y, rel_z)
-                                .unwrap_or(BlockStateId(0))
-                        } else {
-                            BlockStateId(0)
-                        }
-                    } else {
-                        BlockStateId(0)
-                    }
-                })
-            };
-            future.await
-        }
+    fn get_block_state(&self, pos: BlockPos) -> Option<BlockStateId> {
+        let (rel_x, rel_y, rel_z) = self.to_relative_coords(pos)?;
+        self.sections.get_relative_block(rel_x, rel_y, rel_z)
     }
 
-    async fn is_empty_shape(&self, pos: BlockPos) -> bool {
-        let block_state = self.get_block_state(pos).await;
+    fn is_empty_shape(&self, pos: BlockPos) -> Option<bool> {
+        let block_state = self.get_block_state(pos)?;
 
         if let Some(block) = self.block_registry.by_state_id(block_state) {
-            !block.behaviour.has_collision
+            Some(!block.behaviour.has_collision)
         } else {
-            true
+            Some(true)
         }
     }
 }
@@ -419,18 +270,24 @@ impl ThreadedLevelLightEngine {
     ///
     /// Unlike `light_chunk`, this version uses a cache of neighboring chunks to enable
     /// light propagation across chunk boundaries.
+    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::unused_async)]
     pub async fn light_chunk_with_cache(
         &self,
         chunk_guard: &mut ChunkGuard<'_>,
         cache: &StaticCache2D<Arc<ChunkHolder>>,
+        center_holder: &Arc<ChunkHolder>,
         _light_enabled: bool,
     ) -> Result<(), anyhow::Error> {
+        use rustc_hash::FxHashMap;
+
         let (chunk_pos, sections) = match &mut **chunk_guard {
             ChunkAccess::Proto(proto_chunk) => (proto_chunk.pos, &mut proto_chunk.sections),
             ChunkAccess::Full(level_chunk) => (level_chunk.pos, &mut level_chunk.sections),
         };
 
         let num_sections = sections.sections.len();
+        let num_light_sections = sections.block_light.len();
         let chunk_min_y = -64;
 
         // ===== STEP 1: Initialize sky light (simple vertical fill) =====
@@ -464,28 +321,41 @@ impl ThreadedLevelLightEngine {
         };
 
         // Fill sky light columns for non-empty sections
-        for x in 0..16 {
-            for z in 0..16 {
-                for section_idx in (0..=start_section).rev() {
-                    if section_idx == 0 {
-                        continue;
-                    }
+        // Use a bitmap to track which columns have hit solid blocks for early termination
+        // This allows section-first processing for better cache locality while maintaining correctness
+        let mut column_active = [true; 256]; // 16x16 columns
 
-                    let actual_section_idx = section_idx - 1;
-                    if actual_section_idx >= num_sections {
-                        continue;
-                    }
+        for section_idx in (0..=start_section).rev() {
+            if section_idx == 0 {
+                continue;
+            }
 
-                    let section = &sections.sections[actual_section_idx];
+            let actual_section_idx = section_idx - 1;
+            if actual_section_idx >= num_sections {
+                continue;
+            }
 
-                    for y in (0..16).rev() {
+            let section = &sections.sections[actual_section_idx];
+
+            // Process section in Y-Z-X order for better cache line utilization
+            for y in (0..16).rev() {
+                for z in 0..16 {
+                    for x in 0..16 {
+                        let col_idx = z * 16 + x;
+
+                        // Skip columns that have already hit solid blocks
+                        if !column_active[col_idx] {
+                            continue;
+                        }
+
                         let block_state = section.states.get(x, y, z);
                         let is_air = block_state == BlockStateId(0);
 
                         if is_air {
                             sections.sky_light[section_idx].set(x, y, z, 15);
                         } else {
-                            break;
+                            // Mark column as terminated
+                            column_active[col_idx] = false;
                         }
                     }
                 }
@@ -501,6 +371,40 @@ impl ThreadedLevelLightEngine {
             let section = &sections.sections[section_idx];
             let section_y = chunk_min_y + (section_idx as i32 * 16);
 
+            // Optimization: Skip sections that are entirely air (common case)
+            // Air blocks have no luminance, so we can skip the entire section
+            if let PalettedContainer::Homogeneous(block_state) = &section.states {
+                let luminance = vanilla_blocks::get_block_luminance(*block_state);
+                if luminance == 0 {
+                    // Entire section is non-emitting, skip it
+                    continue;
+                } else if luminance > 0 {
+                    // Entire section is the same emitting block (rare but possible)
+                    // Fill entire section with that light level
+                    let light_section_idx = section_idx + 1; // +1 for padding
+                    for y in 0..16 {
+                        for z in 0..16 {
+                            for x in 0..16 {
+                                sections.block_light[light_section_idx].set(x, y, z, luminance);
+
+                                let world_y = section_y + y as i32;
+                                let world_x = (chunk_pos.0.x * 16) + x as i32;
+                                let world_z = (chunk_pos.0.y * 16) + z as i32;
+                                let pos = BlockPos(Vector3::new(world_x, world_y, world_z));
+
+                                let is_empty_shape = !self.has_collision(*block_state);
+                                engine.enqueue_increase(
+                                    pos,
+                                    QueueEntry::increase_from_emission(luminance, is_empty_shape),
+                                );
+                            }
+                        }
+                    }
+                    continue;
+                }
+            }
+
+            // Heterogeneous section: scan each block individually
             for y in 0..16 {
                 for z in 0..16 {
                     for x in 0..16 {
@@ -531,13 +435,164 @@ impl ThreadedLevelLightEngine {
             }
         }
 
-        // ===== STEP 3: Create multi-chunk access adapter and propagate =====
-        let mut chunk_access =
-            ChunkLightAccess::new(chunk_guard, cache, chunk_min_y, self.block_registry.clone());
+        // ===== STEP 3: Two-phase light propagation =====
 
-        engine
-            .run_light_updates_with_access(&mut chunk_access)
-            .await;
+        // PHASE 1: Center chunk only (synchronous, lock-free)
+        {
+            let (_, sections_for_phase1) = match &mut **chunk_guard {
+                ChunkAccess::Proto(proto_chunk) => (proto_chunk.pos, &mut proto_chunk.sections),
+                ChunkAccess::Full(level_chunk) => (level_chunk.pos, &mut level_chunk.sections),
+            };
+
+            let mut center_access = CenterOnlyChunkAccess::new(
+                chunk_pos,
+                sections_for_phase1,
+                chunk_min_y,
+                self.block_registry.clone(),
+            );
+
+            engine.run_center_chunk_updates(&mut center_access);
+        }
+
+        // Mark all light sections in center chunk as changed
+        for section_idx in 0..num_light_sections {
+            center_holder.mark_light_storage_section_changed(section_idx as u32, false);
+        }
+
+        // PHASE 2: Iterative boundary crossing propagation
+        let current_crossings = engine.take_boundary_crossings();
+
+        // Pre-group crossings once to avoid regrouping on every retry
+        let mut crossings_by_chunk: FxHashMap<ChunkPos, Vec<BoundaryCrossing>> =
+            FxHashMap::default();
+
+        for crossing in current_crossings {
+            let target_chunk_x = crossing.pos.0.x >> 4;
+            let target_chunk_z = crossing.pos.0.z >> 4;
+            let target_chunk = ChunkPos(steel_utils::math::Vector2::new(
+                target_chunk_x,
+                target_chunk_z,
+            ));
+
+            crossings_by_chunk
+                .entry(target_chunk)
+                .or_default()
+                .push(crossing);
+        }
+
+        while !crossings_by_chunk.is_empty() {
+            let mut next_crossings_by_chunk: FxHashMap<ChunkPos, Vec<BoundaryCrossing>> =
+                FxHashMap::default();
+            let mut locked_any_this_iteration = false;
+
+            // Process each neighbor chunk in a single lock acquisition
+            for (target_chunk, chunk_crossings) in crossings_by_chunk {
+                // Skip the center chunk - we already processed it in Phase 1
+                if target_chunk == chunk_pos {
+                    continue;
+                }
+
+                let chunk_holder = cache.get(target_chunk.0.x, target_chunk.0.y);
+
+                // Try non-blocking lock acquisition
+                let chunk_lock_opt = chunk_holder.try_chunk(ChunkStatus::InitializeLight);
+
+                let Some(chunk_lock) = chunk_lock_opt else {
+                    // Chunk not ready yet - defer these crossings to next iteration
+                    next_crossings_by_chunk
+                        .entry(target_chunk)
+                        .or_default()
+                        .extend(chunk_crossings);
+                    continue;
+                };
+
+                let Some(mut chunk_guard_inner) = chunk_lock.try_write() else {
+                    // Chunk is locked by another thread - defer these crossings
+                    next_crossings_by_chunk
+                        .entry(target_chunk)
+                        .or_default()
+                        .extend(chunk_crossings);
+                    continue;
+                };
+
+                locked_any_this_iteration = true;
+
+                if let Some(chunk_access_inner) = &mut *chunk_guard_inner {
+                    let sections = match chunk_access_inner {
+                        ChunkAccess::Proto(proto) => &mut proto.sections,
+                        ChunkAccess::Full(full) => &mut full.sections,
+                    };
+
+                    // Create a temporary light engine for this neighbor chunk
+                    let mut neighbor_engine = LightEngine::new();
+
+                    // Process all crossings for this chunk: set light and enqueue for propagation
+                    for crossing in chunk_crossings {
+                        let rel_x = (crossing.pos.0.x & 15) as usize;
+                        let rel_y = (crossing.pos.0.y - chunk_min_y) as usize;
+                        let rel_z = (crossing.pos.0.z & 15) as usize;
+
+                        let section_idx = rel_y / 16;
+                        let section_y = rel_y % 16;
+                        let light_section_idx = section_idx + 1;
+
+                        if light_section_idx < sections.block_light.len() {
+                            let current_light = sections.block_light[light_section_idx]
+                                .get(rel_x, section_y, rel_z);
+                            let new_light = crossing.entry.level();
+
+                            if new_light > current_light {
+                                sections.block_light[light_section_idx]
+                                    .set(rel_x, section_y, rel_z, new_light);
+                                chunk_holder.mark_light_storage_section_changed(
+                                    light_section_idx as u32,
+                                    false,
+                                );
+
+                                // Enqueue for propagation within this neighbor chunk
+                                neighbor_engine.enqueue_increase(crossing.pos, crossing.entry);
+                            }
+                        }
+                    }
+
+                    // Propagate within this neighbor chunk (synchronous, lock-free)
+                    if neighbor_engine.has_work() {
+                        let mut neighbor_access = CenterOnlyChunkAccess::new(
+                            target_chunk,
+                            sections,
+                            chunk_min_y,
+                            self.block_registry.clone(),
+                        );
+
+                        neighbor_engine.run_center_chunk_updates(&mut neighbor_access);
+
+                        // Collect boundary crossings from this neighbor for next iteration
+                        let new_crossings = neighbor_engine.take_boundary_crossings();
+                        for crossing in new_crossings {
+                            let target_chunk_x = crossing.pos.0.x >> 4;
+                            let target_chunk_z = crossing.pos.0.z >> 4;
+                            let target_chunk = ChunkPos(steel_utils::math::Vector2::new(
+                                target_chunk_x,
+                                target_chunk_z,
+                            ));
+
+                            next_crossings_by_chunk
+                                .entry(target_chunk)
+                                .or_default()
+                                .push(crossing);
+                        }
+                    }
+                }
+            }
+
+            // If we couldn't acquire any locks, yield to let neighbors make progress
+            if !locked_any_this_iteration && !next_crossings_by_chunk.is_empty() {
+                tokio::task::yield_now().await;
+            }
+
+            // Move to next iteration with newly discovered crossings
+            crossings_by_chunk = next_crossings_by_chunk;
+        }
 
         Ok(())
     }

@@ -9,6 +9,14 @@ use std::fmt::Debug;
 /// 16*16*16 blocks = 4096 blocks, at 4 bits per block = 2048 bytes
 pub const LIGHT_ARRAY_SIZE: usize = 2048;
 
+/// Pre-allocated static array for homogeneous light level 0 (dark).
+/// This is the most common case and avoids allocations.
+static EMPTY_LIGHT_DATA: [u8; LIGHT_ARRAY_SIZE] = [0u8; LIGHT_ARRAY_SIZE];
+
+/// Pre-allocated static array for homogeneous light level 15 (full brightness).
+/// Common for sky light sections, avoids allocations.
+static FULL_LIGHT_DATA: [u8; LIGHT_ARRAY_SIZE] = [0xFFu8; LIGHT_ARRAY_SIZE];
+
 /// Storage for light data in a chunk section.
 /// Light values range from 0-15 (4 bits per block).
 #[derive(Debug, Clone)]
@@ -121,15 +129,23 @@ impl LightStorage {
 
     /// Returns the raw data for sending to the client.
     ///
-    /// For homogeneous storage, creates a filled array.
+    /// For homogeneous storage, uses pre-allocated static arrays for common cases (0 and 15)
+    /// to avoid allocations. For other homogeneous values, creates a filled array.
     /// For heterogeneous storage, returns a clone of the data.
     #[must_use]
     pub fn to_packet_data(&self) -> Vec<u8> {
         match self {
             Self::Homogeneous(level) => {
-                // Pack the level into both nibbles of each byte
-                let packed = (*level & 0x0F) | ((*level & 0x0F) << 4);
-                vec![packed; LIGHT_ARRAY_SIZE]
+                // Use pre-allocated static arrays for common cases to avoid allocations
+                match *level {
+                    0 => EMPTY_LIGHT_DATA.to_vec(),
+                    15 => FULL_LIGHT_DATA.to_vec(),
+                    _ => {
+                        // Rare case: pack the level into both nibbles of each byte
+                        let packed = (*level & 0x0F) | ((*level & 0x0F) << 4);
+                        vec![packed; LIGHT_ARRAY_SIZE]
+                    }
+                }
             }
             Self::Heterogeneous(data) => data.to_vec(),
         }

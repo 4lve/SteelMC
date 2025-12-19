@@ -4,9 +4,18 @@
 //! Uses a flood-fill algorithm with two priority queues for increases and decreases.
 
 use steel_registry::vanilla_blocks;
-use steel_utils::{BlockPos, BlockStateId};
+use steel_utils::{BlockPos, BlockStateId, ChunkPos};
 
 use super::{direction::Direction, light_queue::LightQueue, queue_entry::QueueEntry};
+
+/// A boundary crossing that needs to be processed with cross-chunk access.
+#[derive(Debug, Clone, Copy)]
+pub struct BoundaryCrossing {
+    /// The position in the neighbor chunk.
+    pub pos: BlockPos,
+    /// The queue entry for propagation.
+    pub entry: QueueEntry,
+}
 
 /// Trait providing access to chunk light and block data for the light engine.
 ///
@@ -24,6 +33,27 @@ pub trait LightChunkAccess {
 
     /// Checks if the block at the given position has an empty collision shape.
     async fn is_empty_shape(&self, pos: BlockPos) -> bool;
+}
+
+/// Synchronous trait for center-chunk-only light access.
+///
+/// Returns `None` when accessing positions outside the center chunk bounds,
+/// allowing the light engine to track boundary crossings for batch processing.
+pub trait CenterChunkLightAccess {
+    /// Gets the center chunk position.
+    fn center_chunk_pos(&self) -> ChunkPos;
+
+    /// Gets the light level at the given position, or None if outside center chunk.
+    fn get_light(&self, pos: BlockPos) -> Option<u8>;
+
+    /// Sets the light level at the given position, or returns false if outside center chunk.
+    fn set_light(&mut self, pos: BlockPos, level: u8) -> bool;
+
+    /// Gets the block state at the given position, or None if outside center chunk.
+    fn get_block_state(&self, pos: BlockPos) -> Option<BlockStateId>;
+
+    /// Checks if the block has an empty collision shape, or None if outside center chunk.
+    fn is_empty_shape(&self, pos: BlockPos) -> Option<bool>;
 }
 
 /// Base light engine that handles light propagation using a flood-fill algorithm.
@@ -48,6 +78,8 @@ pub struct LightEngine {
     increase_queue: LightQueue,
     /// Queue for light decrease operations.
     decrease_queue: LightQueue,
+    /// Boundary crossings collected during center-chunk-only propagation.
+    boundary_crossings: Vec<BoundaryCrossing>,
 }
 
 /// Checks if two block shapes occlude light between them in the given direction.
@@ -69,7 +101,24 @@ impl LightEngine {
         Self {
             increase_queue: LightQueue::new(),
             decrease_queue: LightQueue::new(),
+            boundary_crossings: Vec::new(),
         }
+    }
+
+    /// Returns the boundary crossings collected during center-chunk propagation.
+    #[must_use]
+    pub fn boundary_crossings(&self) -> &[BoundaryCrossing] {
+        &self.boundary_crossings
+    }
+
+    /// Takes the boundary crossings, leaving the vector empty.
+    pub fn take_boundary_crossings(&mut self) -> Vec<BoundaryCrossing> {
+        std::mem::take(&mut self.boundary_crossings)
+    }
+
+    /// Clears boundary crossings.
+    pub fn clear_boundary_crossings(&mut self) {
+        self.boundary_crossings.clear();
     }
 
     /// Enqueues a light increase at the given position.
@@ -96,6 +145,20 @@ impl LightEngine {
     ) {
         self.propagate_decreases(chunk_access).await;
         self.propagate_increases(chunk_access).await;
+    }
+
+    /// Runs queued light updates within the center chunk only (synchronous, lock-free).
+    ///
+    /// This method:
+    /// 1. Processes all decreases within center chunk
+    /// 2. Processes all increases within center chunk
+    /// 3. Collects boundary crossings for batch processing
+    ///
+    /// # Arguments
+    /// * `chunk_access` - Provides synchronous access to center chunk only
+    pub fn run_center_chunk_updates<T: CenterChunkLightAccess>(&mut self, chunk_access: &mut T) {
+        self.propagate_decreases_center(chunk_access);
+        self.propagate_increases_center(chunk_access);
     }
 
     /// Clears all queued light updates without propagating.
@@ -239,6 +302,158 @@ impl LightEngine {
     #[must_use]
     pub fn decrease_queue_size(&self) -> usize {
         self.decrease_queue.len()
+    }
+
+    /// Processes light decreases within the center chunk only (synchronous).
+    ///
+    /// When encountering positions outside the center chunk, records them as boundary crossings
+    /// instead of propagating across chunk boundaries.
+    fn propagate_decreases_center<T: CenterChunkLightAccess>(&mut self, chunk_access: &mut T) {
+        const ALL_DIRECTIONS: [Direction; 6] = [
+            Direction::Down,
+            Direction::Up,
+            Direction::North,
+            Direction::South,
+            Direction::West,
+            Direction::East,
+        ];
+
+        while let Some((pos, entry)) = self.decrease_queue.dequeue() {
+            let from_level = entry.level();
+
+            for direction in ALL_DIRECTIONS {
+                if !entry.should_propagate(direction) {
+                    continue;
+                }
+
+                let neighbor_pos = direction.relative(pos);
+
+                // Check if neighbor is outside center chunk
+                let Some(neighbor_light) = chunk_access.get_light(neighbor_pos) else {
+                    // Outside center chunk - record as boundary crossing for later
+                    if from_level > 0 {
+                        self.boundary_crossings.push(BoundaryCrossing {
+                            pos: neighbor_pos,
+                            entry: QueueEntry::decrease_all_directions(from_level),
+                        });
+                    }
+                    continue;
+                };
+
+                if neighbor_light == 0 {
+                    continue; // Already dark
+                }
+
+                if neighbor_light <= from_level.saturating_sub(1) {
+                    // This neighbor's light came from us, remove it
+                    if chunk_access.set_light(neighbor_pos, 0) {
+                        self.enqueue_decrease(
+                            neighbor_pos,
+                            QueueEntry::decrease_all_directions(neighbor_light),
+                        );
+                    }
+                } else {
+                    // This neighbor has its own light source, re-light it
+                    let is_empty = chunk_access.is_empty_shape(neighbor_pos).unwrap_or(true);
+                    self.enqueue_increase(
+                        neighbor_pos,
+                        QueueEntry::increase_skip_one_direction(
+                            neighbor_light,
+                            is_empty,
+                            direction.opposite(),
+                        ),
+                    );
+                }
+            }
+        }
+    }
+
+    /// Processes light increases within the center chunk only (synchronous).
+    ///
+    /// When encountering positions outside the center chunk, records them as boundary crossings
+    /// instead of propagating across chunk boundaries.
+    fn propagate_increases_center<T: CenterChunkLightAccess>(&mut self, chunk_access: &mut T) {
+        const ALL_DIRECTIONS: [Direction; 6] = [
+            Direction::Down,
+            Direction::Up,
+            Direction::North,
+            Direction::South,
+            Direction::West,
+            Direction::East,
+        ];
+
+        while let Some((pos, entry)) = self.increase_queue.dequeue() {
+            // Check if position is in center chunk
+            let Some(current_light) = chunk_access.get_light(pos) else {
+                // Position outside center chunk - this shouldn't happen in normal flow
+                // but record it as a boundary crossing just in case
+                self.boundary_crossings
+                    .push(BoundaryCrossing { pos, entry });
+                continue;
+            };
+
+            // Only propagate if light level matches (prevents duplicate processing)
+            if current_light != entry.level() {
+                continue;
+            }
+
+            for direction in ALL_DIRECTIONS {
+                if !entry.should_propagate(direction) {
+                    continue;
+                }
+
+                let neighbor_pos = direction.relative(pos);
+
+                // Try to get neighbor block state and light
+                let neighbor_block_opt = chunk_access.get_block_state(neighbor_pos);
+                let neighbor_light_opt = chunk_access.get_light(neighbor_pos);
+
+                // If neighbor is outside center chunk, defer to Phase 2
+                let (Some(neighbor_block), Some(neighbor_light)) =
+                    (neighbor_block_opt, neighbor_light_opt)
+                else {
+                    // Calculate new light assuming air (opacity 0, reduction 1)
+                    let new_light = current_light.saturating_sub(1);
+                    if new_light > 0 {
+                        self.boundary_crossings.push(BoundaryCrossing {
+                            pos: neighbor_pos,
+                            entry: QueueEntry::increase_skip_one_direction(
+                                new_light,
+                                true, // Assume empty until Phase 2 checks
+                                direction.opposite(),
+                            ),
+                        });
+                    }
+                    continue;
+                };
+
+                // Check shape occlusion between blocks
+                let Some(pos_block) = chunk_access.get_block_state(pos) else {
+                    continue;
+                };
+                if shape_occludes(pos_block, neighbor_block, direction) {
+                    continue;
+                }
+
+                // Calculate light reduction (minimum 1, or block's opacity)
+                let opacity = vanilla_blocks::get_block_opacity(neighbor_block);
+                let reduction = opacity.max(1);
+
+                let new_light = current_light.saturating_sub(reduction);
+
+                if new_light > neighbor_light && chunk_access.set_light(neighbor_pos, new_light) {
+                    let is_empty = chunk_access.is_empty_shape(neighbor_pos).unwrap_or(true);
+                    self.enqueue_increase(
+                        neighbor_pos,
+                        QueueEntry::increase_skip_one_direction(
+                            new_light,
+                            is_empty,
+                            direction.opposite(),
+                        ),
+                    );
+                }
+            }
+        }
     }
 }
 

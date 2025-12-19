@@ -183,7 +183,7 @@ impl ChunkStatusTasks {
         context.runtime_handle.block_on(
             context
                 .light_engine
-                .light_chunk_with_cache(&mut guard, cache, is_lighted),
+                .light_chunk_with_cache(&mut guard, cache, &holder, is_lighted),
         )?;
 
         Ok(())

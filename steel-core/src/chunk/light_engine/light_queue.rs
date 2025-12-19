@@ -16,11 +16,14 @@ pub struct LightQueue {
 }
 
 impl LightQueue {
-    /// Creates a new empty light queue.
+    /// Creates a new empty light queue with pre-allocated capacity.
+    ///
+    /// Pre-allocates space for 4096 entries based on typical light propagation workloads,
+    /// which significantly reduces reallocation overhead during flood-fill.
     #[must_use]
     pub fn new() -> Self {
         Self {
-            queue: VecDeque::new(),
+            queue: VecDeque::with_capacity(4096),
         }
     }
 
