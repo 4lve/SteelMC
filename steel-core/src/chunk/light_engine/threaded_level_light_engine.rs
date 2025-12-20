@@ -3,7 +3,7 @@
 //! This extends the base `LightEngine` with asynchronous task scheduling and batched execution.
 //! Tasks are divided into `PRE_UPDATE` (setup) and `POST_UPDATE` (completion) phases.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 use parking_lot::{Mutex, RwLock as ParkingRwLock};
 use steel_registry::{blocks::BlockRegistry, vanilla_blocks};
@@ -14,7 +14,6 @@ use crate::chunk::{
     chunk_generation_task::StaticCache2D,
     chunk_generator::ChunkGuard,
     chunk_holder::ChunkHolder,
-    light_storage::LightStorage,
     paletted_container::PalettedContainer,
     section::Sections,
 };
@@ -167,6 +166,8 @@ pub struct ThreadedLevelLightEngine {
     light_tasks: Arc<Mutex<Vec<LightTask>>>,
     /// Block registry for block properties.
     block_registry: Arc<BlockRegistry>,
+    /// 2-element LRU cache for chunk access.
+    chunk_cache: Arc<Mutex<super::chunk_cache::ChunkCache>>,
 }
 
 impl ThreadedLevelLightEngine {
@@ -177,7 +178,20 @@ impl ThreadedLevelLightEngine {
             light_engine: Arc::new(Mutex::new(LightEngine::new())),
             light_tasks: Arc::new(Mutex::new(Vec::new())),
             block_registry,
+            chunk_cache: Arc::new(Mutex::new(super::chunk_cache::ChunkCache::new())),
         }
+    }
+
+    /// Clears the chunk cache.
+    pub fn clear_chunk_cache(&self) {
+        let mut cache = self.chunk_cache.lock();
+        cache.clear();
+    }
+
+    /// Disables chunk caching (for debugging/testing).
+    pub fn disable_chunk_cache(&self) {
+        let mut cache = self.chunk_cache.lock();
+        cache.disable();
     }
 
     /// Initializes lighting for a chunk.
@@ -290,81 +304,26 @@ impl ThreadedLevelLightEngine {
         let num_light_sections = sections.block_light.len();
         let chunk_min_y = -64;
 
-        // ===== STEP 1: Initialize sky light (simple vertical fill) =====
-        let mut current_section = 0;
+        let overall_start = Instant::now();
 
-        // Scan from top to bottom to find sections that are all air
-        for index in (0..num_sections + 2).rev() {
-            if index == 0 {
-                sections.sky_light[index] = LightStorage::new_empty();
-            } else if index == num_sections + 1 {
-                sections.sky_light[index] = LightStorage::new_filled(15);
-            } else if let Some(section) = sections.sections.get(index - 1) {
-                let is_all_air = match &section.states {
-                    PalettedContainer::Homogeneous(id) => *id == BlockStateId(0),
-                    PalettedContainer::Heterogeneous(_) => false,
-                };
+        // ===== STEP 1: Initialize sky light with empty section optimization =====
+        let sky_light_start = Instant::now();
+        let mut sky_engine = super::sky_light_engine::SkyLightEngine::new();
+        sky_engine.propagate_from_empty_sections(chunk_pos, sections, chunk_min_y);
+        let sky_light_duration = sky_light_start.elapsed();
 
-                if is_all_air {
-                    sections.sky_light[index] = LightStorage::new_filled(15);
-                    current_section = index;
-                } else {
-                    break;
-                }
-            }
-        }
-
-        let start_section = if current_section > 0 {
-            current_section - 1
-        } else {
-            0
-        };
-
-        // Fill sky light columns for non-empty sections
-        // Use a bitmap to track which columns have hit solid blocks for early termination
-        // This allows section-first processing for better cache locality while maintaining correctness
-        let mut column_active = [true; 256]; // 16x16 columns
-
-        for section_idx in (0..=start_section).rev() {
-            if section_idx == 0 {
-                continue;
-            }
-
-            let actual_section_idx = section_idx - 1;
-            if actual_section_idx >= num_sections {
-                continue;
-            }
-
-            let section = &sections.sections[actual_section_idx];
-
-            // Process section in Y-Z-X order for better cache line utilization
-            for y in (0..16).rev() {
-                for z in 0..16 {
-                    for x in 0..16 {
-                        let col_idx = z * 16 + x;
-
-                        // Skip columns that have already hit solid blocks
-                        if !column_active[col_idx] {
-                            continue;
-                        }
-
-                        let block_state = section.states.get(x, y, z);
-                        let is_air = block_state == BlockStateId(0);
-
-                        if is_air {
-                            sections.sky_light[section_idx].set(x, y, z, 15);
-                        } else {
-                            // Mark column as terminated
-                            column_active[col_idx] = false;
-                        }
-                    }
-                }
-            }
-        }
+        // Update sky light sources after propagation
+        let source_tracking_start = Instant::now();
+        sections
+            .sky_light_sources
+            .update_from_chunk_sections(&sections.sections, chunk_min_y);
+        let source_tracking_duration = source_tracking_start.elapsed();
 
         // ===== STEP 2: Scan for block light sources and enqueue =====
         // Create a new light engine instance for this chunk to avoid lock contention
+        let block_scan_start = Instant::now();
         let mut engine = super::base::LightEngine::new();
+        let mut block_light_sources_found = 0;
 
         // Scan all blocks in the chunk for light emitters
         for section_idx in 0..num_sections {
@@ -397,6 +356,7 @@ impl ThreadedLevelLightEngine {
                                     pos,
                                     QueueEntry::increase_from_emission(luminance, is_empty_shape),
                                 );
+                                block_light_sources_found += 1;
                             }
                         }
                     }
@@ -429,15 +389,19 @@ impl ThreadedLevelLightEngine {
                                 pos,
                                 QueueEntry::increase_from_emission(luminance, is_empty_shape),
                             );
+                            block_light_sources_found += 1;
                         }
                     }
                 }
             }
         }
 
+        let block_scan_duration = block_scan_start.elapsed();
+
         // ===== STEP 3: Two-phase light propagation =====
 
         // PHASE 1: Center chunk only (synchronous, lock-free)
+        let phase1_start = Instant::now();
         {
             let (_, sections_for_phase1) = match &mut **chunk_guard {
                 ChunkAccess::Proto(proto_chunk) => (proto_chunk.pos, &mut proto_chunk.sections),
@@ -453,6 +417,7 @@ impl ThreadedLevelLightEngine {
 
             engine.run_center_chunk_updates(&mut center_access);
         }
+        let phase1_duration = phase1_start.elapsed();
 
         // Mark all light sections in center chunk as changed
         for section_idx in 0..num_light_sections {
@@ -460,7 +425,9 @@ impl ThreadedLevelLightEngine {
         }
 
         // PHASE 2: Iterative boundary crossing propagation
+        let phase2_start = Instant::now();
         let current_crossings = engine.take_boundary_crossings();
+        let total_crossings = current_crossings.len();
 
         // Pre-group crossings once to avoid regrouping on every retry
         let mut crossings_by_chunk: FxHashMap<ChunkPos, Vec<BoundaryCrossing>> =
@@ -480,17 +447,38 @@ impl ThreadedLevelLightEngine {
                 .push(crossing);
         }
 
+        // Phase 2 metrics
+        let mut total_iterations = 0;
+        let mut total_locks_acquired = 0;
+        let mut total_not_ready_deferrals = 0;
+        let mut total_locked_deferrals = 0;
+        let mut total_yields = 0;
+        let initial_neighbor_chunks = crossings_by_chunk.len();
+        let mut consecutive_failed_iterations = 0;
+
         while !crossings_by_chunk.is_empty() {
+            total_iterations += 1;
+            let iteration_start = Instant::now();
             let mut next_crossings_by_chunk: FxHashMap<ChunkPos, Vec<BoundaryCrossing>> =
                 FxHashMap::default();
             let mut locked_any_this_iteration = false;
+            let mut chunks_attempted = 0;
+            let mut locks_acquired_this_iter = 0;
+            let mut not_ready_this_iter = 0;
+            let mut locked_this_iter = 0;
+
+            // Sort chunks by position for deterministic lock ordering (prevents deadlocks)
+            let mut sorted_chunks: Vec<_> = crossings_by_chunk.into_iter().collect();
+            sorted_chunks.sort_by_key(|(chunk_pos, _)| (chunk_pos.0.x, chunk_pos.0.y));
 
             // Process each neighbor chunk in a single lock acquisition
-            for (target_chunk, chunk_crossings) in crossings_by_chunk {
+            for (target_chunk, chunk_crossings) in sorted_chunks {
                 // Skip the center chunk - we already processed it in Phase 1
                 if target_chunk == chunk_pos {
                     continue;
                 }
+
+                chunks_attempted += 1;
 
                 let chunk_holder = cache.get(target_chunk.0.x, target_chunk.0.y);
 
@@ -499,6 +487,7 @@ impl ThreadedLevelLightEngine {
 
                 let Some(chunk_lock) = chunk_lock_opt else {
                     // Chunk not ready yet - defer these crossings to next iteration
+                    not_ready_this_iter += 1;
                     next_crossings_by_chunk
                         .entry(target_chunk)
                         .or_default()
@@ -508,6 +497,7 @@ impl ThreadedLevelLightEngine {
 
                 let Some(mut chunk_guard_inner) = chunk_lock.try_write() else {
                     // Chunk is locked by another thread - defer these crossings
+                    locked_this_iter += 1;
                     next_crossings_by_chunk
                         .entry(target_chunk)
                         .or_default()
@@ -516,6 +506,7 @@ impl ThreadedLevelLightEngine {
                 };
 
                 locked_any_this_iteration = true;
+                locks_acquired_this_iter += 1;
 
                 if let Some(chunk_access_inner) = &mut *chunk_guard_inner {
                     let sections = match chunk_access_inner {
@@ -585,14 +576,44 @@ impl ThreadedLevelLightEngine {
                 }
             }
 
-            // If we couldn't acquire any locks, yield to let neighbors make progress
-            if !locked_any_this_iteration && !next_crossings_by_chunk.is_empty() {
+            // Update totals
+            total_locks_acquired += locks_acquired_this_iter;
+            total_not_ready_deferrals += not_ready_this_iter;
+            total_locked_deferrals += locked_this_iter;
+
+            // Update consecutive failure tracking
+            if locked_any_this_iteration {
+                consecutive_failed_iterations = 0;
+            } else if !next_crossings_by_chunk.is_empty() {
+                consecutive_failed_iterations += 1;
+            }
+
+            // Only yield after many consecutive failures to reduce overhead
+            // Higher threshold = less context switching, faster overall
+            if consecutive_failed_iterations >= 10 && !next_crossings_by_chunk.is_empty() {
+                total_yields += 1;
                 tokio::task::yield_now().await;
+                consecutive_failed_iterations = 0; // Reset after yield
             }
 
             // Move to next iteration with newly discovered crossings
             crossings_by_chunk = next_crossings_by_chunk;
         }
+
+        let phase2_duration = phase2_start.elapsed();
+        let overall_duration = overall_start.elapsed();
+
+        log::info!(
+            "[Lighting] Chunk {:?}: {:?} total (sky: {:?}, scan: {:?}, p1: {:?}, p2: {:?} - {} iters, {} yields)",
+            chunk_pos,
+            overall_duration,
+            sky_light_duration,
+            block_scan_duration,
+            phase1_duration,
+            phase2_duration,
+            total_iterations,
+            total_yields
+        );
 
         Ok(())
     }

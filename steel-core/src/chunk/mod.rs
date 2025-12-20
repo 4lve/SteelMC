@@ -22,5 +22,8 @@ pub mod light_storage;
 pub mod paletted_container;
 pub mod proto_chunk;
 pub mod section;
+pub mod sky_light_sources;
 
 pub mod world_gen_context;
+
+pub use sky_light_sources::ChunkSkyLightSources;

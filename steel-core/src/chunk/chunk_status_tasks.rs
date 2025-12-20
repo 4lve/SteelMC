@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use crate::chunk::{
+    ChunkSkyLightSources,
     chunk_access::{ChunkAccess, ChunkStatus},
     chunk_generation_task::StaticCache2D,
     chunk_generator::ChunkGenerator,
@@ -48,6 +49,7 @@ impl ChunkStatusTasks {
                     .collect(),
                 sky_light,
                 block_light,
+                sky_light_sources: ChunkSkyLightSources::default(),
             },
             holder.get_pos(),
         );

@@ -16,6 +16,7 @@ use tokio::{
 };
 
 use crate::chunk::{
+    ChunkSkyLightSources,
     chunk_access::{ChunkAccess, ChunkStatus},
     level_chunk::LevelChunk,
     paletted_container::PalettedContainer,
@@ -705,6 +706,7 @@ impl RegionManager {
                         .collect(),
                     sky_light,
                     block_light,
+                    sky_light_sources: ChunkSkyLightSources::default(),
                 },
                 pos,
             )),
@@ -716,6 +718,7 @@ impl RegionManager {
                         .collect(),
                     sky_light,
                     block_light,
+                    sky_light_sources: ChunkSkyLightSources::default(),
                 },
                 pos,
             )),

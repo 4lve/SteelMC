@@ -6,6 +6,7 @@ use steel_utils::{BlockStateId, locks::SyncRwLock, serial::WriteTo};
 use crate::chunk::{
     light_storage::LightStorage,
     paletted_container::{BiomePalette, BlockPalette},
+    sky_light_sources::ChunkSkyLightSources,
 };
 
 /// A collection of chunk sections.
@@ -19,6 +20,8 @@ pub struct Sections {
     /// Block light data for each section.
     /// Note: Length is `sections.len() + 2` for padding above and below.
     pub block_light: Box<[LightStorage]>,
+    /// Sky light source tracking for optimization.
+    pub sky_light_sources: ChunkSkyLightSources,
 }
 
 impl Sections {
