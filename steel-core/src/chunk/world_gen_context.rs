@@ -6,8 +6,7 @@ use enum_dispatch::enum_dispatch;
 
 use crate::chunk::{
     chunk_access::ChunkAccess, chunk_generator::ChunkGenerator,
-    flat_chunk_generator::FlatChunkGenerator,
-    light_engine::ThreadedLevelLightEngine,
+    flat_chunk_generator::FlatChunkGenerator, light_engine::ThreadedLevelLightEngine,
 };
 
 #[allow(missing_docs)]

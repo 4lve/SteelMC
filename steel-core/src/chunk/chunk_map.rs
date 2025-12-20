@@ -66,7 +66,9 @@ impl ChunkMap {
             chunk_tickets: SyncMutex::new(ChunkTicketManager::new()),
             world_gen_context: Arc::new(WorldGenContext {
                 generator: Arc::new(ChunkGeneratorType::Flat(FlatChunkGenerator::new(
-                    registry.blocks.get_default_state_id(vanilla_blocks::BEDROCK), // Bedrock
+                    registry
+                        .blocks
+                        .get_default_state_id(vanilla_blocks::BEDROCK), // Bedrock
                     registry.blocks.get_default_state_id(vanilla_blocks::DIRT), // Dirt
                     registry
                         .blocks

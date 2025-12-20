@@ -88,7 +88,9 @@ impl ChunkSkyLightSources {
     /// then sets the sky light source to one block above that position.
     pub fn update_from_chunk_sections(
         &mut self,
-        chunk_sections: &[crate::chunk::section::ChunkSection],
+        chunk_sections: &[std::sync::Arc<
+            steel_utils::locks::SyncRwLock<crate::chunk::section::ChunkSection>,
+        >],
         chunk_min_y: i32,
     ) {
         use crate::chunk::paletted_container::PalettedContainer;
@@ -103,7 +105,7 @@ impl ChunkSkyLightSources {
 
                 // Scan from top to bottom
                 for section_idx in (0..num_sections).rev() {
-                    let section = &chunk_sections[section_idx];
+                    let section = chunk_sections[section_idx].read();
                     let section_base_y = chunk_min_y + (section_idx as i32 * 16);
 
                     // Check if section is all air - skip if so

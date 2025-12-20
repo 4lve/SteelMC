@@ -101,25 +101,27 @@ impl LevelChunk {
 
             if has_sky_change && i < self.sections.sky_light.len() {
                 // Check if section is empty (all 0s) or has data
-                if let LightStorage::Homogeneous(0) = self.sections.sky_light[i] {
+                let sky_storage = self.sections.sky_light[i].read();
+                if let LightStorage::Homogeneous(0) = *sky_storage {
                     // Section is empty - set in empty mask, don't send data
                     empty_sky_y_mask.set(i, true);
                 } else {
                     // Section has data - set in data mask and send array
                     sky_y_mask.set(i, true);
-                    sky_updates.push(self.sections.sky_light[i].to_packet_data());
+                    sky_updates.push(sky_storage.to_packet_data());
                 }
             }
 
             if has_block_change && i < self.sections.block_light.len() {
                 // Check if section is empty (all 0s) or has data
-                if let LightStorage::Homogeneous(0) = self.sections.block_light[i] {
+                let block_storage = self.sections.block_light[i].read();
+                if let LightStorage::Homogeneous(0) = *block_storage {
                     // Section is empty - set in empty mask, don't send data
                     empty_block_y_mask.set(i, true);
                 } else {
                     // Section has data - set in data mask and send array
                     block_y_mask.set(i, true);
-                    block_updates.push(self.sections.block_light[i].to_packet_data());
+                    block_updates.push(block_storage.to_packet_data());
                 }
             }
         }
@@ -160,8 +162,8 @@ impl LevelChunk {
             block_y_mask.set(i, true);
 
             // Get the packet data for this section (index i maps directly to storage)
-            sky_updates.push(self.sections.sky_light[i].to_packet_data());
-            block_updates.push(self.sections.block_light[i].to_packet_data());
+            sky_updates.push(self.sections.sky_light[i].read().to_packet_data());
+            block_updates.push(self.sections.block_light[i].read().to_packet_data());
         }
 
         LightUpdatePacketData {

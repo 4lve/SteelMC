@@ -16,23 +16,35 @@ pub struct Sections {
     pub sections: Box<[Arc<SyncRwLock<ChunkSection>>]>,
     /// Sky light data for each section.
     /// Note: Length is `sections.len() + 2` for padding above and below.
-    pub sky_light: Box<[LightStorage]>,
+    pub sky_light: Box<[Arc<SyncRwLock<LightStorage>>]>,
     /// Block light data for each section.
     /// Note: Length is `sections.len() + 2` for padding above and below.
-    pub block_light: Box<[LightStorage]>,
+    pub block_light: Box<[Arc<SyncRwLock<LightStorage>>]>,
     /// Sky light source tracking for optimization.
-    pub sky_light_sources: ChunkSkyLightSources,
+    /// Wrapped in SyncRwLock for interior mutability.
+    pub sky_light_sources: Arc<SyncRwLock<ChunkSkyLightSources>>,
 }
 
 impl Sections {
     /// Creates a new `Sections` from a box of owned `ChunkSection`s.
     #[must_use]
     pub fn from_owned(sections: Box<[ChunkSection]>) -> Self {
+        let section_count = sections.len();
+        let sky_light = (0..(section_count + 2))
+            .map(|_| Arc::new(SyncRwLock::new(LightStorage::new_empty())))
+            .collect();
+        let block_light = (0..(section_count + 2))
+            .map(|_| Arc::new(SyncRwLock::new(LightStorage::new_empty())))
+            .collect();
+
         Self {
             sections: sections
                 .into_iter()
                 .map(|section| Arc::new(SyncRwLock::new(section)))
                 .collect(),
+            sky_light,
+            block_light,
+            sky_light_sources: Arc::new(SyncRwLock::new(ChunkSkyLightSources::default())),
         }
     }
 

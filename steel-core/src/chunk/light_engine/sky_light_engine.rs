@@ -38,7 +38,7 @@ impl SkyLightEngine {
     pub fn propagate_from_empty_sections(
         &mut self,
         _chunk_pos: ChunkPos,
-        sections: &mut Sections,
+        sections: &Sections,
         _chunk_min_y: i32,
     ) {
         let num_sections = sections.sections.len();
@@ -46,7 +46,8 @@ impl SkyLightEngine {
         // Start from top, find first non-empty section
         let mut top_section = None;
         for idx in (0..num_sections).rev() {
-            if !Self::is_section_empty(&sections.sections[idx].states) {
+            let section = sections.sections[idx].read();
+            if !Self::is_section_empty(&section.states) {
                 top_section = Some(idx);
                 break;
             }
@@ -56,7 +57,7 @@ impl SkyLightEngine {
         if top_section.is_none() {
             for idx in 1..=num_sections {
                 if idx < sections.sky_light.len() {
-                    sections.sky_light[idx] = LightStorage::new_filled(15);
+                    *sections.sky_light[idx].write() = LightStorage::new_filled(15);
                 }
             }
             return;
@@ -68,7 +69,7 @@ impl SkyLightEngine {
         for idx in (top_section + 1)..num_sections {
             let light_idx = idx + 1; // +1 for padding
             if light_idx < sections.sky_light.len() {
-                sections.sky_light[light_idx] = LightStorage::new_filled(15);
+                *sections.sky_light[light_idx].write() = LightStorage::new_filled(15);
             }
         }
 
@@ -78,19 +79,22 @@ impl SkyLightEngine {
 
         // Process from top_section downward, tracking column state
         for section_idx in (0..=top_section).rev() {
-            let section = &sections.sections[section_idx];
+            let section = sections.sections[section_idx].read();
 
             // Check if this entire section is empty
             if Self::is_section_empty(&section.states) {
                 // Fast path: fill entire section with light 15
                 let light_idx = section_idx + 1; // +1 for padding
                 if light_idx < sections.sky_light.len() {
-                    sections.sky_light[light_idx] = LightStorage::new_filled(15);
+                    *sections.sky_light[light_idx].write() = LightStorage::new_filled(15);
                 }
                 // All columns remain active
             } else {
                 // Process this section column by column
                 let light_idx = section_idx + 1; // +1 for padding
+
+                // Acquire write lock once for the entire section
+                let mut sky_light_section = sections.sky_light[light_idx].write();
 
                 for z in 0..16 {
                     for x in 0..16 {
@@ -107,10 +111,10 @@ impl SkyLightEngine {
                             let is_air = block_state == BlockStateId(0);
 
                             if is_air {
-                                sections.sky_light[light_idx].set(x, y, z, 15);
+                                sky_light_section.set(x, y, z, 15);
                             } else {
                                 // Hit solid block, mark column as terminated
-                                sections.sky_light[light_idx].set(x, y, z, 0);
+                                sky_light_section.set(x, y, z, 0);
                                 column_active[col_idx] = false;
                                 break;
                             }
@@ -187,7 +191,7 @@ mod tests {
 
         // All sections should be filled with light 15
         for idx in 1..=num_sections {
-            let light = sections.sky_light[idx].get(0, 0, 0);
+            let light = sections.sky_light[idx].read().get(0, 0, 0);
             assert_eq!(light, 15, "Section {} should have light 15", idx);
         }
     }

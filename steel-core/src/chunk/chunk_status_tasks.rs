@@ -6,13 +6,14 @@ use crate::chunk::{
     ChunkSkyLightSources,
     chunk_access::{ChunkAccess, ChunkStatus},
     chunk_generation_task::StaticCache2D,
-    chunk_generator::ChunkGenerator,
+    chunk_generator::{ChunkGenerator, ChunkGuard},
     chunk_holder::ChunkHolder,
     chunk_pyramid::ChunkStep,
     proto_chunk::ProtoChunk,
     section::{ChunkSection, Sections},
     world_gen_context::WorldGenContext,
 };
+use steel_utils::locks::SyncRwLock;
 
 pub struct ChunkStatusTasks;
 
@@ -34,10 +35,10 @@ impl ChunkStatusTasks {
         let section_count = sections.len();
 
         let sky_light = (0..(section_count + 2))
-            .map(|_| LightStorage::new_empty())
+            .map(|_| Arc::new(SyncRwLock::new(LightStorage::new_empty())))
             .collect();
         let block_light = (0..(section_count + 2))
-            .map(|_| LightStorage::new_empty())
+            .map(|_| Arc::new(SyncRwLock::new(LightStorage::new_empty())))
             .collect();
 
         // TODO: Use upgrade_to_full if the loaded chunk is full.
@@ -49,7 +50,7 @@ impl ChunkStatusTasks {
                     .collect(),
                 sky_light,
                 block_light,
-                sky_light_sources: ChunkSkyLightSources::default(),
+                sky_light_sources: Arc::new(SyncRwLock::new(ChunkSkyLightSources::default())),
             },
             holder.get_pos(),
         );
@@ -178,14 +179,14 @@ impl ChunkStatusTasks {
             .expect("Chunk not found at status InitializeLight");
 
         let is_lighted = true;
-        let mut guard = ChunkGuard::new(chunk);
+        let guard = ChunkGuard::new(chunk);
 
         // Block on the async light propagation
         // This is safe because the Tokio runtime has its own thread pool
         context.runtime_handle.block_on(
             context
                 .light_engine
-                .light_chunk_with_cache(&mut guard, cache, &holder, is_lighted),
+                .light_chunk_with_cache(&guard, cache, &holder, is_lighted),
         )?;
 
         Ok(())

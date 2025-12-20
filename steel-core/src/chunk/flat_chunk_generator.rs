@@ -61,7 +61,7 @@ impl ChunkGenerator for FlatChunkGenerator {
             }
         }
 
-        chunk_guard.set_relative_block(0, 4, 0, self.torch);
+        chunk.set_relative_block(0, 4, 0, self.torch);
     }
 
     fn build_surface(&self, _chunk: &ChunkAccess) {}

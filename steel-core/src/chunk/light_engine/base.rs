@@ -47,7 +47,8 @@ pub trait CenterChunkLightAccess {
     fn get_light(&self, pos: BlockPos) -> Option<u8>;
 
     /// Sets the light level at the given position, or returns false if outside center chunk.
-    fn set_light(&mut self, pos: BlockPos, level: u8) -> bool;
+    /// Uses interior mutability for light storage.
+    fn set_light(&self, pos: BlockPos, level: u8) -> bool;
 
     /// Gets the block state at the given position, or None if outside center chunk.
     fn get_block_state(&self, pos: BlockPos) -> Option<BlockStateId>;
@@ -156,7 +157,7 @@ impl LightEngine {
     ///
     /// # Arguments
     /// * `chunk_access` - Provides synchronous access to center chunk only
-    pub fn run_center_chunk_updates<T: CenterChunkLightAccess>(&mut self, chunk_access: &mut T) {
+    pub fn run_center_chunk_updates<T: CenterChunkLightAccess>(&mut self, chunk_access: &T) {
         self.propagate_decreases_center(chunk_access);
         self.propagate_increases_center(chunk_access);
     }
@@ -308,7 +309,7 @@ impl LightEngine {
     ///
     /// When encountering positions outside the center chunk, records them as boundary crossings
     /// instead of propagating across chunk boundaries.
-    fn propagate_decreases_center<T: CenterChunkLightAccess>(&mut self, chunk_access: &mut T) {
+    fn propagate_decreases_center<T: CenterChunkLightAccess>(&mut self, chunk_access: &T) {
         const ALL_DIRECTIONS: [Direction; 6] = [
             Direction::Down,
             Direction::Up,
@@ -372,7 +373,7 @@ impl LightEngine {
     ///
     /// When encountering positions outside the center chunk, records them as boundary crossings
     /// instead of propagating across chunk boundaries.
-    fn propagate_increases_center<T: CenterChunkLightAccess>(&mut self, chunk_access: &mut T) {
+    fn propagate_increases_center<T: CenterChunkLightAccess>(&mut self, chunk_access: &T) {
         const ALL_DIRECTIONS: [Direction; 6] = [
             Direction::Down,
             Direction::Up,

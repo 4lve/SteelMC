@@ -5,7 +5,7 @@
 
 use std::{sync::Arc, time::Instant};
 
-use parking_lot::{Mutex, RwLock as ParkingRwLock};
+use parking_lot::Mutex;
 use steel_registry::{blocks::BlockRegistry, vanilla_blocks};
 use steel_utils::{BlockPos, BlockStateId, ChunkPos, math::Vector3};
 
@@ -31,7 +31,7 @@ struct CenterOnlyChunkAccess<'a> {
     /// The center chunk position.
     chunk_pos: ChunkPos,
     /// Reference to the center chunk's sections.
-    sections: &'a mut Sections,
+    sections: &'a Sections,
     /// Minimum Y coordinate of the world.
     chunk_min_y: i32,
     /// Block registry for block properties.
@@ -41,7 +41,7 @@ struct CenterOnlyChunkAccess<'a> {
 impl<'a> CenterOnlyChunkAccess<'a> {
     fn new(
         chunk_pos: ChunkPos,
-        sections: &'a mut Sections,
+        sections: &'a Sections,
         chunk_min_y: i32,
         block_registry: Arc<BlockRegistry>,
     ) -> Self {
@@ -87,13 +87,17 @@ impl CenterChunkLightAccess for CenterOnlyChunkAccess<'_> {
         let light_section_idx = section_idx + 1; // +1 for padding
 
         if light_section_idx < self.sections.block_light.len() {
-            Some(self.sections.block_light[light_section_idx].get(rel_x, section_y, rel_z))
+            Some(
+                self.sections.block_light[light_section_idx]
+                    .read()
+                    .get(rel_x, section_y, rel_z),
+            )
         } else {
             Some(0)
         }
     }
 
-    fn set_light(&mut self, pos: BlockPos, level: u8) -> bool {
+    fn set_light(&self, pos: BlockPos, level: u8) -> bool {
         let Some((rel_x, rel_y, rel_z)) = self.to_relative_coords(pos) else {
             return false;
         };
@@ -103,7 +107,9 @@ impl CenterChunkLightAccess for CenterOnlyChunkAccess<'_> {
         let light_section_idx = section_idx + 1; // +1 for padding
 
         if light_section_idx < self.sections.block_light.len() {
-            self.sections.block_light[light_section_idx].set(rel_x, section_y, rel_z, level);
+            self.sections.block_light[light_section_idx]
+                .write()
+                .set(rel_x, section_y, rel_z, level);
             true
         } else {
             false
@@ -208,7 +214,7 @@ impl ThreadedLevelLightEngine {
     /// Actual light propagation happens later in the LIGHT chunk status.
     pub fn initialize_light(
         &self,
-        chunk: &ParkingRwLock<Option<ChunkAccess>>,
+        chunk: arc_swap::Guard<Option<std::sync::Arc<ChunkAccess>>>,
         light_enabled: bool,
     ) -> Result<(), anyhow::Error> {
         let chunk_guard = ChunkGuard::new(chunk);
@@ -288,42 +294,37 @@ impl ThreadedLevelLightEngine {
     #[allow(clippy::unused_async)]
     pub async fn light_chunk_with_cache(
         &self,
-        chunk_guard: &mut ChunkGuard<'_>,
+        chunk_guard: &ChunkGuard,
         cache: &StaticCache2D<Arc<ChunkHolder>>,
         center_holder: &Arc<ChunkHolder>,
         _light_enabled: bool,
     ) -> Result<(), anyhow::Error> {
         use rustc_hash::FxHashMap;
 
-        let (chunk_pos, sections) = match &mut **chunk_guard {
-            ChunkAccess::Proto(proto_chunk) => (proto_chunk.pos, &mut proto_chunk.sections),
-            ChunkAccess::Full(level_chunk) => (level_chunk.pos, &mut level_chunk.sections),
+        let overall_start = Instant::now();
+
+        let (chunk_pos, sections) = match &**chunk_guard {
+            ChunkAccess::Proto(proto_chunk) => (proto_chunk.pos, &proto_chunk.sections),
+            ChunkAccess::Full(level_chunk) => (level_chunk.pos, &level_chunk.sections),
         };
 
         let num_sections = sections.sections.len();
         let num_light_sections = sections.block_light.len();
         let chunk_min_y = -64;
 
-        let overall_start = Instant::now();
-
         // ===== STEP 1: Initialize sky light with empty section optimization =====
-        let sky_light_start = Instant::now();
         let mut sky_engine = super::sky_light_engine::SkyLightEngine::new();
         sky_engine.propagate_from_empty_sections(chunk_pos, sections, chunk_min_y);
-        let sky_light_duration = sky_light_start.elapsed();
 
         // Update sky light sources after propagation
-        let source_tracking_start = Instant::now();
         sections
             .sky_light_sources
+            .write()
             .update_from_chunk_sections(&sections.sections, chunk_min_y);
-        let source_tracking_duration = source_tracking_start.elapsed();
 
         // ===== STEP 2: Scan for block light sources and enqueue =====
         // Create a new light engine instance for this chunk to avoid lock contention
-        let block_scan_start = Instant::now();
         let mut engine = super::base::LightEngine::new();
-        let mut block_light_sources_found = 0;
 
         // Scan all blocks in the chunk for light emitters
         for section_idx in 0..num_sections {
@@ -332,7 +333,8 @@ impl ThreadedLevelLightEngine {
 
             // Optimization: Skip sections that are entirely air (common case)
             // Air blocks have no luminance, so we can skip the entire section
-            if let PalettedContainer::Homogeneous(block_state) = &section.states {
+            let section_guard = section.read();
+            if let PalettedContainer::Homogeneous(block_state) = &section_guard.states {
                 let luminance = vanilla_blocks::get_block_luminance(*block_state);
                 if luminance == 0 {
                     // Entire section is non-emitting, skip it
@@ -341,10 +343,11 @@ impl ThreadedLevelLightEngine {
                     // Entire section is the same emitting block (rare but possible)
                     // Fill entire section with that light level
                     let light_section_idx = section_idx + 1; // +1 for padding
+                    let mut block_light_section = sections.block_light[light_section_idx].write();
                     for y in 0..16 {
                         for z in 0..16 {
                             for x in 0..16 {
-                                sections.block_light[light_section_idx].set(x, y, z, luminance);
+                                block_light_section.set(x, y, z, luminance);
 
                                 let world_y = section_y + y as i32;
                                 let world_x = (chunk_pos.0.x * 16) + x as i32;
@@ -356,7 +359,6 @@ impl ThreadedLevelLightEngine {
                                     pos,
                                     QueueEntry::increase_from_emission(luminance, is_empty_shape),
                                 );
-                                block_light_sources_found += 1;
                             }
                         }
                     }
@@ -365,10 +367,13 @@ impl ThreadedLevelLightEngine {
             }
 
             // Heterogeneous section: scan each block individually
+            let light_section_idx = section_idx + 1; // +1 for padding
+            let mut block_light_section = sections.block_light[light_section_idx].write();
+
             for y in 0..16 {
                 for z in 0..16 {
                     for x in 0..16 {
-                        let block_state = section.states.get(x, y, z);
+                        let block_state = section_guard.states.get(x, y, z);
                         let luminance = vanilla_blocks::get_block_luminance(block_state);
 
                         if luminance > 0 {
@@ -380,8 +385,7 @@ impl ThreadedLevelLightEngine {
                             let pos = BlockPos(Vector3::new(world_x, world_y, world_z));
 
                             // Set the light at this position
-                            let light_section_idx = section_idx + 1; // +1 for padding
-                            sections.block_light[light_section_idx].set(x, y, z, luminance);
+                            block_light_section.set(x, y, z, luminance);
 
                             // Enqueue for propagation in all directions
                             let is_empty_shape = !self.has_collision(block_state);
@@ -389,35 +393,30 @@ impl ThreadedLevelLightEngine {
                                 pos,
                                 QueueEntry::increase_from_emission(luminance, is_empty_shape),
                             );
-                            block_light_sources_found += 1;
                         }
                     }
                 }
             }
         }
 
-        let block_scan_duration = block_scan_start.elapsed();
-
         // ===== STEP 3: Two-phase light propagation =====
 
         // PHASE 1: Center chunk only (synchronous, lock-free)
-        let phase1_start = Instant::now();
         {
-            let (_, sections_for_phase1) = match &mut **chunk_guard {
-                ChunkAccess::Proto(proto_chunk) => (proto_chunk.pos, &mut proto_chunk.sections),
-                ChunkAccess::Full(level_chunk) => (level_chunk.pos, &mut level_chunk.sections),
+            let (_, sections_for_phase1) = match &**chunk_guard {
+                ChunkAccess::Proto(proto_chunk) => (proto_chunk.pos, &proto_chunk.sections),
+                ChunkAccess::Full(level_chunk) => (level_chunk.pos, &level_chunk.sections),
             };
 
-            let mut center_access = CenterOnlyChunkAccess::new(
+            let center_access = CenterOnlyChunkAccess::new(
                 chunk_pos,
                 sections_for_phase1,
                 chunk_min_y,
                 self.block_registry.clone(),
             );
 
-            engine.run_center_chunk_updates(&mut center_access);
+            engine.run_center_chunk_updates(&center_access);
         }
-        let phase1_duration = phase1_start.elapsed();
 
         // Mark all light sections in center chunk as changed
         for section_idx in 0..num_light_sections {
@@ -425,9 +424,9 @@ impl ThreadedLevelLightEngine {
         }
 
         // PHASE 2: Iterative boundary crossing propagation
-        let phase2_start = Instant::now();
+        let _phase2_start = Instant::now();
         let current_crossings = engine.take_boundary_crossings();
-        let total_crossings = current_crossings.len();
+        let _total_crossings = current_crossings.len();
 
         // Pre-group crossings once to avoid regrouping on every retry
         let mut crossings_by_chunk: FxHashMap<ChunkPos, Vec<BoundaryCrossing>> =
@@ -447,25 +446,12 @@ impl ThreadedLevelLightEngine {
                 .push(crossing);
         }
 
-        // Phase 2 metrics
-        let mut total_iterations = 0;
-        let mut total_locks_acquired = 0;
-        let mut total_not_ready_deferrals = 0;
-        let mut total_locked_deferrals = 0;
-        let mut total_yields = 0;
-        let initial_neighbor_chunks = crossings_by_chunk.len();
         let mut consecutive_failed_iterations = 0;
 
         while !crossings_by_chunk.is_empty() {
-            total_iterations += 1;
-            let iteration_start = Instant::now();
             let mut next_crossings_by_chunk: FxHashMap<ChunkPos, Vec<BoundaryCrossing>> =
                 FxHashMap::default();
-            let mut locked_any_this_iteration = false;
-            let mut chunks_attempted = 0;
-            let mut locks_acquired_this_iter = 0;
-            let mut not_ready_this_iter = 0;
-            let mut locked_this_iter = 0;
+            let locked_any_this_iteration = false;
 
             // Sort chunks by position for deterministic lock ordering (prevents deadlocks)
             let mut sorted_chunks: Vec<_> = crossings_by_chunk.into_iter().collect();
@@ -478,8 +464,6 @@ impl ThreadedLevelLightEngine {
                     continue;
                 }
 
-                chunks_attempted += 1;
-
                 let chunk_holder = cache.get(target_chunk.0.x, target_chunk.0.y);
 
                 // Try non-blocking lock acquisition
@@ -487,7 +471,6 @@ impl ThreadedLevelLightEngine {
 
                 let Some(chunk_lock) = chunk_lock_opt else {
                     // Chunk not ready yet - defer these crossings to next iteration
-                    not_ready_this_iter += 1;
                     next_crossings_by_chunk
                         .entry(target_chunk)
                         .or_default()
@@ -495,23 +478,10 @@ impl ThreadedLevelLightEngine {
                     continue;
                 };
 
-                let Some(mut chunk_guard_inner) = chunk_lock.try_write() else {
-                    // Chunk is locked by another thread - defer these crossings
-                    locked_this_iter += 1;
-                    next_crossings_by_chunk
-                        .entry(target_chunk)
-                        .or_default()
-                        .extend(chunk_crossings);
-                    continue;
-                };
-
-                locked_any_this_iteration = true;
-                locks_acquired_this_iter += 1;
-
-                if let Some(chunk_access_inner) = &mut *chunk_guard_inner {
-                    let sections = match chunk_access_inner {
-                        ChunkAccess::Proto(proto) => &mut proto.sections,
-                        ChunkAccess::Full(full) => &mut full.sections,
+                if let Some(chunk_arc) = chunk_lock.as_ref() {
+                    let sections = match chunk_arc.as_ref() {
+                        ChunkAccess::Proto(proto) => &proto.sections,
+                        ChunkAccess::Full(full) => &full.sections,
                     };
 
                     // Create a temporary light engine for this neighbor chunk
@@ -529,11 +499,13 @@ impl ThreadedLevelLightEngine {
 
                         if light_section_idx < sections.block_light.len() {
                             let current_light = sections.block_light[light_section_idx]
+                                .read()
                                 .get(rel_x, section_y, rel_z);
                             let new_light = crossing.entry.level();
 
                             if new_light > current_light {
                                 sections.block_light[light_section_idx]
+                                    .write()
                                     .set(rel_x, section_y, rel_z, new_light);
                                 chunk_holder.mark_light_storage_section_changed(
                                     light_section_idx as u32,
@@ -546,16 +518,16 @@ impl ThreadedLevelLightEngine {
                         }
                     }
 
-                    // Propagate within this neighbor chunk (synchronous, lock-free)
+                    // Propagate within this neighbor chunk (using interior mutability)
                     if neighbor_engine.has_work() {
-                        let mut neighbor_access = CenterOnlyChunkAccess::new(
+                        let neighbor_access = CenterOnlyChunkAccess::new(
                             target_chunk,
                             sections,
                             chunk_min_y,
                             self.block_registry.clone(),
                         );
 
-                        neighbor_engine.run_center_chunk_updates(&mut neighbor_access);
+                        neighbor_engine.run_center_chunk_updates(&neighbor_access);
 
                         // Collect boundary crossings from this neighbor for next iteration
                         let new_crossings = neighbor_engine.take_boundary_crossings();
@@ -576,12 +548,7 @@ impl ThreadedLevelLightEngine {
                 }
             }
 
-            // Update totals
-            total_locks_acquired += locks_acquired_this_iter;
-            total_not_ready_deferrals += not_ready_this_iter;
-            total_locked_deferrals += locked_this_iter;
-
-            // Update consecutive failure tracking
+            // Handle cases where we couldn't make progress
             if locked_any_this_iteration {
                 consecutive_failed_iterations = 0;
             } else if !next_crossings_by_chunk.is_empty() {
@@ -591,7 +558,6 @@ impl ThreadedLevelLightEngine {
             // Only yield after many consecutive failures to reduce overhead
             // Higher threshold = less context switching, faster overall
             if consecutive_failed_iterations >= 10 && !next_crossings_by_chunk.is_empty() {
-                total_yields += 1;
                 tokio::task::yield_now().await;
                 consecutive_failed_iterations = 0; // Reset after yield
             }
@@ -600,19 +566,11 @@ impl ThreadedLevelLightEngine {
             crossings_by_chunk = next_crossings_by_chunk;
         }
 
-        let phase2_duration = phase2_start.elapsed();
-        let overall_duration = overall_start.elapsed();
-
+        let total_duration = overall_start.elapsed();
         log::info!(
-            "[Lighting] Chunk {:?}: {:?} total (sky: {:?}, scan: {:?}, p1: {:?}, p2: {:?} - {} iters, {} yields)",
+            "Light propagation for chunk {:?} completed in {:?}",
             chunk_pos,
-            overall_duration,
-            sky_light_duration,
-            block_scan_duration,
-            phase1_duration,
-            phase2_duration,
-            total_iterations,
-            total_yields
+            total_duration
         );
 
         Ok(())

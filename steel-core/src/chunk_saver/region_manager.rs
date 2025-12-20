@@ -691,10 +691,10 @@ impl RegionManager {
         // Initialize light storage for loaded chunks
         // TODO: Load actual light data from persistent storage
         let sky_light = (0..(section_count + 2))
-            .map(|_| LightStorage::new_empty())
+            .map(|_| Arc::new(SyncRwLock::new(LightStorage::new_empty())))
             .collect();
         let block_light = (0..(section_count + 2))
-            .map(|_| LightStorage::new_empty())
+            .map(|_| Arc::new(SyncRwLock::new(LightStorage::new_empty())))
             .collect();
 
         match status {
@@ -706,7 +706,7 @@ impl RegionManager {
                         .collect(),
                     sky_light,
                     block_light,
-                    sky_light_sources: ChunkSkyLightSources::default(),
+                    sky_light_sources: Arc::new(SyncRwLock::new(ChunkSkyLightSources::default())),
                 },
                 pos,
             )),
@@ -718,7 +718,7 @@ impl RegionManager {
                         .collect(),
                     sky_light,
                     block_light,
-                    sky_light_sources: ChunkSkyLightSources::default(),
+                    sky_light_sources: Arc::new(SyncRwLock::new(ChunkSkyLightSources::default())),
                 },
                 pos,
             )),

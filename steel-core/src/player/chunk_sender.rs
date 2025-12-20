@@ -184,8 +184,9 @@ impl ChunkSender {
                         if (sky_changed != 0 || block_changed != 0)
                             && let Some(chunk_lock) = holder.try_chunk(ChunkStatus::Full)
                         {
-                            let chunk = chunk_lock.read();
-                            if let Some(ChunkAccess::Full(level_chunk)) = &*chunk {
+                            if let Some(chunk_arc) = chunk_lock.as_ref()
+                                && let ChunkAccess::Full(level_chunk) = chunk_arc.as_ref()
+                            {
                                 // Extract only the changed light sections
                                 let light_data = level_chunk
                                     .extract_changed_light_data(sky_changed, block_changed);
