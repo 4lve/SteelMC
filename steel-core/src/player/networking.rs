@@ -13,8 +13,9 @@ use steel_protocol::{
     packets::{
         common::{CDisconnect, CKeepAlive, SCustomPayload, SKeepAlive},
         game::{
-            SChat, SChatAck, SChatSessionUpdate, SChunkBatchReceived, SClientTickEnd,
-            SMovePlayerPos, SMovePlayerPosRot, SMovePlayerRot, SPlayerLoad,
+            SAcceptTeleportation, SChat, SChatAck, SChatSessionUpdate, SChunkBatchReceived,
+            SClientTickEnd, SMovePlayerPos, SMovePlayerPosRot, SMovePlayerRot, SPlayerCommand,
+            SPlayerInput, SPlayerLoad, SSwing,
         },
     },
     utils::{ConnectionProtocol, EnqueuedPacket, PacketError, RawPacket},
@@ -208,6 +209,19 @@ impl JavaConnection {
                 let _ = SPlayerLoad::read_packet(data)?;
                 player.client_loaded.store(true, Ordering::Relaxed);
             }
+            play::S_SWING => {
+                player.handle_swing(SSwing::read_packet(data)?);
+            }
+            play::S_PLAYER_COMMAND => {
+                player.handle_player_command(SPlayerCommand::read_packet(data)?);
+            }
+            play::S_PLAYER_INPUT => {
+                player.handle_player_input(SPlayerInput::read_packet(data)?);
+            }
+            play::S_ACCEPT_TELEPORTATION => {
+                let packet = SAcceptTeleportation::read_packet(data)?;
+                player.handle_accept_teleportation(packet.teleport_id.0);
+            }
             id => log::info!("play packet id {id} is not known"),
         }
         Ok(())
@@ -276,10 +290,6 @@ impl JavaConnection {
                         }
 
                     } else {
-                        //log::warn!(
-                        //    "Internal packet_sender_recv channel closed for client {}",
-                        //    self.id
-                        //);
                         self.close();
                     }
                 }
