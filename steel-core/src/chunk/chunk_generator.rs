@@ -5,7 +5,6 @@ use enum_dispatch::enum_dispatch;
 use std::sync::Arc;
 
 /// A guard that provides access to a chunk.
-/// This is a wrapper around arc_swap::Guard to provide a more ergonomic API.
 pub struct ChunkGuard(pub Arc<ChunkAccess>);
 
 impl std::ops::Deref for ChunkGuard {
@@ -17,7 +16,11 @@ impl std::ops::Deref for ChunkGuard {
 }
 
 impl ChunkGuard {
-    /// Creates a new ChunkGuard from an arc_swap Guard
+    /// Creates a new `ChunkGuard` from an `arc_swap` Guard
+    ///
+    /// # Panics
+    /// This panics if chunk is None.
+    #[must_use]
     pub fn new(guard: arc_swap::Guard<Option<Arc<ChunkAccess>>>) -> Self {
         let chunk = guard.as_ref().expect("Chunk should be Some").clone();
         Self(chunk)

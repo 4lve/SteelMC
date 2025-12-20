@@ -183,29 +183,25 @@ impl ChunkSender {
                         // Only send if there are actual changes
                         if (sky_changed != 0 || block_changed != 0)
                             && let Some(chunk_lock) = holder.try_chunk(ChunkStatus::Full)
+                            && let Some(chunk_arc) = chunk_lock.as_ref()
+                            && let ChunkAccess::Full(level_chunk) = chunk_arc.as_ref()
                         {
-                            if let Some(chunk_arc) = chunk_lock.as_ref()
-                                && let ChunkAccess::Full(level_chunk) = chunk_arc.as_ref()
+                            // Extract only the changed light sections
+                            let light_data =
+                                level_chunk.extract_changed_light_data(sky_changed, block_changed);
+
+                            // Verify arrays match masks before sending
+                            if !light_data.sky_updates.is_empty()
+                                || !light_data.block_updates.is_empty()
+                                || (light_data.empty_sky_y_mask.0.first().map_or(0, |v| *v) != 0)
+                                || (light_data.empty_block_y_mask.0.first().map_or(0, |v| *v) != 0)
                             {
-                                // Extract only the changed light sections
-                                let light_data = level_chunk
-                                    .extract_changed_light_data(sky_changed, block_changed);
-
-                                // Verify arrays match masks before sending
-                                if !light_data.sky_updates.is_empty()
-                                    || !light_data.block_updates.is_empty()
-                                    || (light_data.empty_sky_y_mask.0.first().map_or(0, |v| *v)
-                                        != 0)
-                                    || (light_data.empty_block_y_mask.0.first().map_or(0, |v| *v)
-                                        != 0)
-                                {
-                                    let light_update = CLightUpdate { pos, light_data };
-                                    connection.send_packet(light_update);
-                                }
-
-                                // Clear the changed sections now that we've sent the update
-                                holder.clear_light_changes();
+                                let light_update = CLightUpdate { pos, light_data };
+                                connection.send_packet(light_update);
                             }
+
+                            // Clear the changed sections now that we've sent the update
+                            holder.clear_light_changes();
                         }
                     }
                 }

@@ -172,27 +172,18 @@ mod tests {
             .map(|_| ChunkSection::new_empty())
             .collect();
 
-        let mut sections = Sections {
-            sections: sections_vec.into_boxed_slice(),
-            sky_light: (0..(num_sections + 2))
-                .map(|_| LightStorage::new_empty())
-                .collect(),
-            block_light: (0..(num_sections + 2))
-                .map(|_| LightStorage::new_empty())
-                .collect(),
-            sky_light_sources: Default::default(),
-        };
+        let sections = Sections::from_owned(sections_vec.into_boxed_slice());
 
         engine.propagate_from_empty_sections(
             ChunkPos(steel_utils::math::Vector2::new(0, 0)),
-            &mut sections,
+            &sections,
             -64,
         );
 
         // All sections should be filled with light 15
         for idx in 1..=num_sections {
             let light = sections.sky_light[idx].read().get(0, 0, 0);
-            assert_eq!(light, 15, "Section {} should have light 15", idx);
+            assert_eq!(light, 15, "Section {idx} should have light 15");
         }
     }
 }

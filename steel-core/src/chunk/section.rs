@@ -21,7 +21,7 @@ pub struct Sections {
     /// Note: Length is `sections.len() + 2` for padding above and below.
     pub block_light: Box<[Arc<SyncRwLock<LightStorage>>]>,
     /// Sky light source tracking for optimization.
-    /// Wrapped in SyncRwLock for interior mutability.
+    /// Wrapped in `SyncRwLock` for interior mutability.
     pub sky_light_sources: Arc<SyncRwLock<ChunkSkyLightSources>>,
 }
 

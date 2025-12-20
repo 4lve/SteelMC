@@ -13,11 +13,11 @@ pub type AsyncMutex<T> = SteelMutex<tokio::sync::Mutex<T>, T>;
 pub type AsyncRwLock<T> = SteelRwLock<tokio::sync::RwLock<T>, T>;
 
 /// A trait for locks that can be used with the `SteelLock` wrapper.
-pub trait GenericLock<T: ?Sized + Send + Sync> {}
+pub trait GenericLock<T: ?Sized + Send> {}
 
-impl<T: ?Sized + Send + Sync> GenericLock<T> for tokio::sync::Mutex<T> {}
+impl<T: ?Sized + Send> GenericLock<T> for tokio::sync::Mutex<T> {}
 
-impl<T: ?Sized + Send + Sync> GenericLock<T> for parking_lot::Mutex<T> {}
+impl<T: ?Sized + Send> GenericLock<T> for parking_lot::Mutex<T> {}
 
 impl<T: ?Sized + Send + Sync> GenericLock<T> for tokio::sync::RwLock<T> {}
 
@@ -28,12 +28,12 @@ impl<T: ?Sized + Send + Sync> GenericLock<T> for parking_lot::RwLock<T> {}
 /// Use [`SteelMutex::new_sync`] for synchronous contexts (`parking_lot::Mutex`)
 /// or [`SteelMutex::new_async`] for async contexts (`tokio::sync::Mutex`).
 #[derive(Debug)]
-pub struct SteelMutex<Mutex: GenericLock<T>, T: ?Sized + Send + Sync> {
+pub struct SteelMutex<Mutex: GenericLock<T>, T: ?Sized + Send> {
     mutex: Mutex,
-    _marker: PhantomData<T>,
+    _marker: PhantomData<fn() -> T>,
 }
 
-impl<T: Sized + Send + Sync> SteelMutex<parking_lot::Mutex<T>, T> {
+impl<T: Sized + Send> SteelMutex<parking_lot::Mutex<T>, T> {
     /// Creates a new synchronous mutex backed by `parking_lot::Mutex`.
     pub fn new(data: T) -> Self {
         Self {
@@ -55,7 +55,7 @@ impl<T: Sized + Send + Sync> SteelMutex<parking_lot::Mutex<T>, T> {
     }
 }
 
-impl<T: Sized + Send + Sync> SteelMutex<tokio::sync::Mutex<T>, T> {
+impl<T: Sized + Send> SteelMutex<tokio::sync::Mutex<T>, T> {
     /// Creates a new asynchronous mutex backed by `tokio::sync::Mutex`.
     pub fn new(data: T) -> Self {
         Self {
@@ -85,7 +85,7 @@ impl<T: Sized + Send + Sync> SteelMutex<tokio::sync::Mutex<T>, T> {
 #[derive(Debug)]
 pub struct SteelRwLock<RwLock: GenericLock<T>, T: ?Sized + Send + Sync> {
     rwlock: RwLock,
-    _marker: PhantomData<T>,
+    _marker: PhantomData<fn() -> T>,
 }
 
 impl<T: Sized + Send + Sync> SteelRwLock<parking_lot::RwLock<T>, T> {

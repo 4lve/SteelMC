@@ -5,9 +5,8 @@
 
 use std::{sync::Arc, time::Instant};
 
-use parking_lot::Mutex;
 use steel_registry::{blocks::BlockRegistry, vanilla_blocks};
-use steel_utils::{BlockPos, BlockStateId, ChunkPos, math::Vector3};
+use steel_utils::{BlockPos, BlockStateId, ChunkPos, locks::SyncMutex, math::Vector3};
 
 use crate::chunk::{
     chunk_access::{ChunkAccess, ChunkStatus},
@@ -167,13 +166,13 @@ type LightTask = (TaskType, Box<dyn FnOnce() + Send>);
 ///    - `POST_UPDATE` tasks (set flags, complete futures)
 pub struct ThreadedLevelLightEngine {
     /// The base light engine for propagation.
-    light_engine: Arc<Mutex<LightEngine>>,
+    light_engine: Arc<SyncMutex<LightEngine>>,
     /// Queued tasks waiting to be executed.
-    light_tasks: Arc<Mutex<Vec<LightTask>>>,
+    light_tasks: Arc<SyncMutex<Vec<LightTask>>>,
     /// Block registry for block properties.
     block_registry: Arc<BlockRegistry>,
     /// 2-element LRU cache for chunk access.
-    chunk_cache: Arc<Mutex<super::chunk_cache::ChunkCache>>,
+    chunk_cache: Arc<SyncMutex<super::chunk_cache::ChunkCache>>,
 }
 
 impl ThreadedLevelLightEngine {
@@ -181,10 +180,10 @@ impl ThreadedLevelLightEngine {
     #[must_use]
     pub fn new(block_registry: Arc<BlockRegistry>) -> Self {
         Self {
-            light_engine: Arc::new(Mutex::new(LightEngine::new())),
-            light_tasks: Arc::new(Mutex::new(Vec::new())),
+            light_engine: Arc::new(SyncMutex::new(LightEngine::new())),
+            light_tasks: Arc::new(SyncMutex::new(Vec::new())),
             block_registry,
-            chunk_cache: Arc::new(Mutex::new(super::chunk_cache::ChunkCache::new())),
+            chunk_cache: Arc::new(SyncMutex::new(super::chunk_cache::ChunkCache::new())),
         }
     }
 
@@ -567,11 +566,7 @@ impl ThreadedLevelLightEngine {
         }
 
         let total_duration = overall_start.elapsed();
-        log::info!(
-            "Light propagation for chunk {:?} completed in {:?}",
-            chunk_pos,
-            total_duration
-        );
+        log::info!("Light propagation for chunk {chunk_pos:?} completed in {total_duration:?}");
 
         Ok(())
     }
