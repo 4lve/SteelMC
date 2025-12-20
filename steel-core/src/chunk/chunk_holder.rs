@@ -242,7 +242,15 @@ impl ChunkHolder {
         let future = chunk_map.task_tracker.spawn(async move {
             if target_status == ChunkStatus::Empty {
                 if let Ok(Some((chunk, status))) = region_manager.load_chunk(self_clone.pos).await {
-                    self_clone.insert_chunk(chunk, status);
+                    // If loaded chunk is at or past InitializeLight status, cap it at Features
+                    // so it goes through the normal light generation pipeline
+                    // (lighting is not saved to disk and must be recalculated)
+                    let capped_status = if status >= ChunkStatus::InitializeLight {
+                        ChunkStatus::Features
+                    } else {
+                        status
+                    };
+                    self_clone.insert_chunk(chunk, capped_status);
                 } else {
                     rayon_spawn(&thread_pool, move || {
                         task(context, step, &cache, self_clone)

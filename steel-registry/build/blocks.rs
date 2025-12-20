@@ -374,7 +374,7 @@ pub(crate) fn build() -> TokenStream {
         let default_opacity = block.light_properties.default.opacity;
 
         // Create a map of offsets to their light properties
-        let mut offset_map = std::collections::HashMap::new();
+        let mut offset_map = rustc_hash::FxHashMap::default();
         for overwrite in &block.light_properties.overwrites {
             offset_map.insert(overwrite.offset, (overwrite.luminance, overwrite.opacity));
         }
