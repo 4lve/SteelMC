@@ -2,7 +2,7 @@ use steel_macros::{ReadFrom, ServerPacket};
 
 #[derive(ReadFrom, ServerPacket, Clone, Debug)]
 pub struct SChat {
-    #[read(as = "string", bound = 256)]
+    #[read(as = Prefixed(VarInt), bound = 256)]
     pub message: String,
 
     pub timestamp: i64,
@@ -11,7 +11,7 @@ pub struct SChat {
 
     pub signature: Option<[u8; 256]>,
 
-    #[read(as = "var_int")]
+    #[read(as = VarInt)]
     pub offset: i32,
 
     pub acknowledged: [u8; 3],

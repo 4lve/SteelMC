@@ -13,7 +13,7 @@ pub struct RegistryEntry {
 #[packet_id(Config = C_REGISTRY_DATA)]
 pub struct CRegistryData {
     pub registry: Identifier,
-    #[write(as = "vec")]
+    #[write(as = Prefixed(VarInt))]
     pub entries: Vec<RegistryEntry>,
 }
 

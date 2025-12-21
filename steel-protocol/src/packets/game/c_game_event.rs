@@ -2,7 +2,7 @@ use steel_macros::{ClientPacket, WriteTo};
 use steel_registry::packets::play::C_GAME_EVENT;
 
 #[derive(WriteTo, Copy, Clone, Debug)]
-#[write(as = "var_int")]
+#[write(as = VarInt)]
 pub enum GameEventType {
     NoRespawnBlockAvailable = 0,
     StartRaining = 1,

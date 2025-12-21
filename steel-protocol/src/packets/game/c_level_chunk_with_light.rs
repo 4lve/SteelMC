@@ -4,7 +4,7 @@ use steel_registry::packets::play::C_LEVEL_CHUNK_WITH_LIGHT;
 use steel_utils::{ChunkPos, codec::BitSet};
 
 #[derive(WriteTo, Copy, Clone, Debug)]
-#[write(as = "var_int")]
+#[write(as = VarInt)]
 pub enum HeightmapType {
     WorldSurface = 1,
     MotionBlocking = 4,
@@ -20,7 +20,7 @@ pub struct Heightmaps {
 pub struct BlockEntityInfo {
     pub packed_xz: u8,
     pub y: i16,
-    #[write(as = "var_int")]
+    #[write(as = VarInt)]
     pub type_id: i32,
     pub data: Option<NbtCompound>,
 }

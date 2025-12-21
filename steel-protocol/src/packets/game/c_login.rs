@@ -4,20 +4,20 @@ use steel_utils::{BlockPos, Identifier, types::GameType};
 
 #[derive(Clone, Debug, WriteTo)]
 pub struct CommonPlayerSpawnInfo {
-    #[write(as = "var_int")]
+    #[write(as = VarInt)]
     pub dimension_type: i32,
     pub dimension: Identifier,
     pub seed: i64,
-    #[write(as = "byte")]
+    #[write(as = Byte)]
     pub game_type: GameType,
-    #[write(as = "option_byte")]
+    #[write(as = OptionByte)]
     pub previous_game_type: Option<GameType>,
     pub is_debug: bool,
     pub is_flat: bool,
     pub last_death_location: Option<(Identifier, BlockPos)>,
-    #[write(as = "var_int")]
+    #[write(as = VarInt)]
     pub portal_cooldown: i32,
-    #[write(as = "var_int")]
+    #[write(as = VarInt)]
     pub sea_level: i32,
 }
 
@@ -26,13 +26,13 @@ pub struct CommonPlayerSpawnInfo {
 pub struct CLogin {
     pub player_id: i32,
     pub hardcore: bool,
-    #[write(as = "vec")]
+    #[write(as = Prefixed(VarInt))]
     pub levels: Vec<Identifier>,
-    #[write(as = "var_int")]
+    #[write(as = VarInt)]
     pub max_players: i32,
-    #[write(as = "var_int")]
+    #[write(as = VarInt)]
     pub chunk_radius: i32,
-    #[write(as = "var_int")]
+    #[write(as = VarInt)]
     pub simulation_distance: i32,
     pub reduced_debug_info: bool,
     pub show_death_screen: bool,

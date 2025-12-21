@@ -2,14 +2,14 @@ use steel_macros::{ReadFrom, WriteTo};
 
 #[derive(Clone, Debug, WriteTo, ReadFrom)]
 pub struct KnownPack {
-    #[write(as = "string")]
-    #[read(as = "string")]
+    #[write(as = Prefixed(VarInt))]
+    #[read(as = Prefixed(VarInt))]
     pub namespace: String,
-    #[write(as = "string")]
-    #[read(as = "string")]
+    #[write(as = Prefixed(VarInt))]
+    #[read(as = Prefixed(VarInt))]
     pub id: String,
-    #[write(as = "string")]
-    #[read(as = "string")]
+    #[write(as = Prefixed(VarInt))]
+    #[read(as = Prefixed(VarInt))]
     pub version: String,
 }
 

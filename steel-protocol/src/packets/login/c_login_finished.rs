@@ -5,11 +5,11 @@ use uuid::Uuid;
 
 #[derive(Clone, Debug, WriteTo, Serialize, Deserialize)]
 pub struct GameProfileProperty {
-    #[write(as = "string", bound = 16)]
+    #[write(as = Prefixed(VarInt), bound = 16)]
     pub name: String,
-    #[write(as = "string")]
+    #[write(as = Prefixed(VarInt))]
     pub value: String,
-    #[write(as = "string")]
+    #[write(as = Prefixed(VarInt))]
     pub signature: Option<String>,
 }
 
@@ -17,9 +17,9 @@ pub struct GameProfileProperty {
 #[packet_id(Login = C_LOGIN_FINISHED)]
 pub struct CLoginFinished<'a> {
     pub uuid: Uuid,
-    #[write(as = "string", bound = 16)]
+    #[write(as = Prefixed(VarInt), bound = 16)]
     pub name: &'a str,
-    #[write(as = "vec")]
+    #[write(as = Prefixed(VarInt))]
     pub properties: &'a [GameProfileProperty],
 }
 

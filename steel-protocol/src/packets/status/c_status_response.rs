@@ -35,7 +35,7 @@ pub struct Status {
 #[derive(ClientPacket, WriteTo, Clone, Debug)]
 #[packet_id(Status = C_STATUS_RESPONSE)]
 pub struct CStatusResponse {
-    #[write(as = "json")]
+    #[write(as = Json)]
     status: Status,
 }
 

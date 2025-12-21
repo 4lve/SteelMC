@@ -4,11 +4,11 @@ use steel_registry::packets::login::C_HELLO;
 #[derive(ClientPacket, WriteTo, Clone, Debug)]
 #[packet_id(Login = C_HELLO)]
 pub struct CHello<'a> {
-    #[write(as = "string", bound = 20)]
+    #[write(as = Prefixed(VarInt), bound = 20)]
     pub server_id: String,
-    #[write(as = "vec")]
+    #[write(as = Prefixed(VarInt))]
     pub public_key: &'a [u8],
-    #[write(as = "vec")]
+    #[write(as = Prefixed(VarInt))]
     pub challenge: [u8; 4],
     pub should_authenticate: bool,
 }

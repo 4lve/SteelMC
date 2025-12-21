@@ -11,9 +11,8 @@ use steel_utils::{
 #[derive(ClientPacket, WriteTo)]
 #[packet_id(Play = C_COMMANDS)]
 pub struct CCommands {
-    #[write(as = "vec")]
     pub nodes: Vec<CommandNode>,
-    #[write(as = "var_int")]
+    #[write(as = VarInt)]
     pub root_index: i32,
 }
 
