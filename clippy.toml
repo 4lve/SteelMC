@@ -31,4 +31,6 @@ disallowed-types = [
 disallowed-methods = [
     # Prevent people from taking ownership of the Arc inside the ArcSwap Guard
     { path = "arc_swap::Guard::into_inner", reason = "Holding a strong reference to a Chunk leads to stale data. Use the Guard directly for transient access." },
+    # const_translate should only be use in generated code
+    { path = "steel_utils::text::TextComponent::const_translate", reason = "const_translate should only be use in generated code. Use steel_utils::translations::GeneratedTranslation::msg().into() instead." },
 ]

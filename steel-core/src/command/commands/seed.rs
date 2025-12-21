@@ -5,6 +5,7 @@ use steel_utils::text::TextComponent;
 use steel_utils::text::color::NamedColor;
 use steel_utils::text::interactivity::{ClickEvent, HoverEvent, Interactivity};
 use steel_utils::text::translation::TranslatedMessage;
+use steel_utils::translations;
 
 use crate::command::commands::{CommandExecutor, CommandHandlerBuilder, CommandHandlerDyn};
 use crate::command::context::CommandContext;
@@ -40,9 +41,9 @@ impl CommandExecutor<()> for SeedCommandExecutor {
                     .color(NamedColor::Green)
                     .interactivity(
                         Interactivity::new()
-                            .hover_event(HoverEvent::show_text(TextComponent::const_translate(
-                                "chat.copy.click",
-                            )))
+                            .hover_event(HoverEvent::show_text(
+                                translations::CHAT_COPY_CLICK.msg().into(),
+                            ))
                             .click_event(ClickEvent::CopyToClipboard {
                                 value: (&STEEL_CONFIG.seed).into(),
                             }),
