@@ -1,4 +1,6 @@
 //! A time argument.
+use steel_protocol::packets::game::{ArgumentType, SuggestionType};
+
 use crate::command::arguments::CommandArgument;
 use crate::command::context::CommandContext;
 
@@ -32,5 +34,9 @@ impl CommandArgument for TimeArgument {
         };
 
         Some((&arg[1..], ticks.round() as i32))
+    }
+
+    fn usage(&self) -> (&'static str, ArgumentType, Option<SuggestionType>) {
+        ("<time>", ArgumentType::Time { min: 0 }, None)
     }
 }

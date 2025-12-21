@@ -1,4 +1,6 @@
 //! A rotation argument.
+use steel_protocol::packets::game::{ArgumentType, SuggestionType};
+
 use crate::command::arguments::CommandArgument;
 use crate::command::context::CommandContext;
 
@@ -26,5 +28,9 @@ impl CommandArgument for RotationArgument {
         }
 
         Some((&arg[2..], (yaw, pitch)))
+    }
+
+    fn usage(&self) -> (&'static str, ArgumentType, Option<SuggestionType>) {
+        ("<yaw> <pitch>", ArgumentType::Rotation, None)
     }
 }

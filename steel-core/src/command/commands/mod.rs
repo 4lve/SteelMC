@@ -4,8 +4,9 @@ pub mod weather;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
+use steel_protocol::packets::game::{CommandNode, CommandNodeInfo};
+
 use crate::command::arguments::CommandArgument;
-use crate::command::arguments::literal::LiteralArgument;
 use crate::command::context::CommandContext;
 use crate::command::error::CommandError;
 use crate::server::Server;
@@ -54,6 +55,9 @@ pub trait CommandHandlerDyn {
         server: Arc<Server>,
         context: &mut CommandContext,
     ) -> Result<(), CommandError>;
+
+    /// Generates the usage information for the command.
+    fn usage(&self, buffer: &mut Vec<CommandNode>, root_children: &mut Vec<i32>);
 }
 
 impl CommandHandlerBuilder {
@@ -171,11 +175,48 @@ where
             ))),
         }
     }
+
+    fn usage(&self, buffer: &mut Vec<CommandNode>, root_children: &mut Vec<i32>) {
+        let node_index = buffer.len() as i32;
+        let node = CommandNode::new_literal(self.executor.usage(buffer), self.names()[0], None);
+        root_children.push(node_index);
+        buffer.push(node);
+
+        for name in self.names().iter().skip(1) {
+            root_children.push(buffer.len() as i32);
+            buffer.push(CommandNode::new_literal(
+                CommandNodeInfo::new(Vec::new(), false),
+                name,
+                Some(node_index),
+            ));
+        }
+    }
 }
 
-impl<S, A, E> CommandParserExecutor<S> for CommandParserArgumentExecutor<S, A, E>
+/// A trait that defines the behavior of a type safe command executor.
+pub trait CommandParserExecutor<S> {
+    /// Executes the command with the given unparsed and parsed arguments.
+    fn execute(
+        &self,
+        args: &[&str],
+        parsed: S,
+        server: &Arc<Server>,
+        context: &mut CommandContext,
+    ) -> Option<Result<(), CommandError>>;
+
+    /// Generates usage information for the command.
+    fn usage(&self, buffer: &mut Vec<CommandNode>) -> CommandNodeInfo;
+}
+
+/// Tree node that executes a command with the given parsed arguments.
+pub struct CommandParserLeafExecutor<S, E> {
+    executor: E,
+    _source: PhantomData<S>,
+}
+
+impl<S, E> CommandParserExecutor<S> for CommandParserLeafExecutor<S, E>
 where
-    E: CommandParserExecutor<(S, A)>,
+    E: CommandExecutor<S>,
 {
     fn execute(
         &self,
@@ -184,9 +225,20 @@ where
         server: &Arc<Server>,
         context: &mut CommandContext,
     ) -> Option<Result<(), CommandError>> {
-        let (args, arg) = self.argument.parse(args, context)?;
-        self.executor.execute(args, (parsed, arg), server, context)
+        args.is_empty()
+            .then(|| self.executor.execute(parsed, server, context))
     }
+
+    fn usage(&self, _buffer: &mut Vec<CommandNode>) -> CommandNodeInfo {
+        CommandNodeInfo::new(Vec::new(), true)
+    }
+}
+
+/// Tree node that passes execution to the second executor if the first one fails.
+pub struct CommandParserSplitExecutor<S, E1, E2> {
+    first_executor: E1,
+    second_executor: E2,
+    _source: PhantomData<S>,
 }
 
 impl<S, E1, E2> CommandParserExecutor<S> for CommandParserSplitExecutor<S, E1, E2>
@@ -211,11 +263,114 @@ where
 
         self.second_executor.execute(args, parsed, server, context)
     }
+
+    fn usage(&self, buffer: &mut Vec<CommandNode>) -> CommandNodeInfo {
+        self.first_executor
+            .usage(buffer)
+            .chain(self.second_executor.usage(buffer))
+    }
 }
 
-impl<S, E> CommandParserExecutor<S> for CommandParserLeafExecutor<S, E>
+/// A builder struct for creating command argument executors.
+pub struct CommandParserLiteralBuilder<S> {
+    expected: &'static str,
+    _source: PhantomData<S>,
+}
+
+/// Creates a new literal command argument builder.
+#[must_use]
+pub fn literal<S>(expected: &'static str) -> CommandParserLiteralBuilder<S> {
+    CommandParserLiteralBuilder {
+        expected,
+        _source: PhantomData,
+    }
+}
+
+impl<S> CommandParserLiteralBuilder<S> {
+    /// Executes the command argument executor after the argument is parsed.
+    pub fn then<E>(self, executor: E) -> CommandParserLiteralExecutor<S, E>
+    where
+        E: CommandParserExecutor<S>,
+    {
+        CommandParserLiteralExecutor {
+            expected: self.expected,
+            executor,
+            _source: PhantomData,
+        }
+    }
+
+    /// Executes the command executor after the argument is parsed.
+    pub fn executes<E>(
+        self,
+        executor: E,
+    ) -> CommandParserLiteralExecutor<S, CommandParserLeafExecutor<S, E>>
+    where
+        E: CommandExecutor<S>,
+    {
+        CommandParserLiteralExecutor {
+            expected: self.expected,
+            executor: CommandParserLeafExecutor {
+                executor,
+                _source: PhantomData,
+            },
+            _source: PhantomData,
+        }
+    }
+}
+
+/// Tree node that parses a single argument and provides it to the next executor.
+pub struct CommandParserLiteralExecutor<S, E> {
+    expected: &'static str,
+    executor: E,
+    _source: PhantomData<S>,
+}
+
+impl<S, E1> CommandParserLiteralExecutor<S, E1> {
+    /// Executes the command argument executor after the argument is parsed.
+    pub fn then<E2>(
+        self,
+        executor: E2,
+    ) -> CommandParserLiteralExecutor<S, CommandParserSplitExecutor<S, E1, E2>>
+    where
+        E2: CommandParserExecutor<S>,
+    {
+        CommandParserLiteralExecutor {
+            expected: self.expected,
+            executor: CommandParserSplitExecutor {
+                first_executor: self.executor,
+                second_executor: executor,
+                _source: PhantomData,
+            },
+            _source: PhantomData,
+        }
+    }
+
+    /// Executes the command executor after the argument is parsed.
+    pub fn executes<E2>(
+        self,
+        executor: E2,
+    ) -> CommandParserLiteralExecutor<S, SplitLeafExecutor<S, E1, E2>>
+    where
+        E2: CommandExecutor<S>,
+    {
+        CommandParserLiteralExecutor {
+            expected: self.expected,
+            executor: CommandParserSplitExecutor {
+                first_executor: self.executor,
+                second_executor: CommandParserLeafExecutor {
+                    executor,
+                    _source: PhantomData,
+                },
+                _source: PhantomData,
+            },
+            _source: PhantomData,
+        }
+    }
+}
+
+impl<S, E> CommandParserExecutor<S> for CommandParserLiteralExecutor<S, E>
 where
-    E: CommandExecutor<S>,
+    E: CommandParserExecutor<S>,
 {
     fn execute(
         &self,
@@ -224,41 +379,20 @@ where
         server: &Arc<Server>,
         context: &mut CommandContext,
     ) -> Option<Result<(), CommandError>> {
-        args.is_empty()
-            .then(|| self.executor.execute(parsed, server, context))
+        if *args.first()? == self.expected {
+            self.executor.execute(&args[1..], parsed, server, context)
+        } else {
+            None
+        }
     }
-}
 
-/// A trait that defines the behavior of a type safe command executor.
-pub trait CommandParserExecutor<S> {
-    /// Executes the command with the given unparsed and parsed arguments.
-    fn execute(
-        &self,
-        args: &[&str],
-        parsed: S,
-        server: &Arc<Server>,
-        context: &mut CommandContext,
-    ) -> Option<Result<(), CommandError>>;
-}
+    fn usage(&self, buffer: &mut Vec<CommandNode>) -> CommandNodeInfo {
+        let result = vec![buffer.len() as i32];
+        let node = CommandNode::new_literal(self.executor.usage(buffer), self.expected, None);
+        buffer.push(node);
 
-/// Tree node that parses a single argument and provides it to the next executor.
-pub struct CommandParserArgumentExecutor<S, A, E> {
-    argument: Box<dyn CommandArgument<Output = A>>,
-    executor: E,
-    _source: PhantomData<S>,
-}
-
-/// Tree node that passes execution to the second executor if the first one fails.
-pub struct CommandParserSplitExecutor<S, E1, E2> {
-    first_executor: E1,
-    second_executor: E2,
-    _source: PhantomData<S>,
-}
-
-/// Tree node that executes a command with the given parsed arguments.
-pub struct CommandParserLeafExecutor<S, E> {
-    executor: E,
-    _source: PhantomData<S>,
+        CommandNodeInfo::new(result, false)
+    }
 }
 
 /// A builder struct for creating command argument executors.
@@ -273,15 +407,6 @@ pub fn argument<S, A>(
 ) -> CommandParserArgumentBuilder<S, A> {
     CommandParserArgumentBuilder {
         argument: Box::new(argument),
-        _source: PhantomData,
-    }
-}
-
-/// Creates a new literal command argument builder.
-#[must_use]
-pub fn literal<S>(expected: &'static str) -> CommandParserArgumentBuilder<S, ()> {
-    CommandParserArgumentBuilder {
-        argument: Box::new(LiteralArgument { expected }),
         _source: PhantomData,
     }
 }
@@ -316,6 +441,38 @@ impl<S, A> CommandParserArgumentBuilder<S, A> {
             _source: PhantomData,
         }
     }
+}
+
+impl<S, A, E> CommandParserExecutor<S> for CommandParserArgumentExecutor<S, A, E>
+where
+    E: CommandParserExecutor<(S, A)>,
+{
+    fn execute(
+        &self,
+        args: &[&str],
+        parsed: S,
+        server: &Arc<Server>,
+        context: &mut CommandContext,
+    ) -> Option<Result<(), CommandError>> {
+        let (args, arg) = self.argument.parse(args, context)?;
+        self.executor.execute(args, (parsed, arg), server, context)
+    }
+
+    fn usage(&self, buffer: &mut Vec<CommandNode>) -> CommandNodeInfo {
+        let result = vec![buffer.len() as i32];
+        let node =
+            CommandNode::new_argument(self.executor.usage(buffer), self.argument.usage(), None);
+        buffer.push(node);
+
+        CommandNodeInfo::new(result, false)
+    }
+}
+
+/// Tree node that parses a single argument and provides it to the next executor.
+pub struct CommandParserArgumentExecutor<S, A, E> {
+    argument: Box<dyn CommandArgument<Output = A>>,
+    executor: E,
+    _source: PhantomData<S>,
 }
 
 impl<S, A, E1> CommandParserArgumentExecutor<S, A, E1> {

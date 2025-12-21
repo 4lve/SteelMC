@@ -1,5 +1,6 @@
 mod c_chunk_batch_finished;
 mod c_chunk_batch_start;
+mod c_commands;
 mod c_disguised_chat;
 mod c_forget_level_chunk;
 mod c_game_event;
@@ -23,6 +24,7 @@ mod s_player_load;
 
 pub use c_chunk_batch_finished::CChunkBatchFinished;
 pub use c_chunk_batch_start::CChunkBatchStart;
+pub use c_commands::{ArgumentType, CCommands, CommandNode, CommandNodeInfo, SuggestionType};
 pub use c_disguised_chat::CDisguisedChat;
 pub use c_forget_level_chunk::CForgetLevelChunk;
 pub use c_game_event::CGameEvent;

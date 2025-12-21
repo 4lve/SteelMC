@@ -396,6 +396,20 @@ fn write_to_enum(name: Ident, attrs: Vec<syn::Attribute>) -> TokenStream {
                 steel_utils::codec::VarInt(*self as i32).write(writer)?;
             }
         }
+        Some("string") => {
+            let write_call = if let Some(b) = bound {
+                quote! { self.write_prefixed_bound::<steel_utils::codec::VarInt>(writer, #b)?; }
+            } else {
+                quote! { self.write_prefixed::<steel_utils::codec::VarInt>(writer)?; }
+            };
+
+            quote! {
+                {
+                    use steel_utils::serial::PrefixedWrite;
+                    #write_call
+                }
+            }
+        }
         // Simple implementation
         Some(s) => {
             assert!(ALLOWED_TYPES.contains(&s), "Unknown write strategy: `{s}`");

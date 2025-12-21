@@ -42,10 +42,10 @@ enum WeatherCommandExecutor {
     Thunder,
 }
 
-impl CommandExecutor<((), ())> for WeatherCommandExecutor {
+impl CommandExecutor<()> for WeatherCommandExecutor {
     fn execute(
         &self,
-        _args: ((), ()),
+        _args: (),
         server: &Arc<Server>,
         context: &mut CommandContext,
     ) -> Result<(), CommandError> {
@@ -55,18 +55,18 @@ impl CommandExecutor<((), ())> for WeatherCommandExecutor {
             WeatherCommandExecutor::Thunder => rand::random_range(3_600..=15_600),
         };
 
-        self.execute((((), ()), duration), server, context)
+        self.execute(((), duration), server, context)
     }
 }
 
-impl CommandExecutor<(((), ()), i32)> for WeatherCommandExecutor {
+impl CommandExecutor<((), i32)> for WeatherCommandExecutor {
     fn execute(
         &self,
-        args: (((), ()), i32),
+        args: ((), i32),
         server: &Arc<Server>,
         context: &mut CommandContext,
     ) -> Result<(), CommandError> {
-        let (_, _duration) = args;
+        let ((), _duration) = args;
         let _world = server
             .worlds
             .first()

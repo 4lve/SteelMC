@@ -1,4 +1,5 @@
 //! A vector3 argument.
+use steel_protocol::packets::game::{ArgumentType, SuggestionType};
 use steel_utils::math::Vector3;
 
 use crate::command::arguments::{CommandArgument, Helper};
@@ -25,5 +26,9 @@ impl CommandArgument for Vector3Argument {
             Helper::parse_relative_coordinate::<false>(arg.get(2)?, context.position.map(|o| o.z))?;
 
         Some((&arg[3..], Vector3::new(x, y, z)))
+    }
+
+    fn usage(&self) -> (&'static str, ArgumentType, Option<SuggestionType>) {
+        ("<x> <y> <z>", ArgumentType::Vec3, None)
     }
 }

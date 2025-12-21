@@ -7,6 +7,7 @@ pub mod sender;
 
 use std::sync::Arc;
 
+use steel_protocol::packets::game::{CCommands, CommandNode};
 use steel_utils::text::{TextComponent, color::NamedColor};
 
 use crate::command::commands::CommandHandlerDyn;
@@ -118,6 +119,30 @@ impl CommandDispatcher {
         // TODO: Implement proper command parsing (handling quotes, escapes, etc.)
 
         Ok((command, command_args.split_whitespace().collect()))
+    }
+
+    /// Generates the `CCommands` packet, containing the usage information of every registered commands.
+    pub fn get_commands(&self) -> CCommands {
+        let mut nodes = Vec::with_capacity(self.handlers.len() + 1);
+        let mut root_children = Vec::with_capacity(self.handlers.len());
+
+        self.handlers.iter_sync(|command, handler| {
+            if *command != handler.names()[0] {
+                return true;
+            }
+
+            // TODO: Implement permission checking logic here
+
+            handler.usage(&mut nodes, &mut root_children);
+            true
+        });
+
+        nodes.push(CommandNode::new_root(root_children));
+
+        CCommands {
+            root_index: nodes.len() as i32 - 1,
+            nodes,
+        }
     }
 
     /// Registers a command handler.

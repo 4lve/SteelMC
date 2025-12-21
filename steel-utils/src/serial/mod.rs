@@ -10,7 +10,7 @@ pub mod read;
 /// A module for writing data.
 pub mod write;
 
-const DEFAULT_BOUND: usize = i32::MAX as _;
+const DEFAULT_BOUND: usize = i16::MAX as _;
 
 /// A trait for reading data from a reader.
 pub trait ReadFrom: Sized {

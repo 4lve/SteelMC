@@ -1,4 +1,5 @@
 //! A vector2 argument.
+use steel_protocol::packets::game::{ArgumentType, SuggestionType};
 use steel_utils::math::Vector2;
 
 use crate::command::arguments::{CommandArgument, Helper};
@@ -23,5 +24,9 @@ impl CommandArgument for Vector2Argument {
             Helper::parse_relative_coordinate::<false>(arg.get(1)?, context.position.map(|o| o.z))?;
 
         Some((&arg[2..], Vector2::new(x, z)))
+    }
+
+    fn usage(&self) -> (&'static str, ArgumentType, Option<SuggestionType>) {
+        ("<x> <z>", ArgumentType::Vec2, None)
     }
 }

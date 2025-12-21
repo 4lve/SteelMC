@@ -86,6 +86,10 @@ impl Server {
             },
             enforces_secure_chat: STEEL_CONFIG.enforce_secure_chat,
         });
+
+        let commands = self.command_dispatcher.read().get_commands();
+        player.connection.send_packet(commands);
+
         self.worlds[0].add_player(player);
     }
 

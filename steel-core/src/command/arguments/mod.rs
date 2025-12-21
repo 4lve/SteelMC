@@ -1,9 +1,10 @@
 //! This module contains types and utilities for parsing command arguments.
-pub mod literal;
 pub mod rotation;
 pub mod time;
 pub mod vector2;
 pub mod vector3;
+
+use steel_protocol::packets::game::{ArgumentType, SuggestionType};
 
 use crate::command::context::CommandContext;
 
@@ -18,6 +19,9 @@ pub trait CommandArgument: Send + Sync {
         arg: &'a [&'a str],
         context: &mut CommandContext,
     ) -> Option<(&'a [&'a str], Self::Output)>;
+
+    /// Returns the parser ID associated with this argument.
+    fn usage(&self) -> (&'static str, ArgumentType, Option<SuggestionType>);
 }
 
 struct Helper;
