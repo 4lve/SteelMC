@@ -2,7 +2,7 @@ use std::{borrow::Cow, vec};
 
 use serde::{Deserialize, Serialize};
 
-use super::TextComponent;
+use crate::text::TextComponent;
 
 /// A hover event.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]

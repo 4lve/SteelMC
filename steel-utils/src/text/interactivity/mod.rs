@@ -1,7 +1,12 @@
-use serde::{Deserialize, Serialize};
+/// A module for click events.
+pub mod click;
+/// A module for hover events.
+pub mod hover;
 
-use super::click::ClickEvent;
-use super::hover::HoverEvent;
+pub use click::ClickEvent;
+pub use hover::HoverEvent;
+
+use serde::{Deserialize, Serialize};
 
 /// The interactivity of a text component.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -23,6 +28,20 @@ impl Interactivity {
             click_event: None,
             hover_event: None,
         }
+    }
+
+    /// Sets the click event for the `Interactivity`.
+    #[must_use]
+    pub fn click_event(mut self, click_event: ClickEvent) -> Self {
+        self.click_event = Some(click_event);
+        self
+    }
+
+    /// Sets the hover event for the `Interactivity`.
+    #[must_use]
+    pub fn hover_event(mut self, hover_event: HoverEvent) -> Self {
+        self.hover_event = Some(hover_event);
+        self
     }
 }
 

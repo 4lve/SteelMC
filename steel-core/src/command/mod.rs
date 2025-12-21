@@ -28,6 +28,7 @@ impl CommandDispatcher {
     #[must_use]
     pub fn new() -> Self {
         let dispatcher = CommandDispatcher::new_empty();
+        dispatcher.register(commands::seed::command_handler());
         dispatcher.register(commands::stop::command_handler());
         dispatcher.register(commands::weather::command_handler());
         dispatcher
