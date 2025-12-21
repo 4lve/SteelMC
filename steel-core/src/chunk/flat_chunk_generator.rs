@@ -58,10 +58,14 @@ impl ChunkGenerator for FlatChunkGenerator {
 
                 // Grass block
                 chunk.set_relative_block(x, 3, z, self.grass);
+
+                if x != 0 && x != 15 && z != 0 && z != 15 {
+                    chunk.set_relative_block(x, 7, z, self.grass);
+                }
             }
         }
 
-        chunk.set_relative_block(0, 4, 0, self.torch);
+        chunk.set_relative_block(8, 4, 8, self.torch);
     }
 
     fn build_surface(&self, _chunk: &ChunkAccess) {}

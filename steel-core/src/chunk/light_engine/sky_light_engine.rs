@@ -32,9 +32,6 @@ impl SkyLightEngine {
     /// This is the core optimization: when encountering an empty section,
     /// instead of propagating block-by-block, we skip to the bottom of all
     /// consecutive empty sections below.
-    ///
-    /// # Panics
-    /// This function does not panic under normal circumstances.
     pub fn propagate_from_empty_sections(
         &mut self,
         _chunk_pos: ChunkPos,
@@ -54,16 +51,14 @@ impl SkyLightEngine {
         }
 
         // If all sections are empty (all air), fill everything with light 15
-        if top_section.is_none() {
+        let Some(top_section) = top_section else {
             for idx in 1..=num_sections {
                 if idx < sections.sky_light.len() {
                     *sections.sky_light[idx].write() = LightStorage::new_filled(15);
                 }
             }
             return;
-        }
-
-        let top_section = top_section.expect("top_section should be Some at this point");
+        };
 
         // Fill all sections above top_section with full sky light (15)
         for idx in (top_section + 1)..num_sections {

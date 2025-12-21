@@ -55,6 +55,12 @@ pub trait CenterChunkLightAccess {
 
     /// Checks if the block has an empty collision shape, or None if outside center chunk.
     fn is_empty_shape(&self, pos: BlockPos) -> Option<bool>;
+
+    /// Gets both block state and light level in a single call (optimized).
+    ///
+    /// This performs coordinate conversion only once, making it more efficient than
+    /// calling `get_block_state` and `get_light` separately.
+    fn get_neighbor_data(&self, pos: BlockPos) -> Option<(BlockStateId, u8)>;
 }
 
 /// Base light engine that handles light propagation using a flood-fill algorithm.
@@ -160,14 +166,6 @@ impl LightEngine {
     pub fn run_center_chunk_updates<T: CenterChunkLightAccess>(&mut self, chunk_access: &T) {
         self.propagate_decreases_center(chunk_access);
         self.propagate_increases_center(chunk_access);
-    }
-
-    /// Clears all queued light updates without propagating.
-    ///
-    /// Use `run_light_updates_with_access` for actual light propagation.
-    pub fn run_light_updates(&mut self) {
-        self.decrease_queue.clear();
-        self.increase_queue.clear();
     }
 
     /// Processes all light decrease operations.
@@ -331,13 +329,20 @@ impl LightEngine {
 
                 // Check if neighbor is outside center chunk
                 let Some(neighbor_light) = chunk_access.get_light(neighbor_pos) else {
-                    // Outside center chunk - record as boundary crossing for later
-                    if from_level > 0 {
+                    // Only create boundary crossing if position is within valid world Y bounds
+                    let neighbor_chunk_x = neighbor_pos.0.x >> 4;
+                    let neighbor_chunk_z = neighbor_pos.0.z >> 4;
+                    let center_chunk_pos = chunk_access.center_chunk_pos();
+                    let is_horizontal_boundary = neighbor_chunk_x != center_chunk_pos.0.x
+                        || neighbor_chunk_z != center_chunk_pos.0.y;
+
+                    if is_horizontal_boundary && from_level > 0 {
                         self.boundary_crossings.push(BoundaryCrossing {
                             pos: neighbor_pos,
                             entry: QueueEntry::decrease_all_directions(from_level),
                         });
                     }
+                    // If it's not a horizontal boundary, it must be out of Y bounds - discard
                     continue;
                 };
 
@@ -386,10 +391,19 @@ impl LightEngine {
         while let Some((pos, entry)) = self.increase_queue.dequeue() {
             // Check if position is in center chunk
             let Some(current_light) = chunk_access.get_light(pos) else {
-                // Position outside center chunk - this shouldn't happen in normal flow
-                // but record it as a boundary crossing just in case
-                self.boundary_crossings
-                    .push(BoundaryCrossing { pos, entry });
+                // Position outside center chunk - only create boundary crossing if it's
+                // a horizontal boundary, not if it's outside Y bounds
+                let pos_chunk_x = pos.0.x >> 4;
+                let pos_chunk_z = pos.0.z >> 4;
+                let center_chunk_pos = chunk_access.center_chunk_pos();
+                let is_horizontal_boundary =
+                    pos_chunk_x != center_chunk_pos.0.x || pos_chunk_z != center_chunk_pos.0.y;
+
+                if is_horizontal_boundary {
+                    self.boundary_crossings
+                        .push(BoundaryCrossing { pos, entry });
+                }
+                // If not horizontal boundary, position is outside Y bounds - discard
                 continue;
             };
 
@@ -398,6 +412,11 @@ impl LightEngine {
                 continue;
             }
 
+            // OPTIMIZATION: Cache current block state - used in all 6 direction checks
+            let Some(pos_block) = chunk_access.get_block_state(pos) else {
+                continue;
+            };
+
             for direction in ALL_DIRECTIONS {
                 if !entry.should_propagate(direction) {
                     continue;
@@ -405,33 +424,38 @@ impl LightEngine {
 
                 let neighbor_pos = direction.relative(pos);
 
-                // Try to get neighbor block state and light
-                let neighbor_block_opt = chunk_access.get_block_state(neighbor_pos);
-                let neighbor_light_opt = chunk_access.get_light(neighbor_pos);
+                // Get neighbor block state and light in a single call (optimized)
+                let neighbor_data_opt = chunk_access.get_neighbor_data(neighbor_pos);
 
                 // If neighbor is outside center chunk, defer to Phase 2
-                let (Some(neighbor_block), Some(neighbor_light)) =
-                    (neighbor_block_opt, neighbor_light_opt)
-                else {
-                    // Calculate new light assuming air (opacity 0, reduction 1)
-                    let new_light = current_light.saturating_sub(1);
-                    if new_light > 0 {
-                        self.boundary_crossings.push(BoundaryCrossing {
-                            pos: neighbor_pos,
-                            entry: QueueEntry::increase_skip_one_direction(
-                                new_light,
-                                true, // Assume empty until Phase 2 checks
-                                direction.opposite(),
-                            ),
-                        });
+                let Some((neighbor_block, neighbor_light)) = neighbor_data_opt else {
+                    // Only create boundary crossing if position is within valid world Y bounds
+                    // Positions outside Y bounds (above/below world) are discarded
+                    let neighbor_chunk_x = neighbor_pos.0.x >> 4;
+                    let neighbor_chunk_z = neighbor_pos.0.z >> 4;
+                    let center_chunk_pos = chunk_access.center_chunk_pos();
+                    let is_horizontal_boundary = neighbor_chunk_x != center_chunk_pos.0.x
+                        || neighbor_chunk_z != center_chunk_pos.0.y;
+
+                    if is_horizontal_boundary {
+                        // Calculate new light assuming air (opacity 0, reduction 1)
+                        let new_light = current_light.saturating_sub(1);
+                        if new_light > 0 {
+                            self.boundary_crossings.push(BoundaryCrossing {
+                                pos: neighbor_pos,
+                                entry: QueueEntry::increase_skip_one_direction(
+                                    new_light,
+                                    true, // Assume empty until Phase 2 checks
+                                    direction.opposite(),
+                                ),
+                            });
+                        }
                     }
+                    // If it's not a horizontal boundary, it must be out of Y bounds - discard
                     continue;
                 };
 
-                // Check shape occlusion between blocks
-                let Some(pos_block) = chunk_access.get_block_state(pos) else {
-                    continue;
-                };
+                // Check shape occlusion between blocks (using cached pos_block)
                 if shape_occludes(pos_block, neighbor_block, direction) {
                     continue;
                 }

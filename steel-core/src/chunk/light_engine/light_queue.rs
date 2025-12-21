@@ -1,18 +1,24 @@
 //! FIFO queue for light propagation entries.
-
-use std::collections::VecDeque;
+//!
+//! Uses a simple ring buffer implementation similar to vanilla Minecraft for optimal performance.
 
 use steel_utils::BlockPos;
 
 use super::queue_entry::QueueEntry;
 
-/// A FIFO queue for light propagation.
+/// A FIFO queue for light propagation using a ring buffer.
 ///
 /// Stores pairs of (`BlockPos`, `QueueEntry`) for processing light changes.
 /// The queue processes entries in order to ensure correct light propagation.
+///
+/// Implementation uses a simple array-based ring buffer with head/tail pointers,
+/// matching vanilla Minecraft's approach for minimal overhead.
 #[derive(Debug)]
 pub struct LightQueue {
-    queue: VecDeque<(BlockPos, QueueEntry)>,
+    buffer: Vec<(BlockPos, QueueEntry)>,
+    head: usize,
+    tail: usize,
+    size: usize,
 }
 
 impl LightQueue {
@@ -22,46 +28,95 @@ impl LightQueue {
     /// which significantly reduces reallocation overhead during flood-fill.
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            queue: VecDeque::with_capacity(4096),
-        }
+        Self::with_capacity(4096)
     }
 
     /// Creates a new light queue with the specified capacity.
     #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
+        // Use power-of-2 capacity for faster modulo operations
+        let capacity = capacity.next_power_of_two();
         Self {
-            queue: VecDeque::with_capacity(capacity),
+            buffer: Vec::with_capacity(capacity),
+            head: 0,
+            tail: 0,
+            size: 0,
         }
     }
 
     /// Enqueues a position and queue entry for processing.
+    #[inline]
     pub fn enqueue(&mut self, pos: BlockPos, entry: QueueEntry) {
-        self.queue.push_back((pos, entry));
+        // Grow if needed
+        if self.size == self.buffer.capacity() {
+            self.grow();
+        }
+
+        // Add to buffer
+        if self.tail < self.buffer.len() {
+            self.buffer[self.tail] = (pos, entry);
+        } else {
+            self.buffer.push((pos, entry));
+        }
+
+        self.tail = (self.tail + 1) & (self.buffer.capacity() - 1);
+        self.size += 1;
     }
 
     /// Dequeues the next position and queue entry.
     ///
     /// Returns `None` if the queue is empty.
+    #[inline]
     pub fn dequeue(&mut self) -> Option<(BlockPos, QueueEntry)> {
-        self.queue.pop_front()
+        if self.size == 0 {
+            return None;
+        }
+
+        let item = self.buffer[self.head];
+        self.head = (self.head + 1) & (self.buffer.capacity() - 1);
+        self.size -= 1;
+
+        Some(item)
     }
 
     /// Checks if the queue is empty.
     #[must_use]
+    #[inline]
     pub fn is_empty(&self) -> bool {
-        self.queue.is_empty()
+        self.size == 0
     }
 
     /// Returns the number of entries in the queue.
     #[must_use]
+    #[inline]
     pub fn len(&self) -> usize {
-        self.queue.len()
+        self.size
     }
 
     /// Clears all entries from the queue.
+    #[inline]
     pub fn clear(&mut self) {
-        self.queue.clear();
+        self.head = 0;
+        self.tail = 0;
+        self.size = 0;
+    }
+
+    /// Grows the internal buffer when capacity is reached.
+    fn grow(&mut self) {
+        let old_capacity = self.buffer.capacity();
+        let new_capacity = (old_capacity * 2).max(16);
+
+        let mut new_buffer = Vec::with_capacity(new_capacity);
+
+        // Copy existing elements in order
+        for _ in 0..self.size {
+            new_buffer.push(self.buffer[self.head]);
+            self.head = (self.head + 1) & (old_capacity - 1);
+        }
+
+        self.buffer = new_buffer;
+        self.head = 0;
+        self.tail = self.size;
     }
 }
 
