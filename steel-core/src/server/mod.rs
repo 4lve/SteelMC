@@ -25,6 +25,8 @@ use crate::world::World;
 
 /// The main server struct.
 pub struct Server {
+    /// The cancellation token for graceful shutdown.
+    pub cancel_token: CancellationToken,
     /// The key store for the server.
     pub key_store: KeyStore,
     /// The registry for the server.
@@ -41,7 +43,7 @@ pub struct Server {
 
 impl Server {
     /// Creates a new server.
-    pub async fn new(chunk_runtime: Arc<Runtime>) -> Self {
+    pub async fn new(chunk_runtime: Arc<Runtime>, cancel_token: CancellationToken) -> Self {
         let start = Instant::now();
         let mut registry = Registry::new_vanilla();
         registry.freeze();
@@ -51,6 +53,7 @@ impl Server {
         let registry_cache = RegistryCache::new(&registry).await;
 
         Server {
+            cancel_token,
             key_store: KeyStore::create(),
             worlds: vec![Arc::new(World::new(&registry, chunk_runtime))],
             registry,

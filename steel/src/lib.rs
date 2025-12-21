@@ -37,7 +37,8 @@ impl SteelServer {
     pub async fn new(chunk_runtime: Arc<Runtime>) -> Self {
         log::info!("Starting Steel Server");
 
-        let server = Server::new(chunk_runtime).await;
+        let cancel_token = CancellationToken::new();
+        let server = Server::new(chunk_runtime, cancel_token.clone()).await;
 
         Self {
             tcp_listener: TcpListener::bind(SocketAddrV4::new(
@@ -46,7 +47,7 @@ impl SteelServer {
             ))
             .await
             .expect("Failed to bind to server address"),
-            cancel_token: CancellationToken::new(),
+            cancel_token,
             client_id: 0,
             server: Arc::new(server),
         }
