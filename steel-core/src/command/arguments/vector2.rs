@@ -26,7 +26,7 @@ impl CommandArgument for Vector2Argument {
         Some((&arg[2..], Vector2::new(x, z)))
     }
 
-    fn usage(&self) -> (&'static str, ArgumentType, Option<SuggestionType>) {
-        ("<x> <z>", ArgumentType::Vec2, None)
+    fn usage(&self) -> (ArgumentType, Option<SuggestionType>) {
+        (ArgumentType::Vec2, None)
     }
 }

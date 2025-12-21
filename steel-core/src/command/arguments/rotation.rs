@@ -30,7 +30,7 @@ impl CommandArgument for RotationArgument {
         Some((&arg[2..], (yaw, pitch)))
     }
 
-    fn usage(&self) -> (&'static str, ArgumentType, Option<SuggestionType>) {
-        ("<yaw> <pitch>", ArgumentType::Rotation, None)
+    fn usage(&self) -> (ArgumentType, Option<SuggestionType>) {
+        (ArgumentType::Rotation, None)
     }
 }

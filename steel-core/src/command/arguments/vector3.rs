@@ -28,7 +28,7 @@ impl CommandArgument for Vector3Argument {
         Some((&arg[3..], Vector3::new(x, y, z)))
     }
 
-    fn usage(&self) -> (&'static str, ArgumentType, Option<SuggestionType>) {
-        ("<x> <y> <z>", ArgumentType::Vec3, None)
+    fn usage(&self) -> (ArgumentType, Option<SuggestionType>) {
+        (ArgumentType::Vec3, None)
     }
 }

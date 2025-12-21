@@ -177,10 +177,10 @@ where
     }
 
     fn usage(&self, buffer: &mut Vec<CommandNode>, root_children: &mut Vec<i32>) {
-        let node_index = buffer.len() as i32;
         let node = CommandNode::new_literal(self.executor.usage(buffer), self.names()[0], None);
-        root_children.push(node_index);
+        let node_index = buffer.len() as i32;
         buffer.push(node);
+        root_children.push(node_index);
 
         for name in self.names().iter().skip(1) {
             root_children.push(buffer.len() as i32);
@@ -387,8 +387,8 @@ where
     }
 
     fn usage(&self, buffer: &mut Vec<CommandNode>) -> CommandNodeInfo {
-        let result = vec![buffer.len() as i32];
         let node = CommandNode::new_literal(self.executor.usage(buffer), self.expected, None);
+        let result = vec![buffer.len() as i32];
         buffer.push(node);
 
         CommandNodeInfo::new(result, false)
@@ -397,15 +397,18 @@ where
 
 /// A builder struct for creating command argument executors.
 pub struct CommandParserArgumentBuilder<S, A> {
+    name: &'static str,
     argument: Box<dyn CommandArgument<Output = A>>,
     _source: PhantomData<S>,
 }
 
 /// Creates a new command argument builder.
 pub fn argument<S, A>(
+    name: &'static str,
     argument: impl CommandArgument<Output = A> + 'static,
 ) -> CommandParserArgumentBuilder<S, A> {
     CommandParserArgumentBuilder {
+        name,
         argument: Box::new(argument),
         _source: PhantomData,
     }
@@ -418,6 +421,7 @@ impl<S, A> CommandParserArgumentBuilder<S, A> {
         E: CommandParserExecutor<(S, A)>,
     {
         CommandParserArgumentExecutor {
+            name: self.name,
             argument: self.argument,
             executor,
             _source: PhantomData,
@@ -433,6 +437,7 @@ impl<S, A> CommandParserArgumentBuilder<S, A> {
         E: CommandExecutor<(S, A)>,
     {
         CommandParserArgumentExecutor {
+            name: self.name,
             argument: self.argument,
             executor: CommandParserLeafExecutor {
                 executor,
@@ -459,9 +464,13 @@ where
     }
 
     fn usage(&self, buffer: &mut Vec<CommandNode>) -> CommandNodeInfo {
+        let node = CommandNode::new_argument(
+            self.executor.usage(buffer),
+            self.name,
+            self.argument.usage(),
+            None,
+        );
         let result = vec![buffer.len() as i32];
-        let node =
-            CommandNode::new_argument(self.executor.usage(buffer), self.argument.usage(), None);
         buffer.push(node);
 
         CommandNodeInfo::new(result, false)
@@ -470,6 +479,7 @@ where
 
 /// Tree node that parses a single argument and provides it to the next executor.
 pub struct CommandParserArgumentExecutor<S, A, E> {
+    name: &'static str,
     argument: Box<dyn CommandArgument<Output = A>>,
     executor: E,
     _source: PhantomData<S>,
@@ -485,6 +495,7 @@ impl<S, A, E1> CommandParserArgumentExecutor<S, A, E1> {
         E2: CommandParserExecutor<(S, A)>,
     {
         CommandParserArgumentExecutor {
+            name: self.name,
             argument: self.argument,
             executor: CommandParserSplitExecutor {
                 first_executor: self.executor,
@@ -504,6 +515,7 @@ impl<S, A, E1> CommandParserArgumentExecutor<S, A, E1> {
         E2: CommandExecutor<(S, A)>,
     {
         CommandParserArgumentExecutor {
+            name: self.name,
             argument: self.argument,
             executor: CommandParserSplitExecutor {
                 first_executor: self.executor,

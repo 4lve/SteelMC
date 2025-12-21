@@ -137,12 +137,10 @@ impl CommandDispatcher {
             true
         });
 
+        let root_index = nodes.len() as i32;
         nodes.push(CommandNode::new_root(root_children));
 
-        CCommands {
-            root_index: nodes.len() as i32 - 1,
-            nodes,
-        }
+        CCommands { root_index, nodes }
     }
 
     /// Registers a command handler.

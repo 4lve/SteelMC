@@ -36,7 +36,7 @@ impl CommandArgument for TimeArgument {
         Some((&arg[1..], ticks.round() as i32))
     }
 
-    fn usage(&self) -> (&'static str, ArgumentType, Option<SuggestionType>) {
-        ("<time>", ArgumentType::Time { min: 0 }, None)
+    fn usage(&self) -> (ArgumentType, Option<SuggestionType>) {
+        (ArgumentType::Time { min: 0 }, None)
     }
 }

@@ -21,17 +21,17 @@ pub fn command_handler() -> impl CommandHandlerDyn {
     )
     .then(
         literal("rain")
-            .then(argument(TimeArgument).executes(WeatherCommandExecutor::Rain))
+            .then(argument("duration", TimeArgument).executes(WeatherCommandExecutor::Rain))
             .executes(WeatherCommandExecutor::Rain),
     )
     .then(
         literal("thunder")
-            .then(argument(TimeArgument).executes(WeatherCommandExecutor::Thunder))
+            .then(argument("duration", TimeArgument).executes(WeatherCommandExecutor::Thunder))
             .executes(WeatherCommandExecutor::Thunder),
     )
     .then(
         literal("clear")
-            .then(argument(TimeArgument).executes(WeatherCommandExecutor::Clear))
+            .then(argument("duration", TimeArgument).executes(WeatherCommandExecutor::Clear))
             .executes(WeatherCommandExecutor::Clear),
     )
 }

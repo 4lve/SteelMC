@@ -61,26 +61,18 @@ impl CommandNode {
 
     pub fn new_argument(
         info: CommandNodeInfo,
-        argument: (&'static str, ArgumentType, Option<SuggestionType>),
+        name: &'static str,
+        argument: (ArgumentType, Option<SuggestionType>),
         redirects_to: Option<i32>,
     ) -> Self {
         Self::Argument {
             children: info.children,
-            name: argument.0,
+            name,
             is_executable: info.is_executable,
             redirects_to,
-            parser: argument.1,
-            suggestions_type: argument.2,
+            parser: argument.0,
+            suggestions_type: argument.1,
         }
-    }
-
-    pub fn make_executable(mut self) -> Self {
-        if let CommandNode::Literal { is_executable, .. }
-        | CommandNode::Argument { is_executable, .. } = &mut self
-        {
-            *is_executable = true;
-        }
-        self
     }
 
     fn flags(&self) -> u8 {
@@ -139,7 +131,11 @@ impl CommandNode {
 impl WriteTo for CommandNode {
     fn write(&self, writer: &mut impl Write) -> Result<()> {
         writer.write_all(&self.flags().to_be_bytes())?;
-        self.children().write_prefixed::<VarInt>(writer)?;
+        let children = self.children();
+        VarInt(children.len() as i32).write(writer)?;
+        for child in children {
+            VarInt(*child).write(writer)?;
+        }
 
         if let Some(redirects_to) = self.redirects_to() {
             VarInt(*redirects_to).write(writer)?;

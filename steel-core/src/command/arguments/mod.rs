@@ -21,7 +21,7 @@ pub trait CommandArgument: Send + Sync {
     ) -> Option<(&'a [&'a str], Self::Output)>;
 
     /// Returns the parser ID associated with this argument.
-    fn usage(&self) -> (&'static str, ArgumentType, Option<SuggestionType>);
+    fn usage(&self) -> (ArgumentType, Option<SuggestionType>);
 }
 
 struct Helper;
