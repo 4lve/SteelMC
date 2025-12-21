@@ -2,6 +2,7 @@
 use std::sync::Arc;
 
 use steel_utils::text::TextComponent;
+use steel_utils::translations;
 
 use crate::command::arguments::time::TimeArgument;
 use crate::command::commands::{
@@ -74,19 +75,20 @@ impl CommandExecutor<((), i32)> for WeatherCommandExecutor {
 
         match self {
             WeatherCommandExecutor::Clear => {
-                context
-                    .sender
-                    .send_message(TextComponent::const_translate("commands.weather.set.clear"));
+                context.sender.send_message(
+                    TextComponent::new().translate(translations::COMMANDS_WEATHER_SET_CLEAR.msg()),
+                );
             }
             WeatherCommandExecutor::Rain => {
-                context
-                    .sender
-                    .send_message(TextComponent::const_translate("commands.weather.set.rain"));
+                context.sender.send_message(
+                    TextComponent::new().translate(translations::COMMANDS_WEATHER_SET_RAIN.msg()),
+                );
             }
             WeatherCommandExecutor::Thunder => {
-                context.sender.send_message(TextComponent::const_translate(
-                    "commands.weather.set.thunder",
-                ));
+                context.sender.send_message(
+                    TextComponent::new()
+                        .translate(translations::COMMANDS_WEATHER_SET_THUNDER.msg()),
+                );
             }
         }
 
