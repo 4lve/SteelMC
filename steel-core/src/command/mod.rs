@@ -28,6 +28,7 @@ impl CommandDispatcher {
     #[must_use]
     pub fn new() -> Self {
         let dispatcher = CommandDispatcher::new_empty();
+        dispatcher.register(commands::execute::command_handler());
         dispatcher.register(commands::seed::command_handler());
         dispatcher.register(commands::stop::command_handler());
         dispatcher.register(commands::weather::command_handler());
@@ -44,11 +45,7 @@ impl CommandDispatcher {
 
     /// Executes a command.
     pub fn handle_command(&self, sender: CommandSender, command: String, server: &Arc<Server>) {
-        let mut context = CommandContext {
-            sender: sender.clone(),
-            player: sender.get_player().cloned(),
-            position: sender.get_player().map(|p| *p.position.lock()),
-        };
+        let mut context = CommandContext::new(sender.clone());
 
         if let Err(error) = Self::split_command(&command)
             .and_then(|(command, args)| self.execute(command, &args, &mut context, server))

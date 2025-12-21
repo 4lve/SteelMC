@@ -14,7 +14,6 @@ pub fn command_handler() -> impl CommandHandlerDyn {
 }
 
 struct StopCommandExecutor;
-
 impl CommandExecutor<()> for StopCommandExecutor {
     fn execute(
         &self,

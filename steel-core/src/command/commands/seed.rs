@@ -15,8 +15,12 @@ use crate::server::Server;
 /// Handler for the "seed" command.
 #[must_use]
 pub fn command_handler() -> impl CommandHandlerDyn {
-    CommandHandlerBuilder::new(&["seed"], "seeds the server.", "minecraft:command.seed")
-        .executes(SeedCommandExecutor)
+    CommandHandlerBuilder::new(
+        &["seed"],
+        "Displays the world seed.",
+        "minecraft:command.seed",
+    )
+    .executes(SeedCommandExecutor)
 }
 
 struct SeedCommandExecutor;

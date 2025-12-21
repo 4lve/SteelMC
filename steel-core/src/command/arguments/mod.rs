@@ -1,4 +1,5 @@
 //! This module contains types and utilities for parsing command arguments.
+pub mod anchor;
 pub mod rotation;
 pub mod time;
 pub mod vector2;
