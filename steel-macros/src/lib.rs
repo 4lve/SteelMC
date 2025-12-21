@@ -55,18 +55,20 @@ impl Strategy {
 fn expand_known_type(ty: &syn::Type) -> proc_macro2::TokenStream {
     // Check if it's a simple path (single identifier)
     if let syn::Type::Path(type_path) = ty
-        && type_path.qself.is_none() && type_path.path.segments.len() == 1 {
-            let segment = &type_path.path.segments[0];
-            if segment.arguments.is_empty() {
-                let ident_str = segment.ident.to_string();
-                // Expand known codec types
-                match ident_str.as_str() {
-                    "VarInt" => return quote! { steel_utils::codec::VarInt },
-                    "VarLong" => return quote! { steel_utils::codec::VarLong },
-                    _ => {}
-                }
+        && type_path.qself.is_none()
+        && type_path.path.segments.len() == 1
+    {
+        let segment = &type_path.path.segments[0];
+        if segment.arguments.is_empty() {
+            let ident_str = segment.ident.to_string();
+            // Expand known codec types
+            match ident_str.as_str() {
+                "VarInt" => return quote! { steel_utils::codec::VarInt },
+                "VarLong" => return quote! { steel_utils::codec::VarLong },
+                _ => {}
             }
         }
+    }
     // For unknown types, use as-is
     quote! { #ty }
 }
@@ -268,9 +270,11 @@ fn read_from_struct(s: syn::DataStruct, name: Ident) -> TokenStream {
             quote! {
                 let #field_name = #read_code;
             }
-        } else { quote! {
-            let #field_name = <#field_type>::read(data)?;
-        } }
+        } else {
+            quote! {
+                let #field_name = <#field_type>::read(data)?;
+            }
+        }
     });
 
     let field_names = fields
@@ -444,6 +448,7 @@ fn parse_write_attributes(f: &syn::Field) -> FieldWriteAttributes {
 /// - `strategy`: The write strategy to apply
 /// - `value`: Token stream representing the value to write (e.g., `self.field` or `item`)
 /// - `bound`: Optional bound for prefixed writes
+#[allow(clippy::too_many_lines)]
 fn generate_write_code(
     strategy: &Strategy,
     value: proc_macro2::TokenStream,
@@ -481,6 +486,11 @@ fn generate_write_code(
             } else {
                 (-1i8).write(writer)?;
             }
+        },
+        // Registry holder reference format: write (id + 1) as VarInt
+        // Minecraft uses 0 for "direct" (inline value) and N>0 for "reference" (registry id = N-1)
+        "RegistryHolder" => quote! {
+            steel_utils::codec::VarInt((#value) as i32 + 1).write(writer)?;
         },
         "Prefixed" => {
             let prefix = strategy
@@ -551,7 +561,7 @@ fn generate_write_code(
         }
         s => panic!(
             "Unknown write strategy: `{s}`. \
-            Expected one of: VarInt, VarLong, Byte, I64, Json, OptionByte, Prefixed, Unprefixed, NoPrefixVec"
+            Expected one of: VarInt, VarLong, Byte, I64, Json, OptionByte, RegistryHolder, Prefixed, Unprefixed, NoPrefixVec"
         ),
     }
 }
@@ -566,9 +576,13 @@ fn write_to_struct(s: syn::DataStruct, name: Ident, generics: &syn::Generics) ->
         let field_name = f.ident.as_ref().expect("should have a named field");
         let FieldWriteAttributes { strategy, bound } = parse_write_attributes(f);
 
-        if let Some(strat) = strategy { generate_write_code(&strat, quote! { self.#field_name }, bound.as_ref()) } else { quote! {
-            self.#field_name.write(writer)?;
-        } }
+        if let Some(strat) = strategy {
+            generate_write_code(&strat, quote! { self.#field_name }, bound.as_ref())
+        } else {
+            quote! {
+                self.#field_name.write(writer)?;
+            }
+        }
     });
 
     let (impl_generics, ty_generics, _) = generics.split_for_impl();

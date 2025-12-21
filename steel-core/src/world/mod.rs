@@ -5,7 +5,6 @@ use std::time::Duration;
 use scc::HashMap;
 use steel_protocol::packets::game::{CPlayerChat, CSystemChat};
 use steel_registry::Registry;
-use steel_utils::codec::VarInt;
 use tokio::runtime::Runtime;
 use uuid::Uuid;
 
@@ -71,7 +70,7 @@ impl World {
 
         self.players.iter_sync(|_, recipient| {
             let messages_received = recipient.get_and_increment_messages_received();
-            packet.global_index = VarInt(messages_received);
+            packet.global_index = messages_received;
 
             log::debug!(
                 "Broadcasting to player {} (UUID: {}), global_index={}",
@@ -141,7 +140,7 @@ impl World {
 
         self.players.iter_sync(|_, recipient| {
             let messages_received = recipient.get_and_increment_messages_received();
-            packet.global_index = VarInt(messages_received);
+            packet.global_index = messages_received;
 
             recipient.connection.send_packet(packet.clone());
             true

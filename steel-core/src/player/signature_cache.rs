@@ -1,7 +1,6 @@
 //! Chat message signature tracking for secure chat validation.
 
 use std::collections::VecDeque;
-use steel_utils::codec::VarInt;
 
 /// Maximum number of cached signatures (Vanilla: 128)
 const MAX_CACHED_SIGNATURES: usize = 128;
@@ -254,14 +253,14 @@ impl MessageCache {
                 );
                 indexed.push(crate::player::PreviousMessageEntry {
                     // Send ID reference to recipient's cache (index + 1 because 0 is reserved for full signature)
-                    id: VarInt(1 + index as i32),
+                    id: 1 + index as i32,
                     signature: None,
                 });
             } else {
                 log::debug!("  lastSeen[{i}]: NOT in cache -> sending full signature (ID=0)");
                 indexed.push(crate::player::PreviousMessageEntry {
                     // Send ID as 0 for full signature
-                    id: VarInt(0),
+                    id: 0,
                     signature: Some(signature.clone()),
                 });
             }

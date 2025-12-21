@@ -27,7 +27,7 @@ use steel_protocol::packets::{
         CPlayerChat, FilterType, PreviousMessage, SChat, SChatAck, SChatSessionUpdate, SMovePlayer,
     },
 };
-use steel_utils::{ChunkPos, codec::VarInt, math::Vector3, text::TextComponent, translations};
+use steel_utils::{ChunkPos, math::Vector3, text::TextComponent, translations};
 
 /// Re-export `PreviousMessage` as `PreviousMessageEntry` for use in `signature_cache`
 pub type PreviousMessageEntry = PreviousMessage;
@@ -278,9 +278,9 @@ impl Player {
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
         let chat_packet = CPlayerChat::new(
-            VarInt(0),
+            0,
             player.gameprofile.id,
-            VarInt(sender_index),
+            sender_index,
             signature.clone(),
             chat_message.clone(),
             packet.timestamp,
@@ -289,7 +289,8 @@ impl Player {
             Some(TextComponent::new().text(chat_message.clone())),
             FilterType::PassThrough,
             steel_protocol::packets::game::ChatTypeBound {
-                registry_id: VarInt(0),
+                //TODO: Use the registry to derive this instead of hardcoding it
+                registry_id: 0,
                 sender_name: TextComponent::new().text(player.gameprofile.name.clone()),
                 target_name: None,
             },
