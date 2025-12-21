@@ -75,6 +75,12 @@ impl WriteTo for f32 {
     }
 }
 
+impl WriteTo for f64 {
+    fn write(&self, writer: &mut impl Write) -> Result<()> {
+        writer.write_all(&self.to_be_bytes())
+    }
+}
+
 impl<T: WriteTo> WriteTo for Option<T> {
     fn write(&self, writer: &mut impl Write) -> Result<()> {
         if let Some(value) = self {

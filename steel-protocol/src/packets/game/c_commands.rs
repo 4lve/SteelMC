@@ -307,10 +307,10 @@ impl WriteTo for ArgumentType {
         VarInt(id).write(writer)?;
 
         match self {
-            // Self::Float { min, max } => Self::write_number_arg(*min, *max, write),
-            // Self::Double { min, max } => Self::write_number_arg(*min, *max, write),
-            // Self::Integer { min, max } => Self::write_number_arg(*min, *max, write),
-            // Self::Long { min, max } => Self::write_number_arg(*min, *max, write),
+            Self::Float { min, max } => Self::write_min_max(*min, *max, writer),
+            Self::Double { min, max } => Self::write_min_max(*min, *max, writer),
+            Self::Integer { min, max } => Self::write_min_max(*min, *max, writer),
+            Self::Long { min, max } => Self::write_min_max(*min, *max, writer),
             Self::String { behavior } => {
                 let i = match behavior {
                     ArgumentStringTypeBehavior::SingleWord => 0,
@@ -319,15 +319,38 @@ impl WriteTo for ArgumentType {
                 };
                 VarInt(i).write(writer)
             }
-            // Self::Entity { flags } => Self::write_with_flags(*flags, write),
-            // Self::ScoreHolder { flags } => Self::write_with_flags(*flags, write),
+            Self::Entity { flags } => flags.write(writer),
+            Self::ScoreHolder { flags } => flags.write(writer),
             Self::Time { min } => min.write(writer),
-            // Self::ResourceOrTag { identifier } => Self::write_with_identifier(identifier, write),
-            // Self::ResourceOrTagKey { identifier } => Self::write_with_identifier(identifier, write),
-            // Self::Resource { identifier } => Self::write_with_identifier(identifier, write),
-            // Self::ResourceKey { identifier } => Self::write_with_identifier(identifier, write),
+            Self::ResourceOrTag { identifier } => identifier.write_prefixed::<VarInt>(writer),
+            Self::ResourceOrTagKey { identifier } => identifier.write_prefixed::<VarInt>(writer),
+            Self::Resource { identifier } => identifier.write_prefixed::<VarInt>(writer),
+            Self::ResourceKey { identifier } => identifier.write_prefixed::<VarInt>(writer),
             _ => Ok(()),
         }
+    }
+}
+
+impl ArgumentType {
+    fn write_min_max<T: WriteTo>(
+        min: Option<T>,
+        max: Option<T>,
+        writer: &mut impl Write,
+    ) -> Result<()> {
+        // none = 0
+        // min = 1
+        // max = 2
+        // min & max = 3
+        (min.is_some() as u8 + max.is_some() as u8 + max.is_some() as u8).write(writer)?;
+
+        if let Some(min) = min {
+            min.write(writer)?;
+        }
+        if let Some(max) = max {
+            max.write(writer)?;
+        }
+
+        Ok(())
     }
 }
 
