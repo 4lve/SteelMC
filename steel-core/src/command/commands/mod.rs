@@ -4,6 +4,7 @@ pub mod stop;
 pub mod weather;
 
 use std::marker::PhantomData;
+use std::ops::Not;
 use std::sync::Arc;
 
 use steel_protocol::packets::game::{CommandNode, CommandNodeInfo};
@@ -19,8 +20,8 @@ pub trait CommandExecutor<S> {
     fn execute(
         &self,
         parsed: S,
-        server: &Arc<Server>,
         context: &mut CommandContext,
+        server: &Arc<Server>,
     ) -> Result<(), CommandError>;
 }
 
@@ -51,11 +52,11 @@ pub trait CommandHandlerDyn {
     fn permission(&self) -> &'static str;
 
     /// Handles the execution of a command sent by a player.
-    fn handle(
+    fn execute(
         &self,
         command_args: &[&str],
-        server: Arc<Server>,
         context: &mut CommandContext,
+        server: &Arc<Server>,
     ) -> Result<(), CommandError>;
 
     /// Generates the usage information for the command.
@@ -163,14 +164,17 @@ where
         self.permission
     }
 
-    /// Handles the execution of a command sent by a player.
-    fn handle(
+    /// Executes the command with the given unparsed arguments.
+    fn execute(
         &self,
         command_args: &[&str],
-        server: Arc<Server>,
         context: &mut CommandContext,
+        server: &Arc<Server>,
     ) -> Result<(), CommandError> {
-        match self.executor.execute(command_args, (), &server, context) {
+        match self
+            .executor
+            .execute(command_args, (), context, server, self)
+        {
             Some(result) => result,
             None => Err(CommandError::CommandFailed(Box::new(
                 "Invalid Syntax.".into(),
@@ -179,17 +183,21 @@ where
     }
 
     fn usage(&self, buffer: &mut Vec<CommandNode>, root_children: &mut Vec<i32>) {
-        let node = CommandNode::new_literal(self.executor.usage(buffer), self.names()[0], None);
-        let node_index = buffer.len() as i32;
+        let node_index = buffer.len();
+        let node = CommandNode::new_root(); // Reserve spot in buffer before calling children
         buffer.push(node);
-        root_children.push(node_index);
+        root_children.push(node_index as i32);
+
+        buffer[node_index] = CommandNode::new_literal(
+            self.executor.usage(buffer, node_index as i32),
+            self.names()[0],
+        );
 
         for name in self.names().iter().skip(1) {
             root_children.push(buffer.len() as i32);
             buffer.push(CommandNode::new_literal(
-                CommandNodeInfo::new(Vec::new(), false),
+                CommandNodeInfo::new_redirect(node_index as i32),
                 name,
-                Some(node_index),
             ));
         }
     }
@@ -202,12 +210,13 @@ pub trait CommandParserExecutor<S> {
         &self,
         args: &[&str],
         parsed: S,
-        server: &Arc<Server>,
         context: &mut CommandContext,
+        server: &Arc<Server>,
+        handler: &dyn CommandHandlerDyn,
     ) -> Option<Result<(), CommandError>>;
 
     /// Generates usage information for the command.
-    fn usage(&self, buffer: &mut Vec<CommandNode>) -> CommandNodeInfo;
+    fn usage(&self, buffer: &mut Vec<CommandNode>, node_index: i32) -> CommandNodeInfo;
 }
 
 /// Tree node that executes a command with the given parsed arguments.
@@ -224,15 +233,16 @@ where
         &self,
         args: &[&str],
         parsed: S,
-        server: &Arc<Server>,
         context: &mut CommandContext,
+        server: &Arc<Server>,
+        _: &dyn CommandHandlerDyn,
     ) -> Option<Result<(), CommandError>> {
         args.is_empty()
-            .then(|| self.executor.execute(parsed, server, context))
+            .then(|| self.executor.execute(parsed, context, server))
     }
 
-    fn usage(&self, _buffer: &mut Vec<CommandNode>) -> CommandNodeInfo {
-        CommandNodeInfo::new(Vec::new(), true)
+    fn usage(&self, _buffer: &mut Vec<CommandNode>, _: i32) -> CommandNodeInfo {
+        CommandNodeInfo::new_executable()
     }
 }
 
@@ -253,23 +263,87 @@ where
         &self,
         args: &[&str],
         parsed: S,
-        server: &Arc<Server>,
         context: &mut CommandContext,
+        server: &Arc<Server>,
+        handler: &dyn CommandHandlerDyn,
     ) -> Option<Result<(), CommandError>> {
         let result = self
             .first_executor
-            .execute(args, parsed.clone(), server, context);
+            .execute(args, parsed.clone(), context, server, handler);
         if result.is_some() {
             return result;
         }
 
-        self.second_executor.execute(args, parsed, server, context)
+        self.second_executor
+            .execute(args, parsed, context, server, handler)
     }
 
-    fn usage(&self, buffer: &mut Vec<CommandNode>) -> CommandNodeInfo {
+    fn usage(&self, buffer: &mut Vec<CommandNode>, node_index: i32) -> CommandNodeInfo {
         self.first_executor
-            .usage(buffer)
-            .chain(self.second_executor.usage(buffer))
+            .usage(buffer, node_index)
+            .chain(self.second_executor.usage(buffer, node_index))
+    }
+}
+
+/// Tree node that redirects to another node.
+pub struct CommandParserRedirectExecutor<S, E> {
+    to: CommandRedirectTarget,
+    executor: E,
+    _source: PhantomData<S>,
+}
+
+/// Creates a new command redirect builder.
+pub fn redirect<S, E>(
+    to: CommandRedirectTarget,
+    executor: E,
+) -> CommandParserRedirectExecutor<S, E> {
+    CommandParserRedirectExecutor {
+        to,
+        executor,
+        _source: PhantomData,
+    }
+}
+
+/// Target for redirecting command execution.
+pub enum CommandRedirectTarget {
+    /// Redirects to the current `CommandHandler`, allowing any branch of current command to be executed.
+    Current,
+    /// Redirects to the `CommandDispatcher`, allowing any commands to be executed.
+    All,
+}
+
+impl<S, E> CommandParserExecutor<S> for CommandParserRedirectExecutor<S, E>
+where
+    E: CommandExecutor<S>,
+{
+    fn execute(
+        &self,
+        args: &[&str],
+        parsed: S,
+        context: &mut CommandContext,
+        server: &Arc<Server>,
+        handler: &dyn CommandHandlerDyn,
+    ) -> Option<Result<(), CommandError>> {
+        if let Err(err) = self.executor.execute(parsed, context, server) {
+            return Some(Err(err));
+        }
+
+        args.is_empty().not().then(|| match self.to {
+            CommandRedirectTarget::Current => handler.execute(args, context, server),
+            CommandRedirectTarget::All => {
+                server
+                    .command_dispatcher
+                    .read()
+                    .execute(args[0], &args[1..], context, server)
+            }
+        })
+    }
+
+    fn usage(&self, _buffer: &mut Vec<CommandNode>, node_index: i32) -> CommandNodeInfo {
+        CommandNodeInfo::new_redirect(match self.to {
+            CommandRedirectTarget::Current => node_index,
+            CommandRedirectTarget::All => 0,
+        })
     }
 }
 
@@ -378,22 +452,24 @@ where
         &self,
         args: &[&str],
         parsed: S,
-        server: &Arc<Server>,
         context: &mut CommandContext,
+        server: &Arc<Server>,
+        handler: &dyn CommandHandlerDyn,
     ) -> Option<Result<(), CommandError>> {
         if *args.first()? == self.expected {
-            self.executor.execute(&args[1..], parsed, server, context)
+            self.executor
+                .execute(&args[1..], parsed, context, server, handler)
         } else {
             None
         }
     }
 
-    fn usage(&self, buffer: &mut Vec<CommandNode>) -> CommandNodeInfo {
-        let node = CommandNode::new_literal(self.executor.usage(buffer), self.expected, None);
+    fn usage(&self, buffer: &mut Vec<CommandNode>, node_index: i32) -> CommandNodeInfo {
+        let node = CommandNode::new_literal(self.executor.usage(buffer, node_index), self.expected);
         let result = vec![buffer.len() as i32];
         buffer.push(node);
 
-        CommandNodeInfo::new(result, false)
+        CommandNodeInfo::new(result)
     }
 }
 
@@ -458,24 +534,25 @@ where
         &self,
         args: &[&str],
         parsed: S,
-        server: &Arc<Server>,
         context: &mut CommandContext,
+        server: &Arc<Server>,
+        handler: &dyn CommandHandlerDyn,
     ) -> Option<Result<(), CommandError>> {
         let (args, arg) = self.argument.parse(args, context)?;
-        self.executor.execute(args, (parsed, arg), server, context)
+        self.executor
+            .execute(args, (parsed, arg), context, server, handler)
     }
 
-    fn usage(&self, buffer: &mut Vec<CommandNode>) -> CommandNodeInfo {
+    fn usage(&self, buffer: &mut Vec<CommandNode>, node_index: i32) -> CommandNodeInfo {
         let node = CommandNode::new_argument(
-            self.executor.usage(buffer),
+            self.executor.usage(buffer, node_index),
             self.name,
             self.argument.usage(),
-            None,
         );
         let result = vec![buffer.len() as i32];
         buffer.push(node);
 
-        CommandNodeInfo::new(result, false)
+        CommandNodeInfo::new(result)
     }
 }
 

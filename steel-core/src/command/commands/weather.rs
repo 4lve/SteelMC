@@ -47,8 +47,8 @@ impl CommandExecutor<()> for WeatherCommandExecutor {
     fn execute(
         &self,
         _args: (),
-        server: &Arc<Server>,
         context: &mut CommandContext,
+        server: &Arc<Server>,
     ) -> Result<(), CommandError> {
         let duration = match self {
             WeatherCommandExecutor::Clear => rand::random_range(12_000..=180_000),
@@ -56,7 +56,7 @@ impl CommandExecutor<()> for WeatherCommandExecutor {
             WeatherCommandExecutor::Thunder => rand::random_range(3_600..=15_600),
         };
 
-        self.execute(((), duration), server, context)
+        self.execute(((), duration), context, server)
     }
 }
 
@@ -64,8 +64,8 @@ impl CommandExecutor<((), i32)> for WeatherCommandExecutor {
     fn execute(
         &self,
         args: ((), i32),
-        server: &Arc<Server>,
         context: &mut CommandContext,
+        server: &Arc<Server>,
     ) -> Result<(), CommandError> {
         let ((), _duration) = args;
         let _world = server

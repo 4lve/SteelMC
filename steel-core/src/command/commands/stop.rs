@@ -19,8 +19,8 @@ impl CommandExecutor<()> for StopCommandExecutor {
     fn execute(
         &self,
         _args: (),
-        server: &Arc<Server>,
         _context: &mut CommandContext,
+        server: &Arc<Server>,
     ) -> Result<(), CommandError> {
         server.cancel_token.cancel();
         Ok(())

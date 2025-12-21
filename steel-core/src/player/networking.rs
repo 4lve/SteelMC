@@ -209,7 +209,7 @@ impl JavaConnection {
                 server.command_dispatcher.read().handle_command(
                     CommandSender::Player(player),
                     SChatCommand::read_packet(data)?.command,
-                    server.clone(),
+                    &server,
                 );
             }
             id => log::info!("play packet id {id} is not known"),

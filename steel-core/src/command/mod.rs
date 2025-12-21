@@ -43,14 +43,16 @@ impl CommandDispatcher {
     }
 
     /// Executes a command.
-    pub fn handle_command(&self, sender: CommandSender, command: String, server: Arc<Server>) {
+    pub fn handle_command(&self, sender: CommandSender, command: String, server: &Arc<Server>) {
         let mut context = CommandContext {
             sender: sender.clone(),
             player: sender.get_player().cloned(),
             position: sender.get_player().map(|p| *p.position.lock()),
         };
 
-        if let Err(error) = self.execute(&mut context, &command, server) {
+        if let Err(error) = Self::split_command(&command)
+            .and_then(|(command, args)| self.execute(command, &args, &mut context, server))
+        {
             let text = match error {
                 CommandError::InvalidConsumption(s) => {
                     log::error!(
@@ -81,12 +83,11 @@ impl CommandDispatcher {
     /// Executes a command.
     fn execute(
         &self,
-        context: &mut CommandContext,
         command: &str,
-        server: Arc<Server>,
+        command_args: &[&str],
+        context: &mut CommandContext,
+        server: &Arc<Server>,
     ) -> Result<(), CommandError> {
-        let (command, command_args) = Self::split_command(command)?;
-
         let Some(handler) = self.handlers.read_sync(command, |_, v| v.clone()) else {
             return Err(CommandError::CommandFailed(Box::new(
                 format!("Command {command} does not exist").into(),
@@ -100,7 +101,7 @@ impl CommandDispatcher {
         //     return Err(PermissionDenied);
         // };
 
-        handler.handle(&command_args, server, context)
+        handler.execute(command_args, context, server)
     }
 
     /// Parses a command string into its components.
@@ -124,8 +125,9 @@ impl CommandDispatcher {
     /// Generates the `CCommands` packet, containing the usage information of every registered commands.
     pub fn get_commands(&self) -> CCommands {
         let mut nodes = Vec::with_capacity(self.handlers.len() + 1);
-        let mut root_children = Vec::with_capacity(self.handlers.len());
+        nodes.push(CommandNode::new_root());
 
+        let mut root_children = Vec::with_capacity(self.handlers.len());
         self.handlers.iter_sync(|command, handler| {
             if *command != handler.names()[0] {
                 return true;
@@ -136,11 +138,12 @@ impl CommandDispatcher {
             handler.usage(&mut nodes, &mut root_children);
             true
         });
+        nodes[0].set_children(root_children);
 
-        let root_index = nodes.len() as i32;
-        nodes.push(CommandNode::new_root(root_children));
-
-        CCommands { root_index, nodes }
+        CCommands {
+            root_index: 0,
+            nodes,
+        }
     }
 
     /// Registers a command handler.

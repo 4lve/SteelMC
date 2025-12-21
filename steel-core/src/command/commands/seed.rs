@@ -25,8 +25,8 @@ impl CommandExecutor<()> for SeedCommandExecutor {
     fn execute(
         &self,
         _args: (),
-        _server: &Arc<Server>,
         context: &mut CommandContext,
+        _server: &Arc<Server>,
     ) -> Result<(), CommandError> {
         context.sender.send_message(
             TranslatedMessage::new(

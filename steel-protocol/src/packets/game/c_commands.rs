@@ -41,20 +41,18 @@ impl CommandNode {
     const FLAG_HAS_REDIRECT: u8 = 8;
     const FLAG_HAS_SUGGESTION_TYPE: u8 = 16;
 
-    pub fn new_root(children: Vec<i32>) -> Self {
-        Self::Root { children }
+    pub fn new_root() -> Self {
+        Self::Root {
+            children: Vec::new(),
+        }
     }
 
-    pub fn new_literal(
-        info: CommandNodeInfo,
-        name: &'static str,
-        redirects_to: Option<i32>,
-    ) -> Self {
+    pub fn new_literal(info: CommandNodeInfo, name: &'static str) -> Self {
         Self::Literal {
             children: info.children,
             name,
             is_executable: info.is_executable,
-            redirects_to,
+            redirects_to: info.redirects_to,
         }
     }
 
@@ -62,13 +60,12 @@ impl CommandNode {
         info: CommandNodeInfo,
         name: &'static str,
         argument: (ArgumentType, Option<SuggestionType>),
-        redirects_to: Option<i32>,
     ) -> Self {
         Self::Argument {
             children: info.children,
             name,
             is_executable: info.is_executable,
-            redirects_to,
+            redirects_to: info.redirects_to,
             parser: argument.0,
             suggestions_type: argument.1,
         }
@@ -100,6 +97,14 @@ impl CommandNode {
             flags |= Self::FLAG_HAS_SUGGESTION_TYPE
         }
         flags
+    }
+
+    pub fn set_children(&mut self, children: Vec<i32>) {
+        match self {
+            CommandNode::Root { children: c } => *c = children,
+            CommandNode::Literal { children: c, .. } => *c = children,
+            CommandNode::Argument { children: c, .. } => *c = children,
+        }
     }
 
     fn children(&self) -> &[i32] {
@@ -164,13 +169,31 @@ impl WriteTo for CommandNode {
 pub struct CommandNodeInfo {
     children: Vec<i32>,
     is_executable: bool,
+    redirects_to: Option<i32>,
 }
 
 impl CommandNodeInfo {
-    pub fn new(children: Vec<i32>, is_executable: bool) -> Self {
+    pub fn new(children: Vec<i32>) -> Self {
         Self {
             children,
-            is_executable,
+            is_executable: false,
+            redirects_to: None,
+        }
+    }
+
+    pub fn new_executable() -> Self {
+        Self {
+            children: Vec::new(),
+            is_executable: true,
+            redirects_to: None,
+        }
+    }
+
+    pub fn new_redirect(redirects_to: i32) -> Self {
+        Self {
+            children: Vec::new(),
+            is_executable: false,
+            redirects_to: Some(redirects_to),
         }
     }
 
