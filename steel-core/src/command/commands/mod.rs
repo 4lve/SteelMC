@@ -248,6 +248,7 @@ where
 }
 
 /// Tree node that passes execution to the second executor if the first one fails.
+/// This allows for branching command syntax where multiple alternatives can be tried.
 pub struct CommandParserSplitExecutor<S, E1, E2> {
     first_executor: E1,
     second_executor: E2,
@@ -286,7 +287,8 @@ where
     }
 }
 
-/// Tree node that redirects to another node.
+/// Tree node that redirects to another node after executing.
+/// This allows commands to chain into other commands or recursively into themselves.
 pub struct CommandParserRedirectExecutor<S, E> {
     to: CommandRedirectTarget,
     executor: E,
@@ -305,11 +307,13 @@ pub fn redirect<S, E>(
     }
 }
 
-/// Target for redirecting command execution.
+/// Target for redirecting command execution after a subcommand executes.
 pub enum CommandRedirectTarget {
-    /// Redirects to the current `CommandHandler`, allowing any branch of current command to be executed.
+    /// Redirects to the current `CommandHandler`, allowing any branch of the current command to be executed.
+    /// Used for commands that chain into themselves (e.g., `/execute anchored feet execute rotated ~ ~ run ...`).
     Current,
-    /// Redirects to the `CommandDispatcher`, allowing any commands to be executed.
+    /// Redirects to the `CommandDispatcher`, allowing any registered command to be executed.
+    /// Used for commands that can execute arbitrary other commands (e.g., `/execute run <any command>`).
     All,
 }
 
@@ -348,7 +352,8 @@ where
     }
 }
 
-/// A builder struct for creating command argument executors.
+/// A builder struct for creating command literal argument executors.
+/// Literals match exact string values (e.g., "clear", "rain", "thunder" in `/weather <clear|rain|thunder>`).
 pub struct CommandParserLiteralBuilder<S> {
     expected: &'static str,
     _source: PhantomData<S>,
@@ -395,7 +400,8 @@ impl<S> CommandParserLiteralBuilder<S> {
     }
 }
 
-/// Tree node that parses a single argument and provides it to the next executor.
+/// Tree node that parses a single literal string and provides execution to the next executor.
+/// The literal must match exactly (case-sensitive).
 pub struct CommandParserLiteralExecutor<S, E> {
     expected: &'static str,
     executor: E,
@@ -474,7 +480,8 @@ where
     }
 }
 
-/// A builder struct for creating command argument executors.
+/// A builder struct for creating typed command argument executors.
+/// Arguments are parsed values (e.g., integers, coordinates, entities) defined by `CommandArgument` implementations.
 pub struct CommandParserArgumentBuilder<S, A> {
     name: &'static str,
     argument: Box<dyn CommandArgument<Output = A>>,
@@ -557,7 +564,8 @@ where
     }
 }
 
-/// Tree node that parses a single argument and provides it to the next executor.
+/// Tree node that parses a typed argument and provides the parsed value to the next executor.
+/// The argument type `A` is determined by the `CommandArgument` implementation.
 pub struct CommandParserArgumentExecutor<S, A, E> {
     name: &'static str,
     argument: Box<dyn CommandArgument<Output = A>>,

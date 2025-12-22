@@ -18,11 +18,11 @@ impl CommandArgument for RotationArgument {
         let mut yaw = arg.first()?.parse::<f32>().ok()?;
         let mut pitch = arg.get(1)?.parse::<f32>().ok()?;
 
-        yaw %= 360.0;
+        yaw = yaw.rem_euclid(360.0);
         if yaw >= 180.0 {
             yaw -= 360.0;
         }
-        pitch %= 360.0;
+        pitch = pitch.rem_euclid(360.0);
         if pitch >= 180.0 {
             pitch -= 360.0;
         }

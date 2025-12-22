@@ -115,6 +115,7 @@ impl CommandDispatcher {
         };
 
         // TODO: Implement proper command parsing (handling quotes, escapes, etc.)
+        // This will likely be handled by a String argument parser that consumes quoted strings.
 
         Ok((command, command_args.split_whitespace().collect()))
     }

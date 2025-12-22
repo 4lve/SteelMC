@@ -1,4 +1,17 @@
 //! Handler for the "execute" command.
+//!
+//! TODO: This is a partial implementation. Missing subcommands include:
+//! - `as` (execute as another entity)
+//! - `at` (execute at another entity's position)
+//! - `positioned` (execute at specific coordinates)
+//! - `if`/`unless` (conditional execution)
+//! - `store` (store command results)
+//! - `facing` (face towards entity or coordinates)
+//! - `align` (align position to block grid)
+//! - `dimension` (execute in another dimension)
+//! - `summon` (execute as newly summoned entity)
+//! - `on` (execute on related entities)
+
 use std::sync::Arc;
 
 use crate::command::arguments::anchor::AnchorArgument;

@@ -72,6 +72,8 @@ impl CommandExecutor<((), i32)> for WeatherCommandExecutor {
             .first()
             .ok_or(CommandError::InvalidRequirement)?;
 
+        // TODO: Apply the duration to the world's weather system once weather state is implemented
+
         match self {
             WeatherCommandExecutor::Clear => {
                 context
