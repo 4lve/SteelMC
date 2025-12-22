@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Interactivity"]};
+window.SIDEBAR_ITEMS = {"mod":["click","hover"],"struct":["Interactivity"]};

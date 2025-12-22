@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["WeatherCommandExecutor"],"fn":["command_handler"]};

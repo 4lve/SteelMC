@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["arguments","commands","context","error","sender"],"struct":["CommandDispatcher"]};
