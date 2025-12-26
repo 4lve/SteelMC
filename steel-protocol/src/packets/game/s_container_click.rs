@@ -65,7 +65,10 @@ impl ReadFrom for SlotChange {
     fn read(data: &mut impl Read) -> Result<Self> {
         let slot = i16::read(data)?;
         let slot_data = SlotData::read(data)?;
-        Ok(Self { slot, data: slot_data })
+        Ok(Self {
+            slot,
+            data: slot_data,
+        })
     }
 }
 
@@ -122,4 +125,3 @@ impl ReadFrom for SContainerClick {
         })
     }
 }
-

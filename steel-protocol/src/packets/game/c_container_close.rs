@@ -19,4 +19,3 @@ impl CContainerClose {
         Self { container_id }
     }
 }
-

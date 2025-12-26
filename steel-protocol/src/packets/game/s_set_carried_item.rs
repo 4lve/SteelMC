@@ -18,4 +18,3 @@ impl ReadFrom for SSetCarriedItem {
         Ok(Self { slot })
     }
 }
-

@@ -3,24 +3,53 @@
 use steel_registry::item_stack::ItemStack;
 
 use super::Container;
+use crate::entity::{EntityEquipment, EquipmentSlot};
 
 /// The number of main inventory slots (excluding armor and offhand).
 pub const INVENTORY_SIZE: usize = 36;
 /// The number of hotbar slots.
 pub const HOTBAR_SIZE: usize = 9;
-/// The offhand slot index.
+/// The offhand slot index in the combined inventory.
 pub const SLOT_OFFHAND: usize = 40;
+
+/// Maps inventory slot indices (36+) to equipment slots.
+///
+/// - 36: FEET
+/// - 37: LEGS
+/// - 38: CHEST
+/// - 39: HEAD
+/// - 40: OFFHAND
+/// - 41: BODY
+/// - 42: SADDLE
+fn slot_to_equipment(slot: usize) -> Option<EquipmentSlot> {
+    match slot {
+        36 => Some(EquipmentSlot::Feet),
+        37 => Some(EquipmentSlot::Legs),
+        38 => Some(EquipmentSlot::Chest),
+        39 => Some(EquipmentSlot::Head),
+        40 => Some(EquipmentSlot::Offhand),
+        41 => Some(EquipmentSlot::Body),
+        42 => Some(EquipmentSlot::Saddle),
+        _ => None,
+    }
+}
 
 /// The player's inventory.
 ///
 /// Contains 36 main slots (0-35), where slots 0-8 are the hotbar.
-/// Equipment slots (armor, offhand) are handled separately by the player entity.
+/// Equipment slots (36-42) are backed by `EntityEquipment`.
+///
+/// Note: In vanilla, the entity owns the equipment and passes a reference
+/// to the inventory. For now, we own it here until the entity system is complete.
 #[derive(Debug)]
 pub struct PlayerInventory {
     /// The 36 main inventory slots.
     items: [ItemStack; INVENTORY_SIZE],
     /// The currently selected hotbar slot (0-8).
     selected_slot: usize,
+    /// Entity equipment (armor, offhand, etc.).
+    /// TODO: This should be a reference to the entity's equipment once the entity system exists.
+    pub equipment: EntityEquipment,
     /// Tracks whether the inventory has been modified.
     times_changed: u32,
 }
@@ -32,12 +61,16 @@ impl Default for PlayerInventory {
 }
 
 impl PlayerInventory {
+    /// Number of equipment slots mapped in the inventory.
+    pub const EQUIPMENT_SLOT_COUNT: usize = 7;
+
     /// Creates a new empty player inventory.
     #[must_use]
     pub fn new() -> Self {
         Self {
             items: std::array::from_fn(|_| ItemStack::empty()),
             selected_slot: 0,
+            equipment: EntityEquipment::new(),
             times_changed: 0,
         }
     }
@@ -81,7 +114,13 @@ impl PlayerInventory {
         self.times_changed
     }
 
-    /// Finds the first empty slot, or -1 if none.
+    /// Returns a reference to the non-equipment items (slots 0-35).
+    #[must_use]
+    pub fn non_equipment_items(&self) -> &[ItemStack; INVENTORY_SIZE] {
+        &self.items
+    }
+
+    /// Finds the first empty slot in main inventory, or None if none.
     #[must_use]
     pub fn get_free_slot(&self) -> Option<usize> {
         self.items.iter().position(ItemStack::is_empty)
@@ -103,7 +142,13 @@ impl PlayerInventory {
             return Some(self.selected_slot);
         }
 
-        // Then check all slots
+        // Check offhand
+        let offhand = self.equipment.get(EquipmentSlot::Offhand);
+        if self.has_remaining_space_for(&offhand, item) {
+            return Some(SLOT_OFFHAND);
+        }
+
+        // Then check all main inventory slots
         self.items
             .iter()
             .position(|slot_item| self.has_remaining_space_for(slot_item, item))
@@ -147,8 +192,6 @@ impl PlayerInventory {
 
         let original_count = item.count();
 
-        // For damaged items, place in a free slot directly
-        // (Minecraft doesn't stack damaged items into existing stacks)
         if let Some(target_slot) = slot {
             self.add_resource_to_slot(target_slot, item);
         } else {
@@ -181,6 +224,20 @@ impl PlayerInventory {
 
     /// Adds items to a specific slot.
     fn add_resource_to_slot(&mut self, slot: usize, item: &mut ItemStack) {
+        if slot >= INVENTORY_SIZE {
+            // Equipment slot - handle separately
+            if let Some(eq_slot) = slot_to_equipment(slot) {
+                let current = self.equipment.get(eq_slot);
+                if current.is_empty() {
+                    let to_add = item.count().min(eq_slot.count_limit().max(1));
+                    self.equipment.set(eq_slot, item.copy_with_count(to_add));
+                    item.shrink(to_add);
+                    self.set_changed();
+                }
+            }
+            return;
+        }
+
         let max_size = self.max_stack_size_for(item);
         let slot_item = &mut self.items[slot];
 
@@ -213,10 +270,10 @@ impl PlayerInventory {
 
             match slot {
                 Some(slot_idx) => {
-                    let space = item.max_stack_size() - self.items[slot_idx].count();
+                    let space = item.max_stack_size() - self.get_item(slot_idx).count();
                     let to_add = item.count().min(space);
-                    let split = item.split(to_add);
-                    self.add_to_slot(Some(slot_idx), &mut split.clone());
+                    let mut split = item.split(to_add);
+                    self.add_to_slot(Some(slot_idx), &mut split);
                 }
                 None => return false, // No space, caller should drop the item
             }
@@ -227,21 +284,39 @@ impl PlayerInventory {
     /// Drops all items from the inventory, returning them.
     pub fn drop_all(&mut self) -> Vec<ItemStack> {
         let mut dropped = Vec::new();
+
+        // Drop main inventory
         for item in &mut self.items {
             if !item.is_empty() {
                 dropped.push(item.copy_and_clear());
             }
         }
+
+        // Collect equipment slots that have items
+        let equipment_to_drop: Vec<_> = self
+            .equipment
+            .iter()
+            .filter(|(_, item)| !item.is_empty())
+            .map(|(slot, item)| (slot, item.clone()))
+            .collect();
+
+        // Drop equipment
+        for (slot, item) in equipment_to_drop {
+            dropped.push(item);
+            self.equipment.set(slot, ItemStack::empty());
+        }
+
         self.set_changed();
         dropped
     }
 
     /// Swaps two slots.
     pub fn swap_slots(&mut self, slot_a: usize, slot_b: usize) {
-        if slot_a < self.items.len() && slot_b < self.items.len() {
-            self.items.swap(slot_a, slot_b);
-            self.set_changed();
-        }
+        let item_a = self.remove_item_no_update(slot_a);
+        let item_b = self.remove_item_no_update(slot_b);
+        self.set_item(slot_a, item_b);
+        self.set_item(slot_b, item_a);
+        self.set_changed();
     }
 
     /// Removes from the selected slot and returns it.
@@ -253,23 +328,53 @@ impl PlayerInventory {
         };
         self.remove_item(self.selected_slot, count)
     }
+
+    /// Removes an item without triggering change notifications.
+    fn remove_item_no_update(&mut self, slot: usize) -> ItemStack {
+        if slot < INVENTORY_SIZE {
+            std::mem::replace(&mut self.items[slot], ItemStack::empty())
+        } else if let Some(eq_slot) = slot_to_equipment(slot) {
+            self.equipment.set(eq_slot, ItemStack::empty())
+        } else {
+            ItemStack::empty()
+        }
+    }
 }
 
 impl Container for PlayerInventory {
     fn size(&self) -> usize {
-        INVENTORY_SIZE
+        INVENTORY_SIZE + Self::EQUIPMENT_SLOT_COUNT
     }
 
     fn get_item(&self, slot: usize) -> &ItemStack {
-        &self.items[slot]
+        if slot < INVENTORY_SIZE {
+            &self.items[slot]
+        } else if let Some(eq_slot) = slot_to_equipment(slot) {
+            // Need to return a reference, but equipment.get() returns owned
+            // This is a limitation - for now return a reference to items[0] as fallback
+            // TODO: Fix this when we refactor equipment to support references
+            self.equipment.get_ref(eq_slot).unwrap_or(&self.items[0])
+        } else {
+            &self.items[0] // Fallback
+        }
     }
 
     fn get_item_mut(&mut self, slot: usize) -> &mut ItemStack {
-        &mut self.items[slot]
+        if slot < INVENTORY_SIZE {
+            &mut self.items[slot]
+        } else if let Some(eq_slot) = slot_to_equipment(slot) {
+            self.equipment.get_mut(eq_slot)
+        } else {
+            &mut self.items[0] // Fallback
+        }
     }
 
     fn set_item(&mut self, slot: usize, item: ItemStack) {
-        self.items[slot] = item;
+        if slot < INVENTORY_SIZE {
+            self.items[slot] = item;
+        } else if let Some(eq_slot) = slot_to_equipment(slot) {
+            self.equipment.set(eq_slot, item);
+        }
         self.set_changed();
     }
 

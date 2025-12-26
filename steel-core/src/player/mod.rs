@@ -33,7 +33,7 @@ use steel_protocol::packets::{
 };
 use steel_utils::{ChunkPos, math::Vector3, text::TextComponent, translations};
 
-use crate::inventory::{Container, InventoryMenu, PlayerInventory, INVENTORY_MENU_CONTAINER_ID};
+use crate::inventory::{INVENTORY_MENU_CONTAINER_ID, InventoryMenu, PlayerInventory};
 
 /// Re-export `PreviousMessage` as `PreviousMessageEntry` for use in `signature_cache`
 pub type PreviousMessageEntry = PreviousMessage;
@@ -81,11 +81,12 @@ pub struct Player {
     /// Message chain state for tracking signed message sequence
     pub message_chain: SyncMutex<Option<SignedMessageChain>>,
 
-    /// The player's inventory.
-    pub inventory: SyncMutex<PlayerInventory>,
+    /// The player's inventory (shared with inventory menu).
+    pub inventory: Arc<SyncMutex<PlayerInventory>>,
 
     /// The player's inventory menu (container ID 0).
     /// This is always present and is the default container for the player.
+    /// References the same inventory via Arc.
     pub inventory_menu: SyncMutex<InventoryMenu>,
 
     /// The container ID of the currently open container.
@@ -106,6 +107,11 @@ impl Player {
         connection: Arc<JavaConnection>,
         world: Arc<World>,
     ) -> Self {
+        // Create the shared inventory
+        let inventory = Arc::new(SyncMutex::new(PlayerInventory::new()));
+        // Create inventory menu with a reference to the same inventory
+        let inventory_menu = InventoryMenu::new(Arc::clone(&inventory));
+
         Self {
             gameprofile,
             connection,
@@ -122,8 +128,8 @@ impl Player {
             message_validator: SyncMutex::new(LastSeenMessagesValidator::new()),
             chat_session: SyncMutex::new(None),
             message_chain: SyncMutex::new(None),
-            inventory: SyncMutex::new(PlayerInventory::new()),
-            inventory_menu: SyncMutex::new(InventoryMenu::new()),
+            inventory,
+            inventory_menu: SyncMutex::new(inventory_menu),
             open_container_id: AtomicI32::new(INVENTORY_MENU_CONTAINER_ID),
             next_container_id: AtomicI32::new(1),
             gamemode: AtomicCell::new(GameType::Survival),
@@ -652,33 +658,15 @@ impl Player {
 
         if is_valid_slot {
             // Valid slot: set item in the inventory menu
+            // This automatically updates the underlying player inventory for non-crafting slots
             let mut inv_menu = self.inventory_menu.lock();
-            inv_menu.set_slot(slot as usize, item.clone());
-
-            // Also sync back to the player inventory for slots 9-44
-            // Slot mapping in inventory menu:
-            // - Slots 9-35: Main inventory (maps to player inventory slots 9-35)
-            // - Slots 36-44: Hotbar (maps to player inventory slots 0-8)
-            let mut inventory = self.inventory.lock();
-            match slot {
-                9..=35 => {
-                    // Main inventory
-                    inventory.set_item(slot as usize, item);
-                }
-                36..=44 => {
-                    // Hotbar (slot 36 -> inv slot 0, etc.)
-                    inventory.set_item((slot - 36) as usize, item);
-                }
-                _ => {
-                    // Crafting, armor, or offhand slots - handled by inventory menu only for now
-                }
-            }
+            inv_menu.set_item(slot as usize, item.clone());
 
             log::trace!(
                 "Player {} set creative slot {} to {:?}",
                 self.gameprofile.name,
                 slot,
-                inv_menu.get_slot(slot as usize)
+                inv_menu.get_item(slot as usize)
             );
         } else if is_drop {
             // Negative slot: drop the item
@@ -702,12 +690,12 @@ impl Player {
     #[allow(clippy::cast_possible_truncation)]
     pub fn send_slot_update(&self, slot: i16) {
         let inv_menu = self.inventory_menu.lock();
-        let item = inv_menu.get_slot(slot as usize);
-        let slot_data = SlotData::from_item_stack(item, &self.world.registry);
+        let item = inv_menu.get_item(slot as usize);
+        let slot_data = SlotData::from_item_stack(&item, &self.world.registry);
 
         self.connection.send_packet(CContainerSetSlot {
             container_id: INVENTORY_MENU_CONTAINER_ID as i8,
-            state_id: inv_menu.menu.state_id(),
+            state_id: inv_menu.state_id(),
             slot,
             slot_data,
         });
@@ -721,6 +709,7 @@ impl Player {
 
     /// Sets the currently open container ID.
     pub fn set_open_container_id(&self, container_id: i32) {
-        self.open_container_id.store(container_id, Ordering::Relaxed);
+        self.open_container_id
+            .store(container_id, Ordering::Relaxed);
     }
 }

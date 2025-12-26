@@ -142,10 +142,12 @@ impl ChestMenu {
             // Moving from chest to player inventory
             let player_slots_start = self.chest_slot_count;
             let player_slots_end = self.menu.slots.len();
-            self.menu.move_item_stack_to(&mut remaining, player_slots_start, player_slots_end, true)
+            self.menu
+                .move_item_stack_to(&mut remaining, player_slots_start, player_slots_end, true)
         } else {
             // Moving from player inventory to chest
-            self.menu.move_item_stack_to(&mut remaining, 0, self.chest_slot_count, false)
+            self.menu
+                .move_item_stack_to(&mut remaining, 0, self.chest_slot_count, false)
         };
 
         if !moved {
@@ -170,4 +172,3 @@ impl ChestMenu {
         &mut self.menu.container
     }
 }
-

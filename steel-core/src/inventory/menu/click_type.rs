@@ -130,4 +130,3 @@ pub fn make_quick_craft_mask(phase: QuickCraftPhase, craft_type: QuickCraftType)
     };
     (phase_bits & 3) | ((type_bits & 3) << 2)
 }
-

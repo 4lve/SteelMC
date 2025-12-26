@@ -18,4 +18,3 @@ impl ReadFrom for SContainerClose {
         Ok(Self { container_id })
     }
 }
-

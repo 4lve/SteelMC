@@ -62,4 +62,3 @@ impl Container for SimpleContainer {
         self.set_changed();
     }
 }
-

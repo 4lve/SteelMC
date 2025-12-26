@@ -39,4 +39,3 @@ impl CContainerSetSlot {
         Self::new(-1, state_id, -1, slot_data)
     }
 }
-

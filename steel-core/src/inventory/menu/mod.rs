@@ -10,5 +10,6 @@ pub use chest_menu::ChestMenu;
 pub use click_type::{
     ClickAction, ClickType, QuickCraftPhase, QuickCraftType, make_quick_craft_mask,
 };
-pub use inventory_menu::{InventoryMenu, InventoryMenuContainer, INVENTORY_MENU_CONTAINER_ID, slots as inv_slots};
-
+pub use inventory_menu::{
+    INVENTORY_MENU_CONTAINER_ID, InventoryMenu, menu_slot_to_inventory_slot, slots as inv_slots,
+};

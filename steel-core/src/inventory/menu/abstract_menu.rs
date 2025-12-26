@@ -154,11 +154,7 @@ impl<C: Container> AbstractContainerMenu<C> {
         // Hotbar (slots 0-8 in player inventory)
         let hotbar_top = top + 3 * SLOT_SIZE + 4; // 4 pixel gap
         for col in 0..9 {
-            self.add_slot(Slot::new(
-                col,
-                left + col as i32 * SLOT_SIZE,
-                hotbar_top,
-            ));
+            self.add_slot(Slot::new(col, left + col as i32 * SLOT_SIZE, hotbar_top));
         }
     }
 
@@ -203,7 +199,9 @@ impl<C: Container> AbstractContainerMenu<C> {
     /// Checks if a slot index is valid.
     #[must_use]
     pub fn is_valid_slot_index(&self, slot: i16) -> bool {
-        slot == -1 || slot == SLOT_CLICKED_OUTSIDE || (slot >= 0 && (slot as usize) < self.slots.len())
+        slot == -1
+            || slot == SLOT_CLICKED_OUTSIDE
+            || (slot >= 0 && (slot as usize) < self.slots.len())
     }
 
     /// Resets the quick-craft state.
@@ -373,7 +371,9 @@ impl<C: Container> AbstractContainerMenu<C> {
 
             let current = slot_ops::get_item(slot, &self.container);
             let current_count = current.count();
-            let max_size = slot.max_stack_size_for(&source).min(source.max_stack_size());
+            let max_size = slot
+                .max_stack_size_for(&source)
+                .min(source.max_stack_size());
             let space = max_size - current_count;
             let to_add = per_slot.min(space).min(remaining);
 
@@ -439,7 +439,8 @@ impl<C: Container> AbstractContainerMenu<C> {
                     } else {
                         1
                     };
-                    let remaining = slot_ops::safe_insert(slot, &mut self.container, carried, amount);
+                    let remaining =
+                        slot_ops::safe_insert(slot, &mut self.container, carried, amount);
                     self.carried = remaining;
                 } else if carried.count() <= slot.max_stack_size_for(&carried) {
                     // Different item: swap
@@ -449,7 +450,8 @@ impl<C: Container> AbstractContainerMenu<C> {
             } else if ItemStack::is_same_item_same_components(&slot_item, &carried) {
                 // Can't place but same item: try to pick up more
                 let space = carried.max_stack_size() - carried.count();
-                let taken = slot_ops::safe_take(slot, &mut self.container, slot_item.count(), space);
+                let taken =
+                    slot_ops::safe_take(slot, &mut self.container, slot_item.count(), space);
                 self.carried.grow(taken.count());
             }
         }
@@ -631,7 +633,8 @@ impl<C: Container> AbstractContainerMenu<C> {
                     let is_full = item_count == item_max;
                     if (pass == 0 && !is_full) || (pass == 1 && is_full) {
                         let space = max_size - self.carried.count();
-                        let taken = slot_ops::safe_take(slot, &mut self.container, item_count, space);
+                        let taken =
+                            slot_ops::safe_take(slot, &mut self.container, item_count, space);
                         self.carried.grow(taken.count());
                     }
                 }
@@ -674,7 +677,12 @@ impl<C: Container> AbstractContainerMenu<C> {
     }
 
     /// Initializes the menu contents from network data.
-    pub fn initialize_contents(&mut self, state_id: i32, items: Vec<ItemStack>, carried: ItemStack) {
+    pub fn initialize_contents(
+        &mut self,
+        state_id: i32,
+        items: Vec<ItemStack>,
+        carried: ItemStack,
+    ) {
         self.state_id = state_id;
         for (i, item) in items.into_iter().enumerate() {
             if i < self.slots.len() {
@@ -685,4 +693,3 @@ impl<C: Container> AbstractContainerMenu<C> {
         self.carried = carried;
     }
 }
-

@@ -2,11 +2,18 @@
 //!
 //! This is the menu that is always associated with the player (container ID 0).
 //! It includes the crafting grid, armor slots, main inventory, hotbar, and offhand.
+//!
+//! Unlike other menus, this menu's slots directly reference the player's
+//! `PlayerInventory` rather than copying items.
+
+use std::sync::Arc;
 
 use steel_registry::item_stack::ItemStack;
+use steel_utils::locks::SyncMutex;
 
-use super::abstract_menu::{AbstractContainerMenu, SLOT_SIZE};
 use crate::inventory::{Container, PlayerInventory, Slot};
+
+use super::abstract_menu::SLOT_SIZE;
 
 /// The container ID for the player's inventory menu.
 pub const INVENTORY_MENU_CONTAINER_ID: i32 = 0;
@@ -37,205 +44,254 @@ pub mod slots {
     pub const TOTAL_SLOTS: usize = 46;
 }
 
-/// A wrapper container that provides the 46-slot view for the inventory menu.
+/// Maps menu slot index to player inventory slot index.
 ///
-/// This maps the menu slot indices to the actual player inventory slots:
-/// - Slots 0-4: Crafting (not backed by player inventory, stored here)
-/// - Slots 5-8: Armor (stored here for now, TODO: integrate with equipment)
-/// - Slots 9-35: Main inventory (maps to player inventory slots 9-35)
-/// - Slots 36-44: Hotbar (maps to player inventory slots 0-8)
-/// - Slot 45: Offhand (stored here for now, TODO: integrate with equipment)
-#[derive(Debug)]
-pub struct InventoryMenuContainer {
-    /// Crafting result + grid (5 slots).
-    crafting: [ItemStack; 5],
-    /// Armor slots (4 slots: head, chest, legs, feet).
-    armor: [ItemStack; 4],
-    /// Offhand slot.
-    offhand: ItemStack,
-    /// Reference to the underlying player inventory for slots 9-44.
-    /// This is a copy that should be synced back.
-    main_inventory: [ItemStack; 36],
-    /// Changed flag.
-    changed: bool,
-}
-
-impl Default for InventoryMenuContainer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl InventoryMenuContainer {
-    /// Creates a new inventory menu container.
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            crafting: std::array::from_fn(|_| ItemStack::empty()),
-            armor: std::array::from_fn(|_| ItemStack::empty()),
-            offhand: ItemStack::empty(),
-            main_inventory: std::array::from_fn(|_| ItemStack::empty()),
-            changed: false,
-        }
-    }
-
-    /// Copies items from a player inventory into this container.
-    pub fn load_from_player_inventory(&mut self, inventory: &PlayerInventory) {
-        // Copy main inventory (slots 9-35 in menu = slots 9-35 in player inv)
-        for i in 0..27 {
-            self.main_inventory[i] = inventory.get_item(i + 9).clone();
-        }
-        // Copy hotbar (slots 36-44 in menu = slots 0-8 in player inv)
-        for i in 0..9 {
-            self.main_inventory[27 + i] = inventory.get_item(i).clone();
-        }
-    }
-
-    /// Saves items back to a player inventory.
-    pub fn save_to_player_inventory(&self, inventory: &mut PlayerInventory) {
-        // Save main inventory
-        for i in 0..27 {
-            inventory.set_item(i + 9, self.main_inventory[i].clone());
-        }
-        // Save hotbar
-        for i in 0..9 {
-            inventory.set_item(i, self.main_inventory[27 + i].clone());
-        }
-    }
-
-}
-
-impl Container for InventoryMenuContainer {
-    fn size(&self) -> usize {
-        slots::TOTAL_SLOTS
-    }
-
-    fn get_item(&self, slot: usize) -> &ItemStack {
-        match slot {
-            0..=4 => &self.crafting[slot],
-            5..=8 => &self.armor[slot - 5],
-            9..=44 => &self.main_inventory[slot - 9],
-            45 => &self.offhand,
-            // Return first crafting slot as fallback (will be empty)
-            _ => &self.crafting[0],
-        }
-    }
-
-    fn get_item_mut(&mut self, slot: usize) -> &mut ItemStack {
-        match slot {
-            0..=4 => &mut self.crafting[slot],
-            5..=8 => &mut self.armor[slot - 5],
-            9..=44 => &mut self.main_inventory[slot - 9],
-            45 => &mut self.offhand,
-            // Return first crafting slot as fallback (will be empty)
-            _ => &mut self.crafting[0],
-        }
-    }
-
-    fn set_item(&mut self, slot: usize, item: ItemStack) {
-        match slot {
-            0..=4 => self.crafting[slot] = item,
-            5..=8 => self.armor[slot - 5] = item,
-            9..=44 => self.main_inventory[slot - 9] = item,
-            45 => self.offhand = item,
-            _ => {}
-        }
-        self.set_changed();
-    }
-
-    fn set_changed(&mut self) {
-        self.changed = true;
+/// Menu slot mapping:
+/// - 0-4: crafting (not in player inventory, returns None)
+/// - 5: HEAD armor -> inventory slot 39
+/// - 6: CHEST armor -> inventory slot 38
+/// - 7: LEGS armor -> inventory slot 37
+/// - 8: FEET armor -> inventory slot 36
+/// - 9-35: main inventory -> inventory slots 9-35
+/// - 36-44: hotbar -> inventory slots 0-8
+/// - 45: offhand -> inventory slot 40
+#[must_use]
+pub const fn menu_slot_to_inventory_slot(menu_slot: usize) -> Option<usize> {
+    match menu_slot {
+        0..=4 => None,                   // Crafting slots are local
+        5 => Some(39),                   // HEAD
+        6 => Some(38),                   // CHEST
+        7 => Some(37),                   // LEGS
+        8 => Some(36),                   // FEET
+        9..=35 => Some(menu_slot),       // Main inventory (same indices)
+        36..=44 => Some(menu_slot - 36), // Hotbar: menu 36-44 -> inv 0-8
+        45 => Some(40),                  // Offhand
+        _ => None,
     }
 }
 
 /// The player's inventory menu (always container ID 0).
+///
+/// This menu references the player's inventory directly for most slots.
+/// Only the crafting slots (0-4) are stored locally.
 pub struct InventoryMenu {
-    /// The underlying abstract menu.
-    pub menu: AbstractContainerMenu<InventoryMenuContainer>,
+    /// The slot definitions (coordinates, callbacks).
+    pub slots: Vec<Slot>,
+    /// Reference to the player's inventory.
+    inventory: Arc<SyncMutex<PlayerInventory>>,
+    /// Crafting result + grid (5 slots). Stored locally, not persisted.
+    crafting: [ItemStack; 5],
+    /// The item being carried on the cursor.
+    pub carried: ItemStack,
+    /// State ID for synchronization.
+    state_id: i32,
 }
 
 impl InventoryMenu {
-    /// Creates a new inventory menu.
+    /// Creates a new inventory menu with a reference to the player's inventory.
     #[must_use]
-    pub fn new() -> Self {
-        let container = InventoryMenuContainer::new();
-        let mut menu = AbstractContainerMenu::new(None, INVENTORY_MENU_CONTAINER_ID, container);
+    pub fn new(inventory: Arc<SyncMutex<PlayerInventory>>) -> Self {
+        let mut slots = Vec::with_capacity(slots::TOTAL_SLOTS);
 
         // Add crafting result slot (slot 0)
-        menu.add_slot(Slot::new(0, 154, 28));
+        slots.push(Slot::new(0, 154, 28));
 
         // Add crafting grid slots (slots 1-4, 2x2)
         for row in 0..2 {
             for col in 0..2 {
                 let slot_idx = 1 + col + row * 2;
-                menu.add_slot(Slot::new(slot_idx, 98 + col as i32 * SLOT_SIZE, 18 + row as i32 * SLOT_SIZE));
+                slots.push(Slot::new(
+                    slot_idx,
+                    98 + col as i32 * SLOT_SIZE,
+                    18 + row as i32 * SLOT_SIZE,
+                ));
             }
         }
 
         // Add armor slots (slots 5-8: head, chest, legs, feet)
         for i in 0..4 {
-            menu.add_slot(Slot::new(5 + i, 8, 8 + i as i32 * SLOT_SIZE));
+            slots.push(Slot::new(5 + i, 8, 8 + i as i32 * SLOT_SIZE));
         }
 
         // Add main inventory slots (slots 9-35)
         for row in 0..3 {
             for col in 0..9 {
                 let slot_idx = 9 + col + row * 9;
-                menu.add_slot(Slot::new(slot_idx, 8 + col as i32 * SLOT_SIZE, 84 + row as i32 * SLOT_SIZE));
+                slots.push(Slot::new(
+                    slot_idx,
+                    8 + col as i32 * SLOT_SIZE,
+                    84 + row as i32 * SLOT_SIZE,
+                ));
             }
         }
 
         // Add hotbar slots (slots 36-44)
         for col in 0..9 {
             let slot_idx = 36 + col;
-            menu.add_slot(Slot::new(slot_idx, 8 + col as i32 * SLOT_SIZE, 142));
+            slots.push(Slot::new(slot_idx, 8 + col as i32 * SLOT_SIZE, 142));
         }
 
         // Add offhand slot (slot 45)
-        menu.add_slot(Slot::new(45, 77, 62));
+        slots.push(Slot::new(45, 77, 62));
 
-        Self { menu }
-    }
-
-    /// Loads items from a player inventory.
-    pub fn load_from(&mut self, inventory: &PlayerInventory) {
-        self.menu.container.load_from_player_inventory(inventory);
-    }
-
-    /// Saves items back to a player inventory.
-    pub fn save_to(&self, inventory: &mut PlayerInventory) {
-        self.menu.container.save_to_player_inventory(inventory);
-    }
-
-    /// Sets an item directly in a slot (for creative mode).
-    pub fn set_slot(&mut self, slot: usize, item: ItemStack) {
-        if slot < self.menu.slots.len() {
-            self.menu.container.set_item(slot, item);
+        Self {
+            slots,
+            inventory,
+            crafting: std::array::from_fn(|_| ItemStack::empty()),
+            carried: ItemStack::empty(),
+            state_id: 0,
         }
     }
 
-    /// Gets an item from a slot.
+    /// Returns the state ID.
     #[must_use]
-    pub fn get_slot(&self, slot: usize) -> &ItemStack {
-        self.menu.container.get_item(slot)
+    pub fn state_id(&self) -> i32 {
+        self.state_id
     }
 
-    /// Returns the container for the menu.
-    #[must_use]
-    pub fn container(&self) -> &InventoryMenuContainer {
-        &self.menu.container
+    /// Increments and returns the new state ID.
+    pub fn next_state_id(&mut self) -> i32 {
+        self.state_id = self.state_id.wrapping_add(1);
+        self.state_id
     }
 
-    /// Returns the container for the menu (mutable).
+    /// Gets an item from a menu slot.
     #[must_use]
-    pub fn container_mut(&mut self) -> &mut InventoryMenuContainer {
-        &mut self.menu.container
+    pub fn get_item(&self, menu_slot: usize) -> ItemStack {
+        if menu_slot < 5 {
+            // Crafting slots are local
+            self.crafting[menu_slot].clone()
+        } else if let Some(inv_slot) = menu_slot_to_inventory_slot(menu_slot) {
+            // Delegate to player inventory
+            let inv = self.inventory.lock();
+            inv.get_item(inv_slot).clone()
+        } else {
+            ItemStack::empty()
+        }
+    }
+
+    /// Sets an item in a menu slot.
+    pub fn set_item(&mut self, menu_slot: usize, item: ItemStack) {
+        if menu_slot < 5 {
+            // Crafting slots are local
+            self.crafting[menu_slot] = item;
+        } else if let Some(inv_slot) = menu_slot_to_inventory_slot(menu_slot) {
+            // Delegate to player inventory
+            let mut inv = self.inventory.lock();
+            inv.set_item(inv_slot, item);
+        }
+    }
+
+    /// Gets a mutable reference to a crafting slot.
+    /// Returns None for non-crafting slots since those are in the inventory.
+    pub fn get_crafting_slot_mut(&mut self, menu_slot: usize) -> Option<&mut ItemStack> {
+        if menu_slot < 5 {
+            Some(&mut self.crafting[menu_slot])
+        } else {
+            None
+        }
+    }
+
+    /// Returns the number of slots in the menu.
+    #[must_use]
+    pub fn size(&self) -> usize {
+        slots::TOTAL_SLOTS
+    }
+
+    /// Gets the carried item (on cursor).
+    #[must_use]
+    pub fn get_carried(&self) -> &ItemStack {
+        &self.carried
+    }
+
+    /// Sets the carried item.
+    pub fn set_carried(&mut self, item: ItemStack) {
+        self.carried = item;
+    }
+
+    /// Clears crafting slots and returns items to the player.
+    pub fn clear_crafting(&mut self) -> Vec<ItemStack> {
+        let mut items = Vec::new();
+        for slot in &mut self.crafting {
+            if !slot.is_empty() {
+                items.push(slot.copy_and_clear());
+            }
+        }
+        items
+    }
+
+    /// Returns whether the menu is still valid for the player.
+    #[must_use]
+    pub fn still_valid(&self) -> bool {
+        // Player's inventory menu is always valid
+        true
+    }
+
+    /// Collects all slot contents for network sync.
+    pub fn collect_all_items(&self) -> Vec<ItemStack> {
+        let mut items = Vec::with_capacity(slots::TOTAL_SLOTS);
+        for slot in 0..slots::TOTAL_SLOTS {
+            items.push(self.get_item(slot));
+        }
+        items
+    }
+
+    /// Provides access to the underlying inventory for advanced operations.
+    pub fn with_inventory<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&PlayerInventory) -> R,
+    {
+        let inv = self.inventory.lock();
+        f(&inv)
+    }
+
+    /// Provides mutable access to the underlying inventory.
+    pub fn with_inventory_mut<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&mut PlayerInventory) -> R,
+    {
+        let mut inv = self.inventory.lock();
+        f(&mut inv)
     }
 }
 
-impl Default for InventoryMenu {
-    fn default() -> Self {
-        Self::new()
+/// Container trait implementation that provides a unified view.
+impl Container for InventoryMenu {
+    fn size(&self) -> usize {
+        slots::TOTAL_SLOTS
+    }
+
+    fn get_item(&self, slot: usize) -> &ItemStack {
+        // This is tricky - we can't return a reference to inventory items
+        // since they're behind a mutex. For now, panic for non-crafting slots.
+        // Use get_item() method instead which returns owned ItemStack.
+        if slot < 5 {
+            &self.crafting[slot]
+        } else {
+            // For inventory slots, caller should use get_item() method instead
+            panic!(
+                "Cannot get reference to inventory slot {}. Use InventoryMenu::get_item() instead.",
+                slot
+            );
+        }
+    }
+
+    fn get_item_mut(&mut self, slot: usize) -> &mut ItemStack {
+        if slot < 5 {
+            &mut self.crafting[slot]
+        } else {
+            panic!(
+                "Cannot get mutable reference to inventory slot {}. Use InventoryMenu::set_item() instead.",
+                slot
+            );
+        }
+    }
+
+    fn set_item(&mut self, slot: usize, item: ItemStack) {
+        InventoryMenu::set_item(self, slot, item);
+    }
+
+    fn set_changed(&mut self) {
+        // The underlying inventory handles its own change tracking
     }
 }
-

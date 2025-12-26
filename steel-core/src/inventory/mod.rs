@@ -8,9 +8,9 @@ mod slot;
 
 pub use container::Container;
 pub use menu::{
-    AbstractContainerMenu, ChestMenu, ClickAction, ClickType, InventoryMenu,
-    InventoryMenuContainer, MenuType, QuickCraftPhase, QuickCraftType,
-    INVENTORY_MENU_CONTAINER_ID, SLOT_SIZE, SLOTS_PER_ROW, inv_slots,
+    AbstractContainerMenu, ChestMenu, ClickAction, ClickType, INVENTORY_MENU_CONTAINER_ID,
+    InventoryMenu, MenuType, QuickCraftPhase, QuickCraftType, SLOT_SIZE, SLOTS_PER_ROW, inv_slots,
+    menu_slot_to_inventory_slot,
 };
 pub use player_inventory::{HOTBAR_SIZE, INVENTORY_SIZE, PlayerInventory, SLOT_OFFHAND};
 pub use simple_container::SimpleContainer;
