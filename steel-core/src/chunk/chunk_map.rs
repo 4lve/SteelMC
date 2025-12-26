@@ -15,6 +15,7 @@ use crate::chunk::chunk_holder::ChunkHolder;
 use crate::chunk::chunk_ticket_manager::{
     ChunkTicketManager, LevelChange, MAX_VIEW_DISTANCE, is_full,
 };
+use crate::chunk::light_engine::ThreadedLevelLightEngine;
 use crate::chunk::player_chunk_view::PlayerChunkView;
 use crate::chunk::world_gen_context::ChunkGeneratorType;
 use crate::chunk::{
@@ -72,7 +73,10 @@ impl ChunkMap {
                     registry
                         .blocks
                         .get_default_state_id(vanilla_blocks::GRASS_BLOCK), // Grass Block
+                    registry.blocks.get_default_state_id(vanilla_blocks::TORCH), // Torch
                 ))),
+                light_engine: Arc::new(ThreadedLevelLightEngine::new(registry.blocks.clone())),
+                runtime_handle: chunk_runtime.handle().clone(),
             }),
             thread_pool: Arc::new(ThreadPoolBuilder::new().build().unwrap()),
             chunk_runtime,

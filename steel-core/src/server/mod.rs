@@ -79,7 +79,7 @@ impl Server {
                 dimension_type: 0,
                 dimension: Identifier::vanilla_static("overworld"),
                 seed: 0,
-                game_type: GameType::Survival,
+                game_type: GameType::Spectator,
                 previous_game_type: None,
                 is_debug: false,
                 is_flat: true,

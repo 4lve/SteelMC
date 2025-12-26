@@ -113,6 +113,17 @@ impl BlockPos {
             | (y & Self::PACKED_Y_MASK)
             | ((z & Self::PACKED_Z_MASK) << Self::Z_OFFSET)
     }
+
+    /// Returns a new `BlockPos` offset in the given direction.
+    ///
+    /// # Arguments
+    /// * `dx` - X offset
+    /// * `dy` - Y offset
+    /// * `dz` - Z offset
+    #[must_use]
+    pub fn offset_by(self, dx: i32, dy: i32, dz: i32) -> Self {
+        Self(Vector3::new(self.0.x + dx, self.0.y + dy, self.0.z + dz))
+    }
 }
 
 /// The game type.
