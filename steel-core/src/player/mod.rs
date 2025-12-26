@@ -12,22 +12,27 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use crossbeam::atomic::AtomicCell;
 pub use game_profile::GameProfile;
 use message_chain::SignedMessageChain;
 use message_validator::LastSeenMessagesValidator;
 use profile_key::RemoteChatSession;
 pub use signature_cache::{LastSeen, MessageCache};
 use steel_utils::locks::SyncMutex;
+use steel_utils::types::GameType;
 
 use crate::config::STEEL_CONFIG;
 
 use steel_protocol::packets::{
     common::SCustomPayload,
     game::{
-        CPlayerChat, FilterType, PreviousMessage, SChat, SChatAck, SChatSessionUpdate, SMovePlayer,
+        CGameEvent, CPlayerChat, FilterType, GameEventType, PreviousMessage, SChat, SChatAck,
+        SChatSessionUpdate, SContainerClick, SContainerClose, SMovePlayer, SSetCarriedItem,
     },
 };
 use steel_utils::{ChunkPos, math::Vector3, text::TextComponent, translations};
+
+use crate::inventory::PlayerInventory;
 
 /// Re-export `PreviousMessage` as `PreviousMessageEntry` for use in `signature_cache`
 pub type PreviousMessageEntry = PreviousMessage;
@@ -74,6 +79,15 @@ pub struct Player {
 
     /// Message chain state for tracking signed message sequence
     pub message_chain: SyncMutex<Option<SignedMessageChain>>,
+
+    /// The player's inventory.
+    pub inventory: SyncMutex<PlayerInventory>,
+
+    /// The next container ID to use for opened containers.
+    next_container_id: AtomicI32,
+
+    /// The player's game mode.
+    pub gamemode: AtomicCell<GameType>,
 }
 
 impl Player {
@@ -99,7 +113,15 @@ impl Player {
             message_validator: SyncMutex::new(LastSeenMessagesValidator::new()),
             chat_session: SyncMutex::new(None),
             message_chain: SyncMutex::new(None),
+            inventory: SyncMutex::new(PlayerInventory::new()),
+            next_container_id: AtomicI32::new(1),
+            gamemode: AtomicCell::new(GameType::Survival),
         }
+    }
+
+    /// Gets the next container ID and increments the counter.
+    pub fn next_container_id(&self) -> i32 {
+        self.next_container_id.fetch_add(1, Ordering::Relaxed)
     }
 
     /// Ticks the player.
@@ -492,6 +514,90 @@ impl Player {
         }
     }
 
+    /// Sets the game mode of the player.
+    ///
+    /// Returns `true` if the game mode was changed, `false` if it was already the same.
+    pub fn set_game_mode(&self, game_type: GameType) -> bool {
+        let old_game_type = self.gamemode.swap(game_type);
+
+        if old_game_type == game_type {
+            return false;
+        }
+
+        // Send game event to the player to change their local game mode
+        self.connection.send_packet(CGameEvent {
+            event: GameEventType::ChangeGameMode,
+            data: f32::from(game_type as i8),
+        });
+
+        // TODO: Handle spectator-specific logic:
+        // - Remove entities on shoulder
+        // - Stop riding
+        // - Stop using item
+        // - Stop location-based enchantment effects
+
+        // TODO: Handle non-spectator logic:
+        // - Set camera to self
+        // - Run location changed effects if was spectator
+
+        // TODO: Update abilities
+        // TODO: Update effect visibility
+
+        true
+    }
+
     /// Cleans up player resources.
     pub fn cleanup(&self) {}
+
+    /// Handles a container click packet from the client.
+    pub fn handle_container_click(&self, packet: SContainerClick) {
+        log::debug!(
+            "Player {} clicked container {} slot {} with button {} type {:?}",
+            self.gameprofile.name,
+            packet.container_id,
+            packet.slot,
+            packet.button,
+            packet.click_type
+        );
+
+        // Container ID 0 is the player's inventory
+        if packet.container_id == 0 {
+            // TODO: Implement player inventory click handling
+            // For now, just log the action
+        } else {
+            // TODO: Handle clicks on open container menus
+        }
+    }
+
+    /// Handles a container close packet from the client.
+    pub fn handle_container_close(&self, packet: SContainerClose) {
+        log::debug!(
+            "Player {} closed container {}",
+            self.gameprofile.name,
+            packet.container_id
+        );
+
+        // TODO: Clean up any open container menu state
+    }
+
+    /// Handles a set carried item (hotbar selection) packet from the client.
+    pub fn handle_set_carried_item(&self, packet: SSetCarriedItem) {
+        let slot = packet.slot;
+
+        if !(0..9).contains(&slot) {
+            log::warn!(
+                "Player {} sent invalid hotbar slot: {}",
+                self.gameprofile.name,
+                slot
+            );
+            return;
+        }
+
+        self.inventory.lock().set_selected_slot(slot as usize);
+        log::trace!(
+            "Player {} selected hotbar slot {}",
+            self.gameprofile.name,
+            slot
+        );
+    }
 }

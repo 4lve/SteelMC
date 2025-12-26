@@ -10,7 +10,8 @@ use steel_protocol::packet_writer::TCPNetworkEncoder;
 use steel_protocol::packets::common::{CDisconnect, CKeepAlive, SCustomPayload, SKeepAlive};
 use steel_protocol::packets::game::{
     SChat, SChatAck, SChatCommand, SChatSessionUpdate, SChunkBatchReceived, SClientTickEnd,
-    SMovePlayerPos, SMovePlayerPosRot, SMovePlayerRot, SPlayerLoad,
+    SContainerClick, SContainerClose, SMovePlayerPos, SMovePlayerPosRot, SMovePlayerRot,
+    SPlayerLoad, SSetCarriedItem,
 };
 use steel_protocol::utils::{ConnectionProtocol, EnqueuedPacket, PacketError, RawPacket};
 use steel_registry::packets::play;
@@ -211,6 +212,15 @@ impl JavaConnection {
                     SChatCommand::read_packet(data)?.command,
                     &server,
                 );
+            }
+            play::S_CONTAINER_CLICK => {
+                player.handle_container_click(SContainerClick::read_packet(data)?);
+            }
+            play::S_CONTAINER_CLOSE => {
+                player.handle_container_close(SContainerClose::read_packet(data)?);
+            }
+            play::S_SET_CARRIED_ITEM => {
+                player.handle_set_carried_item(SSetCarriedItem::read_packet(data)?);
             }
             id => log::info!("play packet id {id} is not known"),
         }

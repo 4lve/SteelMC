@@ -2090,6 +2090,7 @@ dependencies = [
  "anyhow",
  "arc-swap",
  "base64",
+ "crossbeam",
  "enum_dispatch",
  "futures",
  "log",

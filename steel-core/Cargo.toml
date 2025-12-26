@@ -34,6 +34,7 @@ zstd = "0.13"
 rsa.workspace = true
 rand.workspace = true
 arc-swap.workspace = true
+crossbeam.workspace = true
 
 [lints]
 workspace = true

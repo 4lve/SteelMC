@@ -227,6 +227,26 @@ pub struct DataComponentPatch {
     entries: FxHashMap<Identifier, ComponentPatchEntry>,
 }
 
+impl Clone for DataComponentPatch {
+    fn clone(&self) -> Self {
+        Self {
+            entries: self
+                .entries
+                .iter()
+                .map(|(k, v)| {
+                    let entry = match v {
+                        ComponentPatchEntry::Set(val) => {
+                            ComponentPatchEntry::Set(val.clone_boxed())
+                        }
+                        ComponentPatchEntry::Removed => ComponentPatchEntry::Removed,
+                    };
+                    (k.clone(), entry)
+                })
+                .collect(),
+        }
+    }
+}
+
 impl PartialEq for DataComponentPatch {
     fn eq(&self, other: &Self) -> bool {
         if self.entries.len() != other.entries.len() {
