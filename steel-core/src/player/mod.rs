@@ -26,13 +26,14 @@ use crate::config::STEEL_CONFIG;
 use steel_protocol::packets::{
     common::SCustomPayload,
     game::{
-        CGameEvent, CPlayerChat, FilterType, GameEventType, PreviousMessage, SChat, SChatAck,
-        SChatSessionUpdate, SContainerClick, SContainerClose, SMovePlayer, SSetCarriedItem,
+        CContainerSetSlot, CGameEvent, CPlayerChat, FilterType, GameEventType, PreviousMessage,
+        SChat, SChatAck, SChatSessionUpdate, SContainerClick, SContainerClose, SMovePlayer,
+        SSetCarriedItem, SSetCreativeModeSlot, SlotData,
     },
 };
 use steel_utils::{ChunkPos, math::Vector3, text::TextComponent, translations};
 
-use crate::inventory::PlayerInventory;
+use crate::inventory::{Container, InventoryMenu, PlayerInventory, INVENTORY_MENU_CONTAINER_ID};
 
 /// Re-export `PreviousMessage` as `PreviousMessageEntry` for use in `signature_cache`
 pub type PreviousMessageEntry = PreviousMessage;
@@ -83,6 +84,14 @@ pub struct Player {
     /// The player's inventory.
     pub inventory: SyncMutex<PlayerInventory>,
 
+    /// The player's inventory menu (container ID 0).
+    /// This is always present and is the default container for the player.
+    pub inventory_menu: SyncMutex<InventoryMenu>,
+
+    /// The container ID of the currently open container.
+    /// 0 means the player's inventory menu is open (or no container is open).
+    open_container_id: AtomicI32,
+
     /// The next container ID to use for opened containers.
     next_container_id: AtomicI32,
 
@@ -114,6 +123,8 @@ impl Player {
             chat_session: SyncMutex::new(None),
             message_chain: SyncMutex::new(None),
             inventory: SyncMutex::new(PlayerInventory::new()),
+            inventory_menu: SyncMutex::new(InventoryMenu::new()),
+            open_container_id: AtomicI32::new(INVENTORY_MENU_CONTAINER_ID),
             next_container_id: AtomicI32::new(1),
             gamemode: AtomicCell::new(GameType::Survival),
         }
@@ -599,5 +610,117 @@ impl Player {
             self.gameprofile.name,
             slot
         );
+    }
+
+    /// Returns whether the player is in creative mode and has infinite materials.
+    #[must_use]
+    pub fn has_infinite_materials(&self) -> bool {
+        self.gamemode.load() == GameType::Creative
+    }
+
+    /// Handles a creative mode slot packet from the client.
+    ///
+    /// This allows creative mode players to directly set items in their inventory.
+    #[allow(clippy::cast_sign_loss)]
+    pub fn handle_set_creative_mode_slot(&self, packet: SSetCreativeModeSlot) {
+        // Only creative mode players can use this
+        if !self.has_infinite_materials() {
+            log::warn!(
+                "Player {} tried to set creative slot but is not in creative mode",
+                self.gameprofile.name
+            );
+            return;
+        }
+
+        let slot = packet.slot;
+        let is_drop = packet.is_drop();
+        let is_valid_slot = packet.is_valid_slot();
+        let item = packet.item.to_item_stack(&self.world.registry);
+
+        // Validate item count
+        let valid_data = item.is_empty() || item.count() <= item.max_stack_size();
+
+        if !valid_data {
+            log::warn!(
+                "Player {} tried to set creative slot with invalid item count: {} > {}",
+                self.gameprofile.name,
+                item.count(),
+                item.max_stack_size()
+            );
+            return;
+        }
+
+        if is_valid_slot {
+            // Valid slot: set item in the inventory menu
+            let mut inv_menu = self.inventory_menu.lock();
+            inv_menu.set_slot(slot as usize, item.clone());
+
+            // Also sync back to the player inventory for slots 9-44
+            // Slot mapping in inventory menu:
+            // - Slots 9-35: Main inventory (maps to player inventory slots 9-35)
+            // - Slots 36-44: Hotbar (maps to player inventory slots 0-8)
+            let mut inventory = self.inventory.lock();
+            match slot {
+                9..=35 => {
+                    // Main inventory
+                    inventory.set_item(slot as usize, item);
+                }
+                36..=44 => {
+                    // Hotbar (slot 36 -> inv slot 0, etc.)
+                    inventory.set_item((slot - 36) as usize, item);
+                }
+                _ => {
+                    // Crafting, armor, or offhand slots - handled by inventory menu only for now
+                }
+            }
+
+            log::trace!(
+                "Player {} set creative slot {} to {:?}",
+                self.gameprofile.name,
+                slot,
+                inv_menu.get_slot(slot as usize)
+            );
+        } else if is_drop {
+            // Negative slot: drop the item
+            log::debug!(
+                "Player {} dropping item in creative mode: {:?}",
+                self.gameprofile.name,
+                item
+            );
+            // TODO: Implement drop spam throttling
+            // TODO: Actually drop the item as an entity
+        } else {
+            log::warn!(
+                "Player {} sent invalid creative slot: {}",
+                self.gameprofile.name,
+                slot
+            );
+        }
+    }
+
+    /// Syncs a slot in the inventory menu to the client.
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn send_slot_update(&self, slot: i16) {
+        let inv_menu = self.inventory_menu.lock();
+        let item = inv_menu.get_slot(slot as usize);
+        let slot_data = SlotData::from_item_stack(item, &self.world.registry);
+
+        self.connection.send_packet(CContainerSetSlot {
+            container_id: INVENTORY_MENU_CONTAINER_ID as i8,
+            state_id: inv_menu.menu.state_id(),
+            slot,
+            slot_data,
+        });
+    }
+
+    /// Gets the currently open container ID.
+    #[must_use]
+    pub fn get_open_container_id(&self) -> i32 {
+        self.open_container_id.load(Ordering::Relaxed)
+    }
+
+    /// Sets the currently open container ID.
+    pub fn set_open_container_id(&self, container_id: i32) {
+        self.open_container_id.store(container_id, Ordering::Relaxed);
     }
 }

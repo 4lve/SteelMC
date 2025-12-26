@@ -28,6 +28,7 @@ mod s_container_close;
 mod s_move_player;
 mod s_player_load;
 mod s_set_carried_item;
+mod s_set_creative_mode_slot;
 pub mod slot_data;
 
 pub use c_chunk_batch_finished::CChunkBatchFinished;
@@ -65,4 +66,5 @@ pub use s_container_close::SContainerClose;
 pub use s_move_player::{SMovePlayer, SMovePlayerPos, SMovePlayerPosRot, SMovePlayerRot};
 pub use s_player_load::SPlayerLoad;
 pub use s_set_carried_item::SSetCarriedItem;
+pub use s_set_creative_mode_slot::SSetCreativeModeSlot;
 pub use slot_data::SlotData;

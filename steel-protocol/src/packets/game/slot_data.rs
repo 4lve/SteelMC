@@ -5,6 +5,7 @@
 
 use std::io::{Read, Result, Write};
 
+use steel_registry::{Registry, item_stack::ItemStack};
 use steel_utils::{
     codec::VarInt,
     serial::{ReadFrom, WriteTo},
@@ -52,6 +53,36 @@ impl SlotData {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.count <= 0 || self.item_id.is_none()
+    }
+
+    /// Creates slot data from an item stack.
+    #[must_use]
+    pub fn from_item_stack(item: &ItemStack, registry: &Registry) -> Self {
+        if item.is_empty() {
+            Self::empty()
+        } else {
+            let item_id = *registry.items.get_id(item.item());
+            Self {
+                item_id: Some(item_id as i32),
+                count: item.count(),
+            }
+        }
+    }
+
+    /// Converts slot data to an item stack.
+    #[must_use]
+    pub fn to_item_stack(&self, registry: &Registry) -> ItemStack {
+        if self.is_empty() {
+            ItemStack::empty()
+        } else if let Some(item_id) = self.item_id {
+            if let Some(item) = registry.items.by_id(item_id as usize) {
+                ItemStack::with_count(item, self.count)
+            } else {
+                ItemStack::empty()
+            }
+        } else {
+            ItemStack::empty()
+        }
     }
 }
 

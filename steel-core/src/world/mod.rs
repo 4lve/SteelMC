@@ -21,6 +21,8 @@ pub struct World {
     pub chunk_map: Arc<ChunkMap>,
     /// A map of all the players in the world.
     pub players: HashMap<Uuid, Arc<Player>>,
+    /// The registry for this world.
+    pub registry: Arc<Registry>,
 }
 
 impl World {
@@ -31,6 +33,7 @@ impl World {
         Self {
             chunk_map: Arc::new(ChunkMap::new(registry, chunk_runtime)),
             players: HashMap::new(),
+            registry: Arc::clone(registry),
         }
     }
 
