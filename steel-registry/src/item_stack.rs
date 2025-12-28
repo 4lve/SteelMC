@@ -80,6 +80,59 @@ impl ItemStack {
         self.count = count;
     }
 
+    /// Increases the stack count by the given amount.
+    pub fn grow(&mut self, amount: i32) {
+        self.count += amount;
+    }
+
+    /// Decreases the stack count by the given amount.
+    pub fn shrink(&mut self, amount: i32) {
+        self.count -= amount;
+    }
+
+    /// Splits off the given amount from this stack and returns it as a new stack.
+    /// This stack's count is reduced by the split amount.
+    #[must_use]
+    pub fn split(&mut self, amount: i32) -> Self {
+        let to_take = amount.min(self.count);
+        let result = self.copy_with_count(to_take);
+        self.shrink(to_take);
+        result
+    }
+
+    /// Creates a copy of this stack with the specified count.
+    #[must_use]
+    pub fn copy_with_count(&self, count: i32) -> Self {
+        if self.is_empty() {
+            return Self::empty();
+        }
+        Self {
+            item: self.item,
+            count,
+            patch: self.patch.clone(),
+        }
+    }
+
+    /// Clears this stack, making it empty. Returns the original stack contents.
+    pub fn copy_and_clear(&mut self) -> Self {
+        let copy = self.clone();
+        *self = Self::empty();
+        copy
+    }
+
+    /// Returns the maximum stack size for this item type.
+    #[must_use]
+    pub fn max_stack_size(&self) -> i32 {
+        use crate::data_components::vanilla_components::MAX_STACK_SIZE;
+        self.prototype().get(MAX_STACK_SIZE).copied().unwrap_or(64)
+    }
+
+    /// Returns whether this item can stack with others.
+    #[must_use]
+    pub fn is_stackable(&self) -> bool {
+        self.max_stack_size() > 1
+    }
+
     #[must_use]
     pub fn is_same_item(a: &Self, b: &Self) -> bool {
         a.item().key == b.item().key
@@ -154,6 +207,16 @@ impl ItemStack {
         }
 
         true
+    }
+}
+
+impl Clone for ItemStack {
+    fn clone(&self) -> Self {
+        Self {
+            item: self.item,
+            count: self.count,
+            patch: self.patch.clone(),
+        }
     }
 }
 

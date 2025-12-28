@@ -8,6 +8,8 @@ pub mod chunk;
 pub mod chunk_saver;
 pub mod command;
 pub mod config;
+pub mod entity;
+pub mod inventory;
 pub mod player;
 pub mod server;
 pub mod world;

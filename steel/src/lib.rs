@@ -14,6 +14,10 @@ use tokio_util::{sync::CancellationToken, task::TaskTracker};
 /// The networking module.
 pub mod network;
 
+/// Plugin loading and management.
+pub mod plugin;
+
+
 /// The supported Minecraft version.
 pub const MC_VERSION: &str = "1.21.11";
 
@@ -30,15 +34,26 @@ pub struct SteelServer {
 }
 
 impl SteelServer {
-    /// Creates a new Steel server.
+    /// Creates a new Steel server with default flat generator.
     ///
     /// # Panics
     /// This function will panic if the TCP listener fails to bind to the server address.
     pub async fn new(chunk_runtime: Arc<Runtime>) -> Self {
+        Self::new_with_generator(chunk_runtime, None).await
+    }
+
+    /// Creates a new Steel server with an optional custom generator.
+    ///
+    /// # Panics
+    /// This function will panic if the TCP listener fails to bind to the server address.
+    pub async fn new_with_generator(
+        chunk_runtime: Arc<Runtime>,
+        generator: Option<steel_core::chunk::world_gen_context::ChunkGeneratorType>,
+    ) -> Self {
         log::info!("Starting Steel Server");
 
         let cancel_token = CancellationToken::new();
-        let server = Server::new(chunk_runtime, cancel_token.clone()).await;
+        let server = Server::new_with_generator(chunk_runtime, cancel_token.clone(), generator).await;
 
         Self {
             tcp_listener: TcpListener::bind(SocketAddrV4::new(
@@ -52,6 +67,7 @@ impl SteelServer {
             server: Arc::new(server),
         }
     }
+
 
     /// Starts the server and begins accepting connections.
     pub async fn start(&mut self, task_tracker: TaskTracker) {

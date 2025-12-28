@@ -1,5 +1,6 @@
 //! This module contains the command building structs.
 pub mod execute;
+pub mod gamemode;
 pub mod seed;
 pub mod stop;
 pub mod weather;

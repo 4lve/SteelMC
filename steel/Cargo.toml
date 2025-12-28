@@ -29,6 +29,9 @@ hex = "0.4.3"
 parking_lot = { workspace = true, features = [
     "deadlock_detection",
 ], optional = true }
+abi_stable.workspace = true
+steel-plugin-api = { path = "../steel-plugin-api" }
+
 
 [lints]
 workspace = true

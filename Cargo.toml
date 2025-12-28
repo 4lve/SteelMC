@@ -9,7 +9,10 @@ members = [
     "steel-utils",
     "steel-core",
     "steel-crypto",
+    "steel-plugin-api",
+    "steel-plugin-example",
 ]
+
 
 [workspace.package]
 version = "0.0.0"
@@ -51,6 +54,7 @@ reqwest = { version = "0.12.24", features = [
 rand = "0.10.0-rc.5"
 rsa = { version = "0.10.0-rc.10", features = ["sha2"] }
 arc-swap = "1.7.1"
+abi_stable = "0.11"
 
 
 [profile.release]

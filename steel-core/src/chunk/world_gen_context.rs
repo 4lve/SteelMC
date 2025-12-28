@@ -6,15 +6,16 @@ use enum_dispatch::enum_dispatch;
 
 use crate::chunk::{
     chunk_access::ChunkAccess, chunk_generator::ChunkGenerator,
-    flat_chunk_generator::FlatChunkGenerator,
+    flat_chunk_generator::FlatChunkGenerator, plugin_chunk_generator::PluginChunkGeneratorWrapper,
 };
 
 #[allow(missing_docs)]
 #[enum_dispatch(ChunkGenerator)]
 pub enum ChunkGeneratorType {
     Flat(FlatChunkGenerator),
-    //Custom(Box<dyn ChunkGenerator>),
+    Plugin(PluginChunkGeneratorWrapper),
 }
+
 
 /// Context for world generation.
 pub struct WorldGenContext {

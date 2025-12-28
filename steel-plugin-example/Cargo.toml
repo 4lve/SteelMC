@@ -1,0 +1,14 @@
+[package]
+name = "steel-plugin-example"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+abi_stable.workspace = true
+steel-plugin-api = { path = "../steel-plugin-api" }
+
+[lints]
+workspace = true

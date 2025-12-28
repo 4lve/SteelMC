@@ -34,6 +34,10 @@ zstd = "0.13"
 rsa.workspace = true
 rand.workspace = true
 arc-swap.workspace = true
+crossbeam.workspace = true
+abi_stable.workspace = true
+steel-plugin-api = { path = "../steel-plugin-api" }
+
 
 [lints]
 workspace = true

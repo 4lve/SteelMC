@@ -42,8 +42,17 @@ pub struct Server {
 }
 
 impl Server {
-    /// Creates a new server.
+    /// Creates a new server with the default flat generator.
     pub async fn new(chunk_runtime: Arc<Runtime>, cancel_token: CancellationToken) -> Self {
+        Self::new_with_generator(chunk_runtime, cancel_token, None).await
+    }
+
+    /// Creates a new server with an optional custom generator.
+    pub async fn new_with_generator(
+        chunk_runtime: Arc<Runtime>,
+        cancel_token: CancellationToken,
+        generator: Option<crate::chunk::world_gen_context::ChunkGeneratorType>,
+    ) -> Self {
         let start = Instant::now();
         let mut registry = Registry::new_vanilla();
         registry.freeze();
@@ -52,16 +61,25 @@ impl Server {
         let registry = Arc::new(registry);
         let registry_cache = RegistryCache::new(&registry).await;
 
+        let world = if let Some(chunk_gen) = generator {
+            log::info!("Using custom chunk generator from plugin");
+            World::new_with_generator(&registry, chunk_runtime, chunk_gen)
+        } else {
+            World::new(&registry, chunk_runtime)
+        };
+
+
         Server {
             cancel_token,
             key_store: KeyStore::create(),
-            worlds: vec![Arc::new(World::new(&registry, chunk_runtime))],
+            worlds: vec![Arc::new(world)],
             registry,
             registry_cache,
             tick_rate_manager: SyncRwLock::new(TickRateManager::new()),
             command_dispatcher: SyncRwLock::new(CommandDispatcher::new()),
         }
     }
+
 
     /// Adds a player to the server.
     pub fn add_player(&self, player: Arc<Player>) {

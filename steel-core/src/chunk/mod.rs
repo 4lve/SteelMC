@@ -17,7 +17,10 @@ pub mod player_chunk_view;
 pub mod flat_chunk_generator;
 pub mod level_chunk;
 pub mod paletted_container;
+/// Plugin-provided chunk generators.
+pub mod plugin_chunk_generator;
 pub mod proto_chunk;
 pub mod section;
 
 pub mod world_gen_context;
+

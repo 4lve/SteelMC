@@ -12,22 +12,28 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use crossbeam::atomic::AtomicCell;
 pub use game_profile::GameProfile;
 use message_chain::SignedMessageChain;
 use message_validator::LastSeenMessagesValidator;
 use profile_key::RemoteChatSession;
 pub use signature_cache::{LastSeen, MessageCache};
 use steel_utils::locks::SyncMutex;
+use steel_utils::types::GameType;
 
 use crate::config::STEEL_CONFIG;
 
 use steel_protocol::packets::{
     common::SCustomPayload,
     game::{
-        CPlayerChat, FilterType, PreviousMessage, SChat, SChatAck, SChatSessionUpdate, SMovePlayer,
+        CContainerSetSlot, CGameEvent, CPlayerChat, FilterType, GameEventType, PreviousMessage,
+        SChat, SChatAck, SChatSessionUpdate, SContainerClick, SContainerClose, SMovePlayer,
+        SSetCarriedItem, SSetCreativeModeSlot, SlotData,
     },
 };
 use steel_utils::{ChunkPos, math::Vector3, text::TextComponent, translations};
+
+use crate::inventory::{INVENTORY_MENU_CONTAINER_ID, InventoryMenu, PlayerInventory};
 
 /// Re-export `PreviousMessage` as `PreviousMessageEntry` for use in `signature_cache`
 pub type PreviousMessageEntry = PreviousMessage;
@@ -74,6 +80,24 @@ pub struct Player {
 
     /// Message chain state for tracking signed message sequence
     pub message_chain: SyncMutex<Option<SignedMessageChain>>,
+
+    /// The player's inventory (shared with inventory menu).
+    pub inventory: Arc<SyncMutex<PlayerInventory>>,
+
+    /// The player's inventory menu (container ID 0).
+    /// This is always present and is the default container for the player.
+    /// References the same inventory via Arc.
+    pub inventory_menu: SyncMutex<InventoryMenu>,
+
+    /// The container ID of the currently open container.
+    /// 0 means the player's inventory menu is open (or no container is open).
+    open_container_id: AtomicI32,
+
+    /// The next container ID to use for opened containers.
+    next_container_id: AtomicI32,
+
+    /// The player's game mode.
+    pub gamemode: AtomicCell<GameType>,
 }
 
 impl Player {
@@ -83,6 +107,11 @@ impl Player {
         connection: Arc<JavaConnection>,
         world: Arc<World>,
     ) -> Self {
+        // Create the shared inventory
+        let inventory = Arc::new(SyncMutex::new(PlayerInventory::new()));
+        // Create inventory menu with a reference to the same inventory
+        let inventory_menu = InventoryMenu::new(Arc::clone(&inventory));
+
         Self {
             gameprofile,
             connection,
@@ -99,7 +128,17 @@ impl Player {
             message_validator: SyncMutex::new(LastSeenMessagesValidator::new()),
             chat_session: SyncMutex::new(None),
             message_chain: SyncMutex::new(None),
+            inventory,
+            inventory_menu: SyncMutex::new(inventory_menu),
+            open_container_id: AtomicI32::new(INVENTORY_MENU_CONTAINER_ID),
+            next_container_id: AtomicI32::new(1),
+            gamemode: AtomicCell::new(GameType::Survival),
         }
+    }
+
+    /// Gets the next container ID and increments the counter.
+    pub fn next_container_id(&self) -> i32 {
+        self.next_container_id.fetch_add(1, Ordering::Relaxed)
     }
 
     /// Ticks the player.
@@ -492,6 +531,185 @@ impl Player {
         }
     }
 
+    /// Sets the game mode of the player.
+    ///
+    /// Returns `true` if the game mode was changed, `false` if it was already the same.
+    pub fn set_game_mode(&self, game_type: GameType) -> bool {
+        let old_game_type = self.gamemode.swap(game_type);
+
+        if old_game_type == game_type {
+            return false;
+        }
+
+        // Send game event to the player to change their local game mode
+        self.connection.send_packet(CGameEvent {
+            event: GameEventType::ChangeGameMode,
+            data: f32::from(game_type as i8),
+        });
+
+        // TODO: Handle spectator-specific logic:
+        // - Remove entities on shoulder
+        // - Stop riding
+        // - Stop using item
+        // - Stop location-based enchantment effects
+
+        // TODO: Handle non-spectator logic:
+        // - Set camera to self
+        // - Run location changed effects if was spectator
+
+        // TODO: Update abilities
+        // TODO: Update effect visibility
+
+        true
+    }
+
     /// Cleans up player resources.
     pub fn cleanup(&self) {}
+
+    /// Handles a container click packet from the client.
+    pub fn handle_container_click(&self, packet: SContainerClick) {
+        log::debug!(
+            "Player {} clicked container {} slot {} with button {} type {:?}",
+            self.gameprofile.name,
+            packet.container_id,
+            packet.slot,
+            packet.button,
+            packet.click_type
+        );
+
+        // Container ID 0 is the player's inventory
+        if packet.container_id == 0 {
+            // TODO: Implement player inventory click handling
+            // For now, just log the action
+        } else {
+            // TODO: Handle clicks on open container menus
+        }
+    }
+
+    /// Handles a container close packet from the client.
+    pub fn handle_container_close(&self, packet: SContainerClose) {
+        log::debug!(
+            "Player {} closed container {}",
+            self.gameprofile.name,
+            packet.container_id
+        );
+
+        // TODO: Clean up any open container menu state
+    }
+
+    /// Handles a set carried item (hotbar selection) packet from the client.
+    pub fn handle_set_carried_item(&self, packet: SSetCarriedItem) {
+        let slot = packet.slot;
+
+        if !(0..9).contains(&slot) {
+            log::warn!(
+                "Player {} sent invalid hotbar slot: {}",
+                self.gameprofile.name,
+                slot
+            );
+            return;
+        }
+
+        self.inventory.lock().set_selected_slot(slot as usize);
+        log::trace!(
+            "Player {} selected hotbar slot {}",
+            self.gameprofile.name,
+            slot
+        );
+    }
+
+    /// Returns whether the player is in creative mode and has infinite materials.
+    #[must_use]
+    pub fn has_infinite_materials(&self) -> bool {
+        self.gamemode.load() == GameType::Creative
+    }
+
+    /// Handles a creative mode slot packet from the client.
+    ///
+    /// This allows creative mode players to directly set items in their inventory.
+    #[allow(clippy::cast_sign_loss)]
+    pub fn handle_set_creative_mode_slot(&self, packet: SSetCreativeModeSlot) {
+        // Only creative mode players can use this
+        if !self.has_infinite_materials() {
+            log::warn!(
+                "Player {} tried to set creative slot but is not in creative mode",
+                self.gameprofile.name
+            );
+            return;
+        }
+
+        let slot = packet.slot;
+        let is_drop = packet.is_drop();
+        let is_valid_slot = packet.is_valid_slot();
+        let item = packet.item.to_item_stack(&self.world.registry);
+
+        // Validate item count
+        let valid_data = item.is_empty() || item.count() <= item.max_stack_size();
+
+        if !valid_data {
+            log::warn!(
+                "Player {} tried to set creative slot with invalid item count: {} > {}",
+                self.gameprofile.name,
+                item.count(),
+                item.max_stack_size()
+            );
+            return;
+        }
+
+        if is_valid_slot {
+            // Valid slot: set item in the inventory menu
+            // This automatically updates the underlying player inventory for non-crafting slots
+            let mut inv_menu = self.inventory_menu.lock();
+            inv_menu.set_item(slot as usize, item.clone());
+
+            log::trace!(
+                "Player {} set creative slot {} to {:?}",
+                self.gameprofile.name,
+                slot,
+                inv_menu.get_item(slot as usize)
+            );
+        } else if is_drop {
+            // Negative slot: drop the item
+            log::debug!(
+                "Player {} dropping item in creative mode: {:?}",
+                self.gameprofile.name,
+                item
+            );
+            // TODO: Implement drop spam throttling
+            // TODO: Actually drop the item as an entity
+        } else {
+            log::warn!(
+                "Player {} sent invalid creative slot: {}",
+                self.gameprofile.name,
+                slot
+            );
+        }
+    }
+
+    /// Syncs a slot in the inventory menu to the client.
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn send_slot_update(&self, slot: i16) {
+        let inv_menu = self.inventory_menu.lock();
+        let item = inv_menu.get_item(slot as usize);
+        let slot_data = SlotData::from_item_stack(&item, &self.world.registry);
+
+        self.connection.send_packet(CContainerSetSlot {
+            container_id: INVENTORY_MENU_CONTAINER_ID as i8,
+            state_id: inv_menu.state_id(),
+            slot,
+            slot_data,
+        });
+    }
+
+    /// Gets the currently open container ID.
+    #[must_use]
+    pub fn get_open_container_id(&self) -> i32 {
+        self.open_container_id.load(Ordering::Relaxed)
+    }
+
+    /// Sets the currently open container ID.
+    pub fn set_open_container_id(&self, container_id: i32) {
+        self.open_container_id
+            .store(container_id, Ordering::Relaxed);
+    }
 }
