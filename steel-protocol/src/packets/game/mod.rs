@@ -5,6 +5,7 @@ mod c_disguised_chat;
 mod c_forget_level_chunk;
 mod c_game_event;
 mod c_level_chunk_with_light;
+mod c_light_update;
 mod c_login;
 mod c_player_chat;
 mod c_player_info_update;
@@ -33,6 +34,7 @@ pub use c_level_chunk_with_light::{
     BlockEntityInfo, CLevelChunkWithLight, ChunkPacketData, HeightmapType, Heightmaps,
     LightUpdatePacketData,
 };
+pub use c_light_update::CLightUpdate;
 pub use c_login::CLogin;
 pub use c_login::CommonPlayerSpawnInfo;
 pub use c_player_chat::{CPlayerChat, ChatTypeBound, FilterType, PreviousMessage};

@@ -3,15 +3,17 @@
 use std::sync::Arc;
 
 use crate::chunk::{
+    ChunkSkyLightSources,
     chunk_access::{ChunkAccess, ChunkStatus},
     chunk_generation_task::StaticCache2D,
-    chunk_generator::ChunkGenerator,
+    chunk_generator::{ChunkGenerator, ChunkGuard},
     chunk_holder::ChunkHolder,
     chunk_pyramid::ChunkStep,
     proto_chunk::ProtoChunk,
     section::{ChunkSection, Sections},
     world_gen_context::WorldGenContext,
 };
+use steel_utils::locks::SyncRwLock;
 
 pub struct ChunkStatusTasks;
 
@@ -23,14 +25,35 @@ impl ChunkStatusTasks {
         _cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
         holder: Arc<ChunkHolder>,
     ) -> Result<(), anyhow::Error> {
-        let sections = (0..24) // Standard height?
+        use crate::chunk::light_storage::LightStorage;
+
+        let sections = (0..24)
             .map(|_| ChunkSection::new_empty())
             .collect::<Vec<_>>()
             .into_boxed_slice();
 
-        let proto_chunk = ProtoChunk::new(Sections::from_owned(sections), holder.get_pos());
+        let section_count = sections.len();
 
-        //log::info!("Inserted proto chunk for {:?}", holder.get_pos());
+        let sky_light = (0..(section_count + 2))
+            .map(|_| Arc::new(SyncRwLock::new(LightStorage::new_empty())))
+            .collect();
+        let block_light = (0..(section_count + 2))
+            .map(|_| Arc::new(SyncRwLock::new(LightStorage::new_empty())))
+            .collect();
+
+        // TODO: Use upgrade_to_full if the loaded chunk is full.
+        let proto_chunk = ProtoChunk::new(
+            Sections {
+                sections: sections
+                    .into_iter()
+                    .map(|section| Arc::new(SyncRwLock::new(section)))
+                    .collect(),
+                sky_light,
+                block_light,
+                sky_light_sources: Arc::new(SyncRwLock::new(ChunkSkyLightSources::default())),
+            },
+            holder.get_pos(),
+        );
 
         holder.insert_chunk(ChunkAccess::Proto(proto_chunk), ChunkStatus::Empty);
         Ok(())
@@ -119,21 +142,53 @@ impl ChunkStatusTasks {
         Ok(())
     }
 
+    /// Initializes lighting for the chunk.
+    ///
+    /// This method prepares the chunk for light propagation.
+    ///
+    /// # Panics
+    /// Panics if the chunk is not at `ChunkStatus::Features` or higher.
     pub fn initialize_light(
-        _context: Arc<WorldGenContext>,
+        context: Arc<WorldGenContext>,
         _step: &ChunkStep,
         _cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
-        _holder: Arc<ChunkHolder>,
+        holder: Arc<ChunkHolder>,
     ) -> Result<(), anyhow::Error> {
+        let chunk = holder
+            .try_chunk(ChunkStatus::Features)
+            .expect("Chunk not found at status Features");
+
+        let is_lighted = true;
+        context.light_engine.initialize_light(chunk, is_lighted)?;
+
         Ok(())
     }
 
+    /// Propagates light throughout the chunk.
+    ///
+    /// # Panics
+    /// Panics if the chunk is not at `ChunkStatus::InitializeLight` or higher.
     pub fn light(
-        _context: Arc<WorldGenContext>,
+        context: Arc<WorldGenContext>,
         _step: &ChunkStep,
-        _cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
-        _holder: Arc<ChunkHolder>,
+        cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
+        holder: Arc<ChunkHolder>,
     ) -> Result<(), anyhow::Error> {
+        let chunk = holder
+            .try_chunk(ChunkStatus::InitializeLight)
+            .expect("Chunk not found at status InitializeLight");
+
+        let is_lighted = true;
+        let guard = ChunkGuard::new(chunk);
+
+        // Block on the async light propagation
+        // This is safe because the Tokio runtime has its own thread pool
+        context.runtime_handle.block_on(
+            context
+                .light_engine
+                .light_chunk_with_cache(&guard, cache, &holder, is_lighted),
+        )?;
+
         Ok(())
     }
 
@@ -152,8 +207,6 @@ impl ChunkStatusTasks {
         _cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
         holder: Arc<ChunkHolder>,
     ) -> Result<(), anyhow::Error> {
-        //panic!("Full task");
-        //log::info!("Chunk {:?} upgraded to full", holder.get_pos());
         holder.upgrade_to_full();
         Ok(())
     }

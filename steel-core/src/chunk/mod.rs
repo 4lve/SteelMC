@@ -16,8 +16,14 @@ pub mod player_chunk_view;
 /// Generates flat worlds with configurable layers.
 pub mod flat_chunk_generator;
 pub mod level_chunk;
+/// Light engine for chunk lighting using flood-fill propagation.
+pub mod light_engine;
+pub mod light_storage;
 pub mod paletted_container;
 pub mod proto_chunk;
 pub mod section;
+pub mod sky_light_sources;
 
 pub mod world_gen_context;
+
+pub use sky_light_sources::ChunkSkyLightSources;

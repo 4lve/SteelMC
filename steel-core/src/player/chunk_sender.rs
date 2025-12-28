@@ -3,7 +3,7 @@ use rustc_hash::FxHashSet;
 use std::sync::Arc;
 
 use steel_protocol::packets::game::{
-    CChunkBatchFinished, CChunkBatchStart, CForgetLevelChunk, CLevelChunkWithLight,
+    CChunkBatchFinished, CChunkBatchStart, CForgetLevelChunk, CLevelChunkWithLight, CLightUpdate,
 };
 use steel_utils::ChunkPos;
 use tokio::task::spawn_blocking;
@@ -55,6 +55,9 @@ impl ChunkSender {
         world: &World,
         player_chunk_pos: ChunkPos,
     ) {
+        // First, broadcast any light updates for already-sent chunks
+        Self::broadcast_light_updates(connection.clone(), world, player_chunk_pos);
+
         if self.unacknowledged_batches < self.max_unacknowledged_batches {
             let max_batch_size = self.desired_chunks_per_tick.max(1.0);
             self.batch_quota =
@@ -142,6 +145,67 @@ impl ChunkSender {
     pub fn on_chunk_batch_received_by_client(&mut self, _batch_size: f32) {
         if self.unacknowledged_batches > 0 {
             self.unacknowledged_batches -= 1;
+        }
+    }
+
+    /// Broadcasts light updates for chunks that have had their light modified by neighbors.
+    fn broadcast_light_updates(
+        connection: Arc<JavaConnection>,
+        world: &World,
+        player_chunk_pos: ChunkPos,
+    ) {
+        let view_distance = 10; // TODO: Get from player settings
+
+        for dx in -view_distance..=view_distance {
+            for dz in -view_distance..=view_distance {
+                let pos = ChunkPos(steel_utils::math::Vector2::new(
+                    player_chunk_pos.0.x + dx,
+                    player_chunk_pos.0.y + dz,
+                ));
+
+                if let Some(holder) = world
+                    .chunk_map
+                    .chunks
+                    .read_sync(&pos, |_, chunk| chunk.clone())
+                {
+                    // Check if this chunk has light changes and is already at Full status
+                    if holder.has_light_changes()
+                        && holder.persisted_status() == Some(ChunkStatus::Full)
+                    {
+                        // Get the changed section flags before clearing
+                        let sky_changed = holder
+                            .sky_changed_sections
+                            .load(std::sync::atomic::Ordering::Relaxed);
+                        let block_changed = holder
+                            .block_changed_sections
+                            .load(std::sync::atomic::Ordering::Relaxed);
+
+                        // Only send if there are actual changes
+                        if (sky_changed != 0 || block_changed != 0)
+                            && let Some(chunk_lock) = holder.try_chunk(ChunkStatus::Full)
+                            && let Some(chunk_arc) = chunk_lock.as_ref()
+                            && let ChunkAccess::Full(level_chunk) = chunk_arc.as_ref()
+                        {
+                            // Extract only the changed light sections
+                            let light_data =
+                                level_chunk.extract_changed_light_data(sky_changed, block_changed);
+
+                            // Verify arrays match masks before sending
+                            if !light_data.sky_updates.is_empty()
+                                || !light_data.block_updates.is_empty()
+                                || (light_data.empty_sky_y_mask.0.first().map_or(0, |v| *v) != 0)
+                                || (light_data.empty_block_y_mask.0.first().map_or(0, |v| *v) != 0)
+                            {
+                                let light_update = CLightUpdate { pos, light_data };
+                                connection.send_packet(light_update);
+                            }
+
+                            // Clear the changed sections now that we've sent the update
+                            holder.clear_light_changes();
+                        }
+                    }
+                }
+            }
         }
     }
 }
