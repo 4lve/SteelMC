@@ -76,7 +76,23 @@ async fn main_async(chunk_runtime: Arc<Runtime>) {
         });
     }
 
-    let mut steel = SteelServer::new(chunk_runtime.clone()).await;
+    // Load plugins
+    let mut plugin_manager = steel::plugin::PluginManager::new();
+    let plugins_dir = std::path::Path::new("plugins");
+    if let Err(e) = plugin_manager.load_plugins_from_directory(plugins_dir) {
+        log::error!("Failed to load plugins: {e}");
+    }
+    log::info!("Loaded {} plugin(s)", plugin_manager.plugins.len());
+
+    // Get the first generator from plugins, if any
+    let plugin_generator = plugin_manager.take_first_generator();
+    if plugin_generator.is_some() {
+        log::info!("Using chunk generator from plugin");
+    }
+
+    let mut steel = SteelServer::new_with_generator(chunk_runtime.clone(), plugin_generator).await;
+
+
 
     log::info!(
         "{:?}",

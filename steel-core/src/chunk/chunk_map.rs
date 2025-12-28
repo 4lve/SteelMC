@@ -53,10 +53,30 @@ pub struct ChunkMap {
 }
 
 impl ChunkMap {
-    /// Creates a new chunk map.
+    /// Creates a new chunk map with the default flat generator.
     #[must_use]
     #[allow(clippy::missing_panics_doc, clippy::unwrap_used)]
     pub fn new(registry: &Arc<Registry>, chunk_runtime: Arc<Runtime>) -> Self {
+        let generator = ChunkGeneratorType::Flat(FlatChunkGenerator::new(
+            registry
+                .blocks
+                .get_default_state_id(vanilla_blocks::BEDROCK),
+            registry.blocks.get_default_state_id(vanilla_blocks::DIRT),
+            registry
+                .blocks
+                .get_default_state_id(vanilla_blocks::GRASS_BLOCK),
+        ));
+        Self::new_with_generator(registry, chunk_runtime, generator)
+    }
+
+    /// Creates a new chunk map with a custom generator.
+    #[must_use]
+    #[allow(clippy::missing_panics_doc, clippy::unwrap_used)]
+    pub fn new_with_generator(
+        registry: &Arc<Registry>,
+        chunk_runtime: Arc<Runtime>,
+        generator: ChunkGeneratorType,
+    ) -> Self {
         Self {
             chunks: scc::HashMap::with_capacity_and_hasher(1000, FxBuildHasher),
             unloading_chunks: scc::HashMap::with_capacity_and_hasher(1000, FxBuildHasher),
@@ -64,21 +84,14 @@ impl ChunkMap {
             task_tracker: TaskTracker::new(),
             chunk_tickets: SyncMutex::new(ChunkTicketManager::new()),
             world_gen_context: Arc::new(WorldGenContext {
-                generator: Arc::new(ChunkGeneratorType::Flat(FlatChunkGenerator::new(
-                    registry
-                        .blocks
-                        .get_default_state_id(vanilla_blocks::BEDROCK), // Bedrock
-                    registry.blocks.get_default_state_id(vanilla_blocks::DIRT), // Dirt
-                    registry
-                        .blocks
-                        .get_default_state_id(vanilla_blocks::GRASS_BLOCK), // Grass Block
-                ))),
+                generator: Arc::new(generator),
             }),
             thread_pool: Arc::new(ThreadPoolBuilder::new().build().unwrap()),
             chunk_runtime,
             region_manager: Arc::new(RegionManager::new("world/overworld", registry.clone())),
         }
     }
+
 
     /// Schedules a new generation task.
     #[inline]

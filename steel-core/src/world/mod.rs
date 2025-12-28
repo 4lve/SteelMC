@@ -10,6 +10,7 @@ use uuid::Uuid;
 
 use crate::{
     ChunkMap,
+    chunk::world_gen_context::ChunkGeneratorType,
     player::{LastSeen, Player},
 };
 
@@ -26,7 +27,7 @@ pub struct World {
 }
 
 impl World {
-    /// Creates a new world.
+    /// Creates a new world with the default flat generator.
     #[allow(clippy::new_without_default)]
     #[must_use]
     pub fn new(registry: &Arc<Registry>, chunk_runtime: Arc<Runtime>) -> Self {
@@ -36,6 +37,21 @@ impl World {
             registry: Arc::clone(registry),
         }
     }
+
+    /// Creates a new world with a custom generator.
+    #[must_use]
+    pub fn new_with_generator(
+        registry: &Arc<Registry>,
+        chunk_runtime: Arc<Runtime>,
+        generator: ChunkGeneratorType,
+    ) -> Self {
+        Self {
+            chunk_map: Arc::new(ChunkMap::new_with_generator(registry, chunk_runtime, generator)),
+            players: HashMap::new(),
+            registry: Arc::clone(registry),
+        }
+    }
+
 
     /// Ticks the world.
     pub fn tick_b(&self, tick_count: u64) {

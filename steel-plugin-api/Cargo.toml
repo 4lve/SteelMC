@@ -1,0 +1,10 @@
+[package]
+name = "steel-plugin-api"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+abi_stable.workspace = true
+
+[lints]
+workspace = true
