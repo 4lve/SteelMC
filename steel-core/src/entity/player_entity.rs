@@ -1,6 +1,7 @@
 //! Player entity wrapper that reads position dynamically from the Player
 
 use std::sync::Arc;
+use steel_registry::vanilla_entities;
 use steel_utils::math::Vector3;
 use uuid::Uuid;
 
@@ -17,7 +18,12 @@ pub struct PlayerEntity {
 impl PlayerEntity {
     /// Creates a new `PlayerEntity` wrapper
     pub fn new(entity_id: i32, player: Arc<Player>) -> Self {
-        let base = BaseEntity::new(entity_id, player.gameprofile.id, *player.position.lock());
+        let base = BaseEntity::new(
+            entity_id,
+            vanilla_entities::PLAYER.id,
+            player.gameprofile.id,
+            *player.position.lock(),
+        );
         Self { player, base }
     }
 }
@@ -29,6 +35,10 @@ impl Entity for PlayerEntity {
 
     fn uuid(&self) -> Uuid {
         self.base.uuid()
+    }
+
+    fn entity_type_id(&self) -> i32 {
+        self.base.entity_type_id()
     }
 
     fn position(&self) -> Vector3<f64> {

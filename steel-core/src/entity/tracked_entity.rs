@@ -13,7 +13,6 @@ use steel_protocol::packets::game::{
     CAddEntity, CMoveEntityPos, CMoveEntityPosRot, CMoveEntityRot, CRemoveEntities, CRotateHead,
     CSetEntityData, CTeleportEntity,
 };
-use steel_registry::vanilla_entities;
 use steel_utils::codec::VarInt;
 use steel_utils::locks::{SyncMutex, SyncRwLock};
 
@@ -108,7 +107,7 @@ impl TrackedEntity {
         let add_entity_packet = CAddEntity {
             entity_id,
             uuid: entity_uuid,
-            entity_type: VarInt(vanilla_entities::PLAYER.id),
+            entity_type: VarInt(self.entity.entity_type_id()),
             x: position.x,
             y: position.y,
             z: position.z,

@@ -33,6 +33,9 @@ pub trait Entity: Send + Sync {
     /// Get the entity's UUID
     fn uuid(&self) -> Uuid;
 
+    /// Get the entity type registry ID (e.g., `vanilla_entities::PLAYER.id`)
+    fn entity_type_id(&self) -> i32;
+
     /// Get the entity's position
     fn position(&self) -> Vector3<f64>;
 
@@ -100,6 +103,9 @@ pub struct BaseEntity {
     /// Unique entity ID (incremental)
     pub entity_id: AtomicI32,
 
+    /// Entity type registry ID
+    pub entity_type_id: i32,
+
     /// Entity UUID
     pub uuid: Uuid,
 
@@ -128,7 +134,7 @@ pub struct BaseEntity {
 impl BaseEntity {
     /// Creates a new base entity
     #[must_use]
-    pub fn new(entity_id: i32, uuid: Uuid, position: Vector3<f64>) -> Self {
+    pub fn new(entity_id: i32, entity_type_id: i32, uuid: Uuid, position: Vector3<f64>) -> Self {
         let mut entity_data = EntityData::new(entity_id);
 
         // Register default entity data fields
@@ -143,6 +149,7 @@ impl BaseEntity {
 
         Self {
             entity_id: AtomicI32::new(entity_id),
+            entity_type_id,
             uuid,
             position: SyncMutex::new(position),
             rotation: SyncMutex::new((0.0, 0.0)),
@@ -244,6 +251,10 @@ impl Entity for BaseEntity {
 
     fn uuid(&self) -> Uuid {
         self.uuid
+    }
+
+    fn entity_type_id(&self) -> i32 {
+        self.entity_type_id
     }
 
     fn position(&self) -> Vector3<f64> {
