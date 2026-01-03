@@ -41,6 +41,12 @@
             "maximum": 32,
             "default": 10
         },
+        "difficulty": {
+            "type": "string",
+            "description": "Server difficulty level",
+            "enum": ["peaceful", "easy", "normal", "hard"],
+            "default": "normal"
+        },
         "online_mode": {
             "type": "boolean",
             "description": "Whether to use Mojang's authentication service",
