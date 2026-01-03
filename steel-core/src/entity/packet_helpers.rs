@@ -51,6 +51,23 @@ pub fn serialize_entity_data_value(value: &EntityDataValue) -> std::io::Result<V
                 false.write(&mut bytes)?;
             }
         }
+        EntityDataValue::Vector3(v) => {
+            // Vector3 is 3 floats (x, y, z)
+            bytes.extend_from_slice(&v.0.to_be_bytes());
+            bytes.extend_from_slice(&v.1.to_be_bytes());
+            bytes.extend_from_slice(&v.2.to_be_bytes());
+        }
+        EntityDataValue::Quaternion(q) => {
+            // Quaternion is 4 floats (x, y, z, w)
+            bytes.extend_from_slice(&q.0.to_be_bytes());
+            bytes.extend_from_slice(&q.1.to_be_bytes());
+            bytes.extend_from_slice(&q.2.to_be_bytes());
+            bytes.extend_from_slice(&q.3.to_be_bytes());
+        }
+        EntityDataValue::BlockState(b) => {
+            // Block state is a VarInt
+            VarInt(b.0).write(&mut bytes)?;
+        }
     }
 
     Ok(bytes)

@@ -5,14 +5,17 @@
 
 pub mod entity_data;
 pub mod entity_tracker;
+pub mod mob_entity;
 pub mod packet_helpers;
 pub mod player_entity;
 pub mod tracked_entity;
 
 pub use entity_data::{
-    EntityData, EntityDataAccessor, EntityDataSerializers, EntityDataValue, IntoEntityData,
+    EntityBlockState, EntityData, EntityDataAccessor, EntityDataValue, IntoEntityData, Quaternionf,
+    Vector3f,
 };
 pub use entity_tracker::EntityTracker;
+pub use mob_entity::MobEntity;
 pub use packet_helpers::{entity_data_to_packet_entries, serialize_entity_data_value};
 pub use player_entity::PlayerEntity;
 pub use tracked_entity::TrackedEntity;

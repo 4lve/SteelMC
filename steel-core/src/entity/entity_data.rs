@@ -5,9 +5,28 @@
 
 use rustc_hash::FxHashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
+use steel_registry::entity_data_serializers;
 use steel_utils::locks::SyncRwLock;
 
 use super::Pose;
+
+/// 3D vector for Display entity transformations
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Vector3f(pub f32, pub f32, pub f32);
+
+/// Quaternion for Display entity rotations
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Quaternionf(pub f32, pub f32, pub f32, pub f32);
+
+impl Default for Quaternionf {
+    fn default() -> Self {
+        Self(0.0, 0.0, 0.0, 1.0) // Identity quaternion
+    }
+}
+
+/// Block state ID for entity data (Display entities use i32/VarInt)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct EntityBlockState(pub i32);
 
 /// Entity data value - a strongly typed enum for all possible entity metadata values
 #[derive(Debug, Clone, PartialEq)]
@@ -30,6 +49,12 @@ pub enum EntityDataValue {
     OptionalString(Option<String>),
     /// Optional text component (for custom names with formatting)
     OptionalTextComponent(Option<String>),
+    /// 3D vector (for Display entity transformations)
+    Vector3(Vector3f),
+    /// Quaternion (for Display entity rotations)
+    Quaternion(Quaternionf),
+    /// Block state ID (for Block Display entities)
+    BlockState(EntityBlockState),
     // TODO: Add more variants as needed:
     // TextComponent(TextComponent),
     // ItemStack(ItemStack),
@@ -38,7 +63,6 @@ pub enum EntityDataValue {
     // OptionalBlockPos(Option<BlockPos>),
     // Direction(Direction),
     // OptionalUuid(Option<Uuid>),
-    // BlockState(BlockState),
     // OptionalBlockState(Option<BlockState>),
     // CompoundTag(NbtCompound),
     // Particle(Particle),
@@ -52,8 +76,6 @@ pub enum EntityDataValue {
     // PaintingVariant(i32),
     // SnifferState(i32),
     // ArmadilloState(i32),
-    // Vector3(f32, f32, f32),
-    // Quaternion(f32, f32, f32, f32),
 }
 
 impl EntityDataValue {
@@ -61,15 +83,19 @@ impl EntityDataValue {
     #[must_use]
     pub fn serializer_id(&self) -> u8 {
         match self {
-            Self::Byte(_) => EntityDataSerializers::BYTE,
-            Self::Int(_) => EntityDataSerializers::INT,
-            Self::Long(_) => EntityDataSerializers::LONG,
-            Self::Float(_) => EntityDataSerializers::FLOAT,
-            Self::String(_) => EntityDataSerializers::STRING,
-            Self::Boolean(_) => EntityDataSerializers::BOOLEAN,
-            Self::Pose(_) => EntityDataSerializers::POSE,
-            Self::OptionalString(_) => EntityDataSerializers::OPTIONAL_STRING,
-            Self::OptionalTextComponent(_) => EntityDataSerializers::OPTIONAL_TEXT_COMPONENT,
+            Self::Byte(_) => entity_data_serializers::BYTE,
+            Self::Int(_) => entity_data_serializers::INT,
+            Self::Long(_) => entity_data_serializers::LONG,
+            Self::Float(_) => entity_data_serializers::FLOAT,
+            Self::String(_) => entity_data_serializers::STRING,
+            Self::Boolean(_) => entity_data_serializers::BOOLEAN,
+            Self::Pose(_) => entity_data_serializers::POSE,
+            Self::OptionalString(_) | Self::OptionalTextComponent(_) => {
+                entity_data_serializers::OPTIONAL_COMPONENT
+            }
+            Self::Vector3(_) => entity_data_serializers::VECTOR3,
+            Self::Quaternion(_) => entity_data_serializers::QUATERNION,
+            Self::BlockState(_) => entity_data_serializers::BLOCK_STATE,
         }
     }
 
@@ -223,6 +249,42 @@ impl IntoEntityData for Option<String> {
     }
     fn from_entity_data(value: &EntityDataValue) -> Option<Self> {
         value.as_optional_string().cloned()
+    }
+}
+
+impl IntoEntityData for Vector3f {
+    fn into_entity_data(self) -> EntityDataValue {
+        EntityDataValue::Vector3(self)
+    }
+    fn from_entity_data(value: &EntityDataValue) -> Option<Self> {
+        match value {
+            EntityDataValue::Vector3(v) => Some(*v),
+            _ => None,
+        }
+    }
+}
+
+impl IntoEntityData for Quaternionf {
+    fn into_entity_data(self) -> EntityDataValue {
+        EntityDataValue::Quaternion(self)
+    }
+    fn from_entity_data(value: &EntityDataValue) -> Option<Self> {
+        match value {
+            EntityDataValue::Quaternion(q) => Some(*q),
+            _ => None,
+        }
+    }
+}
+
+impl IntoEntityData for EntityBlockState {
+    fn into_entity_data(self) -> EntityDataValue {
+        EntityDataValue::BlockState(self)
+    }
+    fn from_entity_data(value: &EntityDataValue) -> Option<Self> {
+        match value {
+            EntityDataValue::BlockState(b) => Some(*b),
+            _ => None,
+        }
     }
 }
 
@@ -391,8 +453,23 @@ impl<T> Copy for EntityDataAccessor<T> {}
 impl EntityDataAccessor<u8> {
     /// Shared flags (fire, crouch, sprint, etc.)
     pub const SHARED_FLAGS: Self = Self::new(0);
+    /// Display: billboard constraints
+    pub const DISPLAY_BILLBOARD: Self = Self::new(15);
     /// Player model parts
     pub const PLAYER_MODEL_PARTS: Self = Self::new(18);
+}
+
+impl EntityDataAccessor<f32> {
+    /// Display: view range
+    pub const DISPLAY_VIEW_RANGE: Self = Self::new(17);
+    /// Display: shadow radius
+    pub const DISPLAY_SHADOW_RADIUS: Self = Self::new(18);
+    /// Display: shadow strength
+    pub const DISPLAY_SHADOW_STRENGTH: Self = Self::new(19);
+    /// Display: width
+    pub const DISPLAY_WIDTH: Self = Self::new(20);
+    /// Display: height
+    pub const DISPLAY_HEIGHT: Self = Self::new(21);
 }
 
 impl EntityDataAccessor<i32> {
@@ -401,6 +478,20 @@ impl EntityDataAccessor<i32> {
 
     /// Frozen ticks (for powder snow)
     pub const FROZEN_TICKS: Self = Self::new(7);
+
+    /// Display: transformation interpolation start delay
+    pub const DISPLAY_INTERPOLATION_START: Self = Self::new(8);
+    /// Display: transformation interpolation duration
+    pub const DISPLAY_INTERPOLATION_DURATION: Self = Self::new(9);
+    /// Display: pos/rot interpolation duration
+    pub const DISPLAY_POS_ROT_INTERPOLATION: Self = Self::new(10);
+    /// Display: brightness override (-1 for none)
+    pub const DISPLAY_BRIGHTNESS: Self = Self::new(16);
+    /// Display: glow color override (-1 for none)
+    pub const DISPLAY_GLOW_COLOR: Self = Self::new(22);
+
+    /// Slime/Magma cube size (index 16 in Mob entity hierarchy)
+    pub const SLIME_SIZE: Self = Self::new(16);
 }
 
 impl EntityDataAccessor<Option<String>> {
@@ -424,66 +515,22 @@ impl EntityDataAccessor<Pose> {
     pub const POSE: Self = Self::new(6);
 }
 
-/// Serializer IDs for different data types
-pub struct EntityDataSerializers;
+// Display entity data accessors (indices 8-22)
+impl EntityDataAccessor<Vector3f> {
+    /// Display entity translation
+    pub const DISPLAY_TRANSLATION: Self = Self::new(11);
+    /// Display entity scale
+    pub const DISPLAY_SCALE: Self = Self::new(12);
+}
 
-impl EntityDataSerializers {
-    /// Byte serializer (u8)
-    pub const BYTE: u8 = 0;
-    /// Integer serializer (i32/VarInt)
-    pub const INT: u8 = 1;
-    /// Long serializer (i64)
-    pub const LONG: u8 = 2;
-    /// Float serializer (f32)
-    pub const FLOAT: u8 = 3;
-    /// String serializer
-    pub const STRING: u8 = 4;
-    /// Text component serializer
-    pub const TEXT_COMPONENT: u8 = 5;
-    /// Optional text component serializer
-    pub const OPTIONAL_TEXT_COMPONENT: u8 = 6;
-    /// Item stack serializer
-    pub const ITEM_STACK: u8 = 7;
-    /// Boolean serializer
-    pub const BOOLEAN: u8 = 8;
-    /// Rotations serializer
-    pub const ROTATIONS: u8 = 9;
-    /// Block position serializer
-    pub const BLOCK_POS: u8 = 10;
-    /// Optional block position serializer
-    pub const OPTIONAL_BLOCK_POS: u8 = 11;
-    /// Direction serializer
-    pub const DIRECTION: u8 = 12;
-    /// Optional UUID serializer
-    pub const OPTIONAL_UUID: u8 = 13;
-    /// Block state serializer
-    pub const BLOCK_STATE: u8 = 14;
-    /// Optional block state serializer
-    pub const OPTIONAL_BLOCK_STATE: u8 = 15;
-    /// NBT serializer
-    pub const NBT: u8 = 16;
-    /// Particle serializer
-    pub const PARTICLE: u8 = 17;
-    /// Villager data serializer
-    pub const VILLAGER_DATA: u8 = 18;
-    /// Optional integer serializer
-    pub const OPTIONAL_INT: u8 = 19;
-    /// Pose serializer
-    pub const POSE: u8 = 20;
-    /// Cat variant serializer
-    pub const CAT_VARIANT: u8 = 21;
-    /// Frog variant serializer
-    pub const FROG_VARIANT: u8 = 22;
-    /// Optional global position serializer
-    pub const OPTIONAL_GLOBAL_POS: u8 = 23;
-    /// Painting variant serializer
-    pub const PAINTING_VARIANT: u8 = 24;
-    /// Sniffer state serializer
-    pub const SNIFFER_STATE: u8 = 25;
-    /// Vector3 serializer
-    pub const VECTOR3: u8 = 26;
-    /// Quaternion serializer
-    pub const QUATERNION: u8 = 27;
-    /// Optional string serializer
-    pub const OPTIONAL_STRING: u8 = 28;
+impl EntityDataAccessor<Quaternionf> {
+    /// Display entity left rotation
+    pub const DISPLAY_LEFT_ROTATION: Self = Self::new(13);
+    /// Display entity right rotation
+    pub const DISPLAY_RIGHT_ROTATION: Self = Self::new(14);
+}
+
+impl EntityDataAccessor<EntityBlockState> {
+    /// Block Display block state (index 23)
+    pub const BLOCK_DISPLAY_STATE: Self = Self::new(23);
 }

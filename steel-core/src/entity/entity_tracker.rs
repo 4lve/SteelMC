@@ -151,6 +151,33 @@ impl EntityTracker {
         self.tracked_entities.read().get(&entity_id).cloned()
     }
 
+    /// Gets a tracked entity by UUID
+    pub fn get_entity_by_uuid(&self, uuid: Uuid) -> Option<Arc<TrackedEntity>> {
+        self.tracked_entities
+            .read()
+            .values()
+            .find(|e| e.entity.uuid() == uuid)
+            .cloned()
+    }
+
+    /// Removes an entity by UUID
+    pub fn remove_entity_by_uuid(&self, uuid: Uuid) -> bool {
+        let entity_id = {
+            let entities = self.tracked_entities.read();
+            entities
+                .values()
+                .find(|e| e.entity.uuid() == uuid)
+                .map(|e| e.entity.entity_id())
+        };
+
+        if let Some(id) = entity_id {
+            self.remove_entity(id);
+            true
+        } else {
+            false
+        }
+    }
+
     /// Removes a player from all entity tracking
     pub fn remove_player(&self, player_uuid: Uuid) {
         // Remove player from all tracked entities

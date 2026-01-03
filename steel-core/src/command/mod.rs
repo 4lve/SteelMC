@@ -30,8 +30,10 @@ impl CommandDispatcher {
         let dispatcher = CommandDispatcher::new_empty();
         dispatcher.register(commands::execute::command_handler());
         dispatcher.register(commands::gamemode::command_handler());
+        dispatcher.register(commands::kill::command_handler());
         dispatcher.register(commands::seed::command_handler());
         dispatcher.register(commands::stop::command_handler());
+        dispatcher.register(commands::summon::command_handler());
         dispatcher.register(commands::weather::command_handler());
         dispatcher
     }

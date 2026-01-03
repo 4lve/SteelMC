@@ -44,6 +44,14 @@ struct EntityTypeEntry {
     name: String,
     client_tracking_range: i32,
     update_interval: i32,
+    #[serde(default = "default_true")]
+    summonable: bool,
+    #[serde(default = "default_true")]
+    allowed_in_peaceful: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 pub(crate) fn build() -> (TokenStream, TokenStream, TokenStream) {
@@ -64,12 +72,16 @@ pub(crate) fn build() -> (TokenStream, TokenStream, TokenStream) {
             let tracking_range_chunks = e.client_tracking_range;
             let update_interval = e.update_interval;
             let key = format!("minecraft:{}", e.name);
+            let summonable = e.summonable;
+            let allowed_in_peaceful = e.allowed_in_peaceful;
             quote! {
                 pub const #name: EntityType = EntityType {
                     id: #id,
                     key: #key,
                     tracking_range_chunks: #tracking_range_chunks,
                     update_interval: #update_interval,
+                    summonable: #summonable,
+                    allowed_in_peaceful: #allowed_in_peaceful,
                 };
             }
         })
@@ -130,6 +142,10 @@ pub(crate) fn build() -> (TokenStream, TokenStream, TokenStream) {
             pub tracking_range_chunks: i32,
             /// Update interval in ticks
             pub update_interval: i32,
+            /// Whether this entity can be summoned via /summon
+            pub summonable: bool,
+            /// Whether this entity is allowed in peaceful difficulty
+            pub allowed_in_peaceful: bool,
         }
 
         impl EntityType {
@@ -138,6 +154,20 @@ pub(crate) fn build() -> (TokenStream, TokenStream, TokenStream) {
             #[must_use]
             pub const fn tracking_range_blocks(&self) -> i32 {
                 self.tracking_range_chunks * 16
+            }
+
+            /// Returns whether this entity can be summoned via /summon command
+            #[inline]
+            #[must_use]
+            pub const fn can_summon(&self) -> bool {
+                self.summonable
+            }
+
+            /// Returns whether this entity is allowed in peaceful difficulty
+            #[inline]
+            #[must_use]
+            pub const fn is_allowed_in_peaceful(&self) -> bool {
+                self.allowed_in_peaceful
             }
         }
 
