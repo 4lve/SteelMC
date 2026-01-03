@@ -4,6 +4,9 @@ use std::sync::atomic::Ordering;
 use std::sync::{Arc, Weak};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::command::sender::CommandSender;
+use crate::player::Player;
+use crate::server::Server;
 use steel_protocol::{
     packet_reader::TCPNetworkDecoder,
     packet_traits::{ClientPacket, CompressionInfo, EncodedPacket, ServerPacket},
@@ -28,10 +31,6 @@ use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::select;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio_util::sync::CancellationToken;
-
-use crate::command::sender::CommandSender;
-use crate::player::Player;
-use crate::server::Server;
 
 #[allow(clippy::struct_field_names)]
 struct KeepAliveTracker {

@@ -9,7 +9,9 @@ pub mod packet_helpers;
 pub mod player_entity;
 pub mod tracked_entity;
 
-pub use entity_data::{EntityData, EntityDataAccessor, EntityDataSerializers, EntityDataValue};
+pub use entity_data::{
+    EntityData, EntityDataAccessor, EntityDataSerializers, EntityDataValue, IntoEntityData,
+};
 pub use entity_tracker::EntityTracker;
 pub use packet_helpers::{entity_data_to_packet_entries, serialize_entity_data_value};
 pub use player_entity::PlayerEntity;

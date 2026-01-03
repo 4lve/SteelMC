@@ -11,8 +11,8 @@ use crate::player::Player;
 use steel_utils::ChunkPos;
 use steel_utils::locks::{SyncMutex, SyncRwLock};
 
-/// Default entity tracking range in blocks
-pub const DEFAULT_ENTITY_TRACKING_RANGE: i32 = 64;
+/// Default entity tracking range in blocks (4 chunks)
+pub const DEFAULT_ENTITY_TRACKING_RANGE_BLOCKS: i32 = 64;
 
 /// Entity tracker that manages visibility between entities and players
 pub struct EntityTracker {
@@ -46,9 +46,12 @@ impl EntityTracker {
     }
 
     /// Adds an entity to tracking
-    pub fn add_entity(&self, entity: Arc<dyn Entity>, tracking_range: Option<i32>) {
+    ///
+    /// `tracking_range_blocks` should be the tracking range in blocks.
+    /// Use `EntityType::tracking_range_blocks()` to convert from chunks.
+    pub fn add_entity(&self, entity: Arc<dyn Entity>, tracking_range_blocks: Option<i32>) {
         let entity_id = entity.entity_id();
-        let range = tracking_range.unwrap_or(DEFAULT_ENTITY_TRACKING_RANGE);
+        let range = tracking_range_blocks.unwrap_or(DEFAULT_ENTITY_TRACKING_RANGE_BLOCKS);
 
         let tracked = Arc::new(TrackedEntity::new(entity, range));
         self.tracked_entities.write().insert(entity_id, tracked);
@@ -99,7 +102,7 @@ impl EntityTracker {
                 let dz = player_pos.z - entity_pos.z;
                 let distance_squared = dx * dx + dy * dy + dz * dz;
 
-                let tracking_range_squared = f64::from(tracked.tracking_range).powi(2);
+                let tracking_range_squared = f64::from(tracked.tracking_range_blocks).powi(2);
 
                 let should_track = distance_squared <= tracking_range_squared
                     && Self::is_chunk_tracked(player, player_chunk, &entity_pos);
@@ -195,7 +198,7 @@ impl EntityTracker {
             let dz = player_pos.z - entity_pos.z;
             let distance_squared = dx * dx + dy * dy + dz * dz;
 
-            let tracking_range_squared = f64::from(tracked.tracking_range).powi(2);
+            let tracking_range_squared = f64::from(tracked.tracking_range_blocks).powi(2);
 
             let should_track = distance_squared <= tracking_range_squared
                 && Self::is_chunk_tracked(player, player_chunk, &entity_pos);

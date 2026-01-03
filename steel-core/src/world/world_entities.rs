@@ -2,12 +2,15 @@
 use std::sync::Arc;
 
 use steel_protocol::packets::game::{
-    CGameEvent, CPlayerInfoUpdate, CRemovePlayerInfo, GameEventType,
+    CGameEvent, CPlayerInfoUpdate, CRemovePlayerInfo, CSystemChat, GameEventType,
 };
 use tokio::time::Instant;
 
 use crate::{entity::PlayerEntity, player::Player, world::World};
 use steel_registry::vanilla_entities;
+use steel_utils::text::TextComponent;
+use steel_utils::text::color::NamedColor;
+use steel_utils::translations;
 
 impl World {
     /// Removes a player from the world.
@@ -30,6 +33,13 @@ impl World {
                 p.connection.send_packet(remove_info_packet.clone());
                 true
             });
+
+            // Broadcast leave message
+            let leave_message = TextComponent::from(
+                translations::MULTIPLAYER_PLAYER_LEFT.message([player.gameprofile.name.clone()]),
+            )
+            .color(NamedColor::Yellow);
+            self.broadcast_system_chat(CSystemChat::new(leave_message, false));
 
             self_clone.chunk_map.remove_player(&player);
             player.cleanup();
@@ -85,6 +95,13 @@ impl World {
             true
         });
 
+        // Broadcast join message
+        let join_message = TextComponent::from(
+            translations::MULTIPLAYER_PLAYER_JOINED.message([player.gameprofile.name.clone()]),
+        )
+        .color(NamedColor::Yellow);
+        self.broadcast_system_chat(CSystemChat::new(join_message, false));
+
         player.connection.send_packet(CGameEvent {
             event: GameEventType::LevelChunksLoadStart,
             data: 0.0,
@@ -104,8 +121,10 @@ impl World {
         let player_entity = Arc::new(PlayerEntity::new(entity_id, player.clone()));
 
         // Add to entity tracker so other players can see them
-        self.entity_tracker
-            .add_entity(player_entity, Some(vanilla_entities::PLAYER.tracking_range));
+        self.entity_tracker.add_entity(
+            player_entity,
+            Some(vanilla_entities::PLAYER.tracking_range_blocks()),
+        );
 
         // Immediately update visibility (matches vanilla's updatePlayers() call)
         // This pairs the new player with existing players without waiting for next tick

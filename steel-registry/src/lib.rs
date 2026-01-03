@@ -23,6 +23,7 @@ use crate::{
     data_components::{DataComponentRegistry, vanilla_components},
     dialog::DialogRegistry,
     dimension_type::DimensionTypeRegistry,
+    entity_types::EntityTypeRegistry,
     frog_variant::FrogVariantRegistry,
     instrument::InstrumentRegistry,
     items::ItemRegistry,
@@ -49,6 +50,7 @@ pub mod damage_type;
 pub mod data_components;
 pub mod dialog;
 pub mod dimension_type;
+pub mod entity_types;
 pub mod frog_variant;
 pub mod instrument;
 pub mod item_stack;
@@ -254,6 +256,7 @@ pub const MENU_TYPE_REGISTRY: Identifier = Identifier::vanilla_static("menu");
 pub const ZOMBIE_NAUTILUS_VARIANT_REGISTRY: Identifier =
     Identifier::vanilla_static("zombie_nautilus_variant");
 pub const TIMELINE_REGISTRY: Identifier = Identifier::vanilla_static("timeline");
+pub const ENTITY_TYPE_REGISTRY: Identifier = Identifier::vanilla_static("entity_type");
 
 pub struct Registry {
     pub blocks: BlockRegistry,
@@ -281,6 +284,7 @@ pub struct Registry {
     pub zombie_nautilus_variants: ZombieNautilusVariantRegistry,
     pub timelines: TimelineRegistry,
     pub recipes: RecipeRegistry,
+    pub entity_types: EntityTypeRegistry,
 }
 
 impl Debug for Registry {
@@ -375,6 +379,8 @@ impl Registry {
         let mut recipe_registry = RecipeRegistry::new();
         vanilla_recipes::register_recipes(&mut recipe_registry);
 
+        let entity_type_registry = EntityTypeRegistry::new();
+
         Self {
             blocks: block_registry,
             data_components: data_component_registry,
@@ -401,6 +407,7 @@ impl Registry {
             zombie_nautilus_variants: zombie_nautilus_variant_registry,
             timelines: timeline_registry,
             recipes: recipe_registry,
+            entity_types: entity_type_registry,
         }
     }
 

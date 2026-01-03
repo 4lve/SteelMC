@@ -26,7 +26,7 @@ pub struct TrackedEntity {
     seen_by: SyncRwLock<FxHashMap<Uuid, Arc<Player>>>,
 
     /// Tracking range in blocks
-    pub tracking_range: i32,
+    pub tracking_range_blocks: i32,
 
     /// Last synced position
     last_position: SyncRwLock<steel_utils::math::Vector3<f64>>,
@@ -43,14 +43,14 @@ pub struct TrackedEntity {
 
 impl TrackedEntity {
     /// Creates a new tracked entity
-    pub fn new(entity: Arc<dyn Entity>, tracking_range: i32) -> Self {
+    pub fn new(entity: Arc<dyn Entity>, tracking_range_blocks: i32) -> Self {
         let position = entity.position();
         let rotation = entity.rotation();
 
         Self {
             entity,
             seen_by: SyncRwLock::new(FxHashMap::default()),
-            tracking_range,
+            tracking_range_blocks,
             last_position: SyncRwLock::new(position),
             last_rotation: SyncRwLock::new(rotation),
             update_interval: 1, // Update every tick by default

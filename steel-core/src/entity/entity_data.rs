@@ -4,54 +4,225 @@
 //! to entity properties and efficiently broadcasts only dirty (changed) values.
 
 use rustc_hash::FxHashMap;
-use std::any::{Any, TypeId};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use steel_utils::locks::SyncRwLock;
 
 use super::Pose;
 
-/// A type-erased container for entity data values
-pub struct EntityDataValue {
-    type_id: TypeId,
-    value: Arc<dyn Any + Send + Sync>,
-    serializer_id: u8,
-}
-
-impl Clone for EntityDataValue {
-    fn clone(&self) -> Self {
-        Self {
-            type_id: self.type_id,
-            value: Arc::clone(&self.value),
-            serializer_id: self.serializer_id,
-        }
-    }
+/// Entity data value - a strongly typed enum for all possible entity metadata values
+#[derive(Debug, Clone, PartialEq)]
+pub enum EntityDataValue {
+    /// Byte value (u8)
+    Byte(u8),
+    /// Integer value (i32, sent as `VarInt`)
+    Int(i32),
+    /// Long value (i64)
+    Long(i64),
+    /// Float value (f32)
+    Float(f32),
+    /// String value
+    String(String),
+    /// Boolean value
+    Boolean(bool),
+    /// Entity pose
+    Pose(Pose),
+    /// Optional string (for custom names etc)
+    OptionalString(Option<String>),
+    /// Optional text component (for custom names with formatting)
+    OptionalTextComponent(Option<String>),
+    // TODO: Add more variants as needed:
+    // TextComponent(TextComponent),
+    // ItemStack(ItemStack),
+    // Rotations(f32, f32, f32),
+    // BlockPos(BlockPos),
+    // OptionalBlockPos(Option<BlockPos>),
+    // Direction(Direction),
+    // OptionalUuid(Option<Uuid>),
+    // BlockState(BlockState),
+    // OptionalBlockState(Option<BlockState>),
+    // CompoundTag(NbtCompound),
+    // Particle(Particle),
+    // Particles(Vec<Particle>),
+    // VillagerData(VillagerData),
+    // OptionalInt(Option<i32>),
+    // CatVariant(i32),
+    // WolfVariant(i32),
+    // FrogVariant(i32),
+    // OptionalGlobalPos(Option<GlobalPos>),
+    // PaintingVariant(i32),
+    // SnifferState(i32),
+    // ArmadilloState(i32),
+    // Vector3(f32, f32, f32),
+    // Quaternion(f32, f32, f32, f32),
 }
 
 impl EntityDataValue {
-    /// Creates a new entity data value
-    pub fn new<T: Clone + Send + Sync + 'static>(value: T, serializer_id: u8) -> Self {
-        Self {
-            type_id: TypeId::of::<T>(),
-            value: Arc::new(value),
-            serializer_id,
-        }
-    }
-
-    /// Gets the value as a specific type
-    #[must_use]
-    pub fn get<T: Clone + 'static>(&self) -> Option<T> {
-        if self.type_id == TypeId::of::<T>() {
-            self.value.downcast_ref::<T>().cloned()
-        } else {
-            None
-        }
-    }
-
     /// Gets the serializer ID for this value type
     #[must_use]
     pub fn serializer_id(&self) -> u8 {
-        self.serializer_id
+        match self {
+            Self::Byte(_) => EntityDataSerializers::BYTE,
+            Self::Int(_) => EntityDataSerializers::INT,
+            Self::Long(_) => EntityDataSerializers::LONG,
+            Self::Float(_) => EntityDataSerializers::FLOAT,
+            Self::String(_) => EntityDataSerializers::STRING,
+            Self::Boolean(_) => EntityDataSerializers::BOOLEAN,
+            Self::Pose(_) => EntityDataSerializers::POSE,
+            Self::OptionalString(_) => EntityDataSerializers::OPTIONAL_STRING,
+            Self::OptionalTextComponent(_) => EntityDataSerializers::OPTIONAL_TEXT_COMPONENT,
+        }
+    }
+
+    /// Gets the value as a byte, if it is one
+    #[must_use]
+    pub fn as_byte(&self) -> Option<u8> {
+        match self {
+            Self::Byte(v) => Some(*v),
+            _ => None,
+        }
+    }
+
+    /// Gets the value as an int, if it is one
+    #[must_use]
+    pub fn as_int(&self) -> Option<i32> {
+        match self {
+            Self::Int(v) => Some(*v),
+            _ => None,
+        }
+    }
+
+    /// Gets the value as a long, if it is one
+    #[must_use]
+    pub fn as_long(&self) -> Option<i64> {
+        match self {
+            Self::Long(v) => Some(*v),
+            _ => None,
+        }
+    }
+
+    /// Gets the value as a float, if it is one
+    #[must_use]
+    pub fn as_float(&self) -> Option<f32> {
+        match self {
+            Self::Float(v) => Some(*v),
+            _ => None,
+        }
+    }
+
+    /// Gets the value as a string, if it is one
+    #[must_use]
+    pub fn as_string(&self) -> Option<&str> {
+        match self {
+            Self::String(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Gets the value as a boolean, if it is one
+    #[must_use]
+    pub fn as_boolean(&self) -> Option<bool> {
+        match self {
+            Self::Boolean(v) => Some(*v),
+            _ => None,
+        }
+    }
+
+    /// Gets the value as a pose, if it is one
+    #[must_use]
+    pub fn as_pose(&self) -> Option<Pose> {
+        match self {
+            Self::Pose(v) => Some(*v),
+            _ => None,
+        }
+    }
+
+    /// Gets the value as an optional string, if it is one
+    #[must_use]
+    pub fn as_optional_string(&self) -> Option<&Option<String>> {
+        match self {
+            Self::OptionalString(v) | Self::OptionalTextComponent(v) => Some(v),
+            _ => None,
+        }
+    }
+}
+
+/// Trait for types that can be stored in entity data
+pub trait IntoEntityData: Clone {
+    /// Converts this value into an `EntityDataValue`
+    fn into_entity_data(self) -> EntityDataValue;
+    /// Extracts this value from an `EntityDataValue`
+    fn from_entity_data(value: &EntityDataValue) -> Option<Self>;
+}
+
+impl IntoEntityData for u8 {
+    fn into_entity_data(self) -> EntityDataValue {
+        EntityDataValue::Byte(self)
+    }
+    fn from_entity_data(value: &EntityDataValue) -> Option<Self> {
+        value.as_byte()
+    }
+}
+
+impl IntoEntityData for i32 {
+    fn into_entity_data(self) -> EntityDataValue {
+        EntityDataValue::Int(self)
+    }
+    fn from_entity_data(value: &EntityDataValue) -> Option<Self> {
+        value.as_int()
+    }
+}
+
+impl IntoEntityData for i64 {
+    fn into_entity_data(self) -> EntityDataValue {
+        EntityDataValue::Long(self)
+    }
+    fn from_entity_data(value: &EntityDataValue) -> Option<Self> {
+        value.as_long()
+    }
+}
+
+impl IntoEntityData for f32 {
+    fn into_entity_data(self) -> EntityDataValue {
+        EntityDataValue::Float(self)
+    }
+    fn from_entity_data(value: &EntityDataValue) -> Option<Self> {
+        value.as_float()
+    }
+}
+
+impl IntoEntityData for String {
+    fn into_entity_data(self) -> EntityDataValue {
+        EntityDataValue::String(self)
+    }
+    fn from_entity_data(value: &EntityDataValue) -> Option<Self> {
+        value.as_string().map(String::from)
+    }
+}
+
+impl IntoEntityData for bool {
+    fn into_entity_data(self) -> EntityDataValue {
+        EntityDataValue::Boolean(self)
+    }
+    fn from_entity_data(value: &EntityDataValue) -> Option<Self> {
+        value.as_boolean()
+    }
+}
+
+impl IntoEntityData for Pose {
+    fn into_entity_data(self) -> EntityDataValue {
+        EntityDataValue::Pose(self)
+    }
+    fn from_entity_data(value: &EntityDataValue) -> Option<Self> {
+        value.as_pose()
+    }
+}
+
+impl IntoEntityData for Option<String> {
+    fn into_entity_data(self) -> EntityDataValue {
+        EntityDataValue::OptionalTextComponent(self)
+    }
+    fn from_entity_data(value: &EntityDataValue) -> Option<Self> {
+        value.as_optional_string().cloned()
     }
 }
 
@@ -102,19 +273,15 @@ impl EntityData {
     }
 
     /// Defines a new data field with an initial value
-    pub fn define<T: Clone + Send + Sync + 'static>(
-        &mut self,
-        accessor: EntityDataAccessor<T>,
-        initial_value: T,
-    ) {
-        let value = EntityDataValue::new(initial_value, accessor.serializer_id);
+    pub fn define<T: IntoEntityData>(&mut self, accessor: EntityDataAccessor<T>, initial_value: T) {
+        let value = initial_value.into_entity_data();
         let item = DataItem::new(value);
         self.items.write().insert(accessor.id, item);
     }
 
     /// Sets a data field value
-    pub fn set<T: Clone + Send + Sync + 'static>(&self, accessor: EntityDataAccessor<T>, value: T) {
-        let new_value = EntityDataValue::new(value, accessor.serializer_id);
+    pub fn set<T: IntoEntityData>(&self, accessor: EntityDataAccessor<T>, value: T) {
+        let new_value = value.into_entity_data();
         let mut items = self.items.write();
 
         if let Some(item) = items.get_mut(&accessor.id) {
@@ -133,11 +300,11 @@ impl EntityData {
     /// # Panics
     ///
     /// Panics if the field is not defined or if there is a type mismatch.
-    pub fn get<T: Clone + 'static>(&self, accessor: EntityDataAccessor<T>) -> T {
+    pub fn get<T: IntoEntityData>(&self, accessor: EntityDataAccessor<T>) -> T {
         let items = self.items.read();
         items
             .get(&accessor.id)
-            .and_then(|item| item.value.get::<T>())
+            .and_then(|item| T::from_entity_data(&item.value))
             .expect("Entity data field not defined or type mismatch")
     }
 
@@ -192,17 +359,15 @@ impl EntityData {
 /// Type-safe accessor for entity data fields
 pub struct EntityDataAccessor<T> {
     id: u8,
-    serializer_id: u8,
     _phantom: std::marker::PhantomData<T>,
 }
 
 impl<T> EntityDataAccessor<T> {
     /// Creates a new data accessor
     #[must_use]
-    pub const fn new(id: u8, serializer_id: u8) -> Self {
+    pub const fn new(id: u8) -> Self {
         Self {
             id,
-            serializer_id,
             _phantom: std::marker::PhantomData,
         }
     }
@@ -225,38 +390,38 @@ impl<T> Copy for EntityDataAccessor<T> {}
 /// Standard entity data accessors
 impl EntityDataAccessor<u8> {
     /// Shared flags (fire, crouch, sprint, etc.)
-    pub const SHARED_FLAGS: Self = Self::new(0, EntityDataSerializers::BYTE);
+    pub const SHARED_FLAGS: Self = Self::new(0);
     /// Player model parts
-    pub const PLAYER_MODEL_PARTS: Self = Self::new(18, EntityDataSerializers::BYTE);
+    pub const PLAYER_MODEL_PARTS: Self = Self::new(18);
 }
 
 impl EntityDataAccessor<i32> {
     /// Air supply (for drowning)
-    pub const AIR_SUPPLY: Self = Self::new(1, EntityDataSerializers::INT);
+    pub const AIR_SUPPLY: Self = Self::new(1);
 
     /// Frozen ticks (for powder snow)
-    pub const FROZEN_TICKS: Self = Self::new(7, EntityDataSerializers::INT);
+    pub const FROZEN_TICKS: Self = Self::new(7);
 }
 
 impl EntityDataAccessor<Option<String>> {
     /// Custom name (optional text component)
-    pub const CUSTOM_NAME: Self = Self::new(2, EntityDataSerializers::OPTIONAL_TEXT_COMPONENT);
+    pub const CUSTOM_NAME: Self = Self::new(2);
 }
 
 impl EntityDataAccessor<bool> {
     /// Whether custom name is visible
-    pub const CUSTOM_NAME_VISIBLE: Self = Self::new(3, EntityDataSerializers::BOOLEAN);
+    pub const CUSTOM_NAME_VISIBLE: Self = Self::new(3);
 
     /// Whether entity is silent
-    pub const SILENT: Self = Self::new(4, EntityDataSerializers::BOOLEAN);
+    pub const SILENT: Self = Self::new(4);
 
     /// Whether entity has no gravity
-    pub const NO_GRAVITY: Self = Self::new(5, EntityDataSerializers::BOOLEAN);
+    pub const NO_GRAVITY: Self = Self::new(5);
 }
 
 impl EntityDataAccessor<Pose> {
     /// Entity pose (standing, crouching, etc.)
-    pub const POSE: Self = Self::new(6, EntityDataSerializers::POSE);
+    pub const POSE: Self = Self::new(6);
 }
 
 /// Serializer IDs for different data types
