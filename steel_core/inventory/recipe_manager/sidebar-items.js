@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["find_recipe","get_remaining_items","slot_changed_crafting_grid"]};

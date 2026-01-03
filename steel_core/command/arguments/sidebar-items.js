@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["anchor","rotation","time","vector2","vector3"],"struct":["Helper"],"trait":["CommandArgument"]};
+window.SIDEBAR_ITEMS = {"mod":["anchor","gamemode","rotation","time","vector2","vector3"],"struct":["Helper"],"trait":["CommandArgument"]};

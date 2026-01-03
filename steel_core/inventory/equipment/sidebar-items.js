@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["EquipmentSlot","EquipmentSlotType"],"mod":["entity_equipment","equipment_slot"],"struct":["EntityEquipment"]};
