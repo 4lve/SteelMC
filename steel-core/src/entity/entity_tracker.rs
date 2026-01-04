@@ -94,19 +94,8 @@ impl EntityTracker {
                     continue;
                 }
 
-                let entity_pos = tracked.entity.position();
-
-                // Calculate distance
-                let dx = player_pos.x - entity_pos.x;
-                let dy = player_pos.y - entity_pos.y;
-                let dz = player_pos.z - entity_pos.z;
-                let distance_squared = dx * dx + dy * dy + dz * dz;
-
-                let tracking_range_squared = f64::from(tracked.tracking_range_blocks).powi(2);
-
-                let should_track = distance_squared <= tracking_range_squared
-                    && Self::is_chunk_tracked(player, player_chunk, &entity_pos);
-
+                let should_track =
+                    Self::should_track_entity(player, player_pos, player_chunk, tracked);
                 let currently_tracked = visible_entities.contains(&entity_id);
 
                 if should_track && !currently_tracked {
@@ -125,6 +114,27 @@ impl EntityTracker {
         for tracked in tracked_entities.values() {
             tracked.send_changes();
         }
+    }
+
+    /// Checks if an entity should be tracked by a player based on distance and chunk visibility
+    fn should_track_entity(
+        player: &Player,
+        player_pos: steel_utils::math::Vector3<f64>,
+        player_chunk: ChunkPos,
+        tracked: &TrackedEntity,
+    ) -> bool {
+        let entity_pos = tracked.entity.position();
+
+        // Calculate squared distance (avoid sqrt)
+        let dx = player_pos.x - entity_pos.x;
+        let dy = player_pos.y - entity_pos.y;
+        let dz = player_pos.z - entity_pos.z;
+        let distance_squared = dx * dx + dy * dy + dz * dz;
+
+        let tracking_range_squared = f64::from(tracked.tracking_range_blocks).powi(2);
+
+        distance_squared <= tracking_range_squared
+            && Self::is_chunk_tracked(player, player_chunk, &entity_pos)
     }
 
     /// Checks if a chunk is being tracked by the player
@@ -217,20 +227,7 @@ impl EntityTracker {
                 continue;
             }
 
-            let entity_pos = tracked.entity.position();
-
-            // Calculate distance
-            let dx = player_pos.x - entity_pos.x;
-            let dy = player_pos.y - entity_pos.y;
-            let dz = player_pos.z - entity_pos.z;
-            let distance_squared = dx * dx + dy * dy + dz * dz;
-
-            let tracking_range_squared = f64::from(tracked.tracking_range_blocks).powi(2);
-
-            let should_track = distance_squared <= tracking_range_squared
-                && Self::is_chunk_tracked(player, player_chunk, &entity_pos);
-
-            if should_track {
+            if Self::should_track_entity(player, player_pos, player_chunk, tracked) {
                 visible_entities.insert(entity_id);
                 tracked.add_player(player.clone());
             }

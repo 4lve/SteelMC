@@ -147,6 +147,9 @@ impl TrackedEntity {
     }
 
     /// Sends position/rotation/data updates to tracking players
+    ///
+    /// TODO: `on_ground` is currently hardcoded to `true` in all movement packets.
+    /// This should be tracked per-entity and set correctly.
     #[allow(clippy::too_many_lines)]
     pub fn send_changes(&self) {
         let mut tick_count = self.tick_count.lock();
