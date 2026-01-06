@@ -3,6 +3,8 @@
 //! This module contains the entity tracking and synchronization systems
 //! that allow players to see each other and their actions.
 
+pub mod behaviour;
+pub mod behaviour_registry;
 pub mod entity_data;
 pub mod entity_tracker;
 pub mod mob_entity;
@@ -10,6 +12,8 @@ pub mod packet_helpers;
 pub mod player_entity;
 pub mod tracked_entity;
 
+pub use behaviour::{DEFAULT_BEHAVIOUR, DISPLAY_BEHAVIOUR, EntityBehaviour, SLIME_BEHAVIOUR};
+pub use behaviour_registry::{EntityBehaviourRegistry, get_behaviour_registry};
 pub use entity_data::{
     EntityBlockState, EntityData, EntityDataAccessor, EntityDataValue, IntoEntityData, Quaternionf,
     Vector3f,

@@ -12,6 +12,8 @@ use crate::command::context::CommandContext;
 use crate::command::error::CommandError;
 use crate::server::Server;
 
+//TODO add killing
+
 /// Handler for the "kill" command.
 ///
 /// Syntax:

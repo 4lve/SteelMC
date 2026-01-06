@@ -1,33 +1,12 @@
-//! Generic mob entity for spawned entities via /summon
+//! Generic mob entity
 
 use simdnbt::owned::{NbtCompound, NbtList, NbtTag};
-use steel_registry::{REGISTRY, vanilla_entities};
-use steel_utils::Identifier;
 use steel_utils::math::Vector3;
 use uuid::Uuid;
 
-use super::{
-    BaseEntity, Entity, EntityBlockState, EntityData, EntityDataAccessor, Quaternionf, Vector3f,
-};
-
-/// Helper to parse boolean from NBT (accepts Byte or Int)
-fn nbt_bool(tag: &NbtTag) -> Option<bool> {
-    match tag {
-        NbtTag::Byte(b) => Some(*b != 0),
-        NbtTag::Int(i) => Some(*i != 0),
-        _ => None,
-    }
-}
-
-/// Helper to parse i32 from NBT
-fn nbt_i32(tag: &NbtTag) -> Option<i32> {
-    match tag {
-        NbtTag::Byte(b) => Some(i32::from(*b)),
-        NbtTag::Short(s) => Some(i32::from(*s)),
-        NbtTag::Int(i) => Some(*i),
-        _ => None,
-    }
-}
+use super::behaviour::nbt_bool;
+use super::behaviour_registry::get_behaviour_registry;
+use super::{BaseEntity, Entity, EntityData, EntityDataAccessor};
 
 /// Helper to extract Vec3 from NBT double list
 fn nbt_vec3_double(nbt: &NbtCompound, key: &str) -> Option<Vector3<f64>> {
@@ -49,9 +28,11 @@ fn nbt_rotation(nbt: &NbtCompound, key: &str) -> Option<(f32, f32)> {
     None
 }
 
-/// A generic mob entity that can represent any entity type spawned via /summon.
+/// A generic mob entity
 ///
 /// This wraps `BaseEntity` and allows customization via NBT data.
+/// Entity-type-specific behaviour (entity data, NBT) is handled via the
+/// behaviour registry.
 pub struct MobEntity {
     base: BaseEntity,
 }
@@ -63,45 +44,12 @@ impl MobEntity {
         let uuid = Uuid::new_v4();
         let mut base = BaseEntity::new(entity_id, entity_type_id, uuid, position);
 
-        // Set up entity-specific data
-        if Self::is_display_type(entity_type_id) {
-            Self::define_display_data(&mut base.entity_data);
-        }
+        // Let behaviour define type-specific entity data
+        get_behaviour_registry()
+            .get_behavior(entity_type_id)
+            .define_entity_data(&mut base.entity_data);
 
         Self { base }
-    }
-
-    /// Checks if entity type is a Display entity (`block_display`, `item_display`, `text_display`)
-    fn is_display_type(entity_type_id: i32) -> bool {
-        entity_type_id == vanilla_entities::BLOCK_DISPLAY.id
-            || entity_type_id == vanilla_entities::ITEM_DISPLAY.id
-            || entity_type_id == vanilla_entities::TEXT_DISPLAY.id
-    }
-
-    /// Defines all Display entity data with defaults
-    fn define_display_data(entity_data: &mut EntityData) {
-        entity_data.define(EntityDataAccessor::DISPLAY_INTERPOLATION_START, 0i32);
-        entity_data.define(EntityDataAccessor::DISPLAY_INTERPOLATION_DURATION, 0i32);
-        entity_data.define(EntityDataAccessor::DISPLAY_POS_ROT_INTERPOLATION, 0i32);
-        entity_data.define(EntityDataAccessor::DISPLAY_TRANSLATION, Vector3f::default());
-        entity_data.define(EntityDataAccessor::DISPLAY_SCALE, Vector3f(1.0, 1.0, 1.0));
-        entity_data.define(
-            EntityDataAccessor::DISPLAY_LEFT_ROTATION,
-            Quaternionf::default(),
-        );
-        entity_data.define(
-            EntityDataAccessor::DISPLAY_RIGHT_ROTATION,
-            Quaternionf::default(),
-        );
-        entity_data.define(EntityDataAccessor::DISPLAY_BILLBOARD, 0u8);
-        entity_data.define(EntityDataAccessor::DISPLAY_BRIGHTNESS, -1i32);
-        entity_data.define(EntityDataAccessor::DISPLAY_VIEW_RANGE, 1.0f32);
-        entity_data.define(EntityDataAccessor::DISPLAY_SHADOW_RADIUS, 0.0f32);
-        entity_data.define(EntityDataAccessor::DISPLAY_SHADOW_STRENGTH, 1.0f32);
-        entity_data.define(EntityDataAccessor::DISPLAY_WIDTH, 0.0f32);
-        entity_data.define(EntityDataAccessor::DISPLAY_HEIGHT, 0.0f32);
-        entity_data.define(EntityDataAccessor::DISPLAY_GLOW_COLOR, -1i32);
-        entity_data.define(EntityDataAccessor::BLOCK_DISPLAY_STATE, EntityBlockState(0));
     }
 
     /// Creates a new `MobEntity` with NBT data applied.
@@ -121,7 +69,11 @@ impl MobEntity {
     pub fn apply_nbt(&mut self, nbt: &NbtCompound) {
         self.apply_transform_nbt(nbt);
         self.apply_flags_nbt(nbt);
-        self.apply_type_specific_nbt(nbt);
+
+        // Type-specific NBT via behaviour
+        get_behaviour_registry()
+            .get_behavior(self.base.entity_type_id)
+            .read_nbt(&mut self.base.entity_data, nbt);
     }
 
     /// Applies position, rotation, and motion from NBT
@@ -176,70 +128,6 @@ impl MobEntity {
             };
             self.base.set_on_fire(on_fire);
         }
-    }
-
-    /// Applies entity-type-specific NBT data
-    fn apply_type_specific_nbt(&mut self, nbt: &NbtCompound) {
-        // Slime/Magma cube size
-        if self.is_slime_type()
-            && let Some(size) = nbt.get("Size").and_then(nbt_i32)
-        {
-            // NBT Size is 0-indexed, clamp to valid range
-            let size = (size + 1).clamp(1, 127);
-            self.base
-                .entity_data
-                .set(EntityDataAccessor::SLIME_SIZE, size);
-        }
-
-        // BlockDisplay block_state
-        if self.base.entity_type_id == vanilla_entities::BLOCK_DISPLAY.id
-            && let Some(NbtTag::Compound(block_state)) = nbt.get("block_state")
-            && let Some(state_id) = Self::parse_block_state(block_state)
-        {
-            self.base.entity_data.set(
-                EntityDataAccessor::BLOCK_DISPLAY_STATE,
-                EntityBlockState(state_id),
-            );
-        }
-    }
-
-    /// Parses a `block_state` NBT compound and returns the state ID
-    fn parse_block_state(block_state: &NbtCompound) -> Option<i32> {
-        let name = match block_state.get("Name")? {
-            NbtTag::String(s) => s.to_str().to_string(),
-            _ => return None,
-        };
-
-        let identifier = name.parse::<Identifier>().ok()?;
-
-        let properties: Vec<(String, String)> =
-            if let Some(NbtTag::Compound(props)) = block_state.get("Properties") {
-                props
-                    .iter()
-                    .filter_map(|(k, v)| match v {
-                        NbtTag::String(s) => Some((k.to_str().to_string(), s.to_str().to_string())),
-                        _ => None,
-                    })
-                    .collect()
-            } else {
-                Vec::new()
-            };
-
-        let props_refs: Vec<(&str, &str)> = properties
-            .iter()
-            .map(|(k, v)| (k.as_str(), v.as_str()))
-            .collect();
-
-        let state_id = REGISTRY
-            .blocks
-            .state_id_from_properties(&identifier, &props_refs)?;
-        Some(i32::from(state_id.0))
-    }
-
-    /// Checks if this entity type supports the Size attribute (slime or magma cube).
-    fn is_slime_type(&self) -> bool {
-        let type_id = self.base.entity_type_id;
-        type_id == vanilla_entities::SLIME.id || type_id == vanilla_entities::MAGMA_CUBE.id
     }
 
     /// Sets the entity's rotation (yaw, pitch)

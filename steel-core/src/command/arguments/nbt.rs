@@ -481,7 +481,6 @@ impl<'a> SnbtParser<'a> {
     fn parse_primitive(&mut self) -> Option<NbtTag> {
         let start = self.pos;
 
-        // Collect the token
         while let Some(c) = self.peek() {
             if c.is_alphanumeric() || c == '_' || c == '-' || c == '.' || c == '+' {
                 self.pos += c.len_utf8();
@@ -496,10 +495,8 @@ impl<'a> SnbtParser<'a> {
 
         let token = &self.input[start..self.pos];
 
-        // Check for type suffixes
         let lower = token.to_lowercase();
 
-        // Boolean
         if lower == "true" {
             return Some(NbtTag::Byte(1));
         }
@@ -507,54 +504,46 @@ impl<'a> SnbtParser<'a> {
             return Some(NbtTag::Byte(0));
         }
 
-        // Byte (1b, 1B)
         if lower.ends_with('b')
             && let Ok(v) = token[..token.len() - 1].parse::<i8>()
         {
             return Some(NbtTag::Byte(v));
         }
 
-        // Short (1s, 1S)
         if lower.ends_with('s')
             && let Ok(v) = token[..token.len() - 1].parse::<i16>()
         {
             return Some(NbtTag::Short(v));
         }
 
-        // Long (1L, 1l)
         if lower.ends_with('l')
             && let Ok(v) = token[..token.len() - 1].parse::<i64>()
         {
             return Some(NbtTag::Long(v));
         }
 
-        // Float (1.0f, 1.0F)
         if lower.ends_with('f')
             && let Ok(v) = token[..token.len() - 1].parse::<f32>()
         {
             return Some(NbtTag::Float(v));
         }
 
-        // Double (1.0d, 1.0D)
         if lower.ends_with('d')
             && let Ok(v) = token[..token.len() - 1].parse::<f64>()
         {
             return Some(NbtTag::Double(v));
         }
 
-        // Try parsing as double if it has a decimal point
         if token.contains('.')
             && let Ok(v) = token.parse::<f64>()
         {
             return Some(NbtTag::Double(v));
         }
 
-        // Try parsing as int
         if let Ok(v) = token.parse::<i32>() {
             return Some(NbtTag::Int(v));
         }
 
-        // Otherwise treat as unquoted string
         Some(NbtTag::String(token.into()))
     }
 }

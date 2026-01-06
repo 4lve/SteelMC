@@ -205,6 +205,21 @@ pub mod vanilla_recipes;
 #[path = "generated/vanilla_packets.rs"]
 pub mod packets;
 
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_entities.rs"]
+pub mod vanilla_entities;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/entity_data_serializers.rs"]
+pub mod entity_data_serializers;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/entity_data_accessors.rs"]
+pub mod entity_data_accessors;
+
 
 pub struct RegistryLock(OnceLock<Registry>);
 
@@ -439,21 +454,3 @@ impl Registry {
         self.recipes.freeze();
     }
 }
-
-/// Entity type constants extracted from Minecraft
-#[allow(warnings)]
-#[rustfmt::skip]
-#[path = "generated/vanilla_entities.rs"]
-pub mod vanilla_entities;
-
-/// Entity data serializer IDs extracted from Minecraft
-#[allow(warnings)]
-#[rustfmt::skip]
-#[path = "generated/entity_data_serializers.rs"]
-pub mod entity_data_serializers;
-
-/// Entity data accessor constants extracted from Minecraft
-#[allow(warnings)]
-#[rustfmt::skip]
-#[path = "generated/entity_data_accessors.rs"]
-pub mod entity_data_accessors;
