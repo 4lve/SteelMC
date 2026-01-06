@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use steel_crypto::key_store::KeyStore;
-use steel_protocol::packets::game::{CLogin, CommonPlayerSpawnInfo};
+use steel_protocol::packets::game::{CLogin, CPlayerPosition, CommonPlayerSpawnInfo};
 use steel_registry::{REGISTRY, Registry};
 use steel_utils::locks::SyncRwLock;
 use steel_utils::{Identifier, types::GameType};
@@ -69,8 +69,16 @@ impl Server {
 
     /// Adds a player to the server.
     pub fn add_player(&self, player: Arc<Player>) {
+        // Assign entity ID first (before CLogin)
+        let entity_id = self.worlds[0].entity_tracker.allocate_entity_id();
+        *player.entity_id.lock() = Some(entity_id);
+
+        // Set initial spawn position
+        let spawn_pos = steel_utils::math::Vector3::new(0.5, 65.0, 0.5);
+        *player.position.lock() = spawn_pos;
+
         player.connection.send_packet(CLogin {
-            player_id: 0,
+            player_id: entity_id,
             hardcore: false,
             levels: vec![Identifier::vanilla_static("overworld")],
             max_players: 5,
@@ -96,6 +104,22 @@ impl Server {
 
         let commands = self.command_dispatcher.read().get_commands();
         player.connection.send_packet(commands);
+
+        // Send the player their spawn position
+        let teleport_id = 1; // Start with ID 1 (0 might be ignored by some clients)
+        player.set_awaiting_teleport(spawn_pos, teleport_id);
+        player.connection.send_packet(CPlayerPosition {
+            x: spawn_pos.x,
+            y: spawn_pos.y,
+            z: spawn_pos.z,
+            delta_x: 0.0,
+            delta_y: 0.0,
+            delta_z: 0.0,
+            yaw: 0.0,
+            pitch: 0.0,
+            relatives: 0, // All absolute
+            teleport_id,
+        });
 
         self.worlds[0].add_player(player);
     }

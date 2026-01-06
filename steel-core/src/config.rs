@@ -4,6 +4,8 @@ use serde::Deserialize;
 use std::{fs, path::Path, sync::LazyLock};
 use steel_protocol::packet_traits::CompressionInfo;
 
+use crate::difficulty::Difficulty;
+
 #[cfg(feature = "stand-alone")]
 const DEFAULT_FAVICON: &[u8] = include_bytes!("../../package-content/favicon.png");
 const ICON_PREFIX: &str = "data:image/png;base64,";
@@ -29,6 +31,9 @@ pub struct ServerConfig {
     pub view_distance: u8,
     /// The simulation distance of the server.
     pub simulation_distance: u8,
+    /// The server difficulty.
+    #[serde(default)]
+    pub difficulty: Difficulty,
     /// Whether the server is in online mode.
     pub online_mode: bool,
     /// Whether the server should use encryption.

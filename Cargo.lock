@@ -2283,6 +2283,7 @@ dependencies = [
  "scc",
  "serde",
  "serde_json5",
+ "simdnbt",
  "smallvec",
  "steel-crypto",
  "steel-protocol",

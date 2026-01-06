@@ -28,9 +28,9 @@ use crate::player::player_inventory::PlayerInventory;
 use steel_protocol::packets::{
     common::SCustomPayload,
     game::{
-        CPlayerChat, FilterType, PreviousMessage, SChat, SChatAck, SChatSessionUpdate,
-        SContainerButtonClick, SContainerClick, SContainerClose, SContainerSlotStateChanged,
-        SMovePlayer, SSetCreativeModeSlot,
+        CAnimate, CPlayerChat, FilterType, InteractionHand, PlayerCommandAction, PreviousMessage,
+        SChat, SChatAck, SChatSessionUpdate, SContainerButtonClick, SContainerClick,
+        SContainerClose, SContainerSlotStateChanged, SMovePlayer, SSetCreativeModeSlot,
     },
 };
 use steel_utils::{ChunkPos, math::Vector3, text::TextComponent, translations};
@@ -48,9 +48,12 @@ use crate::inventory::{
 /// Re-export `PreviousMessage` as `PreviousMessageEntry` for use in `signature_cache`
 pub type PreviousMessageEntry = PreviousMessage;
 
-use crate::chunk::player_chunk_view::PlayerChunkView;
-use crate::player::{chunk_sender::ChunkSender, networking::JavaConnection};
-use crate::world::World;
+use crate::{
+    chunk::player_chunk_view::PlayerChunkView,
+    entity::{EntityDataAccessor, Pose},
+    player::{chunk_sender::ChunkSender, networking::JavaConnection},
+    world::World,
+};
 
 /// A struct representing a player.
 pub struct Player {
@@ -65,8 +68,15 @@ pub struct Player {
     /// Whether the player has finished loading the client.
     pub client_loaded: AtomicBool,
 
+    /// The player's entity ID (for entity tracking)
+    pub entity_id: SyncMutex<Option<i32>>,
+
     /// The player's position.
     pub position: SyncMutex<Vector3<f64>>,
+    /// The player's rotation (yaw, pitch).
+    pub rotation: SyncMutex<(f32, f32)>,
+    /// The player's pose (standing, crouching, etc.).
+    pub pose: SyncMutex<Pose>,
 
     // LivingEntity fields
     /// The player's health (synced with client via entity data).
@@ -84,6 +94,11 @@ pub struct Player {
     pub last_tracking_view: SyncMutex<Option<PlayerChunkView>>,
     /// The chunk sender for the player.
     pub chunk_sender: SyncMutex<ChunkSender>,
+
+    /// Teleport tracking - position we're waiting for client to acknowledge
+    awaiting_position_from_client: SyncMutex<Option<Vector3<f64>>>,
+    /// Teleport ID we're waiting for
+    awaiting_teleport_id: AtomicI32,
 
     /// Counter for chat messages sent BY this player
     messages_sent: AtomicI32,
@@ -137,7 +152,10 @@ impl Player {
 
             world,
             client_loaded: AtomicBool::new(false),
+            entity_id: SyncMutex::new(None),
             position: SyncMutex::new(Vector3::default()),
+            rotation: SyncMutex::new((0.0, 0.0)),
+            pose: SyncMutex::new(Pose::Standing),
             health: AtomicCell::new(20.0), // Default max health
             absorption_amount: AtomicCell::new(0.0),
             speed: AtomicCell::new(0.1), // Default walking speed
@@ -145,6 +163,8 @@ impl Player {
             last_chunk_pos: SyncMutex::new(ChunkPos::new(0, 0)),
             last_tracking_view: SyncMutex::new(None),
             chunk_sender: SyncMutex::new(ChunkSender::default()),
+            awaiting_position_from_client: SyncMutex::new(None),
+            awaiting_teleport_id: AtomicI32::new(0),
             messages_sent: AtomicI32::new(0),
             messages_received: AtomicI32::new(0),
             signature_cache: SyncMutex::new(MessageCache::new()),
@@ -401,10 +421,127 @@ impl Player {
         false
     }
 
-    #[allow(clippy::unused_self)]
     fn update_awaiting_teleport(&self) -> bool {
-        //TODO: Implement this
-        false
+        self.awaiting_position_from_client.lock().is_some()
+    }
+
+    /// Sets the awaiting teleport position (called when sending `CPlayerPosition`)
+    pub fn set_awaiting_teleport(&self, position: Vector3<f64>, teleport_id: i32) {
+        *self.awaiting_position_from_client.lock() = Some(position);
+        self.awaiting_teleport_id
+            .store(teleport_id, Ordering::Relaxed);
+    }
+
+    /// Handles teleport acknowledgment from client
+    pub fn handle_accept_teleportation(&self, teleport_id: i32) {
+        let expected_id = self.awaiting_teleport_id.load(Ordering::Relaxed);
+        if teleport_id == expected_id
+            && let Some(pos) = self.awaiting_position_from_client.lock().take()
+        {
+            *self.position.lock() = pos;
+        }
+    }
+
+    /// Handles a player input packet (movement keys, sneak flag).
+    pub fn handle_player_input(&self, packet: steel_protocol::packets::game::SPlayerInput) {
+        // Update player pose based on sneak flag
+        let new_pose = if packet.flags.sneak {
+            if matches!(*self.pose.lock(), Pose::Crouching) {
+                None
+            } else {
+                *self.pose.lock() = Pose::Crouching;
+                Some(Pose::Crouching)
+            }
+        } else {
+            // Not sneaking - return to standing (unless swimming/flying/etc.)
+            if matches!(*self.pose.lock(), Pose::Crouching) {
+                *self.pose.lock() = Pose::Standing;
+                Some(Pose::Standing)
+            } else {
+                None
+            }
+        };
+
+        // Update entity metadata if pose changed
+        if let Some(pose) = new_pose
+            && let Some(entity_id) = *self.entity_id.lock()
+            && let Some(tracked_entity) = self.world.entity_tracker.get_entity(entity_id)
+        {
+            tracked_entity
+                .entity
+                .entity_data()
+                .set(EntityDataAccessor::POSE, pose);
+        }
+    }
+
+    /// Handles a player command packet (sprinting, elytra flying, etc.).
+    pub fn handle_player_command(&self, packet: steel_protocol::packets::game::SPlayerCommand) {
+        // Update player pose based on command
+        let new_pose = match packet.action {
+            PlayerCommandAction::StartFlyingWithElytra => {
+                *self.pose.lock() = Pose::FallFlying;
+                Some(Pose::FallFlying)
+            }
+            PlayerCommandAction::StartSprinting | PlayerCommandAction::StopSprinting => {
+                // Sprinting doesn't change pose, just movement speed
+                None
+            }
+            _ => None,
+        };
+
+        // Update entity metadata if pose changed
+        if let Some(pose) = new_pose
+            && let Some(entity_id) = *self.entity_id.lock()
+            && let Some(tracked_entity) = self.world.entity_tracker.get_entity(entity_id)
+        {
+            tracked_entity
+                .entity
+                .entity_data()
+                .set(EntityDataAccessor::POSE, pose);
+        }
+    }
+
+    /// Handles a swing packet (player arm animation).
+    pub fn handle_swing(&self, packet: steel_protocol::packets::game::SSwing) {
+        // Get the player's entity ID
+        let Some(entity_id) = *self.entity_id.lock() else {
+            log::warn!(
+                "Player {} tried to swing but has no entity ID",
+                self.gameprofile.name
+            );
+            return;
+        };
+
+        // Get the tracked entity from the entity tracker
+        let Some(tracked_entity) = self.world.entity_tracker.get_entity(entity_id) else {
+            log::warn!(
+                "Player {} tried to swing but entity {} not found in tracker",
+                self.gameprofile.name,
+                entity_id
+            );
+            return;
+        };
+
+        // Create animation packet based on which hand is swinging
+        let animation_packet = match packet.hand {
+            InteractionHand::MainHand => CAnimate::swing_main_hand(entity_id),
+            InteractionHand::OffHand => CAnimate::swing_offhand(entity_id),
+        };
+
+        // Broadcast to all players who can see this entity
+        tracked_entity.broadcast_packet(animation_packet);
+    }
+
+    /// Wraps degrees to -180 to 180 range (matches Minecraft's Mth.wrapDegrees)
+    fn wrap_degrees(value: f32) -> f32 {
+        let mut normalized = value % 360.0;
+        if normalized >= 180.0 {
+            normalized -= 360.0;
+        }
+        if normalized < -180.0 {
+            normalized += 360.0;
+        }
+        normalized
     }
 
     /// Handles a move player packet.
@@ -421,11 +558,16 @@ impl Player {
             return;
         }
 
-        if !self.update_awaiting_teleport()
-            && self.client_loaded.load(Ordering::Relaxed)
-            && packet.has_pos
-        {
-            *self.position.lock() = packet.position;
+        if !self.update_awaiting_teleport() && self.client_loaded.load(Ordering::Relaxed) {
+            if packet.has_pos {
+                *self.position.lock() = packet.position;
+            }
+            if packet.has_rot {
+                // Normalize rotation to -180 to 180 range (matches Minecraft's Mth.wrapDegrees)
+                let yaw = Self::wrap_degrees(packet.y_rot);
+                let pitch = Self::wrap_degrees(packet.x_rot);
+                *self.rotation.lock() = (yaw, pitch);
+            }
         }
     }
 

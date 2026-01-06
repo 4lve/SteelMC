@@ -10,6 +10,8 @@
     view_distance: 10,
     // Maximum simulation distance in chunks
     simulation_distance: 10,
+    // Server difficulty: "peaceful", "easy", "normal", or "hard"
+    difficulty: "normal",
     // Whether to use Mojang's authentication service
     online_mode: true,
     // Whether to enable encryption for client-server communication

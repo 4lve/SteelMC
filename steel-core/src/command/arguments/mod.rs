@@ -1,6 +1,9 @@
 //! This module contains types and utilities for parsing command arguments.
 pub mod anchor;
+pub mod entity_selector;
+pub mod entity_type;
 pub mod gamemode;
+pub mod nbt;
 pub mod rotation;
 pub mod time;
 pub mod vector2;

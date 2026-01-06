@@ -1,0 +1,158 @@
+[
+  {
+    "id": 0,
+    "name": "BYTE"
+  },
+  {
+    "id": 1,
+    "name": "INT"
+  },
+  {
+    "id": 2,
+    "name": "LONG"
+  },
+  {
+    "id": 3,
+    "name": "FLOAT"
+  },
+  {
+    "id": 4,
+    "name": "STRING"
+  },
+  {
+    "id": 5,
+    "name": "COMPONENT"
+  },
+  {
+    "id": 6,
+    "name": "OPTIONAL_COMPONENT"
+  },
+  {
+    "id": 7,
+    "name": "ITEM_STACK"
+  },
+  {
+    "id": 8,
+    "name": "BOOLEAN"
+  },
+  {
+    "id": 9,
+    "name": "ROTATIONS"
+  },
+  {
+    "id": 10,
+    "name": "BLOCK_POS"
+  },
+  {
+    "id": 11,
+    "name": "OPTIONAL_BLOCK_POS"
+  },
+  {
+    "id": 12,
+    "name": "DIRECTION"
+  },
+  {
+    "id": 13,
+    "name": "OPTIONAL_LIVING_ENTITY_REFERENCE"
+  },
+  {
+    "id": 14,
+    "name": "BLOCK_STATE"
+  },
+  {
+    "id": 15,
+    "name": "OPTIONAL_BLOCK_STATE"
+  },
+  {
+    "id": 16,
+    "name": "PARTICLE"
+  },
+  {
+    "id": 17,
+    "name": "PARTICLES"
+  },
+  {
+    "id": 18,
+    "name": "VILLAGER_DATA"
+  },
+  {
+    "id": 19,
+    "name": "OPTIONAL_UNSIGNED_INT"
+  },
+  {
+    "id": 20,
+    "name": "POSE"
+  },
+  {
+    "id": 21,
+    "name": "CAT_VARIANT"
+  },
+  {
+    "id": 22,
+    "name": "COW_VARIANT"
+  },
+  {
+    "id": 23,
+    "name": "WOLF_VARIANT"
+  },
+  {
+    "id": 24,
+    "name": "WOLF_SOUND_VARIANT"
+  },
+  {
+    "id": 25,
+    "name": "FROG_VARIANT"
+  },
+  {
+    "id": 26,
+    "name": "PIG_VARIANT"
+  },
+  {
+    "id": 27,
+    "name": "CHICKEN_VARIANT"
+  },
+  {
+    "id": 28,
+    "name": "ZOMBIE_NAUTILUS_VARIANT"
+  },
+  {
+    "id": 29,
+    "name": "OPTIONAL_GLOBAL_POS"
+  },
+  {
+    "id": 30,
+    "name": "PAINTING_VARIANT"
+  },
+  {
+    "id": 31,
+    "name": "SNIFFER_STATE"
+  },
+  {
+    "id": 32,
+    "name": "ARMADILLO_STATE"
+  },
+  {
+    "id": 33,
+    "name": "COPPER_GOLEM_STATE"
+  },
+  {
+    "id": 34,
+    "name": "WEATHERING_COPPER_STATE"
+  },
+  {
+    "id": 35,
+    "name": "VECTOR3"
+  },
+  {
+    "id": 36,
+    "name": "QUATERNION"
+  },
+  {
+    "id": 37,
+    "name": "RESOLVABLE_PROFILE"
+  },
+  {
+    "id": 38,
+    "name": "HUMANOID_ARM"
+  }
+]

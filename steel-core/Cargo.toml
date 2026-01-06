@@ -12,6 +12,7 @@ steel-utils = { path = "../steel-utils" }
 steel-protocol = { path = "../steel-protocol" }
 steel-registry = { path = "../steel-registry" }
 steel-crypto = { path = "../steel-crypto" }
+simdnbt.workspace = true
 scc.workspace = true
 uuid.workspace = true
 serde.workspace = true

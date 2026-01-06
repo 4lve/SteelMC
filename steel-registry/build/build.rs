@@ -11,6 +11,7 @@ mod cow_variants;
 mod damage_types;
 mod dialogs;
 mod dimension_types;
+mod entities;
 mod frog_variants;
 mod instruments;
 mod item_tags;
@@ -61,6 +62,9 @@ const TIMELINES: &str = "timelines";
 const TIMELINE_TAGS: &str = "timeline_tags";
 const ZOMBIE_NAUTILUS_VARIANTS: &str = "zombie_nautilus_variants";
 const RECIPES: &str = "recipes";
+const VANILLA_ENTITIES: &str = "entities";
+const ENTITY_DATA_SERIALIZERS: &str = "entity_data_serializers";
+const ENTITY_DATA_ACCESSORS: &str = "entity_data_accessors";
 
 pub fn main() {
     if !Path::new(OUT_DIR).exists() {
@@ -105,6 +109,24 @@ pub fn main() {
         )
         .unwrap();
     }
+
+    // Handle entity builds separately (returns 3 modules)
+    let (entity_types, serializers, accessors) = entities::build();
+    fs::write(
+        format!("{OUT_DIR}/vanilla_{VANILLA_ENTITIES}.rs"),
+        entity_types.to_string(),
+    )
+    .unwrap();
+    fs::write(
+        format!("{OUT_DIR}/{ENTITY_DATA_SERIALIZERS}.rs"),
+        serializers.to_string(),
+    )
+    .unwrap();
+    fs::write(
+        format!("{OUT_DIR}/{ENTITY_DATA_ACCESSORS}.rs"),
+        accessors.to_string(),
+    )
+    .unwrap();
 
     if FMT && let Ok(entries) = fs::read_dir(OUT_DIR) {
         for entry in entries.flatten() {

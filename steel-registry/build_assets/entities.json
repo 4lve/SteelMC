@@ -1,0 +1,1554 @@
+{
+  "poses": [
+    {
+      "name": "STANDING",
+      "id": 0,
+      "serialized_name": "standing"
+    },
+    {
+      "name": "FALL_FLYING",
+      "id": 1,
+      "serialized_name": "fall_flying"
+    },
+    {
+      "name": "SLEEPING",
+      "id": 2,
+      "serialized_name": "sleeping"
+    },
+    {
+      "name": "SWIMMING",
+      "id": 3,
+      "serialized_name": "swimming"
+    },
+    {
+      "name": "SPIN_ATTACK",
+      "id": 4,
+      "serialized_name": "spin_attack"
+    },
+    {
+      "name": "CROUCHING",
+      "id": 5,
+      "serialized_name": "crouching"
+    },
+    {
+      "name": "LONG_JUMPING",
+      "id": 6,
+      "serialized_name": "long_jumping"
+    },
+    {
+      "name": "DYING",
+      "id": 7,
+      "serialized_name": "dying"
+    },
+    {
+      "name": "CROAKING",
+      "id": 8,
+      "serialized_name": "croaking"
+    },
+    {
+      "name": "USING_TONGUE",
+      "id": 9,
+      "serialized_name": "using_tongue"
+    },
+    {
+      "name": "SITTING",
+      "id": 10,
+      "serialized_name": "sitting"
+    },
+    {
+      "name": "ROARING",
+      "id": 11,
+      "serialized_name": "roaring"
+    },
+    {
+      "name": "SNIFFING",
+      "id": 12,
+      "serialized_name": "sniffing"
+    },
+    {
+      "name": "EMERGING",
+      "id": 13,
+      "serialized_name": "emerging"
+    },
+    {
+      "name": "DIGGING",
+      "id": 14,
+      "serialized_name": "digging"
+    },
+    {
+      "name": "SLIDING",
+      "id": 15,
+      "serialized_name": "sliding"
+    },
+    {
+      "name": "SHOOTING",
+      "id": 16,
+      "serialized_name": "shooting"
+    },
+    {
+      "name": "INHALING",
+      "id": 17,
+      "serialized_name": "inhaling"
+    }
+  ],
+  "entity_data_serializers": [
+    {
+      "name": "BYTE",
+      "id": 0
+    },
+    {
+      "name": "INT",
+      "id": 1
+    },
+    {
+      "name": "LONG",
+      "id": 2
+    },
+    {
+      "name": "FLOAT",
+      "id": 3
+    },
+    {
+      "name": "STRING",
+      "id": 4
+    },
+    {
+      "name": "COMPONENT",
+      "id": 5
+    },
+    {
+      "name": "OPTIONAL_COMPONENT",
+      "id": 6
+    },
+    {
+      "name": "ITEM_STACK",
+      "id": 7
+    },
+    {
+      "name": "BOOLEAN",
+      "id": 8
+    },
+    {
+      "name": "ROTATIONS",
+      "id": 9
+    },
+    {
+      "name": "BLOCK_POS",
+      "id": 10
+    },
+    {
+      "name": "OPTIONAL_BLOCK_POS",
+      "id": 11
+    },
+    {
+      "name": "DIRECTION",
+      "id": 12
+    },
+    {
+      "name": "OPTIONAL_LIVING_ENTITY_REFERENCE",
+      "id": 13
+    },
+    {
+      "name": "BLOCK_STATE",
+      "id": 14
+    },
+    {
+      "name": "OPTIONAL_BLOCK_STATE",
+      "id": 15
+    },
+    {
+      "name": "PARTICLE",
+      "id": 16
+    },
+    {
+      "name": "PARTICLES",
+      "id": 17
+    },
+    {
+      "name": "VILLAGER_DATA",
+      "id": 18
+    },
+    {
+      "name": "OPTIONAL_UNSIGNED_INT",
+      "id": 19
+    },
+    {
+      "name": "POSE",
+      "id": 20
+    },
+    {
+      "name": "CAT_VARIANT",
+      "id": 21
+    },
+    {
+      "name": "COW_VARIANT",
+      "id": 22
+    },
+    {
+      "name": "WOLF_VARIANT",
+      "id": 23
+    },
+    {
+      "name": "WOLF_SOUND_VARIANT",
+      "id": 24
+    },
+    {
+      "name": "FROG_VARIANT",
+      "id": 25
+    },
+    {
+      "name": "PIG_VARIANT",
+      "id": 26
+    },
+    {
+      "name": "CHICKEN_VARIANT",
+      "id": 27
+    },
+    {
+      "name": "ZOMBIE_NAUTILUS_VARIANT",
+      "id": 28
+    },
+    {
+      "name": "OPTIONAL_GLOBAL_POS",
+      "id": 29
+    },
+    {
+      "name": "PAINTING_VARIANT",
+      "id": 30
+    },
+    {
+      "name": "SNIFFER_STATE",
+      "id": 31
+    },
+    {
+      "name": "ARMADILLO_STATE",
+      "id": 32
+    },
+    {
+      "name": "COPPER_GOLEM_STATE",
+      "id": 33
+    },
+    {
+      "name": "WEATHERING_COPPER_STATE",
+      "id": 34
+    },
+    {
+      "name": "VECTOR3",
+      "id": 35
+    },
+    {
+      "name": "QUATERNION",
+      "id": 36
+    },
+    {
+      "name": "RESOLVABLE_PROFILE",
+      "id": 37
+    },
+    {
+      "name": "HUMANOID_ARM",
+      "id": 38
+    }
+  ],
+  "entity_data_accessors": {
+    "entity": [
+      {
+        "field_name": "DATA_SHARED_FLAGS_ID",
+        "id": 0,
+        "serializer_id": 0
+      },
+      {
+        "field_name": "DATA_AIR_SUPPLY_ID",
+        "id": 1,
+        "serializer_id": 1
+      },
+      {
+        "field_name": "DATA_CUSTOM_NAME",
+        "id": 2,
+        "serializer_id": 6
+      },
+      {
+        "field_name": "DATA_CUSTOM_NAME_VISIBLE",
+        "id": 3,
+        "serializer_id": 8
+      },
+      {
+        "field_name": "DATA_SILENT",
+        "id": 4,
+        "serializer_id": 8
+      },
+      {
+        "field_name": "DATA_NO_GRAVITY",
+        "id": 5,
+        "serializer_id": 8
+      },
+      {
+        "field_name": "DATA_POSE",
+        "id": 6,
+        "serializer_id": 20
+      },
+      {
+        "field_name": "DATA_TICKS_FROZEN",
+        "id": 7,
+        "serializer_id": 1
+      }
+    ]
+  },
+  "entity_types": [
+    {
+      "id": 0,
+      "name": "acacia_boat",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 1,
+      "name": "acacia_chest_boat",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 2,
+      "name": "allay",
+      "client_tracking_range": 8,
+      "update_interval": 2,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 3,
+      "name": "area_effect_cloud",
+      "client_tracking_range": 10,
+      "update_interval": 2147483647,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 4,
+      "name": "armadillo",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 5,
+      "name": "armor_stand",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 6,
+      "name": "arrow",
+      "client_tracking_range": 4,
+      "update_interval": 20,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 7,
+      "name": "axolotl",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 8,
+      "name": "bamboo_chest_raft",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 9,
+      "name": "bamboo_raft",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 10,
+      "name": "bat",
+      "client_tracking_range": 5,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 11,
+      "name": "bee",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 12,
+      "name": "birch_boat",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 13,
+      "name": "birch_chest_boat",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 14,
+      "name": "blaze",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 15,
+      "name": "block_display",
+      "client_tracking_range": 10,
+      "update_interval": 1,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 16,
+      "name": "bogged",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 17,
+      "name": "breeze",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 18,
+      "name": "breeze_wind_charge",
+      "client_tracking_range": 4,
+      "update_interval": 10,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 19,
+      "name": "camel",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 20,
+      "name": "camel_husk",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 21,
+      "name": "cat",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 22,
+      "name": "cave_spider",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 23,
+      "name": "cherry_boat",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 24,
+      "name": "cherry_chest_boat",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 25,
+      "name": "chest_minecart",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 26,
+      "name": "chicken",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 27,
+      "name": "cod",
+      "client_tracking_range": 4,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 28,
+      "name": "copper_golem",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 29,
+      "name": "command_block_minecart",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 30,
+      "name": "cow",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 31,
+      "name": "creaking",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 32,
+      "name": "creeper",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 33,
+      "name": "dark_oak_boat",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 34,
+      "name": "dark_oak_chest_boat",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 35,
+      "name": "dolphin",
+      "client_tracking_range": 5,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 36,
+      "name": "donkey",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 37,
+      "name": "dragon_fireball",
+      "client_tracking_range": 4,
+      "update_interval": 10,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 38,
+      "name": "drowned",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 39,
+      "name": "egg",
+      "client_tracking_range": 4,
+      "update_interval": 10,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 40,
+      "name": "elder_guardian",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 41,
+      "name": "enderman",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 42,
+      "name": "endermite",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 43,
+      "name": "ender_dragon",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 44,
+      "name": "ender_pearl",
+      "client_tracking_range": 4,
+      "update_interval": 10,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 45,
+      "name": "end_crystal",
+      "client_tracking_range": 16,
+      "update_interval": 2147483647,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 46,
+      "name": "evoker",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 47,
+      "name": "evoker_fangs",
+      "client_tracking_range": 6,
+      "update_interval": 2,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 48,
+      "name": "experience_bottle",
+      "client_tracking_range": 4,
+      "update_interval": 10,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 49,
+      "name": "experience_orb",
+      "client_tracking_range": 6,
+      "update_interval": 20,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 50,
+      "name": "eye_of_ender",
+      "client_tracking_range": 4,
+      "update_interval": 4,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 51,
+      "name": "falling_block",
+      "client_tracking_range": 10,
+      "update_interval": 20,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 52,
+      "name": "fireball",
+      "client_tracking_range": 4,
+      "update_interval": 10,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 53,
+      "name": "firework_rocket",
+      "client_tracking_range": 4,
+      "update_interval": 10,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 54,
+      "name": "fox",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 55,
+      "name": "frog",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 56,
+      "name": "furnace_minecart",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 57,
+      "name": "ghast",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 58,
+      "name": "happy_ghast",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 59,
+      "name": "giant",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 60,
+      "name": "glow_item_frame",
+      "client_tracking_range": 10,
+      "update_interval": 2147483647,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 61,
+      "name": "glow_squid",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 62,
+      "name": "goat",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 63,
+      "name": "guardian",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 64,
+      "name": "hoglin",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 65,
+      "name": "hopper_minecart",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 66,
+      "name": "horse",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 67,
+      "name": "husk",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 68,
+      "name": "illusioner",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 69,
+      "name": "interaction",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 70,
+      "name": "iron_golem",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 71,
+      "name": "item",
+      "client_tracking_range": 6,
+      "update_interval": 20,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 72,
+      "name": "item_display",
+      "client_tracking_range": 10,
+      "update_interval": 1,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 73,
+      "name": "item_frame",
+      "client_tracking_range": 10,
+      "update_interval": 2147483647,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 74,
+      "name": "jungle_boat",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 75,
+      "name": "jungle_chest_boat",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 76,
+      "name": "leash_knot",
+      "client_tracking_range": 10,
+      "update_interval": 2147483647,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 77,
+      "name": "lightning_bolt",
+      "client_tracking_range": 16,
+      "update_interval": 2147483647,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 78,
+      "name": "llama",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 79,
+      "name": "llama_spit",
+      "client_tracking_range": 4,
+      "update_interval": 10,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 80,
+      "name": "magma_cube",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 81,
+      "name": "mangrove_boat",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 82,
+      "name": "mangrove_chest_boat",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 83,
+      "name": "mannequin",
+      "client_tracking_range": 32,
+      "update_interval": 2,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 84,
+      "name": "marker",
+      "client_tracking_range": 0,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 85,
+      "name": "minecart",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 86,
+      "name": "mooshroom",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 87,
+      "name": "mule",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 88,
+      "name": "nautilus",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 89,
+      "name": "oak_boat",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 90,
+      "name": "oak_chest_boat",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 91,
+      "name": "ocelot",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 92,
+      "name": "ominous_item_spawner",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 93,
+      "name": "painting",
+      "client_tracking_range": 10,
+      "update_interval": 2147483647,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 94,
+      "name": "pale_oak_boat",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 95,
+      "name": "pale_oak_chest_boat",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 96,
+      "name": "panda",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 97,
+      "name": "parched",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 98,
+      "name": "parrot",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 99,
+      "name": "phantom",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 100,
+      "name": "pig",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 101,
+      "name": "piglin",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 102,
+      "name": "piglin_brute",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 103,
+      "name": "pillager",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 104,
+      "name": "polar_bear",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 105,
+      "name": "splash_potion",
+      "client_tracking_range": 4,
+      "update_interval": 10,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 106,
+      "name": "lingering_potion",
+      "client_tracking_range": 4,
+      "update_interval": 10,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 107,
+      "name": "pufferfish",
+      "client_tracking_range": 4,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 108,
+      "name": "rabbit",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 109,
+      "name": "ravager",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 110,
+      "name": "salmon",
+      "client_tracking_range": 4,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 111,
+      "name": "sheep",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 112,
+      "name": "shulker",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 113,
+      "name": "shulker_bullet",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 114,
+      "name": "silverfish",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 115,
+      "name": "skeleton",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 116,
+      "name": "skeleton_horse",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 117,
+      "name": "slime",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 118,
+      "name": "small_fireball",
+      "client_tracking_range": 4,
+      "update_interval": 10,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 119,
+      "name": "sniffer",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 120,
+      "name": "snowball",
+      "client_tracking_range": 4,
+      "update_interval": 10,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 121,
+      "name": "snow_golem",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 122,
+      "name": "spawner_minecart",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 123,
+      "name": "spectral_arrow",
+      "client_tracking_range": 4,
+      "update_interval": 20,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 124,
+      "name": "spider",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 125,
+      "name": "spruce_boat",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 126,
+      "name": "spruce_chest_boat",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 127,
+      "name": "squid",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 128,
+      "name": "stray",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 129,
+      "name": "strider",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 130,
+      "name": "tadpole",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 131,
+      "name": "text_display",
+      "client_tracking_range": 10,
+      "update_interval": 1,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 132,
+      "name": "tnt",
+      "client_tracking_range": 10,
+      "update_interval": 10,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 133,
+      "name": "tnt_minecart",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 134,
+      "name": "trader_llama",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 135,
+      "name": "trident",
+      "client_tracking_range": 4,
+      "update_interval": 20,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 136,
+      "name": "tropical_fish",
+      "client_tracking_range": 4,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 137,
+      "name": "turtle",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 138,
+      "name": "vex",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 139,
+      "name": "villager",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 140,
+      "name": "vindicator",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 141,
+      "name": "wandering_trader",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 142,
+      "name": "warden",
+      "client_tracking_range": 16,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 143,
+      "name": "wind_charge",
+      "client_tracking_range": 4,
+      "update_interval": 10,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 144,
+      "name": "witch",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 145,
+      "name": "wither",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 146,
+      "name": "wither_skeleton",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 147,
+      "name": "wither_skull",
+      "client_tracking_range": 4,
+      "update_interval": 10,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 148,
+      "name": "wolf",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 149,
+      "name": "zoglin",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 150,
+      "name": "zombie",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 151,
+      "name": "zombie_horse",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 152,
+      "name": "zombie_nautilus",
+      "client_tracking_range": 10,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 153,
+      "name": "zombie_villager",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 154,
+      "name": "zombified_piglin",
+      "client_tracking_range": 8,
+      "update_interval": 3,
+      "summonable": true,
+      "allowed_in_peaceful": false
+    },
+    {
+      "id": 155,
+      "name": "player",
+      "client_tracking_range": 32,
+      "update_interval": 2,
+      "summonable": false,
+      "allowed_in_peaceful": true
+    },
+    {
+      "id": 156,
+      "name": "fishing_bobber",
+      "client_tracking_range": 4,
+      "update_interval": 5,
+      "summonable": false,
+      "allowed_in_peaceful": true
+    }
+  ]
+}
