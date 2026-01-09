@@ -58,7 +58,9 @@ pub use c_level_chunk_with_light::{
 };
 pub use c_login::CLogin;
 pub use c_login::CommonPlayerSpawnInfo;
-pub use c_move_entity::{calc_delta, to_angle_byte, CMoveEntityPos, CMoveEntityPosRot, CMoveEntityRot};
+pub use c_move_entity::{
+    CMoveEntityPos, CMoveEntityPosRot, CMoveEntityRot, calc_delta, to_angle_byte,
+};
 pub use c_open_screen::COpenScreen;
 pub use c_player_chat::{CPlayerChat, ChatTypeBound, FilterType, PreviousMessage};
 pub use c_player_info_update::CPlayerInfoUpdate;
