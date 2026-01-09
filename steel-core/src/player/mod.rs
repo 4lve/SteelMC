@@ -28,9 +28,9 @@ use crate::player::player_inventory::PlayerInventory;
 use steel_protocol::packets::{
     common::SCustomPayload,
     game::{
-        CPlayerChat, FilterType, PreviousMessage, SChat, SChatAck, SChatSessionUpdate,
-        SContainerButtonClick, SContainerClick, SContainerClose, SContainerSlotStateChanged,
-        SMovePlayer, SSetCreativeModeSlot,
+        CMoveEntityPosRot, CPlayerChat, CRotateHead, FilterType, PreviousMessage, SChat, SChatAck,
+        SChatSessionUpdate, SContainerButtonClick, SContainerClick, SContainerClose,
+        SContainerSlotStateChanged, SMovePlayer, SSetCreativeModeSlot, calc_delta, to_angle_byte,
     },
 };
 use steel_utils::{ChunkPos, math::Vector3, text::TextComponent, translations};
@@ -62,11 +62,20 @@ pub struct Player {
     /// The world the player is in.
     pub world: Arc<World>,
 
+    /// The entity ID assigned to this player.
+    pub entity_id: i32,
+
     /// Whether the player has finished loading the client.
     pub client_loaded: AtomicBool,
 
     /// The player's position.
     pub position: SyncMutex<Vector3<f64>>,
+    /// The player's rotation (yaw, pitch).
+    pub rotation: AtomicCell<(f32, f32)>,
+    /// The previous position for delta movement calculations.
+    prev_position: SyncMutex<Vector3<f64>>,
+    /// The previous rotation for movement broadcasts.
+    prev_rotation: AtomicCell<(f32, f32)>,
 
     // LivingEntity fields
     /// The player's health (synced with client via entity data).
@@ -122,6 +131,7 @@ impl Player {
         gameprofile: GameProfile,
         connection: Arc<JavaConnection>,
         world: Arc<World>,
+        entity_id: i32,
         player: &std::sync::Weak<Player>,
     ) -> Self {
         let entity_equipment = Arc::new(SyncMutex::new(EntityEquipment::new()));
@@ -136,8 +146,12 @@ impl Player {
             connection,
 
             world,
+            entity_id,
             client_loaded: AtomicBool::new(false),
             position: SyncMutex::new(Vector3::default()),
+            rotation: AtomicCell::new((0.0, 0.0)),
+            prev_position: SyncMutex::new(Vector3::default()),
+            prev_rotation: AtomicCell::new((0.0, 0.0)),
             health: AtomicCell::new(20.0), // Default max health
             absorption_amount: AtomicCell::new(0.0),
             speed: AtomicCell::new(0.1), // Default walking speed
@@ -421,11 +435,63 @@ impl Player {
             return;
         }
 
-        if !self.update_awaiting_teleport()
-            && self.client_loaded.load(Ordering::Relaxed)
-            && packet.has_pos
-        {
+        if self.update_awaiting_teleport() || !self.client_loaded.load(Ordering::Relaxed) {
+            return;
+        }
+
+        let prev_pos = *self.prev_position.lock();
+        let prev_rot = self.prev_rotation.load();
+
+        // Update current state
+        if packet.has_pos {
             *self.position.lock() = packet.position;
+        }
+        if packet.has_rot {
+            self.rotation.store((packet.y_rot, packet.x_rot));
+        }
+
+        // Broadcast movement to other players
+        let pos = if packet.has_pos {
+            packet.position
+        } else {
+            prev_pos
+        };
+        let (yaw, pitch) = if packet.has_rot {
+            (packet.y_rot, packet.x_rot)
+        } else {
+            prev_rot
+        };
+
+        // Only broadcast if something changed
+        if packet.has_pos || packet.has_rot {
+            let move_packet = CMoveEntityPosRot {
+                entity_id: self.entity_id,
+                dx: calc_delta(pos.x, prev_pos.x),
+                dy: calc_delta(pos.y, prev_pos.y),
+                dz: calc_delta(pos.z, prev_pos.z),
+                y_rot: to_angle_byte(yaw),
+                x_rot: to_angle_byte(pitch),
+                on_ground: packet.on_ground,
+            };
+
+            let head_packet = CRotateHead {
+                entity_id: self.entity_id,
+                head_y_rot: to_angle_byte(yaw),
+            };
+
+            self.world.players.iter_sync(|_, p| {
+                if p.gameprofile.id != self.gameprofile.id {
+                    p.connection.send_packet(move_packet.clone());
+                    if packet.has_rot {
+                        p.connection.send_packet(head_packet.clone());
+                    }
+                }
+                true
+            });
+
+            // Update previous state for next delta
+            *self.prev_position.lock() = pos;
+            self.prev_rotation.store((yaw, pitch));
         }
     }
 

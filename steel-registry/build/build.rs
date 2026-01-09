@@ -11,6 +11,8 @@ mod cow_variants;
 mod damage_types;
 mod dialogs;
 mod dimension_types;
+mod entities;
+mod entity_data_serializers;
 mod frog_variants;
 mod instruments;
 mod item_tags;
@@ -61,6 +63,8 @@ const TIMELINES: &str = "timelines";
 const TIMELINE_TAGS: &str = "timeline_tags";
 const ZOMBIE_NAUTILUS_VARIANTS: &str = "zombie_nautilus_variants";
 const RECIPES: &str = "recipes";
+const VANILLA_ENTITIES: &str = "entities";
+const ENTITY_DATA_SERIALIZERS: &str = "entity_data_serializers";
 
 pub fn main() {
     if !Path::new(OUT_DIR).exists() {
@@ -96,6 +100,8 @@ pub fn main() {
         (timeline_tags::build(), TIMELINE_TAGS),
         (zombie_nautilus_variants::build(), ZOMBIE_NAUTILUS_VARIANTS),
         (recipes::build(), RECIPES),
+        (entities::build(), VANILLA_ENTITIES),
+        (entity_data_serializers::build(), ENTITY_DATA_SERIALIZERS),
     ];
 
     for (content, file_name) in vanilla_builds {

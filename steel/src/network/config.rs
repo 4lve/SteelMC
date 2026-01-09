@@ -78,6 +78,7 @@ impl JavaTcpClient {
             .expect("Game profile is empty");
 
         let world = self.server.worlds[0].clone();
+        let entity_id = self.server.next_entity_id();
 
         let player = Arc::new_cyclic(|player_weak| {
             let connection = Arc::new(JavaConnection::new(
@@ -89,7 +90,7 @@ impl JavaTcpClient {
                 player_weak.clone(),
             ));
 
-            Player::new(gameprofile, connection, world, player_weak)
+            Player::new(gameprofile, connection, world, entity_id, player_weak)
         });
 
         self.connection_updates

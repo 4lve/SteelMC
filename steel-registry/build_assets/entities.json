@@ -1,0 +1,10 @@
+{
+  "entity_types": [
+    {
+      "id": 155,
+      "name": "player",
+      "client_tracking_range": 32,
+      "update_interval": 2
+    }
+  ]
+}
