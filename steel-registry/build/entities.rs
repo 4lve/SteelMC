@@ -13,17 +13,12 @@ struct EntityTypeEntry {
     update_interval: i32,
 }
 
-#[derive(Deserialize)]
-struct Entities {
-    entity_types: Vec<EntityTypeEntry>,
-}
-
 pub(crate) fn build() -> TokenStream {
     println!("cargo:rerun-if-changed=build_assets/entities.json");
 
     let entities_file = "build_assets/entities.json";
     let content = fs::read_to_string(entities_file).unwrap();
-    let entities: Entities = serde_json::from_str(&content)
+    let entity_types: Vec<EntityTypeEntry> = serde_json::from_str(&content)
         .unwrap_or_else(|e| panic!("Failed to parse entities.json: {}", e));
 
     let mut stream = TokenStream::new();
@@ -32,7 +27,7 @@ pub(crate) fn build() -> TokenStream {
         use crate::entity_types::{EntityType, EntityTypeRegistry};
     });
 
-    for entity_type in &entities.entity_types {
+    for entity_type in &entity_types {
         let entity_type_ident =
             Ident::new(&entity_type.name.to_shouty_snake_case(), Span::call_site());
         let entity_type_key = &entity_type.name;
@@ -51,7 +46,7 @@ pub(crate) fn build() -> TokenStream {
     }
 
     let mut register_stream = TokenStream::new();
-    for entity_type in &entities.entity_types {
+    for entity_type in &entity_types {
         let entity_type_ident =
             Ident::new(&entity_type.name.to_shouty_snake_case(), Span::call_site());
         register_stream.extend(quote! {

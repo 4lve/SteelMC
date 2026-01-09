@@ -11,17 +11,12 @@ struct SerializerEntry {
     id: i32,
 }
 
-#[derive(Deserialize)]
-struct EntityDataSerializers {
-    entity_data_serializers: Vec<SerializerEntry>,
-}
-
 pub(crate) fn build() -> TokenStream {
     println!("cargo:rerun-if-changed=build_assets/entity_data_serializers.json");
 
     let file = "build_assets/entity_data_serializers.json";
     let content = fs::read_to_string(file).unwrap();
-    let data: EntityDataSerializers = serde_json::from_str(&content)
+    let serializers: Vec<SerializerEntry> = serde_json::from_str(&content)
         .unwrap_or_else(|e| panic!("Failed to parse entity_data_serializers.json: {}", e));
 
     let mut stream = TokenStream::new();
@@ -32,7 +27,7 @@ pub(crate) fn build() -> TokenStream {
     let mut to_id_arms = TokenStream::new();
     let mut name_arms = TokenStream::new();
 
-    for serializer in &data.entity_data_serializers {
+    for serializer in &serializers {
         let variant_ident = Ident::new(&serializer.name.to_upper_camel_case(), Span::call_site());
         let id = serializer.id;
         let name = &serializer.name;
