@@ -75,12 +75,12 @@ impl Container for CraftingContainer {
         self.items.len()
     }
 
-    fn with_item<R>(&self, slot: usize, f: impl FnOnce(&ItemStack) -> R) -> R {
-        f(&self.items[slot])
+    fn get_item(&self, slot: usize) -> &ItemStack {
+        &self.items[slot]
     }
 
-    fn with_item_mut<R>(&mut self, slot: usize, f: impl FnOnce(&mut ItemStack) -> R) -> R {
-        f(&mut self.items[slot])
+    fn get_item_mut(&mut self, slot: usize) -> &mut ItemStack {
+        &mut self.items[slot]
     }
 
     fn set_item(&mut self, slot: usize, stack: ItemStack) {
@@ -119,12 +119,12 @@ impl Container for ResultContainer {
         1
     }
 
-    fn with_item<R>(&self, _slot: usize, f: impl FnOnce(&ItemStack) -> R) -> R {
-        f(&self.result)
+    fn get_item(&self, _slot: usize) -> &ItemStack {
+        &self.result
     }
 
-    fn with_item_mut<R>(&mut self, _slot: usize, f: impl FnOnce(&mut ItemStack) -> R) -> R {
-        f(&mut self.result)
+    fn get_item_mut(&mut self, _slot: usize) -> &mut ItemStack {
+        &mut self.result
     }
 
     fn set_item(&mut self, _slot: usize, stack: ItemStack) {

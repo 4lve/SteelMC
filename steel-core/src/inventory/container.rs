@@ -3,8 +3,6 @@
 use enum_dispatch::enum_dispatch;
 use steel_registry::item_stack::ItemStack;
 
-use crate::player::player_inventory::PlayerInventory;
-
 /// Default distance buffer for container interaction range checks.
 pub const DEFAULT_DISTANCE_BUFFER: f32 = 4.0;
 
@@ -20,48 +18,47 @@ pub trait Container {
     /// Returns true if all slots in this container are empty.
     fn is_empty(&self) -> bool {
         for i in 0..self.get_container_size() {
-            let empty = self.with_item(i, steel_registry::item_stack::ItemStack::is_empty);
-            if !empty {
+            if !self.get_item(i).is_empty() {
                 return false;
             }
         }
         true
     }
 
-    /// Executes a function with a reference to the item in the specified slot.
-    fn with_item<R>(&self, slot: usize, f: impl FnOnce(&ItemStack) -> R) -> R;
+    /// Returns a reference to the item in the specified slot.
+    fn get_item(&self, slot: usize) -> &ItemStack;
 
-    /// Executes a function with a mutable reference to the item in the specified slot.
-    fn with_item_mut<R>(&mut self, slot: usize, f: impl FnOnce(&mut ItemStack) -> R) -> R;
+    /// Returns a mutable reference to the item in the specified slot.
+    fn get_item_mut(&mut self, slot: usize) -> &mut ItemStack;
 
     /// Sets the item in the specified slot.
     fn set_item(&mut self, slot: usize, stack: ItemStack);
 
     /// Removes up to `count` items from the specified slot and returns them.
     fn remove_item(&mut self, slot: usize, count: i32) -> ItemStack {
-        self.with_item_mut(slot, |item| {
-            if item.is_empty() || count <= 0 {
-                return ItemStack::empty();
-            }
+        let item = self.get_item_mut(slot);
 
-            let take_count = count.min(item.count());
-            let mut taken = item.clone();
-            taken.set_count(take_count);
+        if item.is_empty() || count <= 0 {
+            return ItemStack::empty();
+        }
 
-            let remaining = item.count() - take_count;
-            if remaining <= 0 {
-                *item = ItemStack::empty();
-            } else {
-                item.set_count(remaining);
-            }
+        let take_count = count.min(item.count());
+        let mut taken = item.clone();
+        taken.set_count(take_count);
 
-            taken
-        })
+        let remaining = item.count() - take_count;
+        if remaining <= 0 {
+            *item = ItemStack::empty();
+        } else {
+            item.set_count(remaining);
+        }
+
+        taken
     }
 
     /// Removes the item from the specified slot without triggering updates.
     fn remove_item_no_update(&mut self, slot: usize) -> ItemStack {
-        self.with_item_mut(slot, std::mem::take)
+        std::mem::take(self.get_item_mut(slot))
     }
 
     /// Returns the maximum stack size for this container.
@@ -125,6 +122,7 @@ pub trait Container {
         }
 
         let size = self.get_container_size();
+        let max_size = self.get_max_stack_size_for_item(stack);
 
         // First pass: try to stack with existing items
         if stack.is_stackable() {
@@ -132,19 +130,15 @@ pub trait Container {
                 if stack.is_empty() {
                     return true;
                 }
-                let can_stack = self.with_item(slot, |existing| {
-                    !existing.is_empty() && ItemStack::is_same_item_same_components(existing, stack)
-                });
-                if can_stack {
-                    let max_size = self.get_max_stack_size_for_item(stack);
-                    self.with_item_mut(slot, |existing| {
-                        let space = max_size - existing.count();
-                        if space > 0 {
-                            let to_add = stack.count().min(space);
-                            existing.grow(to_add);
-                            stack.shrink(to_add);
-                        }
-                    });
+                let existing = self.get_item_mut(slot);
+                if !existing.is_empty() && ItemStack::is_same_item_same_components(existing, stack)
+                {
+                    let space = max_size - existing.count();
+                    if space > 0 {
+                        let to_add = stack.count().min(space);
+                        existing.grow(to_add);
+                        stack.shrink(to_add);
+                    }
                 }
             }
         }
@@ -154,9 +148,7 @@ pub trait Container {
             if stack.is_empty() {
                 return true;
             }
-            let is_empty = self.with_item(slot, ItemStack::is_empty);
-            if is_empty && self.can_place_item(slot, stack) {
-                let max_size = self.get_max_stack_size_for_item(stack);
+            if self.get_item(slot).is_empty() && self.can_place_item(slot, stack) {
                 let to_place = stack.count().min(max_size);
                 let mut placed = stack.clone();
                 placed.set_count(to_place);
@@ -167,14 +159,4 @@ pub trait Container {
 
         stack.is_empty()
     }
-}
-
-/// Enum of all container types that implement the Container trait.
-///
-/// This enum uses `enum_dispatch` to efficiently delegate Container trait methods
-/// to the appropriate container type implementation.
-#[enum_dispatch(Container)]
-pub enum ContainerType {
-    /// Player inventory container.
-    PlayerInventory(PlayerInventory),
 }

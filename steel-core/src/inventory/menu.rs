@@ -24,7 +24,7 @@ use steel_registry::{REGISTRY, item_stack::ItemStack, menu_type::MenuType};
 
 use crate::{
     inventory::{
-        container::Container,
+        lock::{ContainerId, ContainerLockGuard, ContainerRef},
         slot::{Slot, SlotType},
     },
     player::{Player, networking::JavaConnection},
@@ -241,6 +241,29 @@ impl MenuBehavior {
         }
     }
 
+    /// Collects all unique container references from the slots.
+    #[must_use]
+    pub fn collect_container_refs(&self) -> Vec<ContainerRef> {
+        let mut refs = Vec::new();
+        for slot in &self.slots {
+            for container_ref in slot.all_container_refs() {
+                let id = container_ref.container_id();
+                if !refs.iter().any(|r: &ContainerRef| r.container_id() == id) {
+                    refs.push(container_ref);
+                }
+            }
+        }
+        refs
+    }
+
+    /// Locks all containers referenced by slots in this menu.
+    #[must_use]
+    pub fn lock_all_containers(&self) -> ContainerLockGuard {
+        let refs = self.collect_container_refs();
+        let ref_refs: Vec<&ContainerRef> = refs.iter().collect();
+        ContainerLockGuard::lock_all(&ref_refs)
+    }
+
     /// Adds a data slot to the menu with an initial value.
     /// Returns the index of the added data slot.
     pub fn add_data_slot(&mut self, initial_value: i16) -> usize {
@@ -294,7 +317,8 @@ impl MenuBehavior {
     /// This is used by `quick_move_stack` implementations to distribute items.
     /// Based on Java's `AbstractContainerMenu::moveItemStackTo`.
     pub fn move_item_stack_to(
-        &mut self,
+        &self,
+        guard: &mut ContainerLockGuard,
         item_stack: &mut ItemStack,
         start_slot: usize,
         end_slot: usize,
@@ -316,7 +340,7 @@ impl MenuBehavior {
                 }
 
                 let slot = &self.slots[dest_slot];
-                let target = slot.with_item(std::clone::Clone::clone);
+                let target = slot.get_item(guard).clone();
 
                 if !target.is_empty()
                     && ItemStack::is_same_item_same_components(item_stack, &target)
@@ -326,13 +350,13 @@ impl MenuBehavior {
 
                     if total_stack <= max_stack_size {
                         item_stack.set_count(0);
-                        slot.with_item_mut(|i| i.set_count(total_stack));
-                        slot.set_changed();
+                        slot.get_item_mut(guard).set_count(total_stack);
+                        slot.set_changed(guard);
                         anything_changed = true;
                     } else if target.count < max_stack_size {
                         item_stack.shrink(max_stack_size - target.count);
-                        slot.with_item_mut(|i| i.set_count(max_stack_size));
-                        slot.set_changed();
+                        slot.get_item_mut(guard).set_count(max_stack_size);
+                        slot.set_changed(guard);
                         anything_changed = true;
                     }
                 }
@@ -358,7 +382,7 @@ impl MenuBehavior {
                 dest_slot < end_slot
             } {
                 let slot = &self.slots[dest_slot];
-                let target = slot.with_item(std::clone::Clone::clone);
+                let target = slot.get_item(guard).clone();
 
                 if target.is_empty() && slot.may_place(item_stack) {
                     let max_stack_size = slot.get_max_stack_size_for_item(item_stack);
@@ -366,8 +390,8 @@ impl MenuBehavior {
                     let mut placed = item_stack.clone();
                     placed.set_count(to_place);
                     item_stack.shrink(to_place);
-                    slot.set_by_player(placed, &ItemStack::empty());
-                    slot.set_changed();
+                    slot.set_by_player(guard, placed, &ItemStack::empty());
+                    slot.set_changed(guard);
                     anything_changed = true;
                     break;
                 }
@@ -443,9 +467,9 @@ impl MenuBehavior {
 
     /// Updates `last_slots` from actual slot contents.
     /// Call this once per tick before comparing with `remote_slots`.
-    pub fn update_last_slots(&mut self) {
+    pub fn update_last_slots(&mut self, guard: &ContainerLockGuard) {
         for (i, slot) in self.slots.iter().enumerate() {
-            self.last_slots[i] = slot.with_item(std::clone::Clone::clone);
+            self.last_slots[i] = slot.get_item(guard).clone();
         }
     }
 
@@ -483,8 +507,10 @@ impl MenuBehavior {
     /// - The client requests a full refresh
     /// - After certain operations that may have desynced the client
     pub fn send_all_data_to_remote(&mut self, connection: &Arc<JavaConnection>) {
+        let guard = self.lock_all_containers();
+
         // First, update last_slots from actual slot contents
-        self.update_last_slots();
+        self.update_last_slots(&guard);
 
         // Send full container content
         let packet = CContainerSetContent {
@@ -521,8 +547,10 @@ impl MenuBehavior {
     /// Note: This does NOT increment `state_id` - that only happens when
     /// processing client clicks (via `increment_state_id`).
     pub fn broadcast_changes(&mut self, connection: &Arc<JavaConnection>) {
+        let guard = self.lock_all_containers();
+
         // Update last_slots from actual slot contents
-        self.update_last_slots();
+        self.update_last_slots(&guard);
 
         // Check each slot for changes
         for i in 0..self.last_slots.len() {
@@ -634,9 +662,6 @@ impl MenuBehavior {
     ///
     /// Note: This does NOT increment `state_id` - it just forces a full resync.
     pub fn broadcast_full_state(&mut self, connection: &Arc<JavaConnection>) {
-        // In Java, this first triggers slot listeners for each slot,
-        // then calls sendAllDataToRemote() at the end.
-        // We don't have local listeners, so just send all data.
         self.send_all_data_to_remote(connection);
     }
 
@@ -680,7 +705,9 @@ impl MenuBehavior {
             }
             let slot_index = slot_num as usize;
             let slot = &self.slots[slot_index];
-            let slot_item = slot.with_item(std::clone::Clone::clone);
+
+            let guard = self.lock_all_containers();
+            let slot_item = slot.get_item(&guard).clone();
 
             if can_item_quick_replace(&slot_item, &self.carried, true)
                 && slot.may_place(&self.carried)
@@ -709,15 +736,18 @@ impl MenuBehavior {
                 }
 
                 let mut remaining = self.carried.count;
+                let quickcraft_slots = self.quickcraft_slots.clone();
 
-                for &slot_index in &self.quickcraft_slots.clone() {
+                let mut guard = self.lock_all_containers();
+
+                for &slot_index in &quickcraft_slots {
                     let slot = &self.slots[slot_index];
-                    let slot_item = slot.with_item(std::clone::Clone::clone);
+                    let slot_item = slot.get_item(&guard).clone();
 
                     if can_item_quick_replace(&slot_item, &self.carried, true)
                         && slot.may_place(&self.carried)
                         && (self.quickcraft_type == QUICKCRAFT_TYPE_CLONE
-                            || self.carried.count >= self.quickcraft_slots.len() as i32)
+                            || self.carried.count >= quickcraft_slots.len() as i32)
                         && self.can_drag_to(slot_index)
                     {
                         let current_count = if slot_item.is_empty() {
@@ -729,7 +759,7 @@ impl MenuBehavior {
                             .max_stack_size()
                             .min(slot.get_max_stack_size_for_item(&source));
                         let place_count = get_quickcraft_place_count(
-                            self.quickcraft_slots.len(),
+                            quickcraft_slots.len(),
                             self.quickcraft_type,
                             &source,
                         );
@@ -738,7 +768,7 @@ impl MenuBehavior {
 
                         let mut new_item = source.clone();
                         new_item.set_count(new_count);
-                        slot.set_item(new_item);
+                        slot.set_item(&mut guard, new_item);
                     }
                 }
 
@@ -780,10 +810,12 @@ impl MenuBehavior {
             return;
         }
 
+        let mut guard = self.lock_all_containers();
+
         let slot = &self.slots[slot_index];
 
         // Get the current item in the slot
-        let slot_item = slot.with_item(std::clone::Clone::clone);
+        let slot_item = slot.get_item(&guard).clone();
         let carried = std::mem::take(&mut self.carried);
 
         if slot_item.is_empty() {
@@ -803,7 +835,7 @@ impl MenuBehavior {
                     self.carried = new_carried;
                 }
 
-                slot.set_by_player(to_place, &ItemStack::empty());
+                slot.set_by_player(&mut guard, to_place, &ItemStack::empty());
             } else {
                 // Can't place - keep carrying
                 self.carried = carried;
@@ -820,10 +852,10 @@ impl MenuBehavior {
 
             // max_amount is i32::MAX for primary action (take all requested)
             // For result slots, try_remove will reject partial takes
-            if let Some(taken) = slot.try_remove(amount, i32::MAX) {
-                if let Some(remainder) = slot.on_take(&taken, player) {
+            if let Some(taken) = slot.try_remove(&mut guard, amount, i32::MAX) {
+                if let Some(remainder) = slot.on_take(&mut guard, &taken, player) {
                     // There's a remainder from crafting - add to player inventory or drop
-                    player.add_item_or_drop(remainder);
+                    player.add_item_or_drop_with_guard(&mut guard, remainder);
                 }
                 self.carried = taken;
             }
@@ -837,9 +869,8 @@ impl MenuBehavior {
                     let to_add = space.min(carried.count);
 
                     if to_add > 0 {
-                        slot.with_item_mut(|item| {
-                            item.set_count(item.count + to_add);
-                        });
+                        slot.get_item_mut(&mut guard)
+                            .set_count(slot_item.count + to_add);
                         let remaining = carried.count - to_add;
                         if remaining > 0 {
                             let mut new_carried = carried;
@@ -853,9 +884,7 @@ impl MenuBehavior {
                     // Right click - add one to slot
                     let max = slot.get_max_stack_size_for_item(&carried);
                     if slot_item.count < max {
-                        slot.with_item_mut(|item| {
-                            item.set_count(item.count + 1);
-                        });
+                        slot.get_item_mut(&mut guard).set_count(slot_item.count + 1);
                         let remaining = carried.count - 1;
                         if remaining > 0 {
                             let mut new_carried = carried;
@@ -874,10 +903,10 @@ impl MenuBehavior {
                     let space = carried.max_stack_size() - carried.count;
                     if space > 0 {
                         let take_amount = slot_item.count.min(space);
-                        let taken = slot.remove(take_amount);
+                        let taken = slot.remove(&mut guard, take_amount);
                         // Handle any remainder (regular slots don't produce remainders, but be safe)
-                        if let Some(remainder) = slot.on_take(&taken, player) {
-                            player.add_item_or_drop(remainder);
+                        if let Some(remainder) = slot.on_take(&mut guard, &taken, player) {
+                            player.add_item_or_drop_with_guard(&mut guard, remainder);
                         }
                         let mut new_carried = carried;
                         new_carried.grow(taken.count);
@@ -893,7 +922,7 @@ impl MenuBehavior {
             // Different items - swap (if both operations are allowed)
             if slot.may_pickup() && slot.may_place(&carried) {
                 if carried.count <= slot.get_max_stack_size_for_item(&carried) {
-                    slot.set_by_player(carried, &slot_item);
+                    slot.set_by_player(&mut guard, carried, &slot_item);
                     self.carried = slot_item;
                 } else {
                     self.carried = carried;
@@ -903,7 +932,7 @@ impl MenuBehavior {
             }
         }
 
-        slot.set_changed();
+        slot.set_changed(&mut guard);
     }
 
     /// Handles clone (middle-click in creative).
@@ -917,8 +946,9 @@ impl MenuBehavior {
             return;
         }
 
+        let guard = self.lock_all_containers();
         let slot = &self.slots[slot_index];
-        let slot_item = slot.with_item(std::clone::Clone::clone);
+        let slot_item = slot.get_item(&guard).clone();
 
         if !slot_item.is_empty() {
             let mut cloned = slot_item.clone();
@@ -941,6 +971,7 @@ impl MenuBehavior {
             return;
         }
 
+        let mut guard = self.lock_all_containers();
         let slot = &self.slots[slot_index];
 
         // Check if pickup is allowed (Java's safeTake checks this internally)
@@ -956,14 +987,14 @@ impl MenuBehavior {
         let amount = if button == 0 {
             1
         } else {
-            slot.with_item(|i| i.count)
+            slot.get_item(&guard).count
         };
 
-        let dropped = slot.remove(amount);
+        let dropped = slot.remove(&mut guard, amount);
         if !dropped.is_empty() {
             player.drop_item(dropped.clone(), true);
         }
-        slot.set_changed();
+        slot.set_changed(&mut guard);
 
         // Ctrl+Q: Keep dropping while the slot has the same item type
         if button == 1 {
@@ -976,16 +1007,16 @@ impl MenuBehavior {
                 if !player.can_drop_items() {
                     break;
                 }
-                let current_item = slot.with_item(std::clone::Clone::clone);
+                let current_item = slot.get_item(&guard).clone();
                 if current_item.is_empty() || !ItemStack::is_same_item(&current_item, &dropped) {
                     break;
                 }
-                let more_dropped = slot.remove(current_item.count);
+                let more_dropped = slot.remove(&mut guard, current_item.count);
                 if more_dropped.is_empty() {
                     break;
                 }
                 player.drop_item(more_dropped, true);
-                slot.set_changed();
+                slot.set_changed(&mut guard);
             }
         }
     }
@@ -1005,7 +1036,12 @@ pub trait Menu {
     /// or empty if nothing was moved.
     ///
     /// Based on Java's `AbstractContainerMenu::quickMoveStack`.
-    fn quick_move_stack(&mut self, slot_index: usize, player: &Player) -> ItemStack;
+    fn quick_move_stack(
+        &mut self,
+        guard: &mut ContainerLockGuard,
+        slot_index: usize,
+        player: &Player,
+    ) -> ItemStack;
 
     /// Returns true if this menu is still valid for the player.
     fn still_valid(&self) -> bool {
@@ -1095,22 +1131,23 @@ pub trait Menu {
             return;
         }
 
+        let mut guard = self.behavior().lock_all_containers();
+
         // Get the initial item for comparison
-        let initial_item = self.behavior().slots[slot_index].with_item(std::clone::Clone::clone);
+        let initial_item = self.behavior().slots[slot_index].get_item(&guard).clone();
         if initial_item.is_empty() {
             return;
         }
 
         // Call quick_move_stack in a loop while the item type remains the same
-        let mut result = self.quick_move_stack(slot_index, player);
+        let mut result = self.quick_move_stack(&mut guard, slot_index, player);
 
         while !result.is_empty() {
-            let current_item =
-                self.behavior().slots[slot_index].with_item(std::clone::Clone::clone);
+            let current_item = self.behavior().slots[slot_index].get_item(&guard).clone();
             if !ItemStack::is_same_item(&current_item, &result) {
                 break;
             }
-            result = self.quick_move_stack(slot_index, player);
+            result = self.quick_move_stack(&mut guard, slot_index, player);
         }
     }
 
@@ -1118,8 +1155,6 @@ pub trait Menu {
     /// button is the hotbar slot (0-8) or 40 for offhand.
     ///
     /// Based on Java's `AbstractContainerMenu::doClick` for `ClickType.SWAP`.
-    /// Unlike menu slots, this accesses the player's inventory directly using the button
-    /// as the inventory slot index (0-8 for hotbar, 40 for offhand).
     fn do_swap(&mut self, slot_num: i16, button: i8, player: &Player) {
         // Validate button is a valid hotbar slot (0-8) or offhand (40)
         if !((0..9).contains(&button) || button == 40) {
@@ -1131,20 +1166,24 @@ pub trait Menu {
         }
 
         let slot_index = slot_num as usize;
-        let behavior = self.behavior();
-        if slot_index >= behavior.slots.len() {
+        if slot_index >= self.behavior().slots.len() {
             return;
         }
 
+        let mut guard = self.behavior().lock_all_containers();
+
+        // Get the player inventory container ID from the player's inventory arc
+        let player_inv_id = ContainerId::from_arc(&player.inventory);
+
+        let behavior = self.behavior();
         let target_slot = &behavior.slots[slot_index];
         let inventory_slot = button as usize;
-        let inventory = &player.inventory;
 
-        // Get items from target slot (menu) and source (player inventory)
-        let target_item = target_slot.with_item(std::clone::Clone::clone);
-        let source_item = inventory
-            .lock()
-            .with_item(inventory_slot, std::clone::Clone::clone);
+        // Get items from target slot (menu) and source (player inventory via guard)
+        let target_item = target_slot.get_item(&guard).clone();
+        let source_item = guard
+            .get(player_inv_id)
+            .map_or_else(ItemStack::empty, |inv| inv.get_item(inventory_slot).clone());
 
         if source_item.is_empty() && target_item.is_empty() {
             return;
@@ -1153,12 +1192,12 @@ pub trait Menu {
         if source_item.is_empty() {
             // Move from target to inventory
             if target_slot.may_pickup() {
-                inventory
-                    .lock()
-                    .set_item(inventory_slot, target_item.clone());
-                target_slot.set_by_player(ItemStack::empty(), &target_item);
-                if let Some(remainder) = target_slot.on_take(&target_item, player) {
-                    player.add_item_or_drop(remainder);
+                if let Some(inv) = guard.get_mut(player_inv_id) {
+                    inv.set_item(inventory_slot, target_item.clone());
+                }
+                target_slot.set_by_player(&mut guard, ItemStack::empty(), &target_item);
+                if let Some(remainder) = target_slot.on_take(&mut guard, &target_item, player) {
+                    player.add_item_or_drop_with_guard(&mut guard, remainder);
                 }
             }
         } else if target_item.is_empty() {
@@ -1169,16 +1208,16 @@ pub trait Menu {
                     // Split the stack
                     let mut to_place = source_item.clone();
                     to_place.set_count(max_size);
-                    target_slot.set_by_player(to_place, &ItemStack::empty());
-                    inventory
-                        .lock()
-                        .with_item_mut(inventory_slot, |i| i.shrink(max_size));
+                    target_slot.set_by_player(&mut guard, to_place, &ItemStack::empty());
+                    if let Some(inv) = guard.get_mut(player_inv_id) {
+                        inv.get_item_mut(inventory_slot).shrink(max_size);
+                    }
                 } else {
                     // Move entire stack
-                    inventory
-                        .lock()
-                        .set_item(inventory_slot, ItemStack::empty());
-                    target_slot.set_by_player(source_item, &ItemStack::empty());
+                    if let Some(inv) = guard.get_mut(player_inv_id) {
+                        inv.set_item(inventory_slot, ItemStack::empty());
+                    }
+                    target_slot.set_by_player(&mut guard, source_item, &ItemStack::empty());
                 }
             }
         } else {
@@ -1189,24 +1228,23 @@ pub trait Menu {
                     // Source is too big - place partial and add target to inventory
                     let mut to_place = source_item.clone();
                     to_place.set_count(max_size);
-                    target_slot.set_by_player(to_place, &target_item);
-                    if let Some(remainder) = target_slot.on_take(&target_item, player) {
-                        player.add_item_or_drop(remainder);
+                    target_slot.set_by_player(&mut guard, to_place, &target_item);
+                    if let Some(remainder) = target_slot.on_take(&mut guard, &target_item, player) {
+                        player.add_item_or_drop_with_guard(&mut guard, remainder);
                     }
                     // Try to add target item to inventory, drop if can't fit
-                    {
-                        let mut inv = inventory.lock();
-                        inv.with_item_mut(inventory_slot, |i| i.shrink(max_size));
+                    if let Some(inv) = guard.get_mut(player_inv_id) {
+                        inv.get_item_mut(inventory_slot).shrink(max_size);
                     }
-                    player.add_item_or_drop(target_item);
+                    player.add_item_or_drop_with_guard(&mut guard, target_item);
                 } else {
                     // Simple swap
-                    inventory
-                        .lock()
-                        .set_item(inventory_slot, target_item.clone());
-                    target_slot.set_by_player(source_item, &target_item);
-                    if let Some(remainder) = target_slot.on_take(&target_item, player) {
-                        player.add_item_or_drop(remainder);
+                    if let Some(inv) = guard.get_mut(player_inv_id) {
+                        inv.set_item(inventory_slot, target_item.clone());
+                    }
+                    target_slot.set_by_player(&mut guard, source_item, &target_item);
+                    if let Some(remainder) = target_slot.on_take(&mut guard, &target_item, player) {
+                        player.add_item_or_drop_with_guard(&mut guard, remainder);
                     }
                 }
             }
@@ -1222,13 +1260,15 @@ pub trait Menu {
         }
 
         let slot_index = slot_num as usize;
-        let behavior = self.behavior();
-        if slot_index >= behavior.slots.len() {
+        if slot_index >= self.behavior().slots.len() {
             return;
         }
 
+        let mut guard = self.behavior().lock_all_containers();
+
+        let behavior = self.behavior();
         let slot = &behavior.slots[slot_index];
-        let slot_has_item = slot.with_item(|i| !i.is_empty());
+        let slot_has_item = !slot.get_item(&guard).is_empty();
         let slot_may_pickup = slot.may_pickup();
 
         // Can only pickup all if carried is not empty and (slot is empty or can't be picked up)
@@ -1254,7 +1294,7 @@ pub trait Menu {
             let mut i = start;
             while i >= 0 && i < slot_count as i32 && self.behavior().carried.count < max_stack {
                 let target_slot = &self.behavior().slots[i as usize];
-                let target_item = target_slot.with_item(std::clone::Clone::clone);
+                let target_item = target_slot.get_item(&guard).clone();
 
                 // Java checks: target.hasItem() && canItemQuickReplace(target, carried, true)
                 //              && target.mayPickup(player) && this.canTakeItemForPickAll(carried, target)
@@ -1267,7 +1307,7 @@ pub trait Menu {
                     if pass != 0 || target_item.count != target_item.max_stack_size() {
                         let can_take = max_stack - self.behavior().carried.count;
                         let to_take = target_item.count.min(can_take);
-                        let removed = target_slot.safe_take(to_take, i32::MAX, player);
+                        let removed = target_slot.safe_take(&mut guard, to_take, i32::MAX, player);
                         self.behavior_mut().carried.grow(removed.count);
                     }
                 }

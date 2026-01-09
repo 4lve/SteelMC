@@ -1,9 +1,12 @@
 //! This module contains the `ChunkAccess` enum, which is used to access chunks in different states.
-use std::sync::atomic::Ordering;
-use steel_utils::{BlockStateId, ChunkPos};
+use std::sync::{Weak, atomic::Ordering};
+use steel_utils::{BlockPos, BlockStateId, ChunkPos, types::UpdateFlags};
 use wincode::{SchemaRead, SchemaWrite};
 
-use crate::chunk::{level_chunk::LevelChunk, proto_chunk::ProtoChunk, section::Sections};
+use crate::chunk::{
+    heightmap::HeightmapType, level_chunk::LevelChunk, proto_chunk::ProtoChunk, section::Sections,
+};
+use crate::world::World;
 
 /// The status of a chunk.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, SchemaWrite, SchemaRead)]
@@ -102,6 +105,30 @@ impl ChunkStatus {
             Self::Full => Some(Self::Spawn),
         }
     }
+
+    /// Returns the heightmap types that should be updated at this status.
+    ///
+    /// Before CARVERS status, worldgen heightmaps are used.
+    /// At CARVERS and after, final heightmaps are used.
+    #[must_use]
+    pub const fn heightmaps_after(self) -> &'static [HeightmapType] {
+        match self {
+            // Before CARVERS: use worldgen heightmaps
+            Self::Empty
+            | Self::StructureStarts
+            | Self::StructureReferences
+            | Self::Biomes
+            | Self::Noise
+            | Self::Surface => HeightmapType::worldgen_types(),
+            // CARVERS and after: use final heightmaps
+            Self::Carvers
+            | Self::Features
+            | Self::InitializeLight
+            | Self::Light
+            | Self::Spawn
+            | Self::Full => HeightmapType::final_types(),
+        }
+    }
 }
 
 /// An enum that allows access to a chunk in different states.
@@ -115,12 +142,19 @@ pub enum ChunkAccess {
 impl ChunkAccess {
     /// Converts a proto chunk into a full chunk.
     ///
+    /// # Arguments
+    /// * `min_y` - The minimum Y coordinate of the world
+    /// * `height` - The total height of the world
+    /// * `level` - Weak reference to the world for the `LevelChunk`
+    ///
     /// # Panics
     /// This function will panic if the chunk is already a full chunk.
     #[must_use]
-    pub fn into_full(self) -> Self {
+    pub fn into_full(self, min_y: i32, height: i32, level: Weak<World>) -> Self {
         match self {
-            Self::Proto(proto_chunk) => Self::Full(LevelChunk::from_proto(proto_chunk)),
+            Self::Proto(proto_chunk) => {
+                Self::Full(LevelChunk::from_proto(proto_chunk, min_y, height, level))
+            }
             Self::Full(_) => unreachable!(),
         }
     }
@@ -206,6 +240,30 @@ impl ChunkAccess {
         match self {
             Self::Full(chunk) => &chunk.sections,
             Self::Proto(proto_chunk) => &proto_chunk.sections,
+        }
+    }
+
+    /// Sets a block state at the given position.
+    ///
+    /// Returns the old block state, or `None` if nothing changed.
+    pub fn set_block_state(
+        &self,
+        pos: BlockPos,
+        state: BlockStateId,
+        flags: UpdateFlags,
+    ) -> Option<BlockStateId> {
+        match self {
+            Self::Full(chunk) => chunk.set_block_state(pos, state, flags),
+            Self::Proto(proto_chunk) => proto_chunk.set_block_state(pos, state, flags),
+        }
+    }
+
+    /// Gets a block state at the given position.
+    #[must_use]
+    pub fn get_block_state(&self, pos: BlockPos) -> BlockStateId {
+        match self {
+            Self::Full(chunk) => chunk.get_block_state(pos),
+            Self::Proto(proto_chunk) => proto_chunk.get_block_state(pos),
         }
     }
 }

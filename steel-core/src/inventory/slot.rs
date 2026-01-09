@@ -7,10 +7,9 @@ use steel_registry::data_components::vanilla_components::EquippableSlot;
 use steel_registry::item_stack::ItemStack;
 use steel_utils::locks::SyncMutex;
 
-use crate::inventory::SyncContainer;
-use crate::inventory::container::Container;
+use crate::inventory::SyncPlayerInv;
 use crate::inventory::crafting::{CraftingContainer, ResultContainer};
-use crate::inventory::recipe_manager;
+use crate::inventory::lock::{ContainerId, ContainerLockGuard, ContainerRef};
 use crate::player::Player;
 
 /// A synchronized crafting container.
@@ -20,17 +19,27 @@ pub type SyncCraftingContainer = Arc<SyncMutex<CraftingContainer>>;
 pub type SyncResultContainer = Arc<SyncMutex<ResultContainer>>;
 
 /// A slot is a view into a single position in a container.
-/// Slots handle locking the container and provide access to items.
+/// Slots require a `ContainerLockGuard` to access items, ensuring proper locking.
 #[enum_dispatch]
 pub trait Slot {
-    /// Executes a function with a reference to the item in this slot.
-    fn with_item<R>(&self, f: impl FnOnce(&ItemStack) -> R) -> R;
+    /// Returns a reference to the item in this slot.
+    fn get_item<'a>(&self, guard: &'a ContainerLockGuard) -> &'a ItemStack;
 
-    /// Executes a function with a mutable reference to the item in this slot.
-    fn with_item_mut<R>(&self, f: impl FnOnce(&mut ItemStack) -> R) -> R;
+    /// Returns a mutable reference to the item in this slot.
+    fn get_item_mut<'a>(&self, guard: &'a mut ContainerLockGuard) -> &'a mut ItemStack;
 
     /// Sets the item in this slot.
-    fn set_item(&self, stack: ItemStack);
+    fn set_item(&self, guard: &mut ContainerLockGuard, stack: ItemStack);
+
+    /// Modifies the item in this slot in-place.
+    fn modify_item<R>(
+        &self,
+        guard: &mut ContainerLockGuard,
+        f: impl FnOnce(&mut ItemStack) -> R,
+    ) -> R {
+        let item = self.get_item_mut(guard);
+        f(item)
+    }
 
     /// Sets the item in this slot, triggered by a player action.
     ///
@@ -39,15 +48,18 @@ pub trait Slot {
     ///
     /// Subclasses can override this to trigger events like equipment change sounds.
     /// The default implementation just calls `set_item`.
-    ///
-    /// Based on Java's `Slot.setByPlayer(ItemStack, ItemStack previous)`.
-    fn set_by_player(&self, stack: ItemStack, _previous: &ItemStack) {
-        self.set_item(stack);
+    fn set_by_player(
+        &self,
+        guard: &mut ContainerLockGuard,
+        stack: ItemStack,
+        _previous: &ItemStack,
+    ) {
+        self.set_item(guard, stack);
     }
 
     /// Returns true if this slot has an item.
-    fn has_item(&self) -> bool {
-        self.with_item(|item| !item.is_empty())
+    fn has_item(&self, guard: &ContainerLockGuard) -> bool {
+        !self.get_item(guard).is_empty()
     }
 
     /// Returns true if the given item can be placed in this slot.
@@ -64,10 +76,8 @@ pub trait Slot {
     ///
     /// For normal slots: `may_pickup() && may_place(current_item)`
     /// For result slots: `false` (must take the full stack)
-    ///
-    /// Based on Java's `Slot.allowModification`.
-    fn allow_modification(&self) -> bool {
-        self.may_pickup() && self.with_item(|item| self.may_place(item))
+    fn allow_modification(&self, guard: &ContainerLockGuard) -> bool {
+        self.may_pickup() && self.may_place(self.get_item(guard))
     }
 
     /// Returns the maximum stack size for this slot.
@@ -81,25 +91,24 @@ pub trait Slot {
     }
 
     /// Removes up to `amount` items from this slot and returns them.
-    fn remove(&self, amount: i32) -> ItemStack {
-        self.with_item_mut(|item| {
-            if item.is_empty() || amount <= 0 {
-                return ItemStack::empty();
-            }
+    fn remove(&self, guard: &mut ContainerLockGuard, amount: i32) -> ItemStack {
+        let item = self.get_item_mut(guard);
+        if item.is_empty() || amount <= 0 {
+            return ItemStack::empty();
+        }
 
-            let take_count = amount.min(item.count());
-            let mut taken = item.clone();
-            taken.set_count(take_count);
+        let take_count = amount.min(item.count());
+        let mut taken = item.clone();
+        taken.set_count(take_count);
 
-            let remaining = item.count() - take_count;
-            if remaining <= 0 {
-                *item = ItemStack::empty();
-            } else {
-                item.set_count(remaining);
-            }
+        let remaining = item.count() - take_count;
+        if remaining <= 0 {
+            *item = ItemStack::empty();
+        } else {
+            item.set_count(remaining);
+        }
 
-            taken
-        })
+        taken
     }
 
     /// Tries to remove items from this slot with validation.
@@ -107,22 +116,25 @@ pub trait Slot {
     /// Returns `Some(items)` if removal succeeded, `None` otherwise.
     /// If `allow_modification()` is false and `max_amount < item.count`,
     /// returns `None` (forcing full stack pickup for result slots).
-    ///
-    /// Based on Java's `Slot.tryRemove`.
-    fn try_remove(&self, amount: i32, max_amount: i32) -> Option<ItemStack> {
+    fn try_remove(
+        &self,
+        guard: &mut ContainerLockGuard,
+        amount: i32,
+        max_amount: i32,
+    ) -> Option<ItemStack> {
         if !self.may_pickup() {
             return None;
         }
 
-        let item_count = self.with_item(steel_registry::item_stack::ItemStack::count);
+        let item_count = self.get_item(guard).count();
 
         // If modification not allowed (e.g., result slots), must take full stack
-        if !self.allow_modification() && max_amount < item_count {
+        if !self.allow_modification(guard) && max_amount < item_count {
             return None;
         }
 
         let take_amount = amount.min(max_amount);
-        let result = self.remove(take_amount);
+        let result = self.remove(guard, take_amount);
         if result.is_empty() {
             return None;
         }
@@ -132,21 +144,31 @@ pub trait Slot {
 
     /// Called when an item is taken from this slot.
     /// Returns any remainder items that couldn't be placed back (e.g., crafting remainders).
-    fn on_take(&self, _stack: &ItemStack, _player: &Player) -> Option<ItemStack> {
+    fn on_take(
+        &self,
+        _guard: &mut ContainerLockGuard,
+        _stack: &ItemStack,
+        _player: &Player,
+    ) -> Option<ItemStack> {
         None
     }
 
     /// Safely takes items from this slot with all checks and callbacks.
     ///
-    /// This combines `try_remove` and `on_take` into a single operation,
-    /// matching Java's `Slot.safeTake(amount, maxAmount, player)`.
+    /// This combines `try_remove` and `on_take` into a single operation.
     ///
     /// Returns the items taken (empty if nothing could be taken).
-    fn safe_take(&self, amount: i32, max_amount: i32, player: &Player) -> ItemStack {
-        if let Some(taken) = self.try_remove(amount, max_amount) {
-            if let Some(remainder) = self.on_take(&taken, player) {
+    fn safe_take(
+        &self,
+        guard: &mut ContainerLockGuard,
+        amount: i32,
+        max_amount: i32,
+        player: &Player,
+    ) -> ItemStack {
+        if let Some(taken) = self.try_remove(guard, amount, max_amount) {
+            if let Some(remainder) = self.on_take(guard, &taken, player) {
                 // Try to add remainder to player inventory, or drop it
-                player.add_item_or_drop(remainder);
+                player.add_item_or_drop_with_guard(guard, remainder);
             }
             taken
         } else {
@@ -155,7 +177,7 @@ pub trait Slot {
     }
 
     /// Marks the slot's container as changed.
-    fn set_changed(&self);
+    fn set_changed(&self, guard: &mut ContainerLockGuard);
 
     /// Returns the container slot index.
     fn get_container_slot(&self) -> usize;
@@ -169,32 +191,50 @@ pub trait Slot {
 
 /// A normal slot that references a container and index.
 pub struct NormalSlot {
-    container: SyncContainer,
+    container: SyncPlayerInv,
     index: usize,
 }
 
 impl NormalSlot {
     /// Creates a new normal slot.
-    pub fn new(container: SyncContainer, index: usize) -> Self {
+    pub fn new(container: SyncPlayerInv, index: usize) -> Self {
         Self { container, index }
+    }
+
+    /// Returns a reference to the container.
+    #[must_use]
+    pub fn container_ref(&self) -> ContainerRef {
+        ContainerRef::PlayerInventory(Arc::clone(&self.container))
     }
 }
 
 impl Slot for NormalSlot {
-    fn with_item<R>(&self, f: impl FnOnce(&ItemStack) -> R) -> R {
-        self.container.lock().with_item(self.index, f)
+    fn get_item<'a>(&self, guard: &'a ContainerLockGuard) -> &'a ItemStack {
+        guard
+            .get(ContainerId::from_arc(&self.container))
+            .expect("container not locked")
+            .get_item(self.index)
     }
 
-    fn with_item_mut<R>(&self, f: impl FnOnce(&mut ItemStack) -> R) -> R {
-        self.container.lock().with_item_mut(self.index, f)
+    fn get_item_mut<'a>(&self, guard: &'a mut ContainerLockGuard) -> &'a mut ItemStack {
+        guard
+            .get_mut(ContainerId::from_arc(&self.container))
+            .expect("container not locked")
+            .get_item_mut(self.index)
     }
 
-    fn set_item(&self, stack: ItemStack) {
-        self.container.lock().set_item(self.index, stack);
+    fn set_item(&self, guard: &mut ContainerLockGuard, stack: ItemStack) {
+        guard
+            .get_mut(ContainerId::from_arc(&self.container))
+            .expect("container not locked")
+            .set_item(self.index, stack);
     }
 
-    fn set_changed(&self) {
-        self.container.lock().set_changed();
+    fn set_changed(&self, guard: &mut ContainerLockGuard) {
+        guard
+            .get_mut(ContainerId::from_arc(&self.container))
+            .expect("container not locked")
+            .set_changed();
     }
 
     fn get_container_slot(&self) -> usize {
@@ -203,10 +243,8 @@ impl Slot for NormalSlot {
 }
 
 /// An armor slot that only accepts items equippable in the corresponding slot.
-///
-/// Based on Java's `ArmorSlot` class.
 pub struct ArmorSlot {
-    container: SyncContainer,
+    container: SyncPlayerInv,
     index: usize,
     /// The equipment slot this armor slot accepts.
     slot: EquippableSlot,
@@ -214,7 +252,7 @@ pub struct ArmorSlot {
 
 impl ArmorSlot {
     /// Creates a new armor slot.
-    pub fn new(container: SyncContainer, index: usize, slot: EquippableSlot) -> Self {
+    pub fn new(container: SyncPlayerInv, index: usize, slot: EquippableSlot) -> Self {
         Self {
             container,
             index,
@@ -227,33 +265,46 @@ impl ArmorSlot {
     pub fn equipment_slot(&self) -> EquippableSlot {
         self.slot
     }
+
+    /// Returns a reference to the container.
+    #[must_use]
+    pub fn container_ref(&self) -> ContainerRef {
+        ContainerRef::PlayerInventory(Arc::clone(&self.container))
+    }
 }
 
 impl Slot for ArmorSlot {
-    fn with_item<R>(&self, f: impl FnOnce(&ItemStack) -> R) -> R {
-        self.container.lock().with_item(self.index, f)
+    fn get_item<'a>(&self, guard: &'a ContainerLockGuard) -> &'a ItemStack {
+        guard
+            .get(ContainerId::from_arc(&self.container))
+            .expect("container not locked")
+            .get_item(self.index)
     }
 
-    fn with_item_mut<R>(&self, f: impl FnOnce(&mut ItemStack) -> R) -> R {
-        self.container.lock().with_item_mut(self.index, f)
+    fn get_item_mut<'a>(&self, guard: &'a mut ContainerLockGuard) -> &'a mut ItemStack {
+        guard
+            .get_mut(ContainerId::from_arc(&self.container))
+            .expect("container not locked")
+            .get_item_mut(self.index)
     }
 
-    fn set_item(&self, stack: ItemStack) {
-        self.container.lock().set_item(self.index, stack);
+    fn set_item(&self, guard: &mut ContainerLockGuard, stack: ItemStack) {
+        guard
+            .get_mut(ContainerId::from_arc(&self.container))
+            .expect("container not locked")
+            .set_item(self.index, stack);
     }
 
     /// Sets the armor item in this slot, triggered by a player action.
-    ///
-    /// This triggers the equipment change callback for armor sound effects
-    /// and other equipment-related events.
-    fn set_by_player(&self, stack: ItemStack, previous: &ItemStack) {
+    fn set_by_player(
+        &self,
+        guard: &mut ContainerLockGuard,
+        stack: ItemStack,
+        previous: &ItemStack,
+    ) {
         // TODO: Call player.onEquipItem(equipmentSlot, previous, stack) here
-        // This would trigger:
-        // - Armor equip/unequip sounds
-        // - Equipment change events for plugins/mods
-        // Java: owner.onEquipItem(equipmentSlot, previous, itemStack);
-        let _ = previous; // Suppress unused warning until implemented
-        self.set_item(stack);
+        let _ = previous;
+        self.set_item(guard, stack);
     }
 
     fn may_place(&self, stack: &ItemStack) -> bool {
@@ -264,8 +315,11 @@ impl Slot for ArmorSlot {
         1
     }
 
-    fn set_changed(&self) {
-        self.container.lock().set_changed();
+    fn set_changed(&self, guard: &mut ContainerLockGuard) {
+        guard
+            .get_mut(ContainerId::from_arc(&self.container))
+            .expect("container not locked")
+            .set_changed();
     }
 
     fn get_container_slot(&self) -> usize {
@@ -297,33 +351,79 @@ impl CraftingGridSlot {
         }
     }
 
+    /// Returns a reference to the crafting container.
+    #[must_use]
+    pub fn container_ref(&self) -> ContainerRef {
+        ContainerRef::CraftingContainer(Arc::clone(&self.container))
+    }
+
+    /// Returns a reference to the result container.
+    #[must_use]
+    pub fn result_container_ref(&self) -> ContainerRef {
+        ContainerRef::ResultContainer(Arc::clone(&self.result_container))
+    }
+
     /// Updates the crafting result based on current grid contents.
-    fn update_result(&self) {
-        let crafting = self.container.lock();
-        let mut result = self.result_container.lock();
-        recipe_manager::slot_changed_crafting_grid(&crafting, &mut *result, true);
+    ///
+    /// This recalculates the recipe and updates the result slot, matching
+    /// Java's `slotsChanged` -> `slotChangedCraftingGrid` callback pattern.
+    fn update_result(&self, guard: &mut ContainerLockGuard) {
+        let container_id = ContainerId::from_arc(&self.container);
+        let result_container_id = ContainerId::from_arc(&self.result_container);
+
+        // Get the crafting container to read its contents
+        let crafting = guard
+            .get(container_id)
+            .expect("crafting container not locked");
+
+        // Build the crafting input from the container
+        let width = 2; // For 2x2 player crafting grid
+        let items: Vec<ItemStack> = (0..4).map(|i| crafting.get_item(i).clone()).collect();
+        let input = steel_registry::recipe::CraftingInput::new(width, 2, items);
+
+        // Find matching recipe
+        let result_stack = steel_registry::REGISTRY
+            .recipes
+            .find_crafting_recipe_2x2(&input)
+            .map_or_else(ItemStack::empty, |r| r.assemble(&input));
+
+        // Update the result container
+        guard
+            .get_mut(result_container_id)
+            .expect("result container not locked")
+            .set_item(0, result_stack);
     }
 }
 
 impl Slot for CraftingGridSlot {
-    fn with_item<R>(&self, f: impl FnOnce(&ItemStack) -> R) -> R {
-        self.container.lock().with_item(self.index, f)
+    fn get_item<'a>(&self, guard: &'a ContainerLockGuard) -> &'a ItemStack {
+        guard
+            .get(ContainerId::from_arc(&self.container))
+            .expect("container not locked")
+            .get_item(self.index)
     }
 
-    fn with_item_mut<R>(&self, f: impl FnOnce(&mut ItemStack) -> R) -> R {
-        self.container.lock().with_item_mut(self.index, f)
+    fn get_item_mut<'a>(&self, guard: &'a mut ContainerLockGuard) -> &'a mut ItemStack {
+        guard
+            .get_mut(ContainerId::from_arc(&self.container))
+            .expect("container not locked")
+            .get_item_mut(self.index)
     }
 
-    fn set_item(&self, stack: ItemStack) {
-        self.container.lock().set_item(self.index, stack);
-        // Update crafting result when grid contents change
-        self.update_result();
+    fn set_item(&self, guard: &mut ContainerLockGuard, stack: ItemStack) {
+        guard
+            .get_mut(ContainerId::from_arc(&self.container))
+            .expect("container not locked")
+            .set_item(self.index, stack);
+        self.update_result(guard);
     }
 
-    fn set_changed(&self) {
-        self.container.lock().set_changed();
-        // Update crafting result when grid contents change
-        self.update_result();
+    fn set_changed(&self, guard: &mut ContainerLockGuard) {
+        guard
+            .get_mut(ContainerId::from_arc(&self.container))
+            .expect("container not locked")
+            .set_changed();
+        self.update_result(guard);
     }
 
     fn get_container_slot(&self) -> usize {
@@ -358,19 +458,40 @@ impl CraftingResultSlot {
     pub fn crafting_container(&self) -> &SyncCraftingContainer {
         &self.crafting_container
     }
+
+    /// Returns a reference to the result container.
+    #[must_use]
+    pub fn result_container_ref(&self) -> ContainerRef {
+        ContainerRef::ResultContainer(Arc::clone(&self.result_container))
+    }
+
+    /// Returns a reference to the crafting container.
+    #[must_use]
+    pub fn crafting_container_ref(&self) -> ContainerRef {
+        ContainerRef::CraftingContainer(Arc::clone(&self.crafting_container))
+    }
 }
 
 impl Slot for CraftingResultSlot {
-    fn with_item<R>(&self, f: impl FnOnce(&ItemStack) -> R) -> R {
-        self.result_container.lock().with_item(0, f)
+    fn get_item<'a>(&self, guard: &'a ContainerLockGuard) -> &'a ItemStack {
+        guard
+            .get(ContainerId::from_arc(&self.result_container))
+            .expect("container not locked")
+            .get_item(0)
     }
 
-    fn with_item_mut<R>(&self, f: impl FnOnce(&mut ItemStack) -> R) -> R {
-        self.result_container.lock().with_item_mut(0, f)
+    fn get_item_mut<'a>(&self, guard: &'a mut ContainerLockGuard) -> &'a mut ItemStack {
+        guard
+            .get_mut(ContainerId::from_arc(&self.result_container))
+            .expect("container not locked")
+            .get_item_mut(0)
     }
 
-    fn set_item(&self, stack: ItemStack) {
-        self.result_container.lock().set_item(0, stack);
+    fn set_item(&self, guard: &mut ContainerLockGuard, stack: ItemStack) {
+        guard
+            .get_mut(ContainerId::from_arc(&self.result_container))
+            .expect("container not locked")
+            .set_item(0, stack);
     }
 
     /// Cannot place items directly in the result slot.
@@ -378,19 +499,24 @@ impl Slot for CraftingResultSlot {
         false
     }
 
+    /// Result slots don't allow partial removal.
+    fn allow_modification(&self, _guard: &ContainerLockGuard) -> bool {
+        false
+    }
+
     /// Removes items from the crafting result slot.
     ///
     /// Unlike normal slots, this **always takes the entire stack** regardless
-    /// of the `amount` parameter. This matches Java's behavior where
-    /// `ResultContainer.removeItem()` ignores the count and takes everything.
-    ///
-    /// This ensures right-clicking on crafting results takes the full item.
-    fn remove(&self, _amount: i32) -> ItemStack {
-        self.with_item_mut(std::mem::take)
+    /// of the `amount` parameter.
+    fn remove(&self, guard: &mut ContainerLockGuard, _amount: i32) -> ItemStack {
+        std::mem::take(self.get_item_mut(guard))
     }
 
-    fn set_changed(&self) {
-        self.result_container.lock().set_changed();
+    fn set_changed(&self, guard: &mut ContainerLockGuard) {
+        guard
+            .get_mut(ContainerId::from_arc(&self.result_container))
+            .expect("container not locked")
+            .set_changed();
     }
 
     fn get_container_slot(&self) -> usize {
@@ -403,24 +529,49 @@ impl Slot for CraftingResultSlot {
     /// Based on Java's `ResultSlot::onTake`. Uses positioned crafting input to
     /// correctly map recipe slots back to the original crafting grid, and gets
     /// remainders from the recipe rather than individual items.
-    ///
-    /// Returns any remainder items that couldn't be placed in the crafting grid
-    /// (these should be added to the player's inventory or dropped).
-    fn on_take(&self, _stack: &ItemStack, _player: &Player) -> Option<ItemStack> {
+    fn on_take(
+        &self,
+        guard: &mut ContainerLockGuard,
+        _stack: &ItemStack,
+        _player: &Player,
+    ) -> Option<ItemStack> {
         // TODO: Add statistics/achievement tracking here.
         // Java calls checkTakeAchievements(carried) which triggers:
         // - carried.onCraftedBy(player, removeCount) for achievements
         // - recipeCraftingHolder.awardUsedRecipes(player, items) for recipe unlocks
 
         let mut remainder_overflow: Vec<ItemStack> = Vec::new();
-        let mut crafting = self.crafting_container.lock();
-        let grid_width = crafting.width();
 
-        // Get the positioned input and remainders from the recipe
-        // This is the key fix: we use positioned input to correctly map slots
-        let maybe_remainders = recipe_manager::get_remaining_items(&crafting, true);
+        // First, build the positioned input and get remainders from recipe while holding immutable borrow
+        let crafting_container_id = ContainerId::from_arc(&self.crafting_container);
+        let result_container_id = ContainerId::from_arc(&self.result_container);
+        let (remainders_and_positioned, grid_width) = {
+            let crafting = guard
+                .get(crafting_container_id)
+                .expect("crafting container not locked");
 
-        if let Some((remainders, positioned)) = maybe_remainders {
+            // Build crafting input
+            let width = 2; // 2x2 player crafting grid
+            let items: Vec<ItemStack> = (0..4).map(|i| crafting.get_item(i).clone()).collect();
+            let input = steel_registry::recipe::CraftingInput::new(width, 2, items);
+            let positioned = input.as_positioned();
+
+            // Get remainders from recipe
+            let remainders = steel_registry::REGISTRY
+                .recipes
+                .find_crafting_recipe_2x2(&positioned.input)
+                .map(|r| r.get_remaining_items(&positioned.input))
+                .unwrap_or_default();
+
+            (Some((remainders, positioned)), width)
+        };
+
+        // Now apply the changes with mutable borrow
+        let crafting = guard
+            .get_mut(crafting_container_id)
+            .expect("crafting container not locked");
+
+        if let Some((remainders, positioned)) = remainders_and_positioned {
             let input = &positioned.input;
 
             // Iterate over the bounded recipe area, not the whole grid
@@ -438,7 +589,8 @@ impl Slot for CraftingResultSlot {
                     };
 
                     // Consume one item from the grid slot
-                    crafting.with_item_mut(grid_slot, |item| {
+                    {
+                        let item = crafting.get_item_mut(grid_slot);
                         if !item.is_empty() {
                             if item.count() > 1 {
                                 item.set_count(item.count() - 1);
@@ -446,11 +598,11 @@ impl Slot for CraftingResultSlot {
                                 *item = ItemStack::empty();
                             }
                         }
-                    });
+                    }
 
                     // Handle remainder placement
                     if !replacement.is_empty() {
-                        let current_item = crafting.with_item(grid_slot, std::clone::Clone::clone);
+                        let current_item = crafting.get_item(grid_slot).clone();
 
                         if current_item.is_empty() {
                             // Slot is now empty, place remainder there
@@ -461,9 +613,7 @@ impl Slot for CraftingResultSlot {
                         ) {
                             // Same item type, try to stack
                             let new_count = current_item.count() + replacement.count();
-                            crafting.with_item_mut(grid_slot, |item| {
-                                item.set_count(new_count);
-                            });
+                            crafting.get_item_mut(grid_slot).set_count(new_count);
                         } else {
                             // Different item type - need to return to player inventory
                             remainder_overflow.push(replacement);
@@ -471,36 +621,26 @@ impl Slot for CraftingResultSlot {
                     }
                 }
             }
-        } else {
-            // No recipe found (shouldn't happen normally, but handle gracefully)
-            // Fall back to consuming all non-empty slots
-            for i in 0..crafting.get_container_size() {
-                crafting.with_item_mut(i, |item| {
-                    if !item.is_empty() {
-                        let remainder = item.item().get_crafting_remainder();
-                        if item.count() > 1 {
-                            item.set_count(item.count() - 1);
-                        } else {
-                            *item = ItemStack::empty();
-                        }
-                        if !remainder.is_empty() {
-                            if item.is_empty() {
-                                *item = remainder;
-                            } else {
-                                remainder_overflow.push(remainder);
-                            }
-                        }
-                    }
-                });
-            }
         }
 
-        // Update the crafting result based on remaining ingredients
-        let mut result = self.result_container.lock();
-        recipe_manager::slot_changed_crafting_grid(&crafting, &mut *result, true);
+        crafting.set_changed();
 
-        // Combine overflow remainders into a single stack if possible
-        // In practice, most recipes only have one type of remainder
+        // Update the crafting result based on remaining ingredients
+        // Build new input after consuming ingredients
+        let items: Vec<ItemStack> = (0..4).map(|i| crafting.get_item(i).clone()).collect();
+        let input = steel_registry::recipe::CraftingInput::new(grid_width, 2, items);
+        let result_stack = steel_registry::REGISTRY
+            .recipes
+            .find_crafting_recipe_2x2(&input)
+            .map_or_else(ItemStack::empty, |r| r.assemble(&input));
+
+        // Update the result container
+        guard
+            .get_mut(result_container_id)
+            .expect("result container not locked")
+            .set_item(0, result_stack);
+
+        // Return overflow remainders
         if remainder_overflow.is_empty() {
             None
         } else if remainder_overflow.len() == 1 {
@@ -519,9 +659,6 @@ impl Slot for CraftingResultSlot {
 }
 
 /// Enum of all slot types that implement the Slot trait.
-///
-/// This enum uses `enum_dispatch` to efficiently delegate Slot trait methods
-/// to the appropriate slot type implementation.
 #[enum_dispatch(Slot)]
 pub enum SlotType {
     /// Normal inventory slot with no restrictions.
@@ -532,4 +669,21 @@ pub enum SlotType {
     CraftingGrid(CraftingGridSlot),
     /// Crafting result slot (fake, doesn't persist items).
     CraftingResult(CraftingResultSlot),
+}
+
+impl SlotType {
+    /// Returns all container references for this slot.
+    /// For most slots this is just one container, but crafting slots
+    /// reference both the crafting grid and result containers.
+    #[must_use]
+    pub fn all_container_refs(&self) -> Vec<ContainerRef> {
+        match self {
+            SlotType::Normal(s) => vec![s.container_ref()],
+            SlotType::Armor(s) => vec![s.container_ref()],
+            SlotType::CraftingGrid(s) => vec![s.container_ref(), s.result_container_ref()],
+            SlotType::CraftingResult(s) => {
+                vec![s.result_container_ref(), s.crafting_container_ref()]
+            }
+        }
+    }
 }

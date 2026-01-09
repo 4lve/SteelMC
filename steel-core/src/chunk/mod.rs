@@ -10,6 +10,7 @@ pub mod chunk_pyramid;
 pub mod chunk_status_tasks;
 /// Tracks chunk levels based on ticket propagation.
 pub mod chunk_ticket_manager;
+pub mod heightmap;
 /// Tracks the chunks that are visible to a player.
 pub mod player_chunk_view;
 

@@ -1,6 +1,9 @@
-use std::fmt::Debug;
+use std::{
+    fmt::Debug,
+    io::{self, Read},
+};
 
-pub use steel_utils::math::Axis;
+pub use steel_utils::{codec::VarInt, math::Axis, serial::ReadFrom};
 
 pub trait Property<T>: Sync + Send {
     fn get_value(&self, value: &str) -> Option<T>;
@@ -235,7 +238,7 @@ impl<T: const PartialEq + PropertyEnum + 'static> EnumProperty<T> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 #[derive_const(PartialEq)]
 pub enum Direction {
     Down,
@@ -259,39 +262,87 @@ impl PropertyEnum for Direction {
     }
 }
 
+impl ReadFrom for Direction {
+    fn read(data: &mut impl Read) -> io::Result<Self> {
+        let id = VarInt::read(data)?.0;
+        match id {
+            0 => Ok(Direction::Down),
+            1 => Ok(Direction::Up),
+            2 => Ok(Direction::North),
+            3 => Ok(Direction::South),
+            4 => Ok(Direction::West),
+            5 => Ok(Direction::East),
+            _ => Err(io::Error::other("Invalid Direction id")),
+        }
+    }
+}
+
+impl Direction {
+    /// Returns the block position offset for this direction.
+    #[must_use]
+    pub fn offset(&self) -> (i32, i32, i32) {
+        match self {
+            Direction::Down => (0, -1, 0),
+            Direction::Up => (0, 1, 0),
+            Direction::North => (0, 0, -1),
+            Direction::South => (0, 0, 1),
+            Direction::West => (-1, 0, 0),
+            Direction::East => (1, 0, 0),
+        }
+    }
+
+    /// Returns the block position relative to the given position in this direction.
+    #[must_use]
+    pub fn relative(&self, pos: &steel_utils::BlockPos) -> steel_utils::BlockPos {
+        let (dx, dy, dz) = self.offset();
+        pos.offset(dx, dy, dz)
+    }
+
+    pub fn get_axis(&self) -> Axis {
+        match self {
+            Direction::Down => Axis::Y,
+            Direction::Up => Axis::Y,
+            Direction::North => Axis::Z,
+            Direction::South => Axis::Z,
+            Direction::West => Axis::X,
+            Direction::East => Axis::X,
+        }
+    }
+}
+
 // Additional enum types for properties
 #[derive(Clone, Debug)]
 #[derive_const(PartialEq)]
 pub enum FrontAndTop {
-    NorthUp,
-    EastUp,
-    SouthUp,
-    WestUp,
-    UpNorth,
+    DownEast,
+    DownNorth,
+    DownSouth,
+    DownWest,
     UpEast,
+    UpNorth,
     UpSouth,
     UpWest,
-    NorthEast,
-    NorthWest,
-    SouthEast,
-    SouthWest,
+    WestUp,
+    EastUp,
+    NorthUp,
+    SouthUp,
 }
 
 impl PropertyEnum for FrontAndTop {
     fn as_str(&self) -> &str {
         match self {
-            FrontAndTop::NorthUp => "north_up",
-            FrontAndTop::EastUp => "east_up",
-            FrontAndTop::SouthUp => "south_up",
-            FrontAndTop::WestUp => "west_up",
-            FrontAndTop::UpNorth => "up_north",
+            FrontAndTop::DownEast => "down_east",
+            FrontAndTop::DownNorth => "down_north",
+            FrontAndTop::DownSouth => "down_south",
+            FrontAndTop::DownWest => "down_west",
             FrontAndTop::UpEast => "up_east",
+            FrontAndTop::UpNorth => "up_north",
             FrontAndTop::UpSouth => "up_south",
             FrontAndTop::UpWest => "up_west",
-            FrontAndTop::NorthEast => "north_east",
-            FrontAndTop::NorthWest => "north_west",
-            FrontAndTop::SouthEast => "south_east",
-            FrontAndTop::SouthWest => "south_west",
+            FrontAndTop::WestUp => "west_up",
+            FrontAndTop::EastUp => "east_up",
+            FrontAndTop::NorthUp => "north_up",
+            FrontAndTop::SouthUp => "south_up",
         }
     }
 }
@@ -912,9 +963,9 @@ impl BlockStateProperties {
         "facing",
         &[
             Direction::North,
-            Direction::East,
             Direction::South,
             Direction::West,
+            Direction::East,
         ],
     );
     pub const FLOWER_AMOUNT: IntProperty = IntProperty::new("flower_amount", 1, 4);
@@ -924,18 +975,18 @@ impl BlockStateProperties {
     pub const ORIENTATION: EnumProperty<FrontAndTop> = EnumProperty::new(
         "orientation",
         &[
-            FrontAndTop::NorthUp,
-            FrontAndTop::EastUp,
-            FrontAndTop::SouthUp,
-            FrontAndTop::WestUp,
-            FrontAndTop::UpNorth,
+            FrontAndTop::DownEast,
+            FrontAndTop::DownNorth,
+            FrontAndTop::DownSouth,
+            FrontAndTop::DownWest,
             FrontAndTop::UpEast,
+            FrontAndTop::UpNorth,
             FrontAndTop::UpSouth,
             FrontAndTop::UpWest,
-            FrontAndTop::NorthEast,
-            FrontAndTop::NorthWest,
-            FrontAndTop::SouthEast,
-            FrontAndTop::SouthWest,
+            FrontAndTop::WestUp,
+            FrontAndTop::EastUp,
+            FrontAndTop::NorthUp,
+            FrontAndTop::SouthUp,
         ],
     );
     pub const ATTACH_FACE: EnumProperty<AttachFace> = EnumProperty::new(
@@ -1159,7 +1210,7 @@ impl BlockStateProperties {
         ],
     );
     pub const CREAKING_HEART_STATE: EnumProperty<CreakingHeartState> = EnumProperty::new(
-        "creaking",
+        "creaking_heart_state",
         &[
             CreakingHeartState::Uprooted,
             CreakingHeartState::Dormant,

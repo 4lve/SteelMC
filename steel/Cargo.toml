@@ -3,36 +3,51 @@ name = "steel"
 version.workspace = true
 edition.workspace = true
 
-
 [dependencies]
-steel-utils = { path = "../steel-utils" }
-steel-core = { path = "../steel-core" }
-steel-registry = { path = "../steel-registry" }
-steel-protocol = { path = "../steel-protocol" }
+# Internal crates
+steel-core.workspace = true
+steel-protocol.workspace = true
+steel-registry.workspace = true
+steel-utils.workspace = true
+
+# Async runtime
 tokio.workspace = true
-scc.workspace = true
 tokio-util.workspace = true
-crossbeam.workspace = true
+
+# Serialization
 serde.workspace = true
 serde_json.workspace = true
-uuid.workspace = true
+
+# Error handling
 thiserror.workspace = true
-log.workspace = true
-simplelog = "0.12.2"
-sha2 = "0.10.9"
-sha1 = "0.10.6"
-reqwest.workspace = true
-rand.workspace = true
-rsa.workspace = true
-rsa-der = "0.3.0"
-hex = "0.4.3"
+
+# Concurrency
+crossbeam.workspace = true
 parking_lot = { workspace = true, features = [
     "deadlock_detection",
 ], optional = true }
+scc.workspace = true
+
+# UUID
+uuid.workspace = true
+
+# Logging
+log.workspace = true
+simplelog.workspace = true
+
+# Networking
+reqwest.workspace = true
+
+# Cryptography
+rand.workspace = true
+rsa.workspace = true
+rsa-der.workspace = true
+sha1.workspace = true
+sha2.workspace = true
+hex.workspace = true
 
 [lints]
 workspace = true
-
 
 [features]
 deadlock_detection = ["dep:parking_lot"]

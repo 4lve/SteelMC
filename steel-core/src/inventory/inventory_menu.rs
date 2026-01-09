@@ -15,9 +15,10 @@ use steel_registry::item_stack::ItemStack;
 use steel_utils::locks::SyncMutex;
 
 use crate::inventory::{
-    SyncContainer,
+    SyncPlayerInv,
     container::Container,
     crafting::{CraftingContainer, ResultContainer},
+    lock::{ContainerLockGuard, ContainerRef},
     menu::{Menu, MenuBehavior},
     recipe_manager,
     slot::{
@@ -73,7 +74,7 @@ impl InventoryMenu {
     /// - Slots 0-35: Main inventory (hotbar 0-8, main 9-35)
     /// - Slots 36-39: Armor (feet, legs, chest, head)
     /// - Slot 40: Offhand
-    pub fn new(inventory: SyncContainer) -> Self {
+    pub fn new(inventory: SyncPlayerInv) -> Self {
         let mut menu_slots = Vec::with_capacity(slots::TOTAL_SLOTS);
 
         // Create the crafting containers
@@ -164,6 +165,18 @@ impl InventoryMenu {
         &self.result_container
     }
 
+    /// Returns a `ContainerRef` for the crafting container.
+    #[must_use]
+    pub fn crafting_container_ref(&self) -> ContainerRef {
+        ContainerRef::CraftingContainer(Arc::clone(&self.crafting_container))
+    }
+
+    /// Returns a `ContainerRef` for the result container.
+    #[must_use]
+    pub fn result_container_ref(&self) -> ContainerRef {
+        ContainerRef::ResultContainer(Arc::clone(&self.result_container))
+    }
+
     /// Returns true if the given slot index is in the hotbar or offhand.
     /// Based on Java's `InventoryMenu::isHotbarSlot`.
     #[must_use]
@@ -186,13 +199,15 @@ impl InventoryMenu {
 
     /// Helper method to move items between inventory and hotbar.
     fn move_between_inventory_and_hotbar(
-        &mut self,
+        &self,
+        guard: &mut ContainerLockGuard,
         slot_index: usize,
         stack: &mut ItemStack,
     ) -> bool {
         if (slots::INV_SLOT_START..slots::INV_SLOT_END).contains(&slot_index) {
             // Main inventory -> hotbar (36-45)
             self.behavior.move_item_stack_to(
+                guard,
                 stack,
                 slots::HOTBAR_SLOT_START,
                 slots::HOTBAR_SLOT_END,
@@ -201,6 +216,7 @@ impl InventoryMenu {
         } else if (slots::HOTBAR_SLOT_START..slots::HOTBAR_SLOT_END).contains(&slot_index) {
             // Hotbar -> main inventory (9-36)
             self.behavior.move_item_stack_to(
+                guard,
                 stack,
                 slots::INV_SLOT_START,
                 slots::INV_SLOT_END,
@@ -209,6 +225,7 @@ impl InventoryMenu {
         } else if slot_index == slots::OFFHAND_SLOT {
             // Offhand -> inventory (9-45)
             self.behavior.move_item_stack_to(
+                guard,
                 stack,
                 slots::INV_SLOT_START,
                 slots::OFFHAND_SLOT,
@@ -217,6 +234,7 @@ impl InventoryMenu {
         } else {
             // Default: try to move to inventory
             self.behavior.move_item_stack_to(
+                guard,
                 stack,
                 slots::INV_SLOT_START,
                 slots::OFFHAND_SLOT,
@@ -240,13 +258,18 @@ impl Menu for InventoryMenu {
     ///
     /// Returns the item that was originally in the slot (before any move occurred),
     /// or empty if nothing was moved.
-    fn quick_move_stack(&mut self, slot_index: usize, player: &Player) -> ItemStack {
+    fn quick_move_stack(
+        &mut self,
+        guard: &mut ContainerLockGuard,
+        slot_index: usize,
+        player: &Player,
+    ) -> ItemStack {
         if slot_index >= self.behavior.slots.len() {
             return ItemStack::empty();
         }
 
-        // Get the current item from the slot (avoiding holding a borrow)
-        let stack = self.behavior.slots[slot_index].with_item(std::clone::Clone::clone);
+        // Get the current item from the slot
+        let stack = self.behavior.slots[slot_index].get_item(guard).clone();
         if stack.is_empty() {
             return ItemStack::empty();
         }
@@ -259,6 +282,7 @@ impl Menu for InventoryMenu {
         let moved = if slot_index == slots::RESULT_SLOT {
             // Crafting result -> inventory (9-45), prefer to fill existing stacks first
             self.behavior.move_item_stack_to(
+                guard,
                 &mut stack_mut,
                 slots::INV_SLOT_START,
                 slots::OFFHAND_SLOT,
@@ -267,6 +291,7 @@ impl Menu for InventoryMenu {
         } else if (slots::CRAFT_SLOT_START..slots::CRAFT_SLOT_END).contains(&slot_index) {
             // Crafting grid -> inventory (9-45)
             self.behavior.move_item_stack_to(
+                guard,
                 &mut stack_mut,
                 slots::INV_SLOT_START,
                 slots::OFFHAND_SLOT,
@@ -275,6 +300,7 @@ impl Menu for InventoryMenu {
         } else if (slots::ARMOR_SLOT_START..slots::ARMOR_SLOT_END).contains(&slot_index) {
             // Armor -> inventory (9-45)
             self.behavior.move_item_stack_to(
+                guard,
                 &mut stack_mut,
                 slots::INV_SLOT_START,
                 slots::OFFHAND_SLOT,
@@ -298,11 +324,12 @@ impl Menu for InventoryMenu {
                     };
 
                     // Only try to move if the target armor slot is empty
-                    if self.behavior.slots[armor_slot_index].has_item() {
+                    if self.behavior.slots[armor_slot_index].has_item(guard) {
                         // Armor slot occupied, move between inventory/hotbar
-                        self.move_between_inventory_and_hotbar(slot_index, &mut stack_mut)
+                        self.move_between_inventory_and_hotbar(guard, slot_index, &mut stack_mut)
                     } else {
                         self.behavior.move_item_stack_to(
+                            guard,
                             &mut stack_mut,
                             armor_slot_index,
                             armor_slot_index + 1,
@@ -311,10 +338,11 @@ impl Menu for InventoryMenu {
                     }
                 } else if eq_slot == EquippableSlot::Offhand {
                     // Try to move to offhand slot if empty
-                    if self.behavior.slots[slots::OFFHAND_SLOT].has_item() {
-                        self.move_between_inventory_and_hotbar(slot_index, &mut stack_mut)
+                    if self.behavior.slots[slots::OFFHAND_SLOT].has_item(guard) {
+                        self.move_between_inventory_and_hotbar(guard, slot_index, &mut stack_mut)
                     } else {
                         self.behavior.move_item_stack_to(
+                            guard,
                             &mut stack_mut,
                             slots::OFFHAND_SLOT,
                             slots::OFFHAND_SLOT + 1,
@@ -322,10 +350,10 @@ impl Menu for InventoryMenu {
                         )
                     }
                 } else {
-                    self.move_between_inventory_and_hotbar(slot_index, &mut stack_mut)
+                    self.move_between_inventory_and_hotbar(guard, slot_index, &mut stack_mut)
                 }
             } else {
-                self.move_between_inventory_and_hotbar(slot_index, &mut stack_mut)
+                self.move_between_inventory_and_hotbar(guard, slot_index, &mut stack_mut)
             }
         };
 
@@ -334,21 +362,23 @@ impl Menu for InventoryMenu {
         }
 
         // Update the source slot with the remaining items
-        self.behavior.slots[slot_index].set_item(stack_mut.clone());
+        self.behavior.slots[slot_index].set_item(guard, stack_mut.clone());
 
         // Check if unchanged
         if stack_mut.count == clicked.count {
             return ItemStack::empty();
         }
 
-        self.behavior.slots[slot_index].set_changed();
+        self.behavior.slots[slot_index].set_changed(guard);
 
         // Call on_take for the result slot to consume ingredients
         // This must happen after set_item so the slot reflects the new state
         if slot_index == slots::RESULT_SLOT {
-            if let Some(remainder) = self.behavior.slots[slot_index].on_take(&clicked, player) {
+            if let Some(remainder) =
+                self.behavior.slots[slot_index].on_take(guard, &clicked, player)
+            {
                 // Try to place crafting remainders (e.g., empty buckets) back in inventory
-                player.add_item_or_drop(remainder);
+                player.add_item_or_drop_with_guard(guard, remainder);
             }
 
             // Java: if (slotIndex == 0) { player.drop(stack, false); }

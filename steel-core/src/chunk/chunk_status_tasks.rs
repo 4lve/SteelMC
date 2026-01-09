@@ -18,17 +18,22 @@ pub struct ChunkStatusTasks;
 /// All these functions are blocking.
 impl ChunkStatusTasks {
     pub fn empty(
-        _context: Arc<WorldGenContext>,
+        context: Arc<WorldGenContext>,
         _step: &ChunkStep,
         _cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
         holder: Arc<ChunkHolder>,
     ) -> Result<(), anyhow::Error> {
-        let sections = (0..24) // Standard height?
+        let sections = (0..context.section_count())
             .map(|_| ChunkSection::new_empty())
             .collect::<Vec<_>>()
             .into_boxed_slice();
 
-        let proto_chunk = ProtoChunk::new(Sections::from_owned(sections), holder.get_pos());
+        let proto_chunk = ProtoChunk::new(
+            Sections::from_owned(sections),
+            holder.get_pos(),
+            context.min_y(),
+            context.height(),
+        );
 
         //log::info!("Inserted proto chunk for {:?}", holder.get_pos());
 
@@ -147,14 +152,14 @@ impl ChunkStatusTasks {
     }
 
     pub fn full(
-        _context: Arc<WorldGenContext>,
+        context: Arc<WorldGenContext>,
         _step: &ChunkStep,
         _cache: &Arc<StaticCache2D<Arc<ChunkHolder>>>,
         holder: Arc<ChunkHolder>,
     ) -> Result<(), anyhow::Error> {
         //panic!("Full task");
         //log::info!("Chunk {:?} upgraded to full", holder.get_pos());
-        holder.upgrade_to_full();
+        holder.upgrade_to_full(context.weak_world());
         Ok(())
     }
 }

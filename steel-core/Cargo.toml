@@ -8,33 +8,54 @@ edition.workspace = true
 stand-alone = []
 
 [dependencies]
-steel-utils = { path = "../steel-utils" }
-steel-protocol = { path = "../steel-protocol" }
-steel-registry = { path = "../steel-registry" }
-steel-crypto = { path = "../steel-crypto" }
-scc.workspace = true
-uuid.workspace = true
-serde.workspace = true
+# Internal crates
+steel-crypto.workspace = true
+steel-protocol.workspace = true
+steel-registry.workspace = true
+steel-utils.workspace = true
+
+# Async runtime
 tokio.workspace = true
 tokio-util.workspace = true
-log.workspace = true
-thiserror.workspace = true
-replace_with = { version = "0.1.8", features = ["nightly"] }
-serde_json5 = "0.2.1"
-base64 = "0.22.1"
-futures = "0.3.31"
-parking_lot.workspace = true
-enum_dispatch.workspace = true
-anyhow.workspace = true
-rustc-hash.workspace = true
-rayon.workspace = true
-smallvec = "1.15.1"
+futures.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json5.workspace = true
 wincode.workspace = true
-zstd = "0.13"
+base64.workspace = true
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# Concurrency
+crossbeam.workspace = true
+parking_lot.workspace = true
+rayon.workspace = true
+scc.workspace = true
+arc-swap.workspace = true
+
+# Data structures
+rustc-hash.workspace = true
+smallvec.workspace = true
+
+# UUID
+uuid.workspace = true
+
+# Logging
+log.workspace = true
+
+# Cryptography
 rsa.workspace = true
 rand.workspace = true
-arc-swap.workspace = true
-crossbeam.workspace = true
+
+# Compression
+zstd.workspace = true
+
+# Utilities
+enum_dispatch.workspace = true
+replace_with.workspace = true
 
 [lints]
 workspace = true

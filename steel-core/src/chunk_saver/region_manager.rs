@@ -4,7 +4,11 @@
 //! Chunk data is read on-demand from disk and converted directly to runtime
 //! format, avoiding memory duplication.
 
-use std::{io, path::PathBuf, sync::Arc};
+use std::{
+    io,
+    path::PathBuf,
+    sync::{Arc, Weak},
+};
 
 use arc_swap::Guard;
 use rustc_hash::FxHashMap;
@@ -22,6 +26,7 @@ use crate::chunk::{
     proto_chunk::ProtoChunk,
     section::{ChunkSection, Sections},
 };
+use crate::world::World;
 use steel_utils::locks::{AsyncRwLock, SyncRwLock};
 
 use super::{
@@ -308,7 +313,7 @@ impl RegionManager {
         let (local_x, local_z) = RegionPos::local_chunk_pos(pos.0.x, pos.0.y);
         let index = RegionHeader::chunk_index(local_x, local_z);
 
-        let mut regions = self.regions.write_async().await;
+        let mut regions = self.regions.write().await;
 
         // Track if we opened the region (so we can close it after)
         let we_opened_region = !regions.contains_key(&region_pos);
@@ -393,16 +398,25 @@ impl RegionManager {
     /// count is incremented, so you must call `release_chunk` when done with the chunk.
     ///
     /// Returns `Ok(None)` if the chunk doesn't exist on disk.
+    ///
+    /// # Arguments
+    /// * `pos` - The chunk position
+    /// * `min_y` - The minimum Y coordinate of the world
+    /// * `height` - The total height of the world
+    /// * `level` - Weak reference to the world for `LevelChunk`
     #[allow(clippy::missing_panics_doc)]
     pub async fn load_chunk(
         &self,
         pos: ChunkPos,
+        min_y: i32,
+        height: i32,
+        level: Weak<World>,
     ) -> io::Result<Option<(ChunkAccess, ChunkStatus)>> {
         let region_pos = RegionPos::from_chunk(pos.0.x, pos.0.y);
         let (local_x, local_z) = RegionPos::local_chunk_pos(pos.0.x, pos.0.y);
         let index = RegionHeader::chunk_index(local_x, local_z);
 
-        let mut regions = self.regions.write_async().await;
+        let mut regions = self.regions.write().await;
 
         // Track if we just opened this region
         let was_already_open = regions.contains_key(&region_pos);
@@ -445,7 +459,7 @@ impl RegionManager {
 
         // Convert to runtime format (persistent is dropped after this - no duplication!)
         let status = entry.status;
-        let chunk = Self::persistent_to_chunk(&persistent, pos, status);
+        let chunk = Self::persistent_to_chunk(&persistent, pos, status, min_y, height, level);
 
         // Increment ref count
         handle.loaded_chunk_count += 1;
@@ -462,7 +476,7 @@ impl RegionManager {
     pub async fn release_chunk(&self, pos: ChunkPos) -> io::Result<()> {
         let region_pos = RegionPos::from_chunk(pos.0.x, pos.0.y);
 
-        let mut regions = self.regions.write_async().await;
+        let mut regions = self.regions.write().await;
 
         let should_close = if let Some(handle) = regions.get_mut(&region_pos) {
             handle.loaded_chunk_count = handle.loaded_chunk_count.saturating_sub(1);
@@ -487,7 +501,7 @@ impl RegionManager {
         let (local_x, local_z) = RegionPos::local_chunk_pos(pos.0.x, pos.0.y);
         let index = RegionHeader::chunk_index(local_x, local_z);
 
-        let regions = self.regions.read_async().await;
+        let regions = self.regions.write().await;
 
         // Check cached header first
         if let Some(handle) = regions.get(&region_pos) {
@@ -519,7 +533,7 @@ impl RegionManager {
 
     /// Flushes all dirty headers to disk.
     pub async fn flush_all(&self) -> io::Result<()> {
-        let mut regions = self.regions.write_async().await;
+        let mut regions = self.regions.write().await;
 
         for handle in regions.values_mut() {
             if handle.header_dirty {
@@ -536,7 +550,7 @@ impl RegionManager {
     /// This should be called during graceful shutdown after all chunks have been saved.
     /// It ensures all data is persisted and file handles are properly closed.
     pub async fn close_all(&self) -> io::Result<()> {
-        let mut regions = self.regions.write_async().await;
+        let mut regions = self.regions.write().await;
 
         for (_, mut handle) in regions.drain() {
             if handle.header_dirty {
@@ -668,10 +682,21 @@ impl RegionManager {
 
     /// Converts a persistent chunk to runtime format.
     /// The returned chunk is not dirty (freshly loaded from disk).
+    ///
+    /// # Arguments
+    /// * `persistent` - The persistent chunk data
+    /// * `pos` - The chunk position
+    /// * `status` - The chunk status
+    /// * `min_y` - The minimum Y coordinate of the world
+    /// * `height` - The total height of the world
+    /// * `level` - Weak reference to the world for `LevelChunk`
     fn persistent_to_chunk(
         persistent: &PersistentChunk,
         pos: ChunkPos,
         status: ChunkStatus,
+        min_y: i32,
+        height: i32,
+        level: Weak<World>,
     ) -> ChunkAccess {
         let sections: Vec<ChunkSection> = persistent
             .sections
@@ -682,21 +707,21 @@ impl RegionManager {
         match status {
             ChunkStatus::Full => ChunkAccess::Full(LevelChunk::from_disk(
                 Sections {
-                    sections: sections
-                        .into_iter()
-                        .map(|section| Arc::new(SyncRwLock::new(section)))
-                        .collect(),
+                    sections: sections.into_iter().map(SyncRwLock::new).collect(),
                 },
                 pos,
+                min_y,
+                height,
+                level,
             )),
             _ => ChunkAccess::Proto(ProtoChunk::from_disk(
                 Sections {
-                    sections: sections
-                        .into_iter()
-                        .map(|section| Arc::new(SyncRwLock::new(section)))
-                        .collect(),
+                    sections: sections.into_iter().map(SyncRwLock::new).collect(),
                 },
                 pos,
+                status,
+                min_y,
+                height,
             )),
         }
     }

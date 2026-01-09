@@ -1,15 +1,19 @@
 //! This module contains the `World` struct, which represents a world.
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use std::time::Duration;
 
 use scc::HashMap;
 use steel_protocol::packet_traits::ClientPacket;
 use steel_protocol::packets::game::{CPlayerChat, CSystemChat};
+use steel_registry::vanilla_blocks;
+use steel_registry::{REGISTRY, compat_traits::RegistryWorld, dimension_type::DimensionTypeRef};
+use steel_utils::{BlockPos, BlockStateId, ChunkPos, SectionPos, types::UpdateFlags};
 use tokio::runtime::Runtime;
 use uuid::Uuid;
 
 use crate::{
     ChunkMap,
+    chunk::chunk_access::ChunkAccess,
     player::{LastSeen, Player},
 };
 use steel_utils::ChunkPos;
@@ -29,18 +33,116 @@ pub struct World {
     pub players: HashMap<Uuid, Arc<Player>>,
     /// Spatial index for player proximity queries.
     pub player_area_map: PlayerAreaMap,
+    /// The dimension of the world.
+    pub dimension: DimensionTypeRef,
 }
 
 impl World {
     /// Creates a new world.
+    ///
+    /// Uses `Arc::new_cyclic` to create a cyclic reference between
+    /// the World and its `ChunkMap`'s `WorldGenContext`.
     #[allow(clippy::new_without_default)]
     #[must_use]
-    pub fn new(chunk_runtime: Arc<Runtime>) -> Self {
-        Self {
-            chunk_map: Arc::new(ChunkMap::new(chunk_runtime)),
+    pub fn new(chunk_runtime: Arc<Runtime>, dimension: DimensionTypeRef) -> Arc<Self> {
+        Arc::new_cyclic(|weak_self: &Weak<World>| Self {
+            chunk_map: Arc::new(ChunkMap::new(chunk_runtime, weak_self.clone(), &dimension)),
             players: HashMap::new(),
             player_area_map: PlayerAreaMap::new(),
+            dimension,
+        })
+    }
+
+    /// Returns the total height of the world in blocks.
+    pub fn get_height(&self) -> i32 {
+        self.dimension.height
+    }
+
+    /// Returns the minimum Y coordinate of the world.
+    pub fn get_min_y(&self) -> i32 {
+        self.dimension.min_y
+    }
+
+    /// Returns the maximum Y coordinate of the world.
+    pub fn get_max_y(&self) -> i32 {
+        self.get_min_y() + self.get_height() - 1
+    }
+
+    /// Returns whether the given Y coordinate is outside the build height.
+    pub fn is_outside_build_height(&self, block_y: i32) -> bool {
+        block_y < self.get_min_y() || block_y > self.get_max_y()
+    }
+
+    /// Returns whether the block position is within valid horizontal bounds.
+    pub fn is_in_valid_bounds_horizontal(&self, block_pos: &BlockPos) -> bool {
+        let chunk_x = SectionPos::block_to_section_coord(block_pos.0.x);
+        let chunk_z = SectionPos::block_to_section_coord(block_pos.0.z);
+        ChunkPos::is_valid(chunk_x, chunk_z)
+    }
+
+    /// Returns whether the block position is within valid world bounds.
+    pub fn is_in_valid_bounds(&self, block_pos: &BlockPos) -> bool {
+        !self.is_outside_build_height(block_pos.0.y)
+            && self.is_in_valid_bounds_horizontal(block_pos)
+    }
+
+    /// Returns the maximum build height (one above the highest placeable block).
+    /// This is `min_y + height`.
+    #[must_use]
+    pub fn max_build_height(&self) -> i32 {
+        self.get_min_y() + self.get_height()
+    }
+
+    /// Checks if a player may interact with the world at the given position.
+    /// Currently only checks if position is within world bounds.
+    #[must_use]
+    pub fn may_interact(&self, _player: &Player, pos: &BlockPos) -> bool {
+        self.is_in_valid_bounds(pos)
+    }
+
+    /// Gets the block state at the given position.
+    ///
+    /// Returns the default block state (void air) if the position is out of bounds or the chunk is not loaded.
+    #[must_use]
+    pub fn get_block_state(&self, pos: &BlockPos) -> BlockStateId {
+        if !self.is_in_valid_bounds(pos) {
+            return REGISTRY.blocks.get_base_state_id(vanilla_blocks::AIR);
         }
+
+        let Some(chunk) = self.get_chunk_at(pos) else {
+            return REGISTRY.blocks.get_base_state_id(vanilla_blocks::AIR);
+        };
+
+        chunk.get_block_state(*pos)
+    }
+
+    /// Sets a block at the given position.
+    ///
+    /// Returns `true` if the block was successfully set, `false` otherwise.
+    pub fn set_block(&self, pos: BlockPos, block_state: BlockStateId, flags: UpdateFlags) -> bool {
+        if !self.is_in_valid_bounds(&pos) {
+            return false;
+        }
+
+        let Some(chunk) = self.get_chunk_at(&pos) else {
+            return false;
+        };
+
+        let Some(_old_state) = chunk.set_block_state(pos, block_state, flags) else {
+            return false;
+        };
+
+        //TODO: Neighbor updates and stuff like that
+
+        true
+    }
+
+    fn get_chunk_at(&self, pos: &BlockPos) -> Option<Arc<ChunkAccess>> {
+        let chunk_pos = ChunkPos::new(
+            SectionPos::block_to_section_coord(pos.0.x),
+            SectionPos::block_to_section_coord(pos.0.z),
+        );
+        self.chunk_map.get_full_chunk(&chunk_pos)
     }
 
     /// Ticks the world.
@@ -180,5 +282,19 @@ impl World {
     /// Returns the number of chunks saved.
     pub async fn save_all_chunks(&self) -> std::io::Result<usize> {
         self.chunk_map.save_all_chunks().await
+    }
+}
+
+impl RegistryWorld for World {
+    fn get_block_state(&self, pos: &BlockPos) -> BlockStateId {
+        Self::get_block_state(self, pos)
+    }
+
+    fn set_block(&self, pos: BlockPos, block_state: BlockStateId, flags: UpdateFlags) -> bool {
+        Self::set_block(self, pos, block_state, flags)
+    }
+
+    fn is_in_valid_bounds(&self, block_pos: &BlockPos) -> bool {
+        Self::is_in_valid_bounds(self, block_pos)
     }
 }

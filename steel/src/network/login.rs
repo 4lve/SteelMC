@@ -46,7 +46,7 @@ impl JavaTcpClient {
         };
 
         {
-            let mut gameprofile = self.gameprofile.lock_async().await;
+            let mut gameprofile = self.gameprofile.lock().await;
             *gameprofile = Some(GameProfile {
                 id,
                 name: packet.name.clone(),
@@ -125,7 +125,7 @@ impl JavaTcpClient {
 
         self.connection_updated.notified().await;
 
-        let mut gameprofile = self.gameprofile.lock_async().await;
+        let mut gameprofile = self.gameprofile.lock().await;
 
         let Some(profile) = gameprofile.as_mut() else {
             self.kick(TextComponent::new().text("No GameProfile")).await;

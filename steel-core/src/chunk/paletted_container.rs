@@ -5,6 +5,7 @@ use std::{
     io::{Result, Write},
 };
 
+use steel_registry::BlockStateExt;
 use steel_utils::{BlockStateId, codec::VarInt, serial::WriteTo};
 
 /// A trait for converting a value to a global ID.
@@ -292,6 +293,16 @@ impl BlockPalette {
                 }
                 count
             }
+        }
+    }
+
+    /// Returns `true` if this palette contains only air blocks.
+    #[must_use]
+    pub fn has_only_air(&self) -> bool {
+        match self {
+            Self::Homogeneous(v) => v.is_air(),
+            //TODO: Use a nonEmpty counter?
+            Self::Heterogeneous(_data) => false,
         }
     }
 }

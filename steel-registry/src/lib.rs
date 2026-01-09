@@ -9,12 +9,12 @@
 
 use std::{fmt::Debug, ops::Deref, sync::OnceLock};
 
-use steel_utils::Identifier;
+use steel_utils::{BlockStateId, Identifier};
 
 use crate::{
     banner_pattern::BannerPatternRegistry,
     biome::BiomeRegistry,
-    blocks::BlockRegistry,
+    blocks::{BlockRef, BlockRegistry, properties::Property},
     cat_variant::CatVariantRegistry,
     chat_type::ChatTypeRegistry,
     chicken_variant::ChickenVariantRegistry,
@@ -45,6 +45,7 @@ pub mod blocks;
 pub mod cat_variant;
 pub mod chat_type;
 pub mod chicken_variant;
+pub mod compat_traits;
 pub mod cow_variant;
 pub mod damage_type;
 pub mod data_components;
@@ -310,12 +311,16 @@ impl Registry {
         let mut block_registry = BlockRegistry::new();
         vanilla_blocks::register_blocks(&mut block_registry);
         vanilla_block_tags::register_block_tags(&mut block_registry);
+        vanilla_blocks::assign_block_behaviors(&mut block_registry);
+        blocks::vanilla_block_behaviors::assign_custom_block_behaviors(&mut block_registry);
 
         let mut data_component_registry = DataComponentRegistry::new();
         vanilla_components::register_vanilla_data_components(&mut data_component_registry);
 
         let mut item_registry = ItemRegistry::new();
         vanilla_items::register_items(&mut item_registry);
+        vanilla_items::assign_item_behaviors(&mut item_registry);
+        items::vanilla_item_behaviors::assign_custom_item_behaviors(&mut item_registry);
         vanilla_item_tags::register_item_tags(&mut item_registry);
 
         let mut biome_registry = BiomeRegistry::new();
@@ -449,5 +454,34 @@ impl Registry {
         self.timelines.freeze();
         self.recipes.freeze();
         self.entity_types.freeze();
+    }
+}
+
+pub trait BlockStateExt {
+    fn get_block(&self) -> BlockRef;
+    fn is_air(&self) -> bool;
+    fn has_block_entity(&self) -> bool;
+    fn set_value<T, P: Property<T>>(&self, property: &P, value: T) -> BlockStateId;
+}
+
+impl BlockStateExt for BlockStateId {
+    fn get_block(&self) -> BlockRef {
+        REGISTRY
+            .blocks
+            .by_state_id(*self)
+            .expect("Expected a valid state id")
+    }
+
+    fn is_air(&self) -> bool {
+        self.get_block().config.is_air
+    }
+
+    fn has_block_entity(&self) -> bool {
+        // TODO: Implement when block entities are added
+        false
+    }
+
+    fn set_value<T, P: Property<T>>(&self, property: &P, value: T) -> BlockStateId {
+        REGISTRY.blocks.set_property(*self, property, value)
     }
 }

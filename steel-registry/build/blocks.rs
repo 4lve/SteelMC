@@ -11,7 +11,7 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct BlockBehaviourProperties {
+pub struct BlockConfig {
     pub has_collision: bool,
     pub can_occlude: bool,
     pub explosion_resistance: f32,
@@ -32,7 +32,7 @@ pub struct BlockBehaviourProperties {
     pub replaceable: bool,
 }
 
-impl BlockBehaviourProperties {
+impl BlockConfig {
     /// Starts building a new set of block properties.
     pub const fn new() -> Self {
         Self {
@@ -78,7 +78,7 @@ pub struct Block {
     pub properties: Vec<String>,
     // example bool_true, int_5, enum_Direction_Down
     pub default_properties: Vec<String>,
-    pub behavior_properties: BlockBehaviourProperties,
+    pub behavior_properties: BlockConfig,
     pub collisions: Collision,
 }
 
@@ -143,10 +143,7 @@ fn instrument_to_tokens(instrument: &str) -> TokenStream {
 }
 
 /// Generates builder method calls for properties that differ from defaults
-fn generate_builder_calls(
-    bp: &BlockBehaviourProperties,
-    default_props: &BlockBehaviourProperties,
-) -> Vec<TokenStream> {
+fn generate_builder_calls(bp: &BlockConfig, default_props: &BlockConfig) -> Vec<TokenStream> {
     let mut builder_calls = Vec::new();
 
     if bp.has_collision != default_props.has_collision {
@@ -247,13 +244,13 @@ fn generate_default_state(block: &Block) -> TokenStream {
                     BlockStateProperties::#property_ident.index_of(#bool_val)
                 }
             } else if default_val.starts_with("int_") {
-                // Integer: "int_5"
+                // Integer: "int_5" - convert to internal index (value - min)
                 let int_val = default_val
                     .strip_prefix("int_")
                     .unwrap()
-                    .parse::<usize>()
+                    .parse::<u8>()
                     .unwrap();
-                quote! { #int_val }
+                quote! { BlockStateProperties::#property_ident.get_internal_index_const(&#int_val) }
             } else if default_val.starts_with("enum_") {
                 // Enum: "enum_Direction_Down" -> Direction::Down
                 let enum_part = default_val.strip_prefix("enum_").unwrap();
@@ -300,7 +297,7 @@ pub(crate) fn build() -> TokenStream {
     let mut stream = TokenStream::new();
 
     // Create default properties for comparison
-    let default_props = BlockBehaviourProperties::new();
+    let default_props = BlockConfig::new();
 
     for block in &block_assets.blocks {
         let block_name = Ident::new(&block.name.to_shouty_snake_case(), Span::call_site());
@@ -325,7 +322,7 @@ pub(crate) fn build() -> TokenStream {
         stream.extend(quote! {
             pub const #block_name: &Block = &Block::new(
                 Identifier::vanilla_static(#block_name_str),
-                BlockBehaviourProperties::new()#(#builder_calls)*,
+                BlockConfig::new()#(#builder_calls)*,
                 &[
                     #(#properties),*
                 ],
@@ -334,16 +331,32 @@ pub(crate) fn build() -> TokenStream {
     }
 
     let mut register_stream = TokenStream::new();
+    let mut behavior_statics = TokenStream::new();
+    let mut behavior_assignments = TokenStream::new();
+
     for block in &block_assets.blocks {
         let block_name = Ident::new(&block.name.to_shouty_snake_case(), Span::call_site());
+        let behavior_name = Ident::new(
+            &format!("{}_BEHAVIOR", block.name.to_shouty_snake_case()),
+            Span::call_site(),
+        );
+
         register_stream.extend(quote! {
             registry.register(#block_name);
+        });
+
+        behavior_statics.extend(quote! {
+            static #behavior_name: DefaultBlockBehaviour = DefaultBlockBehaviour::new(#block_name);
+        });
+
+        behavior_assignments.extend(quote! {
+            registry.set_behavior(#block_name, &#behavior_name);
         });
     }
 
     quote! {
         use crate::{
-            blocks::{behaviour::{BlockBehaviourProperties, PushReaction}, Block, offset, BlockRegistry},
+            blocks::{behaviour::{BlockConfig, PushReaction, DefaultBlockBehaviour}, Block, offset, BlockRegistry},
             blocks::properties::{self, BlockStateProperties, NoteBlockInstrument}
         };
         use steel_utils::Identifier;
@@ -352,6 +365,12 @@ pub(crate) fn build() -> TokenStream {
 
         pub fn register_blocks(registry: &mut BlockRegistry) {
             #register_stream
+        }
+
+        #behavior_statics
+
+        pub fn assign_block_behaviors(registry: &mut BlockRegistry) {
+            #behavior_assignments
         }
     }
 }

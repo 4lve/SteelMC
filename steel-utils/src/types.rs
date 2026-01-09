@@ -1,3 +1,6 @@
+#![allow(missing_docs)]
+
+use bitflags::bitflags;
 use std::{
     borrow::Cow,
     fmt::{self, Display},
@@ -10,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use wincode::{SchemaRead, SchemaWrite};
 
 use crate::{
+    codec::VarInt,
     math::{Vector2, Vector3},
     serial::{ReadFrom, WriteTo},
 };
@@ -21,6 +25,20 @@ pub type Todo = ();
 /// A raw block state id. Using the registry this id can be derived into a block and it's current properties.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct BlockStateId(pub u16);
+
+impl WriteTo for BlockStateId {
+    fn write(&self, writer: &mut impl Write) -> io::Result<()> {
+        VarInt(i32::from(self.0)).write(writer)
+    }
+}
+
+impl ReadFrom for BlockStateId {
+    fn read(data: &mut impl Read) -> io::Result<Self> {
+        let id = VarInt::read(data)?.0;
+        #[allow(clippy::cast_sign_loss)]
+        Ok(Self(id as u16))
+    }
+}
 
 /// A chunk position.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -44,6 +62,17 @@ impl ChunkPos {
         (1, 1),
     ];
 
+    /// Safety margin in chunks for world generation dependencies.
+    /// Calculated as `(32 + GENERATION_PYRAMID.getStepTo(FULL).accumulatedDependencies().size() + 1) * 2`.
+    /// The accumulated dependencies size for FULL is 9 (radius 8 + 1).
+    const SAFETY_MARGIN_CHUNKS: i32 = (32 + 12 + 1) * 2;
+
+    /// Maximum valid chunk coordinate value.
+    /// Calculated as `SectionPos.blockToSectionCoord(MAX_HORIZONTAL_COORDINATE) - SAFETY_MARGIN_CHUNKS`.
+    pub const MAX_COORDINATE_VALUE: i32 =
+        SectionPos::block_to_section_coord(BlockPos::MAX_HORIZONTAL_COORDINATE)
+            - Self::SAFETY_MARGIN_CHUNKS;
+
     /// Returns all 8 neighbors of this chunk position.
     #[must_use]
     pub fn neighbors(&self) -> [ChunkPos; 8] {
@@ -55,6 +84,14 @@ impl ChunkPos {
     /// Creates a new `ChunkPos` with the given x and y coordinates.
     pub const fn new(x: i32, y: i32) -> Self {
         Self(Vector2::new(x, y))
+    }
+
+    /// Checks if the given chunk coordinates are within valid bounds.
+    /// Uses `Mth.absMax(x, z) <= MAX_COORDINATE_VALUE`.
+    #[must_use]
+    #[inline]
+    pub fn is_valid(x: i32, z: i32) -> bool {
+        x.abs().max(z.abs()) <= Self::MAX_COORDINATE_VALUE
     }
 
     /// Converts the `ChunkPos` to an `i64`.
@@ -94,24 +131,200 @@ impl ReadFrom for ChunkPos {
 pub struct BlockPos(pub Vector3<i32>);
 
 impl BlockPos {
-    // Define constants as per the Java logic, but in Rust style
+    // Define constants as per the Java logic
     const PACKED_HORIZONTAL_LEN: u32 = 26;
-    const PACKED_Y_LEN: u32 = 64 - 2 * Self::PACKED_HORIZONTAL_LEN;
-    const X_OFFSET: u32 = Self::PACKED_Y_LEN + Self::PACKED_HORIZONTAL_LEN;
-    const Z_OFFSET: u32 = 0;
+    const PACKED_Y_LEN: u32 = 12;
+    const X_OFFSET: u32 = Self::PACKED_HORIZONTAL_LEN + Self::PACKED_Y_LEN; // 38
+    const Z_OFFSET: u32 = Self::PACKED_Y_LEN; // 12
     const PACKED_X_MASK: i64 = (1i64 << Self::PACKED_HORIZONTAL_LEN) - 1;
     const PACKED_Y_MASK: i64 = (1i64 << Self::PACKED_Y_LEN) - 1;
     const PACKED_Z_MASK: i64 = (1i64 << Self::PACKED_HORIZONTAL_LEN) - 1;
 
+    /// Maximum horizontal coordinate value: `(1 << 26) / 2 - 1 = 33554431`
+    pub const MAX_HORIZONTAL_COORDINATE: i32 = (1 << Self::PACKED_HORIZONTAL_LEN) / 2 - 1;
+
     /// Converts the `BlockPos` to an `i64`.
+    /// Layout: X (26 bits, offset 38) | Z (26 bits, offset 12) | Y (12 bits, offset 0)
     #[must_use]
     pub fn as_i64(&self) -> i64 {
         let x = i64::from(self.0.x);
         let y = i64::from(self.0.y);
         let z = i64::from(self.0.z);
         ((x & Self::PACKED_X_MASK) << Self::X_OFFSET)
-            | (y & Self::PACKED_Y_MASK)
             | ((z & Self::PACKED_Z_MASK) << Self::Z_OFFSET)
+            | (y & Self::PACKED_Y_MASK)
+    }
+
+    /// Creates a `BlockPos` from an `i64`.
+    /// Layout: X (26 bits, offset 38) | Z (26 bits, offset 12) | Y (12 bits, offset 0)
+    #[must_use]
+    pub fn from_i64(value: i64) -> Self {
+        let x = value >> Self::X_OFFSET;
+        let y = value & Self::PACKED_Y_MASK;
+        let z = (value >> Self::Z_OFFSET) & Self::PACKED_Z_MASK;
+
+        // Sign extend the values
+        let x = (x << (64 - Self::PACKED_HORIZONTAL_LEN)) >> (64 - Self::PACKED_HORIZONTAL_LEN);
+        let y = (y << (64 - Self::PACKED_Y_LEN)) >> (64 - Self::PACKED_Y_LEN);
+        let z = (z << (64 - Self::PACKED_HORIZONTAL_LEN)) >> (64 - Self::PACKED_HORIZONTAL_LEN);
+
+        Self(Vector3::new(x as i32, y as i32, z as i32))
+    }
+
+    /// Returns a new `BlockPos` offset by the given amounts.
+    #[must_use]
+    pub fn offset(&self, dx: i32, dy: i32, dz: i32) -> Self {
+        Self(Vector3::new(self.0.x + dx, self.0.y + dy, self.0.z + dz))
+    }
+
+    /// Returns the x coordinate.
+    #[must_use]
+    pub fn x(&self) -> i32 {
+        self.0.x
+    }
+
+    /// Returns the y coordinate.
+    #[must_use]
+    pub fn y(&self) -> i32 {
+        self.0.y
+    }
+
+    /// Returns the z coordinate.
+    #[must_use]
+    pub fn z(&self) -> i32 {
+        self.0.z
+    }
+}
+
+impl ReadFrom for BlockPos {
+    fn read(data: &mut impl Read) -> io::Result<Self> {
+        let packed = <i64 as ReadFrom>::read(data)?;
+        Ok(Self::from_i64(packed))
+    }
+}
+
+/// A chunk section position (16x16x16 region).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SectionPos(pub Vector3<i32>);
+
+impl SectionPos {
+    const SECTION_BITS: i32 = 4;
+    const SECTION_SIZE: i32 = 1 << Self::SECTION_BITS; // 16
+    const SECTION_MASK: i32 = Self::SECTION_SIZE - 1; // 15
+
+    /// Creates a new `SectionPos` from section coordinates.
+    #[must_use]
+    pub const fn new(x: i32, y: i32, z: i32) -> Self {
+        Self(Vector3::new(x, y, z))
+    }
+
+    /// Converts a block coordinate to a section coordinate.
+    #[must_use]
+    #[inline]
+    pub const fn block_to_section_coord(block_coord: i32) -> i32 {
+        block_coord >> Self::SECTION_BITS
+    }
+
+    /// Creates a `SectionPos` from a `BlockPos`.
+    #[must_use]
+    pub fn from_block_pos(pos: BlockPos) -> Self {
+        Self::new(
+            Self::block_to_section_coord(pos.0.x),
+            Self::block_to_section_coord(pos.0.y),
+            Self::block_to_section_coord(pos.0.z),
+        )
+    }
+
+    /// Gets the X coordinate.
+    #[must_use]
+    pub const fn x(&self) -> i32 {
+        self.0.x
+    }
+
+    /// Gets the Y coordinate.
+    #[must_use]
+    pub const fn y(&self) -> i32 {
+        self.0.y
+    }
+
+    /// Gets the Z coordinate.
+    #[must_use]
+    pub const fn z(&self) -> i32 {
+        self.0.z
+    }
+
+    /// Extracts the section-relative X coordinate from a packed position.
+    #[must_use]
+    pub const fn section_relative_x(packed: i16) -> i32 {
+        ((packed as i32) >> 8) & Self::SECTION_MASK
+    }
+
+    /// Extracts the section-relative Y coordinate from a packed position.
+    #[must_use]
+    pub const fn section_relative_y(packed: i16) -> i32 {
+        (packed as i32) & Self::SECTION_MASK
+    }
+
+    /// Extracts the section-relative Z coordinate from a packed position.
+    #[must_use]
+    pub const fn section_relative_z(packed: i16) -> i32 {
+        ((packed as i32) >> 4) & Self::SECTION_MASK
+    }
+
+    /// Converts section-relative coordinates to an absolute block X coordinate.
+    #[must_use]
+    pub const fn relative_to_block_x(&self, relative_x: i16) -> i32 {
+        (self.0.x << Self::SECTION_BITS) + Self::section_relative_x(relative_x)
+    }
+
+    /// Converts section-relative coordinates to an absolute block Y coordinate.
+    #[must_use]
+    pub const fn relative_to_block_y(&self, relative_y: i16) -> i32 {
+        (self.0.y << Self::SECTION_BITS) + Self::section_relative_y(relative_y)
+    }
+
+    /// Converts section-relative coordinates to an absolute block Z coordinate.
+    #[must_use]
+    pub const fn relative_to_block_z(&self, relative_z: i16) -> i32 {
+        (self.0.z << Self::SECTION_BITS) + Self::section_relative_z(relative_z)
+    }
+
+    /// Packs the section position into an i64.
+    #[must_use]
+    pub fn as_i64(&self) -> i64 {
+        let x = i64::from(self.0.x);
+        let y = i64::from(self.0.y);
+        let z = i64::from(self.0.z);
+
+        ((x & 0x3F_FFFF) << 42) | ((y & 0xF_FFFF) << 20) | (z & 0x3F_FFFF)
+    }
+
+    /// Unpacks a section position from an i64.
+    #[must_use]
+    pub fn from_i64(value: i64) -> Self {
+        let x = value >> 42;
+        let y = (value >> 20) & 0xF_FFFF;
+        let z = value & 0x3F_FFFF;
+
+        // Sign extend
+        let x = (x << 42) >> 42;
+        let y = (y << 44) >> 44;
+        let z = (z << 42) >> 42;
+
+        Self(Vector3::new(x as i32, y as i32, z as i32))
+    }
+}
+
+impl ReadFrom for SectionPos {
+    fn read(data: &mut impl Read) -> io::Result<Self> {
+        let packed = <i64 as ReadFrom>::read(data)?;
+        Ok(Self::from_i64(packed))
+    }
+}
+
+impl WriteTo for SectionPos {
+    fn write(&self, writer: &mut impl Write) -> io::Result<()> {
+        self.as_i64().write(writer)
     }
 }
 
@@ -299,5 +512,83 @@ impl<'de> SchemaRead<'de> for Identifier {
 
         dst.write(Identifier::from_str(&s).map_err(wincode::ReadError::Custom)?);
         Ok(())
+    }
+}
+
+/// Represents the hand used for an interaction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InteractionHand {
+    /// The main hand.
+    MainHand,
+    /// The off hand.
+    OffHand,
+}
+
+impl ReadFrom for InteractionHand {
+    fn read(data: &mut impl Read) -> io::Result<Self> {
+        let id = VarInt::read(data)?.0;
+        match id {
+            0 => Ok(InteractionHand::MainHand),
+            1 => Ok(InteractionHand::OffHand),
+            _ => Err(io::Error::other("Invalid InteractionHand id")),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_block_pos_roundtrip() {
+        let positions = vec![
+            BlockPos(Vector3::new(0, -61, -2)),
+            BlockPos(Vector3::new(0, 0, 0)),
+            BlockPos(Vector3::new(100, 64, -100)),
+            BlockPos(Vector3::new(-1000, -64, 1000)),
+            BlockPos(Vector3::new(33_554_431, 2047, 33_554_431)), // Max positive values
+            BlockPos(Vector3::new(-33_554_432, -2048, -33_554_432)), // Max negative values
+        ];
+
+        for pos in positions {
+            let encoded = pos.as_i64();
+            let decoded = BlockPos::from_i64(encoded);
+            assert_eq!(
+                pos, decoded,
+                "Roundtrip failed for {pos:?}: encoded={encoded}, decoded={decoded:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_block_pos_specific_case() {
+        // Test the specific case from the bug report
+        let pos = BlockPos(Vector3::new(0, -61, -2));
+        let encoded = pos.as_i64();
+        let decoded = BlockPos::from_i64(encoded);
+        assert_eq!(pos, decoded, "Position 0, -61, -2 failed roundtrip");
+    }
+}
+
+/// Flags that control how a block update is processed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct UpdateFlags(u16);
+
+bitflags! {
+    impl UpdateFlags: u16 {
+        const UPDATE_NEIGHBORS = 1;
+        const UPDATE_CLIENTS = 1 << 1;
+        const UPDATE_INVISIBLE = 1 << 2;
+        const UPDATE_IMMEDIATE = 1 << 3;
+        const UPDATE_KNOWN_SHAPE = 1 << 4;
+        const UPDATE_SUPPRESS_DROPS = 1 << 5;
+        const UPDATE_MOVE_BY_PISTON = 1 << 6;
+        const UPDATE_SKIP_SHAPE_UPDATE_ON_WIRE = 1 << 7;
+        const UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS = 1 << 8;
+        const UPDATE_SKIP_ON_PLACE = 1 << 9;
+
+        const UPDATE_NONE = Self::UPDATE_INVISIBLE.bits() | Self::UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS.bits();
+        const UPDATE_ALL = Self::UPDATE_NEIGHBORS.bits() | Self::UPDATE_CLIENTS.bits();
+        const UPDATE_ALL_IMMEDIATE = Self::UPDATE_ALL.bits() | Self::UPDATE_IMMEDIATE.bits();
     }
 }

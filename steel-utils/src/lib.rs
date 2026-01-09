@@ -32,3 +32,4 @@ pub use types::BlockPos;
 pub use types::BlockStateId;
 pub use types::ChunkPos;
 pub use types::Identifier;
+pub use types::SectionPos;

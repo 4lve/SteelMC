@@ -9,7 +9,7 @@ use crate::chunk::paletted_container::{BiomePalette, BlockPalette};
 #[derive(Debug, Clone)]
 pub struct Sections {
     /// The sections in the collection.
-    pub sections: Box<[Arc<SyncRwLock<ChunkSection>>]>,
+    pub sections: Arc<[SyncRwLock<ChunkSection>]>,
 }
 
 impl Sections {
@@ -17,10 +17,7 @@ impl Sections {
     #[must_use]
     pub fn from_owned(sections: Box<[ChunkSection]>) -> Self {
         Self {
-            sections: sections
-                .into_iter()
-                .map(|section| Arc::new(SyncRwLock::new(section)))
-                .collect(),
+            sections: sections.into_iter().map(SyncRwLock::new).collect(),
         }
     }
 

@@ -1,16 +1,18 @@
 pub mod behaviour;
 pub mod properties;
+pub mod vanilla_behaviours;
+pub mod vanilla_block_behaviors;
 
 use rustc_hash::FxHashMap;
 
 use crate::RegistryExt;
-use crate::blocks::behaviour::BlockBehaviourProperties;
+use crate::blocks::behaviour::{BlockBehaviour, BlockConfig};
 use crate::blocks::properties::{DynProperty, Property};
 
 #[derive(Debug)]
 pub struct Block {
     pub key: Identifier,
-    pub behaviour: BlockBehaviourProperties,
+    pub config: BlockConfig,
     pub properties: &'static [&'static dyn DynProperty],
     pub default_state_offset: u16,
 }
@@ -18,12 +20,12 @@ pub struct Block {
 impl Block {
     pub const fn new(
         key: Identifier,
-        behaviour: BlockBehaviourProperties,
+        config: BlockConfig,
         properties: &'static [&'static dyn DynProperty],
     ) -> Self {
         Self {
             key,
-            behaviour,
+            config,
             properties,
             default_state_offset: 0,
         }
@@ -46,20 +48,29 @@ impl Block {
         self
     }
 
-    /// Const helper to calculate state offset from property indices and counts
+    /// Const helper to calculate state offset from property indices and counts.
+    /// Properties are processed in reverse order to match Minecraft's encoding
+    /// (last property = inner loop with multiplier 1).
     #[must_use]
     pub const fn calculate_offset(property_indices: &[usize], property_counts: &[usize]) -> u16 {
         let mut offset = 0u16;
         let mut multiplier = 1u16;
-        let mut i = 0;
+        let len = property_indices.len();
 
-        while i < property_indices.len() {
+        // Iterate in reverse order: last property first (inner loop)
+        let mut i = len;
+        while i > 0 {
+            i -= 1;
             offset += property_indices[i] as u16 * multiplier;
             multiplier *= property_counts[i] as u16;
-            i += 1;
         }
 
         offset
+    }
+
+    #[must_use]
+    pub fn default_state(&'static self) -> BlockStateId {
+        crate::REGISTRY.blocks.get_default_state_id(self)
     }
 }
 
@@ -69,6 +80,7 @@ pub type BlockRef = &'static Block;
 pub struct BlockRegistry {
     blocks_by_id: Vec<BlockRef>,
     blocks_by_key: FxHashMap<Identifier, usize>,
+    behaviors: Vec<&'static dyn BlockBehaviour>,
     tags: FxHashMap<Identifier, Vec<BlockRef>>,
     allows_registering: bool,
     pub state_to_block_lookup: Vec<BlockRef>,
@@ -93,6 +105,7 @@ impl BlockRegistry {
         Self {
             blocks_by_id: Vec::new(),
             blocks_by_key: FxHashMap::default(),
+            behaviors: Vec::new(),
             tags: FxHashMap::default(),
             allows_registering: true,
             state_to_block_lookup: Vec::new(),
@@ -102,7 +115,6 @@ impl BlockRegistry {
         }
     }
 
-    // Registers a new block.
     pub fn register(&mut self, block: BlockRef) -> usize {
         assert!(
             self.allows_registering,
@@ -115,6 +127,8 @@ impl BlockRegistry {
         self.blocks_by_key.insert(block.key.clone(), id);
         self.blocks_by_id.push(block);
         self.block_to_base_state.push(base_state_id);
+        // Push a placeholder behavior that will be replaced by the actual behavior later
+        self.behaviors.push(&behaviour::PLACEHOLDER_BEHAVIOR);
 
         let mut state_count = 1;
         for property in block.properties {
@@ -181,16 +195,17 @@ impl BlockRegistry {
         // Calculate the relative state index
         let relative_index = id.0 - base_state_id;
 
-        // Decode the property indices from the relative state index
+        // Decode the property indices from the relative state index.
+        // Properties are decoded in reverse order (last property = inner loop).
         let mut index = relative_index;
-        let mut property_values = Vec::with_capacity(block.properties.len());
+        let mut property_values = vec![("", ""); block.properties.len()];
 
-        for prop in block.properties {
+        for (i, prop) in block.properties.iter().enumerate().rev() {
             let count = prop.get_possible_values().len() as u16;
             let current_index = (index % count) as usize;
 
             let possible_values = prop.get_possible_values();
-            property_values.push((prop.get_name(), possible_values[current_index]));
+            property_values[i] = (prop.get_name(), possible_values[current_index]);
 
             index /= count;
         }
@@ -240,10 +255,11 @@ impl BlockRegistry {
             property_indices[prop_idx] = value_idx;
         }
 
-        // Encode property indices to state offset
+        // Encode property indices to state offset.
+        // Properties are processed in reverse order (last property = inner loop).
         let mut offset = 0u16;
         let mut multiplier = 1u16;
-        for (idx, prop) in property_indices.iter().zip(block.properties.iter()) {
+        for (idx, prop) in property_indices.iter().zip(block.properties.iter()).rev() {
             offset += *idx as u16 * multiplier;
             multiplier *= prop.get_possible_values().len() as u16;
         }
@@ -269,11 +285,12 @@ impl BlockRegistry {
         // Calculate the relative state index
         let relative_index = id.0 - base_state_id;
 
-        // Decode the property indices from the relative state index
+        // Decode the property indices from the relative state index.
+        // Properties are decoded in reverse order (last property = inner loop).
         let mut index = relative_index;
         let mut property_value_index = 0;
 
-        for (i, prop) in block.properties.iter().enumerate() {
+        for (i, prop) in block.properties.iter().enumerate().rev() {
             let count = prop.get_possible_values().len() as u16;
             let current_index = (index % count) as usize;
 
@@ -317,13 +334,14 @@ impl BlockRegistry {
         // Calculate the relative state index
         let relative_index = id.0 - base_state_id;
 
-        // Decode all property indices from the relative state index
+        // Decode all property indices from the relative state index.
+        // Properties are decoded in reverse order (last property = inner loop).
         let mut index = relative_index;
-        let mut property_indices = Vec::with_capacity(block.properties.len());
+        let mut property_indices = vec![0usize; block.properties.len()];
 
-        for prop in block.properties {
+        for (i, prop) in block.properties.iter().enumerate().rev() {
             let count = prop.get_possible_values().len() as u16;
-            property_indices.push((index % count) as usize);
+            property_indices[i] = (index % count) as usize;
             index /= count;
         }
 
@@ -331,17 +349,15 @@ impl BlockRegistry {
         let new_value_index = property.get_internal_index(&value);
         property_indices[property_index] = new_value_index;
 
-        // Re-encode the property indices back to a state ID
-        let (new_relative_index, _) = property_indices.iter().zip(block.properties.iter()).fold(
-            (0u16, 1u16),
-            |(current_index, multiplier), (&value_idx, prop)| {
-                let count = prop.get_possible_values().len() as u16;
-                (
-                    current_index + value_idx as u16 * multiplier,
-                    multiplier * count,
-                )
-            },
-        );
+        // Re-encode the property indices back to a state ID.
+        // Properties are processed in reverse order (last property = inner loop).
+        let mut new_relative_index = 0u16;
+        let mut multiplier = 1u16;
+        for (i, prop) in block.properties.iter().enumerate().rev() {
+            let count = prop.get_possible_values().len() as u16;
+            new_relative_index += property_indices[i] as u16 * multiplier;
+            multiplier *= count;
+        }
 
         BlockStateId(base_state_id + new_relative_index)
     }
@@ -409,6 +425,38 @@ impl BlockRegistry {
     /// Gets all tag keys.
     pub fn tag_keys(&self) -> impl Iterator<Item = &Identifier> + '_ {
         self.tags.keys()
+    }
+
+    #[must_use]
+    pub fn get_behavior(&self, block: BlockRef) -> &dyn BlockBehaviour {
+        let id = self.get_id(block);
+        self.behaviors[*id]
+    }
+
+    #[must_use]
+    pub fn get_behavior_by_id(&self, id: usize) -> Option<&dyn BlockBehaviour> {
+        self.behaviors.get(id).copied()
+    }
+
+    pub fn set_behavior(&mut self, block: BlockRef, behavior: &'static dyn BlockBehaviour) {
+        assert!(
+            self.allows_registering,
+            "Cannot set behaviors after the registry has been frozen"
+        );
+
+        let id = *self.get_id(block);
+        self.behaviors[id] = behavior;
+    }
+
+    pub fn set_behavior_by_key(&mut self, key: &Identifier, behavior: &'static dyn BlockBehaviour) {
+        assert!(
+            self.allows_registering,
+            "Cannot set behaviors after the registry has been frozen"
+        );
+
+        if let Some(&id) = self.blocks_by_key.get(key) {
+            self.behaviors[id] = behavior;
+        }
     }
 }
 
@@ -681,6 +729,115 @@ mod tests {
                 power_str.as_str(),
                 "Power level {} mismatch",
                 power
+            );
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "minecraft-src")]
+    fn test_all_block_state_ids_match_minecraft() {
+        use rustc_hash::FxHashMap as HashMap;
+        use std::fs;
+
+        #[derive(serde::Deserialize)]
+        struct BlockState {
+            id: u16,
+            #[serde(default)]
+            properties: HashMap<String, String>,
+            #[serde(default)]
+            default: bool,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct BlockData {
+            states: Vec<BlockState>,
+        }
+
+        // Try multiple paths to find blocks.json
+        let possible_paths = [
+            "minecraft-src/minecraft/resources/datagen-reports/blocks.json",
+            "../minecraft-src/minecraft/resources/datagen-reports/blocks.json",
+        ];
+        let json_content = possible_paths
+            .iter()
+            .find_map(|path| fs::read_to_string(path).ok())
+            .expect("Failed to read blocks.json - make sure minecraft-src is available");
+        let blocks: HashMap<String, BlockData> =
+            serde_json::from_str(&json_content).expect("Failed to parse blocks.json");
+
+        let registry = create_test_registry();
+        let mut errors = Vec::new();
+
+        for (block_name, block_data) in &blocks {
+            // Strip "minecraft:" prefix
+            let key = Identifier::vanilla_static(
+                block_name
+                    .strip_prefix("minecraft:")
+                    .unwrap_or(block_name)
+                    .to_string()
+                    .leak(),
+            );
+
+            let Some(block) = registry.by_key(&key) else {
+                errors.push(format!("Block {} not found in registry", block_name));
+                continue;
+            };
+
+            // Verify default state
+            for state in &block_data.states {
+                if state.default {
+                    let our_default = registry.get_default_state_id(block);
+                    if our_default.0 != state.id {
+                        errors.push(format!(
+                            "{}: default state mismatch - expected {}, got {}",
+                            block_name, state.id, our_default.0
+                        ));
+                    }
+                }
+            }
+
+            // Verify all states
+            for state in &block_data.states {
+                let props: Vec<(&str, &str)> = state
+                    .properties
+                    .iter()
+                    .map(|(k, v)| (k.as_str(), v.as_str()))
+                    .collect();
+
+                let Some(our_state_id) = registry.state_id_from_properties(&key, &props) else {
+                    errors.push(format!(
+                        "{}: failed to get state for properties {:?}",
+                        block_name, props
+                    ));
+                    continue;
+                };
+
+                if our_state_id.0 != state.id {
+                    errors.push(format!(
+                        "{}: state mismatch for {:?} - expected {}, got {}",
+                        block_name, props, state.id, our_state_id.0
+                    ));
+                }
+            }
+        }
+
+        if !errors.is_empty() {
+            // Print first 20 errors for readability
+            let display_errors: String = errors
+                .iter()
+                .take(20)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join("\n");
+            panic!(
+                "Found {} state ID mismatches:\n{}{}",
+                errors.len(),
+                display_errors,
+                if errors.len() > 20 {
+                    format!("\n... and {} more", errors.len() - 20)
+                } else {
+                    String::new()
+                }
             );
         }
     }

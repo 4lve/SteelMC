@@ -1,16 +1,17 @@
-use std::sync::Arc;
 use std::sync::atomic::Ordering;
+use std::sync::{Arc, Weak};
 use std::time::Duration;
 
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use rustc_hash::FxBuildHasher;
 use steel_protocol::packets::game::CSetChunkCenter;
-use steel_registry::{REGISTRY, vanilla_blocks};
+use steel_registry::{REGISTRY, dimension_type::DimensionTypeRef, vanilla_blocks};
 use steel_utils::{ChunkPos, locks::SyncMutex};
 use tokio::runtime::Runtime;
 use tokio_util::task::TaskTracker;
 
+use crate::chunk::chunk_access::ChunkAccess;
 use crate::chunk::chunk_holder::ChunkHolder;
 use crate::chunk::chunk_ticket_manager::{
     ChunkTicketManager, LevelChange, MAX_VIEW_DISTANCE, is_full,
@@ -24,6 +25,7 @@ use crate::chunk::{
 use crate::chunk_saver::RegionManager;
 use crate::config::STEEL_CONFIG;
 use crate::player::Player;
+use crate::world::World;
 
 #[allow(dead_code)]
 const PROCESS_CHANGES_WARN_THRESHOLD: usize = 1_000;
@@ -56,28 +58,41 @@ impl ChunkMap {
     /// Creates a new chunk map.
     #[must_use]
     #[allow(clippy::missing_panics_doc, clippy::unwrap_used)]
-    pub fn new(chunk_runtime: Arc<Runtime>) -> Self {
+    pub fn new(
+        chunk_runtime: Arc<Runtime>,
+        world: Weak<World>,
+        dimension: &DimensionTypeRef,
+    ) -> Self {
+        let generator = Arc::new(ChunkGeneratorType::Flat(FlatChunkGenerator::new(
+            REGISTRY
+                .blocks
+                .get_default_state_id(vanilla_blocks::BEDROCK), // Bedrock
+            REGISTRY.blocks.get_default_state_id(vanilla_blocks::DIRT), // Dirt
+            REGISTRY
+                .blocks
+                .get_default_state_id(vanilla_blocks::GRASS_BLOCK), // Grass Block
+        )));
+
         Self {
             chunks: scc::HashMap::with_capacity_and_hasher(1000, FxBuildHasher),
             unloading_chunks: scc::HashMap::with_capacity_and_hasher(1000, FxBuildHasher),
             pending_generation_tasks: SyncMutex::new(Vec::new()),
             task_tracker: TaskTracker::new(),
             chunk_tickets: SyncMutex::new(ChunkTicketManager::new()),
-            world_gen_context: Arc::new(WorldGenContext {
-                generator: Arc::new(ChunkGeneratorType::Flat(FlatChunkGenerator::new(
-                    REGISTRY
-                        .blocks
-                        .get_default_state_id(vanilla_blocks::BEDROCK), // Bedrock
-                    REGISTRY.blocks.get_default_state_id(vanilla_blocks::DIRT), // Dirt
-                    REGISTRY
-                        .blocks
-                        .get_default_state_id(vanilla_blocks::GRASS_BLOCK), // Grass Block
-                ))),
-            }),
+            world_gen_context: Arc::new(WorldGenContext::new(generator, world)),
             thread_pool: Arc::new(ThreadPoolBuilder::new().build().unwrap()),
             chunk_runtime,
-            region_manager: Arc::new(RegionManager::new("world/overworld")),
+            region_manager: Arc::new(RegionManager::new(format!("world/{}", dimension.key.path))),
         }
+    }
+
+    /// Returns a chunk if it's fully loaded
+    #[allow(clippy::missing_panics_doc)]
+    pub fn get_full_chunk(&self, pos: &ChunkPos) -> Option<Arc<ChunkAccess>> {
+        let chunk_holder = self.chunks.get_sync(pos)?;
+        chunk_holder
+            .try_chunk(ChunkStatus::Full)
+            .map(|guard| guard.as_ref().expect("Not empty by this stage").clone())
     }
 
     /// Schedules a new generation task.
@@ -135,7 +150,12 @@ impl ChunkMap {
                     let _ = self.chunks.insert_sync(*pos, entry.1.clone());
                     entry.1
                 } else {
-                    let holder = Arc::new(ChunkHolder::new(*pos, new_level.unwrap()));
+                    let holder = Arc::new(ChunkHolder::new(
+                        *pos,
+                        new_level.unwrap(),
+                        self.world_gen_context.min_y(),
+                        self.world_gen_context.height(),
+                    ));
                     let _ = self.chunks.insert_sync(*pos, holder.clone());
                     holder
                 }
