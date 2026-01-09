@@ -31,10 +31,10 @@ use crate::player::player_inventory::PlayerInventory;
 use steel_protocol::packets::{
     common::SCustomPayload,
     game::{
-      CBlockChangedAck, CBlockUpdate, CMoveEntityPosRot, CMoveEntityRot, CPlayerChat, CRotateHead,
-      FilterType, PreviousMessage, SChat, SChatAck, SChatSessionUpdate, SContainerButtonClick,
-      SContainerClick, SContainerClose, SContainerSlotStateChanged, SMovePlayer, SPlayerInput,
-      SSetCreativeModeSlot, calc_delta, to_angle_byte,
+        CBlockChangedAck, CBlockUpdate, CMoveEntityPosRot, CMoveEntityRot, CPlayerChat,
+        CRotateHead, FilterType, PreviousMessage, SChat, SChatAck, SChatSessionUpdate,
+        SContainerButtonClick, SContainerClick, SContainerClose, SContainerSlotStateChanged,
+        SMovePlayer, SPlayerInput, SSetCreativeModeSlot, calc_delta, to_angle_byte,
     },
 };
 use steel_registry::blocks::properties::Direction;

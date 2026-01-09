@@ -16,7 +16,6 @@ use crate::{
     chunk::chunk_access::ChunkAccess,
     player::{LastSeen, Player},
 };
-use steel_utils::ChunkPos;
 
 mod area_map;
 mod player_area_map;
