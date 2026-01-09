@@ -17,7 +17,7 @@ impl World {
         if self.players.remove_async(&uuid).await.is_some() {
             let start = Instant::now();
 
-            // Broadcast removal to all remaining players
+            self.player_area_map.on_player_leave(&player);
             let remove_entity = CRemoveEntities::single(entity_id);
             let remove_info = CRemovePlayerInfo::single(uuid);
             self.players.iter_sync(|_, p| {
@@ -42,6 +42,8 @@ impl World {
             player.connection.close();
             return;
         }
+
+        self.player_area_map.on_player_join(&player);
 
         let pos = *player.position.lock();
         let (yaw, pitch) = player.rotation.load();

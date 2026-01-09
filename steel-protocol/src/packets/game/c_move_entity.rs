@@ -54,7 +54,8 @@ pub struct CMoveEntityRot {
 #[inline]
 #[must_use]
 pub fn to_angle_byte(degrees: f32) -> i8 {
-    ((degrees / 360.0) * 256.0) as i8
+    let normalized = (degrees + 180.0).rem_euclid(360.0) - 180.0;
+    (normalized / 360.0 * 256.0) as i8
 }
 
 /// Calculates the delta for entity movement (multiply by 4096).

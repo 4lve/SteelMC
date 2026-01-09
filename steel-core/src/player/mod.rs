@@ -28,9 +28,10 @@ use crate::player::player_inventory::PlayerInventory;
 use steel_protocol::packets::{
     common::SCustomPayload,
     game::{
-        CMoveEntityPosRot, CPlayerChat, CRotateHead, FilterType, PreviousMessage, SChat, SChatAck,
-        SChatSessionUpdate, SContainerButtonClick, SContainerClick, SContainerClose,
-        SContainerSlotStateChanged, SMovePlayer, SSetCreativeModeSlot, calc_delta, to_angle_byte,
+        CMoveEntityPosRot, CMoveEntityRot, CPlayerChat, CRotateHead, FilterType, PreviousMessage,
+        SChat, SChatAck, SChatSessionUpdate, SContainerButtonClick, SContainerClick,
+        SContainerClose, SContainerSlotStateChanged, SMovePlayer, SSetCreativeModeSlot, calc_delta,
+        to_angle_byte,
     },
 };
 use steel_utils::{ChunkPos, math::Vector3, text::TextComponent, translations};
@@ -462,34 +463,50 @@ impl Player {
             prev_rot
         };
 
-        // Only broadcast if something changed
         if packet.has_pos || packet.has_rot {
-            let move_packet = CMoveEntityPosRot {
-                entity_id: self.entity_id,
-                dx: calc_delta(pos.x, prev_pos.x),
-                dy: calc_delta(pos.y, prev_pos.y),
-                dz: calc_delta(pos.z, prev_pos.z),
-                y_rot: to_angle_byte(yaw),
-                x_rot: to_angle_byte(pitch),
-                on_ground: packet.on_ground,
-            };
+            let old_chunk = ChunkPos::new((prev_pos.x as i32) >> 4, (prev_pos.z as i32) >> 4);
+            let new_chunk = ChunkPos::new((pos.x as i32) >> 4, (pos.z as i32) >> 4);
 
-            let head_packet = CRotateHead {
-                entity_id: self.entity_id,
-                head_y_rot: to_angle_byte(yaw),
-            };
+            if old_chunk != new_chunk {
+                self.world.player_area_map.on_player_chunk_change(
+                    self.gameprofile.id,
+                    old_chunk,
+                    new_chunk,
+                );
+            }
 
-            self.world.players.iter_sync(|_, p| {
-                if p.gameprofile.id != self.gameprofile.id {
-                    p.connection.send_packet(move_packet.clone());
-                    if packet.has_rot {
-                        p.connection.send_packet(head_packet.clone());
-                    }
-                }
-                true
-            });
+            if packet.has_pos {
+                let move_packet = CMoveEntityPosRot {
+                    entity_id: self.entity_id,
+                    dx: calc_delta(pos.x, prev_pos.x),
+                    dy: calc_delta(pos.y, prev_pos.y),
+                    dz: calc_delta(pos.z, prev_pos.z),
+                    y_rot: to_angle_byte(yaw),
+                    x_rot: to_angle_byte(pitch),
+                    on_ground: packet.on_ground,
+                };
+                self.world
+                    .broadcast_to_nearby(new_chunk, move_packet, Some(self.gameprofile.id));
+            } else {
+                let rot_packet = CMoveEntityRot {
+                    entity_id: self.entity_id,
+                    y_rot: to_angle_byte(yaw),
+                    x_rot: to_angle_byte(pitch),
+                    on_ground: packet.on_ground,
+                };
+                self.world
+                    .broadcast_to_nearby(new_chunk, rot_packet, Some(self.gameprofile.id));
+            }
 
-            // Update previous state for next delta
+            if packet.has_rot {
+                let head_packet = CRotateHead {
+                    entity_id: self.entity_id,
+                    head_y_rot: to_angle_byte(yaw),
+                };
+                self.world
+                    .broadcast_to_nearby(new_chunk, head_packet, Some(self.gameprofile.id));
+            }
+
             *self.prev_position.lock() = pos;
             self.prev_rotation.store((yaw, pitch));
         }

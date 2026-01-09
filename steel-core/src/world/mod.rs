@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use scc::HashMap;
+use steel_protocol::packet_traits::ClientPacket;
 use steel_protocol::packets::game::{CPlayerChat, CSystemChat};
 use tokio::runtime::Runtime;
 use uuid::Uuid;
@@ -11,8 +12,14 @@ use crate::{
     ChunkMap,
     player::{LastSeen, Player},
 };
+use steel_utils::ChunkPos;
 
+mod area_map;
+mod player_area_map;
 mod world_entities;
+
+pub use area_map::AreaMap;
+pub use player_area_map::PlayerAreaMap;
 
 /// A struct that represents a world.
 pub struct World {
@@ -20,6 +27,8 @@ pub struct World {
     pub chunk_map: Arc<ChunkMap>,
     /// A map of all the players in the world.
     pub players: HashMap<Uuid, Arc<Player>>,
+    /// Spatial index for player proximity queries.
+    pub player_area_map: PlayerAreaMap,
 }
 
 impl World {
@@ -30,6 +39,7 @@ impl World {
         Self {
             chunk_map: Arc::new(ChunkMap::new(chunk_runtime)),
             players: HashMap::new(),
+            player_area_map: PlayerAreaMap::new(),
         }
     }
 
@@ -144,6 +154,24 @@ impl World {
             recipient.connection.send_packet(packet.clone());
             true
         });
+    }
+
+    /// Broadcasts a packet to all players tracking the given chunk.
+    pub fn broadcast_to_nearby<P: ClientPacket + Clone>(
+        &self,
+        chunk: ChunkPos,
+        packet: P,
+        exclude: Option<Uuid>,
+    ) {
+        let tracking_players = self.player_area_map.get_tracking_players(chunk);
+        for uuid in tracking_players {
+            if Some(uuid) == exclude {
+                continue;
+            }
+            if let Some(player) = self.players.read_sync(&uuid, |_, p| p.clone()) {
+                player.connection.send_packet(packet.clone());
+            }
+        }
     }
 
     /// Saves all dirty chunks in this world to disk.
