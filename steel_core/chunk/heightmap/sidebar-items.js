@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["HeightmapType"],"fn":["prime_heightmaps"],"struct":["ChunkHeightmaps","Heightmap"]};

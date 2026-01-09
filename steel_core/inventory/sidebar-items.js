@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["container","crafting","equipment","inventory_menu","menu","recipe_manager","slot"],"type":["SyncContainer"]};
+window.SIDEBAR_ITEMS = {"mod":["container","crafting","equipment","inventory_menu","lock","menu","recipe_manager","slot"]};

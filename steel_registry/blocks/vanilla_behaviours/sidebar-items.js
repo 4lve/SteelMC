@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["rotated_pillar_block"]};

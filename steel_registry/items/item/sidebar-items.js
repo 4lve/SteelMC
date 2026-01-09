@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["InteractionResult"],"struct":["BlockHitResult","BlockItemBehavior","DefaultItemBehavior","UseOnContext"],"trait":["ItemBehavior"]};
