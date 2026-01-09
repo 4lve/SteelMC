@@ -16,6 +16,8 @@ pub mod player_chunk_view;
 
 /// Generates flat worlds with configurable layers.
 pub mod flat_chunk_generator;
+/// Generates debug mode worlds showcasing all block states.
+pub mod debug_mode_chunk_generator;
 pub mod level_chunk;
 pub mod paletted_container;
 pub mod proto_chunk;

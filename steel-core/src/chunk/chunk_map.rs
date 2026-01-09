@@ -20,7 +20,8 @@ use crate::chunk::player_chunk_view::PlayerChunkView;
 use crate::chunk::world_gen_context::ChunkGeneratorType;
 use crate::chunk::{
     chunk_access::ChunkStatus, chunk_generation_task::ChunkGenerationTask,
-    flat_chunk_generator::FlatChunkGenerator, world_gen_context::WorldGenContext,
+    debug_mode_chunk_generator::DebugModeChunkGenerator, flat_chunk_generator::FlatChunkGenerator,
+    world_gen_context::WorldGenContext,
 };
 use crate::chunk_saver::RegionManager;
 use crate::config::STEEL_CONFIG;
@@ -72,6 +73,12 @@ impl ChunkMap {
                 .blocks
                 .get_default_state_id(vanilla_blocks::GRASS_BLOCK), // Grass Block
         )));
+        // let generator = Arc::new(ChunkGeneratorType::DebugMode(DebugModeChunkGenerator::new(
+        //     REGISTRY.blocks.next_state_id, // Total number of block states
+        //     REGISTRY
+        //         .blocks
+        //         .get_default_state_id(vanilla_blocks::BARRIER), // Bedrock floor
+        // )));
 
         Self {
             chunks: scc::HashMap::with_capacity_and_hasher(1000, FxBuildHasher),
