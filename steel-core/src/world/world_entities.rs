@@ -43,7 +43,8 @@ impl World {
             return;
         }
 
-        self.player_area_map.on_player_join(&player);
+        // Note: player_area_map.on_player_join is called in chunk_map.update_player_status
+        // when the player's view is first computed
 
         let pos = *player.position.lock();
         let (yaw, pitch) = player.rotation.load();

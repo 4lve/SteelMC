@@ -17,11 +17,9 @@ use crate::{
     player::{LastSeen, Player},
 };
 
-mod area_map;
 mod player_area_map;
 mod world_entities;
 
-pub use area_map::AreaMap;
 pub use player_area_map::PlayerAreaMap;
 
 /// A struct that represents a world.

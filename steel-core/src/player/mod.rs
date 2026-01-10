@@ -473,16 +473,10 @@ impl Player {
         };
 
         if packet.has_pos || packet.has_rot {
-            let old_chunk = ChunkPos::new((prev_pos.x as i32) >> 4, (prev_pos.z as i32) >> 4);
             let new_chunk = ChunkPos::new((pos.x as i32) >> 4, (pos.z as i32) >> 4);
 
-            if old_chunk != new_chunk {
-                self.world.player_area_map.on_player_chunk_change(
-                    self.gameprofile.id,
-                    old_chunk,
-                    new_chunk,
-                );
-            }
+            // Note: player_area_map is updated in chunk_map.update_player_status
+            // which is called every tick and computes view diffs efficiently
 
             if packet.has_pos {
                 let move_packet = CMoveEntityPosRot {

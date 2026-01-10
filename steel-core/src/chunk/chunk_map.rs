@@ -334,6 +334,7 @@ impl ChunkMap {
             let mut chunk_tickets = self.chunk_tickets.lock();
 
             let connection = &player.connection;
+            let world = self.world_gen_context.world();
 
             if let Some(last_view) = last_view_guard.as_ref() {
                 if last_view.center != new_view.center
@@ -354,18 +355,32 @@ impl ChunkMap {
                     });
                 }
 
+                // Track chunks for PlayerAreaMap update
+                let mut added_chunks = Vec::new();
+                let mut removed_chunks = Vec::new();
+
                 // We lock here to ensure we have unique access for the duration of the diff
                 let mut chunk_sender = player.chunk_sender.lock();
                 PlayerChunkView::difference(
                     last_view,
                     &new_view,
-                    |pos, chunk_sender| {
-                        chunk_sender.mark_chunk_pending_to_send(pos);
+                    |pos, ctx: &mut (&mut _, &mut Vec<_>, &mut Vec<_>)| {
+                        ctx.0.mark_chunk_pending_to_send(pos);
+                        ctx.1.push(pos);
                     },
-                    |pos, chunk_sender| {
-                        chunk_sender.drop_chunk(connection, pos);
+                    |pos, ctx: &mut (&mut _, &mut Vec<_>, &mut Vec<_>)| {
+                        ctx.0.drop_chunk(connection, pos);
+                        ctx.2.push(pos);
                     },
-                    &mut chunk_sender,
+                    &mut (&mut chunk_sender, &mut added_chunks, &mut removed_chunks),
+                );
+                drop(chunk_sender);
+
+                // Update the player area map with the diff
+                world.player_area_map.on_player_view_change(
+                    player.gameprofile.id,
+                    &added_chunks,
+                    &removed_chunks,
                 );
             } else {
                 chunk_tickets.add_ticket(
@@ -377,6 +392,10 @@ impl ChunkMap {
                 new_view.for_each(|pos| {
                     chunk_sender.mark_chunk_pending_to_send(pos);
                 });
+                drop(chunk_sender);
+
+                // First time - add all chunks in view to player area map
+                world.player_area_map.on_player_join(player, &new_view);
             }
 
             *last_view_guard = Some(new_view);
