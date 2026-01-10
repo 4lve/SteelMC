@@ -314,6 +314,27 @@ impl SectionPos {
 
         Self(Vector3::new(x as i32, y as i32, z as i32))
     }
+
+    /// Packs a block position into a section-relative short.
+    /// Format: (x << 8) | (z << 4) | y (each coordinate masked to 4 bits)
+    #[must_use]
+    #[inline]
+    pub fn section_relative_pos(pos: &BlockPos) -> i16 {
+        let x = pos.0.x & Self::SECTION_MASK;
+        let y = pos.0.y & Self::SECTION_MASK;
+        let z = pos.0.z & Self::SECTION_MASK;
+        ((x << 8) | (z << 4) | y) as i16
+    }
+
+    /// Converts a section-relative packed position back to a block position.
+    #[must_use]
+    pub fn relative_to_block_pos(&self, relative: i16) -> BlockPos {
+        BlockPos(Vector3::new(
+            self.relative_to_block_x(relative),
+            self.relative_to_block_y(relative),
+            self.relative_to_block_z(relative),
+        ))
+    }
 }
 
 impl ReadFrom for SectionPos {

@@ -132,6 +132,9 @@ impl World {
             return false;
         };
 
+        // Record the block change for broadcasting to clients
+        self.chunk_map.block_changed(&pos);
+
         //TODO: Neighbor updates and stuff like that
 
         true

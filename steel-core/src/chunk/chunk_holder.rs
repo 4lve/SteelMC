@@ -1,10 +1,12 @@
 //! `ChunkHolder` manages chunk state and asynchronous generation tasks.
 use arc_swap::{ArcSwapOption, Guard};
 use futures::Future;
+use rustc_hash::FxHashSet;
 use std::fmt::Debug;
-use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
+use std::mem;
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, Weak};
-use steel_utils::{ChunkPos, locks::SyncMutex};
+use steel_utils::{BlockPos, ChunkPos, SectionPos, locks::SyncMutex};
 use tokio::select;
 use tokio::sync::{oneshot, watch};
 
@@ -61,6 +63,11 @@ pub struct ChunkHolder {
     min_y: i32,
     /// The total height of the world.
     height: i32,
+    /// Whether any sections have pending block changes.
+    has_changed_sections: AtomicBool,
+    /// Per-section sets of changed block positions (section-relative packed shorts).
+    /// Index is `(block_y - min_y) / 16`.
+    changed_blocks_per_section: Box<[SyncMutex<FxHashSet<i16>>]>,
 }
 
 impl ChunkHolder {
@@ -87,6 +94,11 @@ impl ChunkHolder {
             generation_status(Some(ticket_level)).map_or(STATUS_NONE, |s| s.get_index() as u8),
         );
 
+        let section_count = (height / 16) as usize;
+        let changed_blocks_per_section: Box<[SyncMutex<FxHashSet<i16>>]> = (0..section_count)
+            .map(|_| SyncMutex::new(FxHashSet::default()))
+            .collect();
+
         Self {
             data: ArcSwapOption::new(None),
             chunk_result: receiver,
@@ -99,6 +111,8 @@ impl ChunkHolder {
             highest_allowed_status_sender,
             min_y,
             height,
+            has_changed_sections: AtomicBool::new(false),
+            changed_blocks_per_section,
         }
     }
 
@@ -107,6 +121,50 @@ impl ChunkHolder {
         let new_status =
             generation_status(Some(ticket_level)).map_or(STATUS_NONE, |s| s.get_index() as u8);
         self.highest_allowed_status_sender.send_replace(new_status);
+    }
+
+    /// Records a block change at the given position.
+    /// Returns `true` if this is the first change (chunk should be added to broadcast list).
+    pub fn block_changed(&self, pos: &BlockPos) -> bool {
+        let section_index = ((pos.0.y - self.min_y) / 16) as usize;
+        if section_index >= self.changed_blocks_per_section.len() {
+            return false;
+        }
+
+        let had_changes = self.has_changed_sections.swap(true, Ordering::AcqRel);
+        let packed = SectionPos::section_relative_pos(pos);
+        self.changed_blocks_per_section[section_index]
+            .lock()
+            .insert(packed);
+
+        !had_changes
+    }
+
+    /// Returns whether there are pending block changes to broadcast.
+    pub fn has_changes_to_broadcast(&self) -> bool {
+        self.has_changed_sections.load(Ordering::Acquire)
+    }
+
+    /// Takes all pending block changes, grouped by section index.
+    /// Returns a vec of (`section_index`, set of packed positions).
+    pub fn take_changed_blocks(&self) -> Vec<(usize, FxHashSet<i16>)> {
+        if !self.has_changed_sections.swap(false, Ordering::AcqRel) {
+            return Vec::new();
+        }
+
+        let mut result = Vec::new();
+        for (section_index, section_changes) in self.changed_blocks_per_section.iter().enumerate() {
+            let mut guard = section_changes.lock();
+            if !guard.is_empty() {
+                result.push((section_index, mem::take(&mut *guard)));
+            }
+        }
+        result
+    }
+
+    /// Returns the number of sections in this chunk.
+    pub fn section_count(&self) -> usize {
+        self.changed_blocks_per_section.len()
     }
 
     /// Checks if the given status is disallowed.
