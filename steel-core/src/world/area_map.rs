@@ -4,7 +4,6 @@
 //! Maps chunk coordinates to sets of entities for O(1) nearby entity lookup.
 
 use rustc_hash::FxHashSet;
-use scc::HashMap;
 use steel_utils::ChunkPos;
 
 /// A spatial data structure that maps chunk coordinates to sets of entities.
@@ -19,10 +18,10 @@ use steel_utils::ChunkPos;
 /// This enables O(1) lookup of nearby entities and O(tracking area) removal.
 pub struct AreaMap<T: Clone + Eq + std::hash::Hash + Send + Sync + 'static> {
     /// Maps packed chunk coords (i64) to set of entity identifiers
-    chunks: HashMap<i64, FxHashSet<T>>,
+    chunks: scc::HashMap<i64, FxHashSet<T>>,
 
     /// Maps entity ID to its current set of tracked chunks (for efficient removal)
-    entity_chunks: HashMap<T, FxHashSet<i64>>,
+    entity_chunks: scc::HashMap<T, FxHashSet<i64>>,
 
     /// The tracking radius in chunks
     tracking_radius: u8,
@@ -33,8 +32,8 @@ impl<T: Clone + Eq + std::hash::Hash + Send + Sync + 'static> AreaMap<T> {
     #[must_use]
     pub fn new(tracking_radius: u8) -> Self {
         Self {
-            chunks: HashMap::new(),
-            entity_chunks: HashMap::new(),
+            chunks: scc::HashMap::new(),
+            entity_chunks: scc::HashMap::new(),
             tracking_radius,
         }
     }
