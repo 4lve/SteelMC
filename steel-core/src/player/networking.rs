@@ -12,7 +12,7 @@ use steel_protocol::packets::game::{
     SChat, SChatAck, SChatCommand, SChatSessionUpdate, SChunkBatchReceived, SClientTickEnd,
     SContainerButtonClick, SContainerClick, SContainerClose, SContainerSlotStateChanged,
     SMovePlayerPos, SMovePlayerPosRot, SMovePlayerRot, SPlayerInput, SPlayerLoad, SSetCarriedItem,
-    SSetCreativeModeSlot, SUseItem, SUseItemOn,
+    SSetCreativeModeSlot, SSwing, SUseItem, SUseItemOn,
 };
 use steel_protocol::utils::{ConnectionProtocol, EnqueuedPacket, PacketError, RawPacket};
 use steel_registry::packets::play;
@@ -142,6 +142,20 @@ impl JavaConnection {
         }
     }
 
+    /// Sends an encoded packet to the client.
+    ///
+    /// # Panics
+    /// - If the packet fails to be sent through the channel.
+    pub fn send_encoded_packet(&self, packet: EncodedPacket) {
+        if self
+            .outgoing_packets
+            .send(EnqueuedPacket::EncodedPacket(packet))
+            .is_err()
+        {
+            self.close();
+        }
+    }
+
     /// Closes the connection.
     pub fn close(&self) {
         self.cancel_token.cancel();
@@ -244,6 +258,10 @@ impl JavaConnection {
             }
             play::S_SET_CARRIED_ITEM => {
                 player.handle_set_carried_item(SSetCarriedItem::read_packet(data)?);
+            }
+            play::S_SWING => {
+                let packet = SSwing::read_packet(data)?;
+                player.swing(packet.hand, false);
             }
             id => log::info!("play packet id {id} is not known"),
         }

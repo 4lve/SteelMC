@@ -256,6 +256,7 @@ impl World {
     }
 
     /// Broadcasts a packet to all players tracking the given chunk.
+    /// TODO: Look into sending `EncodedPacket` instead
     pub fn broadcast_to_nearby<P: ClientPacket + Clone>(
         &self,
         chunk: ChunkPos,

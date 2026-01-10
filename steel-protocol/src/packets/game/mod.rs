@@ -1,4 +1,5 @@
 mod c_add_entity;
+mod c_animate;
 mod c_block_changed_ack;
 mod c_block_destruction;
 mod c_block_update;
@@ -45,10 +46,12 @@ mod s_player_load;
 mod s_set_carried_item;
 mod s_set_creative_mode_slot;
 mod s_set_held_item;
+mod s_swing;
 mod s_use_item;
 mod s_use_item_on;
 
 pub use c_add_entity::CAddEntity;
+pub use c_animate::{AnimateAction, CAnimate};
 pub use c_block_changed_ack::CBlockChangedAck;
 pub use c_block_destruction::CBlockDestruction;
 pub use c_block_update::CBlockUpdate;
@@ -102,5 +105,6 @@ pub use s_player_load::SPlayerLoad;
 pub use s_set_carried_item::SSetCarriedItem;
 pub use s_set_creative_mode_slot::SSetCreativeModeSlot;
 pub use s_set_held_item::SSetHeldItem;
+pub use s_swing::SSwing;
 pub use s_use_item::SUseItem;
 pub use s_use_item_on::SUseItemOn;

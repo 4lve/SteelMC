@@ -20,7 +20,9 @@ use message_chain::SignedMessageChain;
 use message_validator::LastSeenMessagesValidator;
 use profile_key::RemoteChatSession;
 pub use signature_cache::{LastSeen, MessageCache};
-use steel_protocol::packets::game::{SSetCarriedItem, SUseItem, SUseItemOn};
+use steel_protocol::packets::game::{
+    AnimateAction, CAnimate, SSetCarriedItem, SUseItem, SUseItemOn,
+};
 use steel_utils::locks::SyncMutex;
 use steel_utils::types::GameType;
 
@@ -870,9 +872,21 @@ impl Player {
         });
     }
 
-    /// Triggers arm swing animation. Currently a noop.
-    pub fn swing(&self, _hand: InteractionHand, _update_self: bool) {
-        // TODO: Send CAnimateEntity packet to nearby players
+    /// Triggers arm swing animation and broadcasts it to nearby players.
+    pub fn swing(&self, hand: InteractionHand, update_self: bool) {
+        let action = match hand {
+            InteractionHand::MainHand => AnimateAction::SwingMainHand,
+            InteractionHand::OffHand => AnimateAction::SwingOffHand,
+        };
+        let packet = CAnimate::new(self.entity_id, action);
+
+        let chunk = *self.last_chunk_pos.lock();
+        let exclude = if update_self {
+            None
+        } else {
+            Some(self.gameprofile.id)
+        };
+        self.world.broadcast_to_nearby(chunk, packet, exclude);
     }
 
     /// Handles a player input packet (movement keys, sneaking, sprinting).
