@@ -96,6 +96,7 @@ struct ShapedRecipeData {
     result_item_ident: Ident,
     result_count: i32,
     show_notification: bool,
+    symmetrical: bool,
 }
 
 struct ShapelessRecipeData {
@@ -131,12 +132,14 @@ fn parse_shaped_recipe(recipe_name: &str, recipe: &RecipeJson) -> Option<ShapedR
         }
     }
 
-    // Build pattern vector
+    // Build pattern vector and character grid for symmetry check
     let mut pattern_tokens = Vec::new();
+    let mut char_grid: Vec<char> = Vec::new();
     for row in pattern {
         // Pad row to width
         let padded: String = format!("{:width$}", row, width = width);
         for c in padded.chars() {
+            char_grid.push(c);
             let ingredient = ingredient_map
                 .get(&c)
                 .cloned()
@@ -144,6 +147,10 @@ fn parse_shaped_recipe(recipe_name: &str, recipe: &RecipeJson) -> Option<ShapedR
             pattern_tokens.push(ingredient);
         }
     }
+
+    // Check horizontal symmetry using the character grid
+    // A pattern is symmetric if for each row, the left half mirrors the right half
+    let symmetrical = is_pattern_symmetrical(width, height, &char_grid);
 
     // Result item
     let result_item_id = result.id.strip_prefix("minecraft:").unwrap_or(&result.id);
@@ -168,7 +175,25 @@ fn parse_shaped_recipe(recipe_name: &str, recipe: &RecipeJson) -> Option<ShapedR
         result_item_ident,
         result_count: result.count,
         show_notification: recipe.show_notification.unwrap_or(true),
+        symmetrical,
     })
+}
+
+/// Checks if a pattern is horizontally symmetric.
+fn is_pattern_symmetrical(width: usize, height: usize, chars: &[char]) -> bool {
+    if width == 0 {
+        return true;
+    }
+    for y in 0..height {
+        for x in 0..width / 2 {
+            let left = chars[y * width + x];
+            let right = chars[y * width + (width - 1 - x)];
+            if left != right {
+                return false;
+            }
+        }
+    }
+    true
 }
 
 /// Generates a shapeless recipe.
@@ -298,6 +323,7 @@ pub(crate) fn build() -> TokenStream {
             let result_item_ident = &r.result_item_ident;
             let result_count = r.result_count;
             let show_notification = r.show_notification;
+            let symmetrical = r.symmetrical;
 
             quote! {
                 #ident: ShapedRecipe {
@@ -311,6 +337,7 @@ pub(crate) fn build() -> TokenStream {
                         count: #result_count,
                     },
                     show_notification: #show_notification,
+                    symmetrical: #symmetrical,
                 },
             }
         })

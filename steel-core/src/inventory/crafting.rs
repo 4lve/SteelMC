@@ -45,22 +45,16 @@ impl CraftingContainer {
         self.height
     }
 
-    /// Creates a `CraftingInput` representing the current state of the grid.
-    /// This is used for recipe matching.
-    #[must_use]
-    pub fn as_input(&self) -> CraftingInput {
-        CraftingInput::new(self.width, self.height, self.items.clone())
-    }
-
     /// Creates a positioned `CraftingInput` representing the current state of the grid.
     ///
     /// The positioned input contains a trimmed version of the grid (only the
     /// bounding box of non-empty items) along with the offset from the original
-    /// grid origin. This is used when consuming ingredients to correctly map
-    /// recipe slots back to the original crafting grid slots.
+    /// grid origin. This is used for recipe matching and when consuming
+    /// ingredients to correctly map recipe slots back to the original crafting
+    /// grid slots.
     #[must_use]
     pub fn as_positioned_input(&self) -> PositionedCraftingInput {
-        self.as_input().as_positioned()
+        CraftingInput::positioned(self.width, self.height, self.items.clone())
     }
 
     /// Returns a reference to the items in the grid.

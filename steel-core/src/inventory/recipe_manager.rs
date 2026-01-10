@@ -24,16 +24,16 @@ pub fn slot_changed_crafting_grid<R: Container>(
     result: &mut R,
     is_2x2: bool,
 ) {
-    let input = crafting.as_input();
+    let positioned = crafting.as_positioned_input();
 
     let recipe = if is_2x2 {
-        REGISTRY.recipes.find_crafting_recipe_2x2(&input)
+        REGISTRY.recipes.find_crafting_recipe_2x2(&positioned.input)
     } else {
-        REGISTRY.recipes.find_crafting_recipe(&input)
+        REGISTRY.recipes.find_crafting_recipe(&positioned.input)
     };
 
     let result_stack = match recipe {
-        Some(r) => r.assemble(&input),
+        Some(r) => r.assemble(),
         None => ItemStack::empty(),
     };
 
@@ -49,16 +49,13 @@ pub fn slot_changed_crafting_grid<R: Container>(
 /// # Returns
 /// The matching recipe, or None if no recipe matches.
 #[must_use]
-pub fn find_recipe(
-    crafting: &CraftingContainer,
-    is_2x2: bool,
-) -> Option<&'static dyn CraftingRecipe> {
-    let input = crafting.as_input();
+pub fn find_recipe(crafting: &CraftingContainer, is_2x2: bool) -> Option<CraftingRecipe> {
+    let positioned = crafting.as_positioned_input();
 
     if is_2x2 {
-        REGISTRY.recipes.find_crafting_recipe_2x2(&input)
+        REGISTRY.recipes.find_crafting_recipe_2x2(&positioned.input)
     } else {
-        REGISTRY.recipes.find_crafting_recipe(&input)
+        REGISTRY.recipes.find_crafting_recipe(&positioned.input)
     }
 }
 
@@ -81,7 +78,12 @@ pub fn get_remaining_items(
     is_2x2: bool,
 ) -> Option<(Vec<ItemStack>, PositionedCraftingInput)> {
     let positioned = crafting.as_positioned_input();
-    let recipe = find_recipe(crafting, is_2x2)?;
+
+    let recipe = if is_2x2 {
+        REGISTRY.recipes.find_crafting_recipe_2x2(&positioned.input)
+    } else {
+        REGISTRY.recipes.find_crafting_recipe(&positioned.input)
+    }?;
 
     // Get remainders from the recipe using the positioned (trimmed) input
     let remainders = recipe.get_remaining_items(&positioned.input);

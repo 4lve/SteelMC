@@ -38,7 +38,6 @@ use steel_protocol::packets::{
     },
 };
 use steel_registry::blocks::properties::Direction;
-use steel_registry::item_stack::ItemStack;
 use steel_utils::BlockPos;
 use steel_utils::types::InteractionHand;
 use steel_utils::{ChunkPos, math::Vector3, text::TextComponent, translations};
@@ -46,7 +45,6 @@ use steel_utils::{ChunkPos, math::Vector3, text::TextComponent, translations};
 use crate::entity::LivingEntity;
 use crate::inventory::{
     container::Container,
-    equipment::EquipmentSlot,
     inventory_menu::InventoryMenu,
     lock::{ContainerId, ContainerLockGuard},
     menu::Menu,
@@ -850,25 +848,6 @@ impl Player {
         self.shift_key_down.load(Ordering::Relaxed)
     }
 
-    /// Gets the item in the specified hand.
-    #[must_use]
-    pub fn get_item_in_hand(&self, hand: InteractionHand) -> ItemStack {
-        let inv = self.inventory.lock();
-        match hand {
-            InteractionHand::MainHand => inv.get_selected_item(),
-            InteractionHand::OffHand => inv.get_offhand_item(),
-        }
-    }
-
-    /// Sets the item in the specified hand.
-    pub fn set_item_in_hand(&self, hand: InteractionHand, item: ItemStack) {
-        let mut inv = self.inventory.lock();
-        match hand {
-            InteractionHand::MainHand => inv.set_selected_item(item),
-            InteractionHand::OffHand => inv.set_offhand_item(item),
-        }
-    }
-
     /// Returns true if player has infinite materials (Creative mode).
     #[must_use]
     pub fn has_infinite_materials(&self) -> bool {
@@ -920,19 +899,16 @@ impl Player {
         // 2. Ack block changes
         self.ack_block_changes_up_to(packet.sequence);
 
-        // 3. Get item in hand
-        let mut item_stack = self.get_item_in_hand(packet.hand);
-
         let pos = &packet.block_hit.block_pos;
         let direction = packet.block_hit.direction;
 
-        // 4. Validate interaction range
+        // 3. Validate interaction range
         if !self.is_within_block_interaction_range(pos) {
             self.send_block_updates(pos, direction);
             return;
         }
 
-        // 5. Validate hit location precision (must be within 1.0000001 of block center)
+        // 4. Validate hit location precision (must be within 1.0000001 of block center)
         let center_x = f64::from(pos.x()) + 0.5;
         let center_y = f64::from(pos.y()) + 0.5;
         let center_z = f64::from(pos.z()) + 0.5;
@@ -953,47 +929,38 @@ impl Player {
             return;
         }
 
-        // 6. Validate Y height
+        // 5. Validate Y height
         if pos.y() >= self.world.max_build_height() {
             // TODO: Send "build.tooHigh" message to player
             self.send_block_updates(pos, direction);
             return;
         }
 
-        // 7. Check awaiting teleport
+        // 6. Check awaiting teleport
         if self.is_awaiting_teleport() {
             self.send_block_updates(pos, direction);
             return;
         }
 
-        // 8. Check may_interact permission
+        // 7. Check may_interact permission
         if !self.world.may_interact(self, pos) {
             self.send_block_updates(pos, direction);
             return;
         }
 
-        // 9. Call use_item_on
-        let result = game_mode::use_item_on(
-            self,
-            &self.world,
-            &mut item_stack,
-            packet.hand,
-            &packet.block_hit,
-        );
+        // 8. Call use_item_on
+        let result = game_mode::use_item_on(self, &self.world, packet.hand, &packet.block_hit);
 
-        // 10. Update item in hand if changed
-        self.set_item_in_hand(packet.hand, item_stack);
-
-        // 11. Handle result
+        // 9. Handle result
         if let steel_registry::items::item::InteractionResult::Success = result {
             // TODO: Trigger arm swing animation if needed
             self.swing(packet.hand, true);
         }
 
-        // 12. Always send block updates to resync client
+        // 10. Always send block updates to resync client
         self.send_block_updates(pos, direction);
 
-        // 13. Broadcast inventory changes
+        // 11. Broadcast inventory changes
         self.broadcast_inventory_changes();
     }
 
@@ -1146,10 +1113,6 @@ impl LivingEntity for Player {
         // TODO: Calculate from equipped items when data components are implemented
         // Will iterate over ARMOR_SLOTS and sum armor values from each piece
         0
-    }
-
-    fn get_item_by_slot(&self, slot: EquipmentSlot) -> steel_registry::item_stack::ItemStack {
-        self.inventory.lock().equipment().get_cloned(slot)
     }
 
     fn is_sprinting(&self) -> bool {

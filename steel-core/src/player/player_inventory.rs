@@ -3,6 +3,7 @@
 use std::sync::Weak;
 
 use steel_registry::item_stack::ItemStack;
+use steel_utils::types::InteractionHand;
 
 use crate::{
     inventory::{
@@ -111,8 +112,14 @@ impl PlayerInventory {
 
     /// Returns a clone of the currently selected item (main hand).
     #[must_use]
-    pub fn get_selected_item(&self) -> ItemStack {
-        self.items[self.selected as usize].clone()
+    pub fn get_selected_item(&self) -> &ItemStack {
+        &self.items[self.selected as usize]
+    }
+
+    /// Returns a clone of the currently selected item (main hand).
+    #[must_use]
+    pub fn get_selected_item_mut(&mut self) -> &mut ItemStack {
+        &mut self.items[self.selected as usize]
     }
 
     /// Sets the currently selected item (main hand).
@@ -123,8 +130,14 @@ impl PlayerInventory {
 
     /// Returns a clone of the offhand item.
     #[must_use]
-    pub fn get_offhand_item(&self) -> ItemStack {
-        self.equipment.get_cloned(EquipmentSlot::OffHand)
+    pub fn get_offhand_item(&self) -> &ItemStack {
+        self.equipment.get_ref(EquipmentSlot::OffHand)
+    }
+
+    /// Returns a clone of the offhand item.
+    #[must_use]
+    pub fn get_offhand_item_mut(&mut self) -> &mut ItemStack {
+        self.equipment.get_mut(EquipmentSlot::OffHand)
     }
 
     /// Sets the offhand item.
@@ -161,6 +174,32 @@ impl PlayerInventory {
             }
         }
         -1
+    }
+
+    /// Gets the item in the specified hand.
+    #[must_use]
+    pub fn get_item_in_hand(&self, hand: InteractionHand) -> &ItemStack {
+        match hand {
+            InteractionHand::MainHand => self.get_selected_item(),
+            InteractionHand::OffHand => self.get_offhand_item(),
+        }
+    }
+
+    /// Gets the item in the specified hand.
+    #[must_use]
+    pub fn get_item_in_hand_mut(&mut self, hand: InteractionHand) -> &mut ItemStack {
+        match hand {
+            InteractionHand::MainHand => self.get_selected_item_mut(),
+            InteractionHand::OffHand => self.get_offhand_item_mut(),
+        }
+    }
+
+    /// Sets the item in the specified hand.
+    pub fn set_item_in_hand(&mut self, hand: InteractionHand, item: ItemStack) {
+        match hand {
+            InteractionHand::MainHand => self.set_selected_item(item),
+            InteractionHand::OffHand => self.set_offhand_item(item),
+        }
     }
 }
 

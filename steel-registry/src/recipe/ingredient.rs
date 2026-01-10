@@ -60,4 +60,18 @@ impl Ingredient {
             Self::Choice(items) => items.clone(),
         }
     }
+
+    /// Compares two ingredients for equality (used for symmetry detection).
+    #[must_use]
+    pub fn eq_ingredient(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Empty, Self::Empty) => true,
+            (Self::Item(a), Self::Item(b)) => std::ptr::eq(*a, *b),
+            (Self::Tag(a), Self::Tag(b)) => a == b,
+            (Self::Choice(a), Self::Choice(b)) => {
+                a.len() == b.len() && a.iter().zip(b.iter()).all(|(x, y)| std::ptr::eq(*x, *y))
+            }
+            _ => false,
+        }
+    }
 }

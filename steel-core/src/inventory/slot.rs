@@ -377,15 +377,14 @@ impl CraftingGridSlot {
             .expect("crafting container not locked");
 
         // Build the crafting input from the container
-        let width = 2; // For 2x2 player crafting grid
         let items: Vec<ItemStack> = (0..4).map(|i| crafting.get_item(i).clone()).collect();
-        let input = steel_registry::recipe::CraftingInput::new(width, 2, items);
+        let positioned = steel_registry::recipe::CraftingInput::positioned(2, 2, items);
 
         // Find matching recipe
         let result_stack = steel_registry::REGISTRY
             .recipes
-            .find_crafting_recipe_2x2(&input)
-            .map_or_else(ItemStack::empty, |r| r.assemble(&input));
+            .find_crafting_recipe_2x2(&positioned.input)
+            .map_or_else(ItemStack::empty, |r| r.assemble());
 
         // Update the result container
         guard
@@ -553,8 +552,7 @@ impl Slot for CraftingResultSlot {
             // Build crafting input
             let width = 2; // 2x2 player crafting grid
             let items: Vec<ItemStack> = (0..4).map(|i| crafting.get_item(i).clone()).collect();
-            let input = steel_registry::recipe::CraftingInput::new(width, 2, items);
-            let positioned = input.as_positioned();
+            let positioned = steel_registry::recipe::CraftingInput::positioned(width, 2, items);
 
             // Get remainders from recipe
             let remainders = steel_registry::REGISTRY
@@ -628,11 +626,11 @@ impl Slot for CraftingResultSlot {
         // Update the crafting result based on remaining ingredients
         // Build new input after consuming ingredients
         let items: Vec<ItemStack> = (0..4).map(|i| crafting.get_item(i).clone()).collect();
-        let input = steel_registry::recipe::CraftingInput::new(grid_width, 2, items);
+        let positioned = steel_registry::recipe::CraftingInput::positioned(grid_width, 2, items);
         let result_stack = steel_registry::REGISTRY
             .recipes
-            .find_crafting_recipe_2x2(&input)
-            .map_or_else(ItemStack::empty, |r| r.assemble(&input));
+            .find_crafting_recipe_2x2(&positioned.input)
+            .map_or_else(ItemStack::empty, |r| r.assemble());
 
         // Update the result container
         guard

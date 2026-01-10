@@ -54,24 +54,21 @@ impl RecipeRegistry {
         self.allows_registering = false;
     }
 
-    /// Finds a matching crafting recipe for the given input.
+    /// Finds a matching crafting recipe for the given positioned input.
     /// Returns the first matching recipe, or None if no recipe matches.
     #[must_use]
-    pub fn find_crafting_recipe(
-        &self,
-        input: &CraftingInput,
-    ) -> Option<&'static dyn CraftingRecipe> {
+    pub fn find_crafting_recipe(&self, input: &CraftingInput) -> Option<CraftingRecipe> {
         // Try shaped recipes first (they're more specific)
         for recipe in &self.shaped_recipes {
             if recipe.matches(input) {
-                return Some(*recipe as &'static dyn CraftingRecipe);
+                return Some(CraftingRecipe::Shaped(recipe));
             }
         }
 
         // Then try shapeless
         for recipe in &self.shapeless_recipes {
             if recipe.matches(input) {
-                return Some(*recipe as &'static dyn CraftingRecipe);
+                return Some(CraftingRecipe::Shapeless(recipe));
             }
         }
 
@@ -81,21 +78,18 @@ impl RecipeRegistry {
     /// Finds a matching crafting recipe for a 2x2 grid.
     /// Only checks recipes that can fit in a 2x2 grid.
     #[must_use]
-    pub fn find_crafting_recipe_2x2(
-        &self,
-        input: &CraftingInput,
-    ) -> Option<&'static dyn CraftingRecipe> {
+    pub fn find_crafting_recipe_2x2(&self, input: &CraftingInput) -> Option<CraftingRecipe> {
         // Try shaped recipes first (they're more specific)
         for recipe in &self.shaped_recipes {
             if recipe.fits_in_2x2() && recipe.matches(input) {
-                return Some(*recipe as &'static dyn CraftingRecipe);
+                return Some(CraftingRecipe::Shaped(recipe));
             }
         }
 
         // Then try shapeless
         for recipe in &self.shapeless_recipes {
             if recipe.fits_in_2x2() && recipe.matches(input) {
-                return Some(*recipe as &'static dyn CraftingRecipe);
+                return Some(CraftingRecipe::Shapeless(recipe));
             }
         }
 

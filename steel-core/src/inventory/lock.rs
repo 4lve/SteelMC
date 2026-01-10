@@ -81,6 +81,12 @@ pub enum ContainerRef {
     Other(Arc<SyncMutex<PluginContainer>>),
 }
 
+impl From<SyncPlayerInv> for ContainerRef {
+    fn from(value: SyncPlayerInv) -> Self {
+        Self::PlayerInventory(value)
+    }
+}
+
 impl ContainerRef {
     /// Returns a unique identifier for this container based on its Arc pointer address.
     #[must_use]
@@ -187,20 +193,35 @@ impl ContainerLockGuard {
 
     /// Get immutable access to a locked container.
     #[must_use]
-    pub fn get(&self, id: ContainerId) -> Option<&dyn Container> {
+    pub fn get(&self, id: impl Into<ContainerId>) -> Option<&dyn Container> {
         self.id_to_index
-            .get(&id)
+            .get(&id.into())
             .and_then(|&idx| self.guards.get(idx))
             .map(|(_, guard)| &**guard as &dyn Container)
     }
 
     /// Get mutable access to a locked container.
-    pub fn get_mut(&mut self, id: ContainerId) -> Option<&mut dyn Container> {
+    pub fn get_mut(&mut self, id: impl Into<ContainerId>) -> Option<&mut dyn Container> {
         self.id_to_index
-            .get(&id)
+            .get(&id.into())
             .copied()
             .and_then(|idx| self.guards.get_mut(idx))
             .map(|(_, guard)| &mut **guard as &mut dyn Container)
+    }
+
+    /// Get mutable access to a locked player inventory.
+    pub fn get_player_inventory_mut(
+        &mut self,
+        id: impl Into<ContainerId>,
+    ) -> Option<&mut PlayerInventory> {
+        self.id_to_index
+            .get(&id.into())
+            .copied()
+            .and_then(|idx| self.guards.get_mut(idx))
+            .and_then(|(_, guard)| match guard {
+                LockedContainer::PlayerInventory(g) => Some(&mut **g),
+                _ => None,
+            })
     }
 
     /// Check if a container is locked.
@@ -221,5 +242,11 @@ impl ContainerId {
     /// Creates a container ID from an Arc's pointer address.
     pub fn from_arc<T: ?Sized>(arc: &Arc<T>) -> Self {
         Self(Arc::as_ptr(arc).cast::<()>() as usize)
+    }
+}
+
+impl From<&SyncPlayerInv> for ContainerId {
+    fn from(value: &SyncPlayerInv) -> Self {
+        Self::from_arc(value)
     }
 }

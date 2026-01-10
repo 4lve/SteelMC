@@ -4,7 +4,6 @@
 //! the `useItemOn` method that handles block placement and block interactions.
 
 use steel_registry::REGISTRY;
-use steel_registry::item_stack::ItemStack;
 use steel_registry::items::item::{BlockHitResult, InteractionResult, UseOnContext};
 use steel_utils::types::{GameType, InteractionHand};
 
@@ -25,7 +24,6 @@ use crate::world::World;
 pub fn use_item_on(
     player: &Player,
     world: &World,
-    item_stack: &mut ItemStack,
     hand: InteractionHand,
     hit_result: &BlockHitResult,
 ) -> InteractionResult {
@@ -39,10 +37,10 @@ pub fn use_item_on(
     }
 
     // Check if block interaction should be suppressed (sneaking + holding items in either hand)
-    let have_something = !player
-        .get_item_in_hand(InteractionHand::MainHand)
-        .is_empty()
-        || !player.get_item_in_hand(InteractionHand::OffHand).is_empty();
+    let mut inv = player.inventory.lock();
+
+    let have_something = !inv.get_item_in_hand(InteractionHand::MainHand).is_empty()
+        || !inv.get_item_in_hand(InteractionHand::OffHand).is_empty();
     let suppress_block_use = player.is_secondary_use_active() && have_something;
 
     // Try block interaction first (if not suppressed)
@@ -53,6 +51,7 @@ pub fn use_item_on(
             return InteractionResult::Pass;
         };
         let behavior = REGISTRY.blocks.get_behavior(block);
+        let item_stack = inv.get_item_in_hand(hand);
 
         let block_result =
             behavior.use_item_on(item_stack, state, world, *pos, player, hand, hit_result);
@@ -74,6 +73,7 @@ pub fn use_item_on(
     }
 
     // Try item use (block placement, etc.)
+    let item_stack = inv.get_item_in_hand_mut(hand);
     if !item_stack.is_empty() {
         // TODO: Check item cooldowns
         // if player.getCooldowns().isOnCooldown(item_stack.item) { return Pass }
