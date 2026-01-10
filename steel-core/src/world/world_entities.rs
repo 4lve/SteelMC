@@ -56,6 +56,7 @@ impl World {
                 let add_existing = steel_protocol::packets::game::CPlayerInfoUpdate::add_player(
                     existing_player.gameprofile.id,
                     existing_player.gameprofile.name.clone(),
+                    existing_player.gameprofile.properties.clone(),
                 );
                 player.connection.send_packet(add_existing);
 
@@ -91,6 +92,7 @@ impl World {
         let player_info_packet = steel_protocol::packets::game::CPlayerInfoUpdate::add_player(
             player.gameprofile.id,
             player.gameprofile.name.clone(),
+            player.gameprofile.properties.clone(),
         );
         let spawn_packet = CAddEntity::player(
             player.entity_id,

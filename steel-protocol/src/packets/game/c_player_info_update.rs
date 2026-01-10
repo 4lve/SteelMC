@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 // Import RemoteChatSessionData for chat session transmission
 use super::chat_session_data::RemoteChatSessionData;
+use crate::packets::login::GameProfileProperty;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -21,6 +22,7 @@ pub enum PlayerInfoAction {
 pub struct PlayerInfoEntry {
     pub uuid: Uuid,
     pub name: Option<String>,
+    pub properties: Vec<GameProfileProperty>,
     pub chat_session: Option<RemoteChatSessionData>,
     pub game_mode: Option<VarInt>,
     pub listed: Option<bool>,
@@ -35,12 +37,13 @@ pub struct CPlayerInfoUpdate {
 }
 
 impl CPlayerInfoUpdate {
-    pub fn add_player(uuid: Uuid, name: String) -> Self {
+    pub fn add_player(uuid: Uuid, name: String, properties: Vec<GameProfileProperty>) -> Self {
         Self {
             actions: PlayerInfoAction::AddPlayer as u8 | PlayerInfoAction::InitializeChat as u8,
             entries: vec![PlayerInfoEntry {
                 uuid,
                 name: Some(name),
+                properties,
                 chat_session: None,
                 game_mode: None,
                 listed: None,
@@ -55,6 +58,7 @@ impl CPlayerInfoUpdate {
             entries: vec![PlayerInfoEntry {
                 uuid,
                 name: None,
+                properties: Vec::new(),
                 chat_session: Some(chat_session),
                 game_mode: None,
                 listed: None,
@@ -76,7 +80,11 @@ impl steel_utils::serial::WriteTo for CPlayerInfoUpdate {
                 && let Some(ref name) = entry.name
             {
                 name.write_prefixed::<VarInt>(writer)?;
-                VarInt(0).write(writer)?;
+                // Write properties (including skin textures)
+                VarInt(entry.properties.len() as i32).write(writer)?;
+                for prop in &entry.properties {
+                    prop.write(writer)?;
+                }
             }
 
             if self.actions & (PlayerInfoAction::InitializeChat as u8) != 0 {

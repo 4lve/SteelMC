@@ -35,10 +35,7 @@ impl CAnimate {
     /// Creates a new animate packet.
     #[must_use]
     pub fn new(entity_id: i32, action: AnimateAction) -> Self {
-        Self {
-            entity_id,
-            action,
-        }
+        Self { entity_id, action }
     }
 
     /// Creates a swing main hand animation.
