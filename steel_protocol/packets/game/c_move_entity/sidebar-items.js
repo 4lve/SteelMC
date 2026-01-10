@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["calc_delta","to_angle_byte"],"struct":["CMoveEntityPos","CMoveEntityPosRot","CMoveEntityRot"]};

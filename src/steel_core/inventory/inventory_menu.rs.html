@@ -8,7 +8,7 @@
 <a href=#8 id=8 data-nosnippet>8</a>//! - Slots 36-44: Hotbar (9 slots)
 <a href=#9 id=9 data-nosnippet>9</a>//! - Slot 45: Offhand
 <a href=#10 id=10 data-nosnippet>10</a>
-<a href=#11 id=11 data-nosnippet>11</a></span><span class="kw">use </span>std::sync::Arc;
+<a href=#11 id=11 data-nosnippet>11</a></span><span class="kw">use </span>std::{mem, sync::Arc};
 <a href=#12 id=12 data-nosnippet>12</a>
 <a href=#13 id=13 data-nosnippet>13</a><span class="kw">use </span>steel_registry::data_components::vanilla_components::EquippableSlot;
 <a href=#14 id=14 data-nosnippet>14</a><span class="kw">use </span>steel_registry::item_stack::ItemStack;
@@ -406,7 +406,7 @@
 <a href=#406 id=406 data-nosnippet>406</a>    /// 2. Try to place in empty slots (hotbar first, then main inventory)
 <a href=#407 id=407 data-nosnippet>407</a>    </span><span class="kw">fn </span>removed(<span class="kw-2">&amp;mut </span><span class="self">self</span>, player: <span class="kw-2">&amp;</span>Player) {
 <a href=#408 id=408 data-nosnippet>408</a>        <span class="comment">// Clear the carried item first
-<a href=#409 id=409 data-nosnippet>409</a>        </span><span class="kw">let </span>carried = std::mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.behavior.carried);
+<a href=#409 id=409 data-nosnippet>409</a>        </span><span class="kw">let </span>carried = mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.behavior.carried);
 <a href=#410 id=410 data-nosnippet>410</a>
 <a href=#411 id=411 data-nosnippet>411</a>        <span class="comment">// If player was holding something, try to return it to inventory
 <a href=#412 id=412 data-nosnippet>412</a>        </span><span class="kw">if </span>!carried.is_empty() {

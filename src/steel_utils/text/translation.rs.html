@@ -2,7 +2,7 @@
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span>serde::{Deserialize, Serialize};
 <a href=#4 id=4 data-nosnippet>4</a>
-<a href=#5 id=5 data-nosnippet>5</a><span class="kw">use </span><span class="kw">crate</span>::text::TextComponent;
+<a href=#5 id=5 data-nosnippet>5</a><span class="kw">use </span>crate::{text::TextComponent, translations::TRANSLATIONS};
 <a href=#6 id=6 data-nosnippet>6</a>
 <a href=#7 id=7 data-nosnippet>7</a><span class="doccomment">/// A translation with compile-time argument count checking
 <a href=#8 id=8 data-nosnippet>8</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -32,7 +32,7 @@
 <a href=#32 id=32 data-nosnippet>32</a>    <span class="doccomment">/// Creates a new `TranslatedMessage` with the given arguments.
 <a href=#33 id=33 data-nosnippet>33</a>    </span><span class="attr">#[must_use]
 <a href=#34 id=34 data-nosnippet>34</a>    </span><span class="kw">pub fn </span>message(<span class="self">self</span>, args: [<span class="kw">impl </span>Into&lt;TextComponent&gt;; ARGS]) -&gt; TranslatedMessage {
-<a href=#35 id=35 data-nosnippet>35</a>        TranslatedMessage::new(<span class="self">self</span>.key, <span class="prelude-val">Some</span>(Box::new(args.map(std::convert::Into::into))))
+<a href=#35 id=35 data-nosnippet>35</a>        TranslatedMessage::new(<span class="self">self</span>.key, <span class="prelude-val">Some</span>(Box::new(args.map(Into::into))))
 <a href=#36 id=36 data-nosnippet>36</a>    }
 <a href=#37 id=37 data-nosnippet>37</a>}
 <a href=#38 id=38 data-nosnippet>38</a>
@@ -86,7 +86,7 @@
 <a href=#86 id=86 data-nosnippet>86</a>    /// - If the translation key is not found.
 <a href=#87 id=87 data-nosnippet>87</a>    </span><span class="attr">#[must_use]
 <a href=#88 id=88 data-nosnippet>88</a>    </span><span class="kw">pub fn </span>format(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
-<a href=#89 id=89 data-nosnippet>89</a>        <span class="kw">let </span><span class="kw-2">mut </span>result = (<span class="kw-2">*</span><span class="kw">crate</span>::translations::TRANSLATIONS
+<a href=#89 id=89 data-nosnippet>89</a>        <span class="kw">let </span><span class="kw-2">mut </span>result = (<span class="kw-2">*</span>TRANSLATIONS
 <a href=#90 id=90 data-nosnippet>90</a>            .get(<span class="self">self</span>.key.as_ref())
 <a href=#91 id=91 data-nosnippet>91</a>            .expect(<span class="string">"Translation key should exist"</span>))
 <a href=#92 id=92 data-nosnippet>92</a>        .to_string();

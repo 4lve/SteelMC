@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["RemoteChatSessionData"]};
+window.SIDEBAR_ITEMS = {"struct":["ProtocolRemoteChatSessionData"]};

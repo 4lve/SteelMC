@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PLAYER"],"fn":["register_entity_types"]};
