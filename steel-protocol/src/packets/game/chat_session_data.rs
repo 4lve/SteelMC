@@ -9,7 +9,7 @@ use uuid::Uuid;
 /// This is a simplified version that holds raw byte data for transmission.
 /// The full version with validated keys lives in steel-core.
 #[derive(Clone, Debug)]
-pub struct RemoteChatSessionData {
+pub struct ProtocolRemoteChatSessionData {
     /// The session ID
     pub session_id: Uuid,
     /// When the key expires (as milliseconds since UNIX epoch)
@@ -20,7 +20,7 @@ pub struct RemoteChatSessionData {
     pub key_signature: Vec<u8>,
 }
 
-impl RemoteChatSessionData {
+impl ProtocolRemoteChatSessionData {
     /// Creates new chat session data from raw components
     #[must_use]
     pub fn new(
@@ -43,7 +43,7 @@ impl RemoteChatSessionData {
     }
 }
 
-impl WriteTo for RemoteChatSessionData {
+impl WriteTo for ProtocolRemoteChatSessionData {
     fn write(&self, writer: &mut impl std::io::Write) -> std::io::Result<()> {
         self.session_id.write(writer)?;
 

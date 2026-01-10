@@ -87,7 +87,7 @@ pub use c_set_cursor_item::CSetCursorItem;
 pub use c_set_held_slot::CSetHeldSlot;
 pub use c_system_chat::CSystemChat;
 pub use c_system_chat_message::CSystemChatMessage;
-pub use chat_session_data::RemoteChatSessionData;
+pub use chat_session_data::ProtocolRemoteChatSessionData;
 pub use s_chat::SChat;
 pub use s_chat_ack::SChatAck;
 pub use s_chat_command::SChatCommand;

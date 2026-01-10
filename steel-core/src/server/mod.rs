@@ -4,9 +4,13 @@ pub mod registry_cache;
 /// The tick rate manager for the server.
 pub mod tick_rate_manager;
 
-use std::sync::Arc;
-use std::sync::atomic::{AtomicI32, Ordering};
-use std::time::Instant;
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicI32, Ordering},
+    },
+    time::{Duration, Instant},
+};
 
 use steel_crypto::key_store::KeyStore;
 use steel_protocol::packets::game::{CLogin, CommonPlayerSpawnInfo};
@@ -15,8 +19,7 @@ use steel_registry::{REGISTRY, Registry};
 use steel_utils::locks::SyncRwLock;
 use steel_utils::{Identifier, types::GameType};
 use tick_rate_manager::TickRateManager;
-use tokio::runtime::Runtime;
-use tokio::task::spawn_blocking;
+use tokio::{runtime::Runtime, task::spawn_blocking, time::sleep};
 use tokio_util::sync::CancellationToken;
 
 use crate::command::CommandDispatcher;
@@ -143,10 +146,10 @@ impl Server {
                 if now < next_tick_time {
                     tokio::select! {
                         () = cancel_token.cancelled() => break,
-                        () = tokio::time::sleep(next_tick_time - now) => {}
+                        () = sleep(next_tick_time - now) => {}
                     }
                 }
-                next_tick_time += std::time::Duration::from_nanos(nanoseconds_per_tick);
+                next_tick_time += Duration::from_nanos(nanoseconds_per_tick);
             }
 
             if cancel_token.is_cancelled() {

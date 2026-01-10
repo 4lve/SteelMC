@@ -1,6 +1,9 @@
 //! This module contains the `World` struct, which represents a world.
-use std::sync::{Arc, Weak};
-use std::time::Duration;
+use std::{
+    io,
+    sync::{Arc, Weak},
+    time::Duration,
+};
 
 use scc::HashMap;
 use steel_protocol::packet_traits::ClientPacket;
@@ -8,7 +11,7 @@ use steel_protocol::packets::game::{CPlayerChat, CSystemChat};
 use steel_registry::vanilla_blocks;
 use steel_registry::{REGISTRY, compat_traits::RegistryWorld, dimension_type::DimensionTypeRef};
 use steel_utils::{BlockPos, BlockStateId, ChunkPos, SectionPos, types::UpdateFlags};
-use tokio::runtime::Runtime;
+use tokio::{runtime::Runtime, time::Instant};
 use uuid::Uuid;
 
 use crate::{
@@ -147,7 +150,7 @@ impl World {
         self.chunk_map.tick_b(tick_count);
 
         // Tick players
-        let start = tokio::time::Instant::now();
+        let start = Instant::now();
         self.players.iter_sync(|_uuid, player| {
             player.tick();
 
@@ -278,7 +281,7 @@ impl World {
     ///
     /// This should be called during graceful shutdown.
     /// Returns the number of chunks saved.
-    pub async fn save_all_chunks(&self) -> std::io::Result<usize> {
+    pub async fn save_all_chunks(&self) -> io::Result<usize> {
         self.chunk_map.save_all_chunks().await
     }
 }

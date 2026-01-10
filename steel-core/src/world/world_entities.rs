@@ -2,7 +2,7 @@
 use std::sync::Arc;
 
 use steel_protocol::packets::game::{
-    CAddEntity, CGameEvent, CRemoveEntities, CRemovePlayerInfo, GameEventType,
+    CAddEntity, CGameEvent, CPlayerInfoUpdate, CRemoveEntities, CRemovePlayerInfo, GameEventType,
 };
 use tokio::time::Instant;
 
@@ -53,7 +53,7 @@ impl World {
         self.players.iter_sync(|_, existing_player| {
             if existing_player.gameprofile.id != player.gameprofile.id {
                 // Add to tab list
-                let add_existing = steel_protocol::packets::game::CPlayerInfoUpdate::add_player(
+                let add_existing = CPlayerInfoUpdate::add_player(
                     existing_player.gameprofile.id,
                     existing_player.gameprofile.name.clone(),
                     existing_player.gameprofile.properties.clone(),
@@ -64,11 +64,10 @@ impl World {
                 if let Some(session) = existing_player.chat_session()
                     && let Ok(protocol_data) = session.as_data().to_protocol_data()
                 {
-                    let session_packet =
-                        steel_protocol::packets::game::CPlayerInfoUpdate::update_chat_session(
-                            existing_player.gameprofile.id,
-                            protocol_data,
-                        );
+                    let session_packet = CPlayerInfoUpdate::update_chat_session(
+                        existing_player.gameprofile.id,
+                        protocol_data,
+                    );
                     player.connection.send_packet(session_packet);
                 }
 
@@ -89,7 +88,7 @@ impl World {
         });
 
         // Broadcast new player to all existing players (tab list + entity spawn)
-        let player_info_packet = steel_protocol::packets::game::CPlayerInfoUpdate::add_player(
+        let player_info_packet = CPlayerInfoUpdate::add_player(
             player.gameprofile.id,
             player.gameprofile.name.clone(),
             player.gameprofile.properties.clone(),

@@ -2,6 +2,8 @@
 //!
 //! Heightmaps are used for various purposes like spawning, pathfinding, and rendering.
 
+use std::sync::OnceLock;
+
 use rustc_hash::FxHashMap;
 
 use steel_registry::{BlockStateExt, REGISTRY, blocks::BlockRef};
@@ -67,7 +69,7 @@ impl HeightmapType {
 
     /// Checks if a block is in the leaves tag.
     fn is_leaves(block: BlockRef) -> bool {
-        static LEAVES_TAG: std::sync::OnceLock<Identifier> = std::sync::OnceLock::new();
+        static LEAVES_TAG: OnceLock<Identifier> = OnceLock::new();
         let tag = LEAVES_TAG.get_or_init(|| Identifier::vanilla_static("leaves"));
         REGISTRY.blocks.is_in_tag(block, tag)
     }

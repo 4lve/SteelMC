@@ -3,6 +3,8 @@
 //! This module provides the `CraftingContainer` for the crafting grid,
 //! `ResultContainer` for crafting output, and `CraftingInput` for recipe matching.
 
+use std::mem;
+
 use steel_registry::{
     item_stack::ItemStack,
     recipe::{CraftingInput, PositionedCraftingInput},
@@ -134,7 +136,7 @@ impl Container for ResultContainer {
     /// This ensures that right-clicking on a crafting result takes the
     /// full crafted item, not half of it.
     fn remove_item(&mut self, _slot: usize, _count: i32) -> ItemStack {
-        std::mem::take(&mut self.result)
+        mem::take(&mut self.result)
     }
 
     fn set_changed(&mut self) {

@@ -1,16 +1,17 @@
 #![allow(missing_docs)]
 
-use bitflags::bitflags;
 use std::{
     borrow::Cow,
-    fmt::{self, Display},
+    fmt::{self, Debug, Display, Formatter},
+    hash::{Hash, Hasher},
     io::{self, Read, Write},
     mem::MaybeUninit,
     str::FromStr,
 };
 
-use serde::{Deserialize, Serialize};
-use wincode::{SchemaRead, SchemaWrite};
+use bitflags::bitflags;
+use serde::{Deserialize, Serialize, de::Error as _};
+use wincode::{SchemaRead, SchemaWrite, io::Reader, io::Writer};
 
 use crate::{
     codec::VarInt,
@@ -44,8 +45,8 @@ impl ReadFrom for BlockStateId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ChunkPos(pub Vector2<i32>);
 
-impl std::hash::Hash for ChunkPos {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl Hash for ChunkPos {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         state.write_u64(self.as_i64() as u64);
     }
 }
@@ -373,8 +374,8 @@ pub struct Identifier {
     pub path: Cow<'static, str>,
 }
 
-impl std::fmt::Debug for Identifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Debug for Identifier {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str(&format!("{}:{}", self.namespace, self.path))
     }
 }
@@ -482,7 +483,7 @@ impl<'de> Deserialize<'de> for Identifier {
         D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Identifier::from_str(&s).map_err(serde::de::Error::custom)
+        Identifier::from_str(&s).map_err(D::Error::custom)
     }
 }
 
@@ -493,7 +494,7 @@ impl SchemaWrite for Identifier {
         <str>::size_of(&src.to_string())
     }
 
-    fn write(writer: &mut impl wincode::io::Writer, src: &Self::Src) -> wincode::WriteResult<()> {
+    fn write(writer: &mut impl Writer, src: &Self::Src) -> wincode::WriteResult<()> {
         <str>::write(writer, &src.to_string())
     }
 }
@@ -502,8 +503,8 @@ impl<'de> SchemaRead<'de> for Identifier {
     type Dst = Identifier;
 
     fn read(
-        reader: &mut impl wincode::io::Reader<'de>,
-        dst: &mut std::mem::MaybeUninit<Self::Dst>,
+        reader: &mut impl Reader<'de>,
+        dst: &mut MaybeUninit<Self::Dst>,
     ) -> wincode::ReadResult<()> {
         let mut s = MaybeUninit::<String>::uninit();
         String::read(reader, &mut s)?;

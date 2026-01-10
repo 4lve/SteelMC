@@ -8,7 +8,7 @@
 //! - Slots 36-44: Hotbar (9 slots)
 //! - Slot 45: Offhand
 
-use std::sync::Arc;
+use std::{mem, sync::Arc};
 
 use steel_registry::data_components::vanilla_components::EquippableSlot;
 use steel_registry::item_stack::ItemStack;
@@ -406,7 +406,7 @@ impl Menu for InventoryMenu {
     /// 2. Try to place in empty slots (hotbar first, then main inventory)
     fn removed(&mut self, player: &Player) {
         // Clear the carried item first
-        let carried = std::mem::take(&mut self.behavior.carried);
+        let carried = mem::take(&mut self.behavior.carried);
 
         // If player was holding something, try to return it to inventory
         if !carried.is_empty() {

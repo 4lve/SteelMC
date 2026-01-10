@@ -7,7 +7,10 @@ use simplelog::{ColorChoice, Config, TermLogger, TerminalMode};
 use steel::SteelServer;
 use steel_registry::REGISTRY;
 use steel_utils::{Identifier, translations};
-use tokio::runtime::Runtime;
+use tokio::{
+    runtime::{Builder, Runtime},
+    signal,
+};
 use tokio_util::task::TaskTracker;
 
 /// Main entry point for the Steel Minecraft server.
@@ -22,17 +25,9 @@ use tokio_util::task::TaskTracker;
 /// We have to create the runtimes at this level cause tokio panics if you drop a runtime in a context where blocking is not allowed.
 #[allow(clippy::unwrap_used)]
 fn main() {
-    let chunk_runtime = Arc::new(
-        tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap(),
-    );
+    let chunk_runtime = Arc::new(Builder::new_multi_thread().enable_all().build().unwrap());
 
-    let main_runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap();
+    let main_runtime = Builder::new_multi_thread().enable_all().build().unwrap();
 
     main_runtime.block_on(main_async(chunk_runtime.clone()));
 
@@ -101,7 +96,7 @@ async fn main_async(chunk_runtime: Arc<Runtime>) {
     let cancel_token = steel.cancel_token.clone();
 
     tokio::spawn(async move {
-        if tokio::signal::ctrl_c().await.is_ok() {
+        if signal::ctrl_c().await.is_ok() {
             log::info!("Shutdown signal received");
             cancel_token.cancel();
         }

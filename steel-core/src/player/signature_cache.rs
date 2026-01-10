@@ -2,6 +2,8 @@
 
 use std::collections::VecDeque;
 
+use super::PreviousMessageEntry;
+
 /// Maximum number of cached signatures (Vanilla: 128)
 const MAX_CACHED_SIGNATURES: usize = 128;
 
@@ -232,7 +234,7 @@ impl MessageCache {
     pub fn index_previous_messages(
         &self,
         sender_last_seen: &LastSeen,
-    ) -> Box<[crate::player::PreviousMessageEntry]> {
+    ) -> Box<[PreviousMessageEntry]> {
         let mut indexed = Vec::new();
 
         log::debug!(
@@ -251,14 +253,14 @@ impl MessageCache {
                     index,
                     index + 1
                 );
-                indexed.push(crate::player::PreviousMessageEntry {
+                indexed.push(PreviousMessageEntry {
                     // Send ID reference to recipient's cache (index + 1 because 0 is reserved for full signature)
                     id: 1 + index as i32,
                     signature: None,
                 });
             } else {
                 log::debug!("  lastSeen[{i}]: NOT in cache -> sending full signature (ID=0)");
-                indexed.push(crate::player::PreviousMessageEntry {
+                indexed.push(PreviousMessageEntry {
                     // Send ID as 0 for full signature
                     id: 0,
                     signature: Some(signature.clone()),

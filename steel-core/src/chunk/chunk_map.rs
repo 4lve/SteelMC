@@ -1,14 +1,18 @@
-use std::sync::atomic::Ordering;
-use std::sync::{Arc, Weak};
-use std::time::Duration;
+use std::{
+    io,
+    sync::{Arc, Weak, atomic::Ordering},
+    time::Duration,
+};
 
-use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use rayon::{ThreadPool, ThreadPoolBuilder};
+use rayon::{
+    ThreadPool, ThreadPoolBuilder,
+    iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator},
+};
 use rustc_hash::FxBuildHasher;
 use steel_protocol::packets::game::CSetChunkCenter;
 use steel_registry::{REGISTRY, dimension_type::DimensionTypeRef, vanilla_blocks};
 use steel_utils::{ChunkPos, locks::SyncMutex};
-use tokio::runtime::Runtime;
+use tokio::{runtime::Runtime, time::Instant};
 use tokio_util::task::TaskTracker;
 
 use crate::chunk::chunk_access::ChunkAccess;
@@ -102,7 +106,7 @@ impl ChunkMap {
         target_status: ChunkStatus,
         pos: ChunkPos,
     ) -> Arc<ChunkGenerationTask> {
-        let start = tokio::time::Instant::now();
+        let start = Instant::now();
         let task = Arc::new(ChunkGenerationTask::new(
             pos,
             target_status,
@@ -187,17 +191,17 @@ impl ChunkMap {
 
     /// Processes chunk updates.
     pub fn tick_b(self: &Arc<Self>, tick_count: u64) {
-        let start = tokio::time::Instant::now();
+        let start = Instant::now();
 
         {
             let mut ct = self.chunk_tickets.lock();
 
-            let updates_start = tokio::time::Instant::now();
+            let updates_start = Instant::now();
             // Only process chunks that actually changed
             let changes: Vec<LevelChange> = ct.run_all_updates().to_vec();
             let updates_elapsed = updates_start.elapsed();
 
-            let holder_creation_start = tokio::time::Instant::now();
+            let holder_creation_start = Instant::now();
             let holders_to_schedule: Vec<_> = changes
                 .iter()
                 .filter_map(|change| {
@@ -207,7 +211,7 @@ impl ChunkMap {
                 .collect();
             let holder_creation_elapsed = holder_creation_start.elapsed();
 
-            let schedule_start = tokio::time::Instant::now();
+            let schedule_start = Instant::now();
             holders_to_schedule.par_iter().for_each(|(holder, level)| {
                 if let Some(level) = level
                     && is_full(*level)
@@ -228,14 +232,14 @@ impl ChunkMap {
             }
         };
 
-        let start_gen = tokio::time::Instant::now();
+        let start_gen = Instant::now();
         self.run_generation_tasks_b();
         let gen_elapsed = start_gen.elapsed();
         if gen_elapsed >= SLOW_TASK_WARN_THRESHOLD {
             log::warn!("run_generation_tasks_b slow: {gen_elapsed:?}");
         }
 
-        let start_unload = tokio::time::Instant::now();
+        let start_unload = Instant::now();
         self.process_unloads();
         let unload_elapsed = start_unload.elapsed();
         if unload_elapsed >= SLOW_TASK_WARN_THRESHOLD {
@@ -425,7 +429,7 @@ impl ChunkMap {
     /// 3. Closes all region file handles (flushing headers)
     ///
     /// Returns the number of chunks saved.
-    pub async fn save_all_chunks(self: &Arc<Self>) -> std::io::Result<usize> {
+    pub async fn save_all_chunks(self: &Arc<Self>) -> io::Result<usize> {
         let mut saved_count = 0;
 
         // Collect all chunks from both maps

@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use serde::{Deserialize, Serialize};
 
-use crate::text::TextComponent;
+use crate::{text::TextComponent, translations::TRANSLATIONS};
 
 /// A translation with compile-time argument count checking
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -32,7 +32,7 @@ impl<const ARGS: usize> Translation<ARGS> {
     /// Creates a new `TranslatedMessage` with the given arguments.
     #[must_use]
     pub fn message(self, args: [impl Into<TextComponent>; ARGS]) -> TranslatedMessage {
-        TranslatedMessage::new(self.key, Some(Box::new(args.map(std::convert::Into::into))))
+        TranslatedMessage::new(self.key, Some(Box::new(args.map(Into::into))))
     }
 }
 
@@ -86,7 +86,7 @@ impl TranslatedMessage {
     /// - If the translation key is not found.
     #[must_use]
     pub fn format(&self) -> String {
-        let mut result = (*crate::translations::TRANSLATIONS
+        let mut result = (*TRANSLATIONS
             .get(self.key.as_ref())
             .expect("Translation key should exist"))
         .to_string();

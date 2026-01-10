@@ -1,6 +1,9 @@
 //! Player inventory management.
 
-use std::sync::Weak;
+use std::{
+    array,
+    sync::{LazyLock, Weak},
+};
 
 use steel_registry::item_stack::ItemStack;
 use steel_utils::types::InteractionHand;
@@ -61,7 +64,7 @@ impl PlayerInventory {
     #[must_use]
     pub fn new(player: Weak<Player>) -> Self {
         Self {
-            items: std::array::from_fn(|_| ItemStack::empty()),
+            items: array::from_fn(|_| ItemStack::empty()),
             equipment: EntityEquipment::new(),
             player,
             selected: 0,
@@ -204,7 +207,7 @@ impl PlayerInventory {
 }
 
 /// Static empty item stack for returning references to invalid slots.
-static EMPTY_ITEM: std::sync::LazyLock<ItemStack> = std::sync::LazyLock::new(ItemStack::empty);
+static EMPTY_ITEM: LazyLock<ItemStack> = LazyLock::new(ItemStack::empty);
 
 impl Container for PlayerInventory {
     fn get_container_size(&self) -> usize {

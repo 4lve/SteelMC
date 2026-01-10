@@ -16,6 +16,8 @@
 //!
 //! The client also sends the itemstacks it thinks it has on interaction, so this makes it so we only update the client if they mismatch.
 
+use std::mem;
+
 use steel_protocol::packets::game::{
     CContainerSetContent, CContainerSetData, CContainerSetSlot, CSetCursorItem, ClickType,
     HashedStack,
@@ -792,7 +794,7 @@ impl MenuBehavior {
             if !self.carried.is_empty() {
                 if button == 0 {
                     // Left click outside - drop all carried items
-                    let to_drop = std::mem::take(&mut self.carried);
+                    let to_drop = mem::take(&mut self.carried);
                     player.drop_item(to_drop, true);
                 } else {
                     // Right click outside - drop one carried item
@@ -816,7 +818,7 @@ impl MenuBehavior {
 
         // Get the current item in the slot
         let slot_item = slot.get_item(&guard).clone();
-        let carried = std::mem::take(&mut self.carried);
+        let carried = mem::take(&mut self.carried);
 
         if slot_item.is_empty() {
             // Slot is empty - place carried items (if allowed)
@@ -1059,7 +1061,7 @@ pub trait Menu {
     /// The default implementation clears the carried item by dropping it.
     fn removed(&mut self, player: &Player) {
         // Default: drop the carried item
-        let carried = std::mem::take(&mut self.behavior_mut().carried);
+        let carried = mem::take(&mut self.behavior_mut().carried);
         if !carried.is_empty() {
             player.drop_item(carried, false);
         }

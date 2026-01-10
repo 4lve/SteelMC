@@ -1,10 +1,11 @@
 //! Slot abstraction for inventory access.
 
-use std::sync::Arc;
+use std::{mem, sync::Arc};
 
 use enum_dispatch::enum_dispatch;
 use steel_registry::data_components::vanilla_components::EquippableSlot;
 use steel_registry::item_stack::ItemStack;
+use steel_registry::recipe::CraftingInput;
 use steel_utils::locks::SyncMutex;
 
 use crate::inventory::SyncPlayerInv;
@@ -378,7 +379,7 @@ impl CraftingGridSlot {
 
         // Build the crafting input from the container
         let items: Vec<ItemStack> = (0..4).map(|i| crafting.get_item(i).clone()).collect();
-        let positioned = steel_registry::recipe::CraftingInput::positioned(2, 2, items);
+        let positioned = CraftingInput::positioned(2, 2, items);
 
         // Find matching recipe
         let result_stack = steel_registry::REGISTRY
@@ -508,7 +509,7 @@ impl Slot for CraftingResultSlot {
     /// Unlike normal slots, this **always takes the entire stack** regardless
     /// of the `amount` parameter.
     fn remove(&self, guard: &mut ContainerLockGuard, _amount: i32) -> ItemStack {
-        std::mem::take(self.get_item_mut(guard))
+        mem::take(self.get_item_mut(guard))
     }
 
     fn set_changed(&self, guard: &mut ContainerLockGuard) {
@@ -552,7 +553,7 @@ impl Slot for CraftingResultSlot {
             // Build crafting input
             let width = 2; // 2x2 player crafting grid
             let items: Vec<ItemStack> = (0..4).map(|i| crafting.get_item(i).clone()).collect();
-            let positioned = steel_registry::recipe::CraftingInput::positioned(width, 2, items);
+            let positioned = CraftingInput::positioned(width, 2, items);
 
             // Get remainders from recipe
             let remainders = steel_registry::REGISTRY
@@ -626,7 +627,7 @@ impl Slot for CraftingResultSlot {
         // Update the crafting result based on remaining ingredients
         // Build new input after consuming ingredients
         let items: Vec<ItemStack> = (0..4).map(|i| crafting.get_item(i).clone()).collect();
-        let positioned = steel_registry::recipe::CraftingInput::positioned(grid_width, 2, items);
+        let positioned = CraftingInput::positioned(grid_width, 2, items);
         let result_stack = steel_registry::REGISTRY
             .recipes
             .find_crafting_recipe_2x2(&positioned.input)

@@ -1,5 +1,7 @@
 //! Container trait for anything that holds items.
 
+use std::mem;
+
 use enum_dispatch::enum_dispatch;
 use steel_registry::item_stack::ItemStack;
 
@@ -58,7 +60,7 @@ pub trait Container {
 
     /// Removes the item from the specified slot without triggering updates.
     fn remove_item_no_update(&mut self, slot: usize) -> ItemStack {
-        std::mem::take(self.get_item_mut(slot))
+        mem::take(self.get_item_mut(slot))
     }
 
     /// Returns the maximum stack size for this container.

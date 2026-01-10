@@ -5,7 +5,7 @@ use steel_utils::serial::PrefixedWrite;
 use uuid::Uuid;
 
 // Import RemoteChatSessionData for chat session transmission
-use super::chat_session_data::RemoteChatSessionData;
+use super::chat_session_data::ProtocolRemoteChatSessionData;
 use crate::packets::login::GameProfileProperty;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,7 +23,7 @@ pub struct PlayerInfoEntry {
     pub uuid: Uuid,
     pub name: Option<String>,
     pub properties: Vec<GameProfileProperty>,
-    pub chat_session: Option<RemoteChatSessionData>,
+    pub chat_session: Option<ProtocolRemoteChatSessionData>,
     pub game_mode: Option<VarInt>,
     pub listed: Option<bool>,
     pub latency: Option<VarInt>,
@@ -52,7 +52,7 @@ impl CPlayerInfoUpdate {
         }
     }
 
-    pub fn update_chat_session(uuid: Uuid, chat_session: RemoteChatSessionData) -> Self {
+    pub fn update_chat_session(uuid: Uuid, chat_session: ProtocolRemoteChatSessionData) -> Self {
         Self {
             actions: PlayerInfoAction::InitializeChat as u8,
             entries: vec![PlayerInfoEntry {
