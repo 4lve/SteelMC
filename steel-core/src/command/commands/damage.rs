@@ -47,8 +47,7 @@ impl CommandExecutor<((), f32)> for DamageCommandExecutor {
         // Send success message
         context.sender.send_message(
             TextComponent::new()
-                .text(format!("Dealt {} damage to {} (health: {} -> {})", 
-                    amount, player.gameprofile.name, current_health, new_health))
+                .text(format!("Applied {} damage to {}", amount, player.gameprofile.name))
                 .into(),
         );
 
