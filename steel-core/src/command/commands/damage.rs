@@ -52,8 +52,7 @@ impl CommandExecutor<((), f32)> for DamageCommandExecutor {
                 .text(format!(
                     "Applied {} damage to {}",
                     amount, player.gameprofile.name
-                ))
-                .into(),
+                )),
         );
 
         Ok(())

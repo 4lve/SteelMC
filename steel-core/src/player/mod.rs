@@ -25,7 +25,7 @@ use message_validator::LastSeenMessagesValidator;
 use profile_key::RemoteChatSession;
 pub use signature_cache::{LastSeen, MessageCache};
 use steel_protocol::packets::game::{
-    AnimateAction, CAnimate, SSetCarriedItem, SUseItem, SUseItemOn,
+    AnimateAction, CAnimate, CSetHealth, SSetCarriedItem, SUseItem, SUseItemOn,
 };
 use steel_utils::locks::SyncMutex;
 use steel_utils::types::GameType;
@@ -1095,7 +1095,7 @@ impl LivingEntity for Player {
         self.health.store(clamped);
         // Sync health to client
         self.connection
-            .send_packet(steel_protocol::packets::game::CSetHealth {
+            .send_packet(CSetHealth {
                 health: clamped,
                 food: 20,             // TODO: Get from player's food level when implemented
                 food_saturation: 5.0, // TODO: Get from player's saturation when implemented
