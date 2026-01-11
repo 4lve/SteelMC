@@ -205,11 +205,18 @@ pub mod vanilla_recipes;
 #[rustfmt::skip]
 #[path = "generated/vanilla_entities.rs"]
 pub mod vanilla_entities;
+pub use entity_types::{EntityType, EntityTypeRef};
+pub use vanilla_entities::EntityDimensions;
 
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_entity_data_serializers.rs"]
 pub mod vanilla_entity_data_serializers;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_entity_flags.rs"]
+pub mod vanilla_entity_flags;
 
 #[allow(warnings)]
 #[rustfmt::skip]

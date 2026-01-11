@@ -1,8 +1,2289 @@
 [
   {
+    "id": 0,
+    "name": "acacia_boat",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.375,
+    "height": 0.5625,
+    "eye_height": 0.5625
+  },
+  {
+    "id": 1,
+    "name": "acacia_chest_boat",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.375,
+    "height": 0.5625,
+    "eye_height": 0.5625
+  },
+  {
+    "id": 2,
+    "name": "allay",
+    "client_tracking_range": 8,
+    "update_interval": 2,
+    "width": 0.35,
+    "height": 0.6,
+    "eye_height": 0.36,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 3,
+    "name": "area_effect_cloud",
+    "client_tracking_range": 10,
+    "update_interval": 2147483647,
+    "width": 6.0,
+    "height": 0.5,
+    "eye_height": 0.425
+  },
+  {
+    "id": 4,
+    "name": "armadillo",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.7,
+    "height": 0.65,
+    "eye_height": 0.26,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 5,
+    "name": "armor_stand",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.5,
+    "height": 1.975,
+    "eye_height": 1.7775,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 6,
+    "name": "arrow",
+    "client_tracking_range": 4,
+    "update_interval": 20,
+    "width": 0.5,
+    "height": 0.5,
+    "eye_height": 0.13
+  },
+  {
+    "id": 7,
+    "name": "axolotl",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.75,
+    "height": 0.42,
+    "eye_height": 0.2751,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 8,
+    "name": "bamboo_chest_raft",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.375,
+    "height": 0.5625,
+    "eye_height": 0.5625
+  },
+  {
+    "id": 9,
+    "name": "bamboo_raft",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.375,
+    "height": 0.5625,
+    "eye_height": 0.5625
+  },
+  {
+    "id": 10,
+    "name": "bat",
+    "client_tracking_range": 5,
+    "update_interval": 3,
+    "width": 0.5,
+    "height": 0.9,
+    "eye_height": 0.45,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 11,
+    "name": "bee",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.7,
+    "height": 0.6,
+    "eye_height": 0.3,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 12,
+    "name": "birch_boat",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.375,
+    "height": 0.5625,
+    "eye_height": 0.5625
+  },
+  {
+    "id": 13,
+    "name": "birch_chest_boat",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.375,
+    "height": 0.5625,
+    "eye_height": 0.5625
+  },
+  {
+    "id": 14,
+    "name": "blaze",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.8,
+    "eye_height": 1.53,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 15,
+    "name": "block_display",
+    "client_tracking_range": 10,
+    "update_interval": 1,
+    "width": 0.0,
+    "height": 0.0,
+    "eye_height": 0.0
+  },
+  {
+    "id": 16,
+    "name": "bogged",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.99,
+    "eye_height": 1.74,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 17,
+    "name": "breeze",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.77,
+    "eye_height": 1.3452,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 18,
+    "name": "breeze_wind_charge",
+    "client_tracking_range": 4,
+    "update_interval": 10,
+    "width": 0.3125,
+    "height": 0.3125,
+    "eye_height": 0.0
+  },
+  {
+    "id": 19,
+    "name": "camel",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.7,
+    "height": 2.375,
+    "eye_height": 2.275,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      },
+      "SITTING": {
+        "height": 0.94500005,
+        "eye_height": 0.845
+      }
+    }
+  },
+  {
+    "id": 20,
+    "name": "camel_husk",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.7,
+    "height": 2.375,
+    "eye_height": 2.275,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      },
+      "SITTING": {
+        "height": 0.94500005,
+        "eye_height": 0.845
+      }
+    }
+  },
+  {
+    "id": 21,
+    "name": "cat",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 0.7,
+    "eye_height": 0.35,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 22,
+    "name": "cave_spider",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.7,
+    "height": 0.5,
+    "eye_height": 0.45,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 23,
+    "name": "cherry_boat",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.375,
+    "height": 0.5625,
+    "eye_height": 0.5625
+  },
+  {
+    "id": 24,
+    "name": "cherry_chest_boat",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.375,
+    "height": 0.5625,
+    "eye_height": 0.5625
+  },
+  {
+    "id": 25,
+    "name": "chest_minecart",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.98,
+    "height": 0.7,
+    "eye_height": 0.595
+  },
+  {
+    "id": 26,
+    "name": "chicken",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.4,
+    "height": 0.7,
+    "eye_height": 0.644,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 27,
+    "name": "cod",
+    "client_tracking_range": 4,
+    "update_interval": 3,
+    "width": 0.5,
+    "height": 0.3,
+    "eye_height": 0.195,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 28,
+    "name": "copper_golem",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.49,
+    "height": 0.98,
+    "eye_height": 0.8125,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 29,
+    "name": "command_block_minecart",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.98,
+    "height": 0.7,
+    "eye_height": 0.595
+  },
+  {
+    "id": 30,
+    "name": "cow",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.9,
+    "height": 1.4,
+    "eye_height": 1.3,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 31,
+    "name": "creaking",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.9,
+    "height": 2.7,
+    "eye_height": 2.3,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 32,
+    "name": "creeper",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.7,
+    "eye_height": 1.445,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 33,
+    "name": "dark_oak_boat",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.375,
+    "height": 0.5625,
+    "eye_height": 0.5625
+  },
+  {
+    "id": 34,
+    "name": "dark_oak_chest_boat",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.375,
+    "height": 0.5625,
+    "eye_height": 0.5625
+  },
+  {
+    "id": 35,
+    "name": "dolphin",
+    "client_tracking_range": 5,
+    "update_interval": 3,
+    "width": 0.9,
+    "height": 0.6,
+    "eye_height": 0.3,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 36,
+    "name": "donkey",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.3964844,
+    "height": 1.5,
+    "eye_height": 1.425,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 37,
+    "name": "dragon_fireball",
+    "client_tracking_range": 4,
+    "update_interval": 10,
+    "width": 1.0,
+    "height": 1.0,
+    "eye_height": 0.85
+  },
+  {
+    "id": 38,
+    "name": "drowned",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.95,
+    "eye_height": 1.74,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 39,
+    "name": "egg",
+    "client_tracking_range": 4,
+    "update_interval": 10,
+    "width": 0.25,
+    "height": 0.25,
+    "eye_height": 0.2125
+  },
+  {
+    "id": 40,
+    "name": "elder_guardian",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.9975,
+    "height": 1.9975,
+    "eye_height": 0.99875,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 41,
+    "name": "enderman",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 2.9,
+    "eye_height": 2.55,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 42,
+    "name": "endermite",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.4,
+    "height": 0.3,
+    "eye_height": 0.13,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 43,
+    "name": "ender_dragon",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 16.0,
+    "height": 8.0,
+    "eye_height": 6.8,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 44,
+    "name": "ender_pearl",
+    "client_tracking_range": 4,
+    "update_interval": 10,
+    "width": 0.25,
+    "height": 0.25,
+    "eye_height": 0.2125
+  },
+  {
+    "id": 45,
+    "name": "end_crystal",
+    "client_tracking_range": 16,
+    "update_interval": 2147483647,
+    "width": 2.0,
+    "height": 2.0,
+    "eye_height": 1.7
+  },
+  {
+    "id": 46,
+    "name": "evoker",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.95,
+    "eye_height": 1.6575,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 47,
+    "name": "evoker_fangs",
+    "client_tracking_range": 6,
+    "update_interval": 2,
+    "width": 0.5,
+    "height": 0.8,
+    "eye_height": 0.68
+  },
+  {
+    "id": 48,
+    "name": "experience_bottle",
+    "client_tracking_range": 4,
+    "update_interval": 10,
+    "width": 0.25,
+    "height": 0.25,
+    "eye_height": 0.2125
+  },
+  {
+    "id": 49,
+    "name": "experience_orb",
+    "client_tracking_range": 6,
+    "update_interval": 20,
+    "width": 0.5,
+    "height": 0.5,
+    "eye_height": 0.425
+  },
+  {
+    "id": 50,
+    "name": "eye_of_ender",
+    "client_tracking_range": 4,
+    "update_interval": 4,
+    "width": 0.25,
+    "height": 0.25,
+    "eye_height": 0.2125
+  },
+  {
+    "id": 51,
+    "name": "falling_block",
+    "client_tracking_range": 10,
+    "update_interval": 20,
+    "width": 0.98,
+    "height": 0.98,
+    "eye_height": 0.83300006
+  },
+  {
+    "id": 52,
+    "name": "fireball",
+    "client_tracking_range": 4,
+    "update_interval": 10,
+    "width": 1.0,
+    "height": 1.0,
+    "eye_height": 0.85
+  },
+  {
+    "id": 53,
+    "name": "firework_rocket",
+    "client_tracking_range": 4,
+    "update_interval": 10,
+    "width": 0.25,
+    "height": 0.25,
+    "eye_height": 0.2125
+  },
+  {
+    "id": 54,
+    "name": "fox",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 0.7,
+    "eye_height": 0.4,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 55,
+    "name": "frog",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.5,
+    "height": 0.5,
+    "eye_height": 0.425,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 56,
+    "name": "furnace_minecart",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.98,
+    "height": 0.7,
+    "eye_height": 0.595
+  },
+  {
+    "id": 57,
+    "name": "ghast",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 4.0,
+    "height": 4.0,
+    "eye_height": 2.6,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 58,
+    "name": "happy_ghast",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 4.0,
+    "height": 4.0,
+    "eye_height": 2.6,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 59,
+    "name": "giant",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 3.6,
+    "height": 12.0,
+    "eye_height": 10.44,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 60,
+    "name": "glow_item_frame",
+    "client_tracking_range": 10,
+    "update_interval": 2147483647,
+    "width": 0.5,
+    "height": 0.5,
+    "eye_height": 0.0
+  },
+  {
+    "id": 61,
+    "name": "glow_squid",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.8,
+    "height": 0.8,
+    "eye_height": 0.4,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 62,
+    "name": "goat",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.9,
+    "height": 1.3,
+    "eye_height": 1.105,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      },
+      "LONG_JUMPING": {
+        "width": 0.63,
+        "height": 0.90999997,
+        "eye_height": 0.7735
+      }
+    }
+  },
+  {
+    "id": 63,
+    "name": "guardian",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.85,
+    "height": 0.85,
+    "eye_height": 0.425,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 64,
+    "name": "hoglin",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 1.3964844,
+    "height": 1.4,
+    "eye_height": 1.19,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 65,
+    "name": "hopper_minecart",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.98,
+    "height": 0.7,
+    "eye_height": 0.595
+  },
+  {
+    "id": 66,
+    "name": "horse",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.3964844,
+    "height": 1.6,
+    "eye_height": 1.52,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 67,
+    "name": "husk",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.95,
+    "eye_height": 1.74,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 68,
+    "name": "illusioner",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.95,
+    "eye_height": 1.6575,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 69,
+    "name": "interaction",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.0,
+    "height": 0.0,
+    "eye_height": 0.0,
+    "pose_dimensions": {
+      "STANDING": {
+        "width": 1.0,
+        "height": 1.0,
+        "eye_height": 0.85
+      },
+      "FALL_FLYING": {
+        "width": 1.0,
+        "height": 1.0,
+        "eye_height": 0.85
+      },
+      "SLEEPING": {
+        "width": 1.0,
+        "height": 1.0,
+        "eye_height": 0.85
+      },
+      "SWIMMING": {
+        "width": 1.0,
+        "height": 1.0,
+        "eye_height": 0.85
+      },
+      "SPIN_ATTACK": {
+        "width": 1.0,
+        "height": 1.0,
+        "eye_height": 0.85
+      },
+      "CROUCHING": {
+        "width": 1.0,
+        "height": 1.0,
+        "eye_height": 0.85
+      },
+      "LONG_JUMPING": {
+        "width": 1.0,
+        "height": 1.0,
+        "eye_height": 0.85
+      },
+      "DYING": {
+        "width": 1.0,
+        "height": 1.0,
+        "eye_height": 0.85
+      },
+      "CROAKING": {
+        "width": 1.0,
+        "height": 1.0,
+        "eye_height": 0.85
+      },
+      "USING_TONGUE": {
+        "width": 1.0,
+        "height": 1.0,
+        "eye_height": 0.85
+      },
+      "SITTING": {
+        "width": 1.0,
+        "height": 1.0,
+        "eye_height": 0.85
+      },
+      "ROARING": {
+        "width": 1.0,
+        "height": 1.0,
+        "eye_height": 0.85
+      },
+      "SNIFFING": {
+        "width": 1.0,
+        "height": 1.0,
+        "eye_height": 0.85
+      },
+      "EMERGING": {
+        "width": 1.0,
+        "height": 1.0,
+        "eye_height": 0.85
+      },
+      "DIGGING": {
+        "width": 1.0,
+        "height": 1.0,
+        "eye_height": 0.85
+      },
+      "SLIDING": {
+        "width": 1.0,
+        "height": 1.0,
+        "eye_height": 0.85
+      },
+      "SHOOTING": {
+        "width": 1.0,
+        "height": 1.0,
+        "eye_height": 0.85
+      },
+      "INHALING": {
+        "width": 1.0,
+        "height": 1.0,
+        "eye_height": 0.85
+      }
+    }
+  },
+  {
+    "id": 70,
+    "name": "iron_golem",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.4,
+    "height": 2.7,
+    "eye_height": 2.295,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 71,
+    "name": "item",
+    "client_tracking_range": 6,
+    "update_interval": 20,
+    "width": 0.25,
+    "height": 0.25,
+    "eye_height": 0.2125
+  },
+  {
+    "id": 72,
+    "name": "item_display",
+    "client_tracking_range": 10,
+    "update_interval": 1,
+    "width": 0.0,
+    "height": 0.0,
+    "eye_height": 0.0
+  },
+  {
+    "id": 73,
+    "name": "item_frame",
+    "client_tracking_range": 10,
+    "update_interval": 2147483647,
+    "width": 0.5,
+    "height": 0.5,
+    "eye_height": 0.0
+  },
+  {
+    "id": 74,
+    "name": "jungle_boat",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.375,
+    "height": 0.5625,
+    "eye_height": 0.5625
+  },
+  {
+    "id": 75,
+    "name": "jungle_chest_boat",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.375,
+    "height": 0.5625,
+    "eye_height": 0.5625
+  },
+  {
+    "id": 76,
+    "name": "leash_knot",
+    "client_tracking_range": 10,
+    "update_interval": 2147483647,
+    "width": 0.375,
+    "height": 0.5,
+    "eye_height": 0.0625
+  },
+  {
+    "id": 77,
+    "name": "lightning_bolt",
+    "client_tracking_range": 16,
+    "update_interval": 2147483647,
+    "width": 0.0,
+    "height": 0.0,
+    "eye_height": 0.0
+  },
+  {
+    "id": 78,
+    "name": "llama",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.9,
+    "height": 1.87,
+    "eye_height": 1.7765,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 79,
+    "name": "llama_spit",
+    "client_tracking_range": 4,
+    "update_interval": 10,
+    "width": 0.25,
+    "height": 0.25,
+    "eye_height": 0.2125
+  },
+  {
+    "id": 80,
+    "name": "magma_cube",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.52,
+    "height": 0.52,
+    "eye_height": 0.325,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 81,
+    "name": "mangrove_boat",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.375,
+    "height": 0.5625,
+    "eye_height": 0.5625
+  },
+  {
+    "id": 82,
+    "name": "mangrove_chest_boat",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.375,
+    "height": 0.5625,
+    "eye_height": 0.5625
+  },
+  {
+    "id": 83,
+    "name": "mannequin",
+    "client_tracking_range": 32,
+    "update_interval": 2,
+    "width": 0.6,
+    "height": 1.8,
+    "eye_height": 1.62,
+    "pose_dimensions": {
+      "FALL_FLYING": {
+        "height": 0.6,
+        "eye_height": 0.4
+      },
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      },
+      "SWIMMING": {
+        "height": 0.6,
+        "eye_height": 0.4
+      },
+      "SPIN_ATTACK": {
+        "height": 0.6,
+        "eye_height": 0.4
+      },
+      "CROUCHING": {
+        "height": 1.5,
+        "eye_height": 1.27
+      },
+      "DYING": {
+        "width": 0.2,
+        "height": 0.2
+      }
+    }
+  },
+  {
+    "id": 84,
+    "name": "marker",
+    "client_tracking_range": 0,
+    "update_interval": 3,
+    "width": 0.0,
+    "height": 0.0,
+    "eye_height": 0.0
+  },
+  {
+    "id": 85,
+    "name": "minecart",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.98,
+    "height": 0.7,
+    "eye_height": 0.595
+  },
+  {
+    "id": 86,
+    "name": "mooshroom",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.9,
+    "height": 1.4,
+    "eye_height": 1.3,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 87,
+    "name": "mule",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 1.3964844,
+    "height": 1.6,
+    "eye_height": 1.52,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 88,
+    "name": "nautilus",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.875,
+    "height": 0.95,
+    "eye_height": 0.2751,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 89,
+    "name": "oak_boat",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.375,
+    "height": 0.5625,
+    "eye_height": 0.5625
+  },
+  {
+    "id": 90,
+    "name": "oak_chest_boat",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.375,
+    "height": 0.5625,
+    "eye_height": 0.5625
+  },
+  {
+    "id": 91,
+    "name": "ocelot",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 0.7,
+    "eye_height": 0.595,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 92,
+    "name": "ominous_item_spawner",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.25,
+    "height": 0.25,
+    "eye_height": 0.2125
+  },
+  {
+    "id": 93,
+    "name": "painting",
+    "client_tracking_range": 10,
+    "update_interval": 2147483647,
+    "width": 0.5,
+    "height": 0.5,
+    "eye_height": 0.425
+  },
+  {
+    "id": 94,
+    "name": "pale_oak_boat",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.375,
+    "height": 0.5625,
+    "eye_height": 0.5625
+  },
+  {
+    "id": 95,
+    "name": "pale_oak_chest_boat",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.375,
+    "height": 0.5625,
+    "eye_height": 0.5625
+  },
+  {
+    "id": 96,
+    "name": "panda",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.3,
+    "height": 1.25,
+    "eye_height": 1.0625,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 97,
+    "name": "parched",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.99,
+    "eye_height": 1.74,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 98,
+    "name": "parrot",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.5,
+    "height": 0.9,
+    "eye_height": 0.54,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 99,
+    "name": "phantom",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.9,
+    "height": 0.5,
+    "eye_height": 0.175,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 100,
+    "name": "pig",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.9,
+    "height": 0.9,
+    "eye_height": 0.765,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 101,
+    "name": "piglin",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.95,
+    "eye_height": 1.79,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 102,
+    "name": "piglin_brute",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.95,
+    "eye_height": 1.79,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 103,
+    "name": "pillager",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.95,
+    "eye_height": 1.6575,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 104,
+    "name": "polar_bear",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.4,
+    "height": 1.4,
+    "eye_height": 1.19,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 105,
+    "name": "splash_potion",
+    "client_tracking_range": 4,
+    "update_interval": 10,
+    "width": 0.25,
+    "height": 0.25,
+    "eye_height": 0.2125
+  },
+  {
+    "id": 106,
+    "name": "lingering_potion",
+    "client_tracking_range": 4,
+    "update_interval": 10,
+    "width": 0.25,
+    "height": 0.25,
+    "eye_height": 0.2125
+  },
+  {
+    "id": 107,
+    "name": "pufferfish",
+    "client_tracking_range": 4,
+    "update_interval": 3,
+    "width": 0.7,
+    "height": 0.7,
+    "eye_height": 0.455,
+    "pose_dimensions": {
+      "STANDING": {
+        "width": 0.35,
+        "height": 0.35,
+        "eye_height": 0.2275
+      },
+      "FALL_FLYING": {
+        "width": 0.35,
+        "height": 0.35,
+        "eye_height": 0.2275
+      },
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      },
+      "SWIMMING": {
+        "width": 0.35,
+        "height": 0.35,
+        "eye_height": 0.2275
+      },
+      "SPIN_ATTACK": {
+        "width": 0.35,
+        "height": 0.35,
+        "eye_height": 0.2275
+      },
+      "CROUCHING": {
+        "width": 0.35,
+        "height": 0.35,
+        "eye_height": 0.2275
+      },
+      "LONG_JUMPING": {
+        "width": 0.35,
+        "height": 0.35,
+        "eye_height": 0.2275
+      },
+      "DYING": {
+        "width": 0.35,
+        "height": 0.35,
+        "eye_height": 0.2275
+      },
+      "CROAKING": {
+        "width": 0.35,
+        "height": 0.35,
+        "eye_height": 0.2275
+      },
+      "USING_TONGUE": {
+        "width": 0.35,
+        "height": 0.35,
+        "eye_height": 0.2275
+      },
+      "SITTING": {
+        "width": 0.35,
+        "height": 0.35,
+        "eye_height": 0.2275
+      },
+      "ROARING": {
+        "width": 0.35,
+        "height": 0.35,
+        "eye_height": 0.2275
+      },
+      "SNIFFING": {
+        "width": 0.35,
+        "height": 0.35,
+        "eye_height": 0.2275
+      },
+      "EMERGING": {
+        "width": 0.35,
+        "height": 0.35,
+        "eye_height": 0.2275
+      },
+      "DIGGING": {
+        "width": 0.35,
+        "height": 0.35,
+        "eye_height": 0.2275
+      },
+      "SLIDING": {
+        "width": 0.35,
+        "height": 0.35,
+        "eye_height": 0.2275
+      },
+      "SHOOTING": {
+        "width": 0.35,
+        "height": 0.35,
+        "eye_height": 0.2275
+      },
+      "INHALING": {
+        "width": 0.35,
+        "height": 0.35,
+        "eye_height": 0.2275
+      }
+    }
+  },
+  {
+    "id": 108,
+    "name": "rabbit",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.4,
+    "height": 0.5,
+    "eye_height": 0.425,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 109,
+    "name": "ravager",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.95,
+    "height": 2.2,
+    "eye_height": 1.8700001,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 110,
+    "name": "salmon",
+    "client_tracking_range": 4,
+    "update_interval": 3,
+    "width": 0.7,
+    "height": 0.4,
+    "eye_height": 0.26,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 111,
+    "name": "sheep",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.9,
+    "height": 1.3,
+    "eye_height": 1.235,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 112,
+    "name": "shulker",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.0,
+    "height": 1.0,
+    "eye_height": 0.5,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 113,
+    "name": "shulker_bullet",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.3125,
+    "height": 0.3125,
+    "eye_height": 0.265625
+  },
+  {
+    "id": 114,
+    "name": "silverfish",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.4,
+    "height": 0.3,
+    "eye_height": 0.13,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 115,
+    "name": "skeleton",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.99,
+    "eye_height": 1.74,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 116,
+    "name": "skeleton_horse",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.3964844,
+    "height": 1.6,
+    "eye_height": 1.52,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 117,
+    "name": "slime",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.52,
+    "height": 0.52,
+    "eye_height": 0.325,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 118,
+    "name": "small_fireball",
+    "client_tracking_range": 4,
+    "update_interval": 10,
+    "width": 0.3125,
+    "height": 0.3125,
+    "eye_height": 0.265625
+  },
+  {
+    "id": 119,
+    "name": "sniffer",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.9,
+    "height": 1.75,
+    "eye_height": 1.05,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 120,
+    "name": "snowball",
+    "client_tracking_range": 4,
+    "update_interval": 10,
+    "width": 0.25,
+    "height": 0.25,
+    "eye_height": 0.2125
+  },
+  {
+    "id": 121,
+    "name": "snow_golem",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.7,
+    "height": 1.9,
+    "eye_height": 1.7,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 122,
+    "name": "spawner_minecart",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.98,
+    "height": 0.7,
+    "eye_height": 0.595
+  },
+  {
+    "id": 123,
+    "name": "spectral_arrow",
+    "client_tracking_range": 4,
+    "update_interval": 20,
+    "width": 0.5,
+    "height": 0.5,
+    "eye_height": 0.13
+  },
+  {
+    "id": 124,
+    "name": "spider",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 1.4,
+    "height": 0.9,
+    "eye_height": 0.65,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 125,
+    "name": "spruce_boat",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.375,
+    "height": 0.5625,
+    "eye_height": 0.5625
+  },
+  {
+    "id": 126,
+    "name": "spruce_chest_boat",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.375,
+    "height": 0.5625,
+    "eye_height": 0.5625
+  },
+  {
+    "id": 127,
+    "name": "squid",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.8,
+    "height": 0.8,
+    "eye_height": 0.4,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 128,
+    "name": "stray",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.99,
+    "eye_height": 1.74,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 129,
+    "name": "strider",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.9,
+    "height": 1.7,
+    "eye_height": 1.445,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 130,
+    "name": "tadpole",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.4,
+    "height": 0.3,
+    "eye_height": 0.19500001,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 131,
+    "name": "text_display",
+    "client_tracking_range": 10,
+    "update_interval": 1,
+    "width": 0.0,
+    "height": 0.0,
+    "eye_height": 0.0
+  },
+  {
+    "id": 132,
+    "name": "tnt",
+    "client_tracking_range": 10,
+    "update_interval": 10,
+    "width": 0.98,
+    "height": 0.98,
+    "eye_height": 0.15
+  },
+  {
+    "id": 133,
+    "name": "tnt_minecart",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.98,
+    "height": 0.7,
+    "eye_height": 0.595
+  },
+  {
+    "id": 134,
+    "name": "trader_llama",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.9,
+    "height": 1.87,
+    "eye_height": 1.7765,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 135,
+    "name": "trident",
+    "client_tracking_range": 4,
+    "update_interval": 20,
+    "width": 0.5,
+    "height": 0.5,
+    "eye_height": 0.13
+  },
+  {
+    "id": 136,
+    "name": "tropical_fish",
+    "client_tracking_range": 4,
+    "update_interval": 3,
+    "width": 0.5,
+    "height": 0.4,
+    "eye_height": 0.26,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 137,
+    "name": "turtle",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.2,
+    "height": 0.4,
+    "eye_height": 0.34,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 138,
+    "name": "vex",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.4,
+    "height": 0.8,
+    "eye_height": 0.51875,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 139,
+    "name": "villager",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.95,
+    "eye_height": 1.62,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 140,
+    "name": "vindicator",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.95,
+    "eye_height": 1.6575,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 141,
+    "name": "wandering_trader",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.95,
+    "eye_height": 1.62,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 142,
+    "name": "warden",
+    "client_tracking_range": 16,
+    "update_interval": 3,
+    "width": 0.9,
+    "height": 2.9,
+    "eye_height": 2.4650002,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 143,
+    "name": "wind_charge",
+    "client_tracking_range": 4,
+    "update_interval": 10,
+    "width": 0.3125,
+    "height": 0.3125,
+    "eye_height": 0.0
+  },
+  {
+    "id": 144,
+    "name": "witch",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.95,
+    "eye_height": 1.62,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 145,
+    "name": "wither",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.9,
+    "height": 3.5,
+    "eye_height": 2.9750001,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 146,
+    "name": "wither_skeleton",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.7,
+    "height": 2.4,
+    "eye_height": 2.1,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 147,
+    "name": "wither_skull",
+    "client_tracking_range": 4,
+    "update_interval": 10,
+    "width": 0.3125,
+    "height": 0.3125,
+    "eye_height": 0.265625
+  },
+  {
+    "id": 148,
+    "name": "wolf",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 0.85,
+    "eye_height": 0.68,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 149,
+    "name": "zoglin",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 1.3964844,
+    "height": 1.4,
+    "eye_height": 1.19,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 150,
+    "name": "zombie",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.95,
+    "eye_height": 1.74,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 151,
+    "name": "zombie_horse",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 1.3964844,
+    "height": 1.6,
+    "eye_height": 1.52,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 152,
+    "name": "zombie_nautilus",
+    "client_tracking_range": 10,
+    "update_interval": 3,
+    "width": 0.875,
+    "height": 0.95,
+    "eye_height": 0.2751,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 153,
+    "name": "zombie_villager",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.95,
+    "eye_height": 1.74,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
+    "id": 154,
+    "name": "zombified_piglin",
+    "client_tracking_range": 8,
+    "update_interval": 3,
+    "width": 0.6,
+    "height": 1.95,
+    "eye_height": 1.79,
+    "pose_dimensions": {
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      }
+    }
+  },
+  {
     "id": 155,
     "name": "player",
     "client_tracking_range": 32,
-    "update_interval": 2
+    "update_interval": 2,
+    "width": 0.6,
+    "height": 1.8,
+    "eye_height": 1.62,
+    "pose_dimensions": {
+      "FALL_FLYING": {
+        "height": 0.6,
+        "eye_height": 0.4
+      },
+      "SLEEPING": {
+        "width": 0.2,
+        "height": 0.2,
+        "eye_height": 0.2
+      },
+      "SWIMMING": {
+        "height": 0.6,
+        "eye_height": 0.4
+      },
+      "SPIN_ATTACK": {
+        "height": 0.6,
+        "eye_height": 0.4
+      },
+      "CROUCHING": {
+        "height": 1.5,
+        "eye_height": 1.27
+      },
+      "DYING": {
+        "width": 0.2,
+        "height": 0.2
+      }
+    }
+  },
+  {
+    "id": 156,
+    "name": "fishing_bobber",
+    "client_tracking_range": 4,
+    "update_interval": 5,
+    "width": 0.25,
+    "height": 0.25,
+    "eye_height": 0.2125
   }
 ]

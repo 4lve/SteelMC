@@ -13,6 +13,7 @@ mod dialogs;
 mod dimension_types;
 mod entities;
 mod entity_data_serializers;
+mod entity_flags;
 mod frog_variants;
 mod instruments;
 mod item_tags;
@@ -66,6 +67,7 @@ const ZOMBIE_NAUTILUS_VARIANTS: &str = "zombie_nautilus_variants";
 const RECIPES: &str = "recipes";
 const VANILLA_ENTITIES: &str = "entities";
 const ENTITY_DATA_SERIALIZERS: &str = "entity_data_serializers";
+const ENTITY_FLAGS: &str = "entity_flags";
 const POSES: &str = "poses";
 
 pub fn main() {
@@ -104,6 +106,7 @@ pub fn main() {
         (recipes::build(), RECIPES),
         (entities::build(), VANILLA_ENTITIES),
         (entity_data_serializers::build(), ENTITY_DATA_SERIALIZERS),
+        (entity_flags::build(), ENTITY_FLAGS),
         (poses::build(), POSES),
     ];
 

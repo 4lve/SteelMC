@@ -18,7 +18,7 @@ impl World {
     /// Removes a player from the world.
     pub async fn remove_player(self: &Arc<Self>, player: Arc<Player>) {
         let uuid = player.gameprofile.id;
-        let entity_id = player.entity_id;
+        let entity_id = player.entity_id();
 
         if self.players.remove_async(&uuid).await.is_some() {
             let start = Instant::now();
@@ -56,7 +56,7 @@ impl World {
         let chunk_pos = ChunkPos::new((pos.x as i32) >> 4, (pos.z as i32) >> 4);
         let view = PlayerChunkView::new(chunk_pos, STEEL_CONFIG.view_distance);
         self.player_area_map.on_player_join(&player, &view);
-        let (yaw, pitch) = player.rotation.load();
+        let (yaw, pitch) = player.rotation();
 
         // Send existing players to the new player (tab list + entity spawn)
         self.players.iter_sync(|_, existing_player| {
@@ -82,9 +82,9 @@ impl World {
 
                 // Spawn existing player entity for new player
                 let existing_pos = *existing_player.position.lock();
-                let (existing_yaw, existing_pitch) = existing_player.rotation.load();
+                let (existing_yaw, existing_pitch) = existing_player.rotation();
                 player.connection.send_packet(CAddEntity::player(
-                    existing_player.entity_id,
+                    existing_player.entity_id(),
                     existing_player.gameprofile.id,
                     existing_pos.x,
                     existing_pos.y,
@@ -97,7 +97,7 @@ impl World {
                 let entity_data = existing_player.pack_entity_data();
                 if !entity_data.is_empty() {
                     player.connection.send_packet(CSetEntityData {
-                        entity_id: existing_player.entity_id,
+                        entity_id: existing_player.entity_id(),
                         metadata: entity_data_to_packet_entries(entity_data),
                     });
                 }
@@ -112,7 +112,7 @@ impl World {
             player.gameprofile.properties.clone(),
         );
         let spawn_packet = CAddEntity::player(
-            player.entity_id,
+            player.entity_id(),
             player.gameprofile.id,
             pos.x,
             pos.y,
@@ -127,7 +127,7 @@ impl World {
             None
         } else {
             Some(CSetEntityData {
-                entity_id: player.entity_id,
+                entity_id: player.entity_id(),
                 metadata: entity_data_to_packet_entries(new_player_entity_data),
             })
         };

@@ -14,8 +14,7 @@ struct PoseEntry {
 pub(crate) fn build() -> TokenStream {
     println!("cargo:rerun-if-changed=build_assets/poses.json");
 
-    let file = "build_assets/poses.json";
-    let content = fs::read_to_string(file).unwrap();
+    let content = fs::read_to_string("build_assets/poses.json").unwrap();
     let poses: Vec<PoseEntry> = serde_json::from_str(&content)
         .unwrap_or_else(|e| panic!("Failed to parse poses.json: {}", e));
 

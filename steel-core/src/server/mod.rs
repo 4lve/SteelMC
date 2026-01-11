@@ -84,7 +84,7 @@ impl Server {
     /// Adds a player to the server.
     pub fn add_player(&self, player: Arc<Player>) {
         player.connection.send_packet(CLogin {
-            player_id: player.entity_id,
+            player_id: player.entity_id(),
             hardcore: false,
             levels: vec![Identifier::vanilla_static("overworld")],
             max_players: 5,

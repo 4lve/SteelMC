@@ -54,7 +54,8 @@ use steel_utils::types::InteractionHand;
 use steel_utils::{ChunkPos, math::Vector3, text::TextComponent, translations};
 
 use crate::entity::{
-    EntityDataAccessor, EntityDataValue, LivingEntity, Pose, entity_data_to_packet_entries,
+    Entity, EntityBase, EntityDataAccessor, EntityDataValue, FLAG_SHIFT_KEY_DOWN, LivingEntity,
+    Pose, entity_data_to_packet_entries,
 };
 use crate::inventory::{
     container::Container,
@@ -64,6 +65,7 @@ use crate::inventory::{
     slot::Slot,
 };
 use steel_protocol::packets::game::CSetEntityData;
+use steel_registry::{EntityDimensions, EntityTypeRef, vanilla_entities};
 
 /// Re-export `PreviousMessage` as `PreviousMessageEntry` for use in `signature_cache`
 pub type PreviousMessageEntry = PreviousMessage;
@@ -74,6 +76,9 @@ use crate::world::World;
 
 /// A struct representing a player.
 pub struct Player {
+    /// Common entity data (ID, UUID, pose, flags, etc.)
+    base: EntityBase,
+
     /// The player's game profile.
     pub gameprofile: GameProfile,
     /// The player's connection.
@@ -82,16 +87,11 @@ pub struct Player {
     /// The world the player is in.
     pub world: Arc<World>,
 
-    /// The entity ID assigned to this player.
-    pub entity_id: i32,
-
     /// Whether the player has finished loading the client.
     pub client_loaded: AtomicBool,
 
-    /// The player's position.
+    /// The player's position (uses mutex for complex operations).
     pub position: SyncMutex<Vector3<f64>>,
-    /// The player's rotation (yaw, pitch).
-    pub rotation: AtomicCell<(f32, f32)>,
     /// The previous position for delta movement calculations.
     prev_position: SyncMutex<Vector3<f64>>,
     /// The previous rotation for movement broadcasts.
@@ -104,8 +104,6 @@ pub struct Player {
     absorption_amount: AtomicCell<f32>,
     /// The player's movement speed.
     speed: AtomicCell<f32>,
-    /// Whether the player is sprinting.
-    sprinting: AtomicBool,
 
     /// The last chunk position of the player.
     pub last_chunk_pos: SyncMutex<ChunkPos>,
@@ -143,15 +141,6 @@ pub struct Player {
     /// Tracks the last acknowledged block change sequence number.
     ack_block_changes_up_to: AtomicI32,
 
-    /// Whether the player is sneaking (shift key down).
-    shift_key_down: AtomicBool,
-
-    /// The player's current pose (Standing, Crouching, Swimming, etc.)
-    pose: AtomicCell<Pose>,
-
-    /// Tracks the last synced pose for dirty detection.
-    last_synced_pose: AtomicCell<Pose>,
-
     /// Position we're waiting for the client to confirm via teleport ack.
     /// If Some, we should reject interaction packets until confirmed.
     awaiting_position_from_client: SyncMutex<Option<Vector3<f64>>>,
@@ -170,20 +159,17 @@ impl Player {
         let inventory = Arc::new(SyncMutex::new(PlayerInventory::new(player.clone())));
 
         Self {
+            base: EntityBase::new(entity_id, gameprofile.id),
             gameprofile,
             connection,
-
             world,
-            entity_id,
             client_loaded: AtomicBool::new(false),
             position: SyncMutex::new(Vector3::default()),
-            rotation: AtomicCell::new((0.0, 0.0)),
             prev_position: SyncMutex::new(Vector3::default()),
             prev_rotation: AtomicCell::new((0.0, 0.0)),
-            health: AtomicCell::new(20.0), // Default max health
+            health: AtomicCell::new(20.0),
             absorption_amount: AtomicCell::new(0.0),
-            speed: AtomicCell::new(0.1), // Default walking speed
-            sprinting: AtomicBool::new(false),
+            speed: AtomicCell::new(0.1),
             last_chunk_pos: SyncMutex::new(ChunkPos::new(0, 0)),
             last_tracking_view: SyncMutex::new(None),
             chunk_sender: SyncMutex::new(ChunkSender::default()),
@@ -197,11 +183,25 @@ impl Player {
             inventory: inventory.clone(),
             inventory_menu: SyncMutex::new(InventoryMenu::new(inventory)),
             ack_block_changes_up_to: AtomicI32::new(-1),
-            shift_key_down: AtomicBool::new(false),
-            pose: AtomicCell::new(Pose::Standing),
-            last_synced_pose: AtomicCell::new(Pose::Standing),
             awaiting_position_from_client: SyncMutex::new(None),
         }
+    }
+
+    /// Returns the entity ID.
+    #[must_use]
+    pub fn entity_id(&self) -> i32 {
+        self.base.entity_id
+    }
+
+    /// Returns the player's rotation (yaw, pitch).
+    #[must_use]
+    pub fn rotation(&self) -> (f32, f32) {
+        self.base.rotation.load()
+    }
+
+    /// Sets the player's rotation.
+    pub fn set_rotation(&self, yaw: f32, pitch: f32) {
+        self.base.rotation.store((yaw, pitch));
     }
 
     /// Ticks the player.
@@ -476,7 +476,7 @@ impl Player {
             *self.position.lock() = packet.position;
         }
         if packet.has_rot {
-            self.rotation.store((packet.y_rot, packet.x_rot));
+            self.set_rotation(packet.y_rot, packet.x_rot);
         }
 
         // Broadcast movement to other players
@@ -499,7 +499,7 @@ impl Player {
 
             if packet.has_pos {
                 let move_packet = CMoveEntityPosRot {
-                    entity_id: self.entity_id,
+                    entity_id: self.entity_id(),
                     dx: calc_delta(pos.x, prev_pos.x),
                     dy: calc_delta(pos.y, prev_pos.y),
                     dz: calc_delta(pos.z, prev_pos.z),
@@ -511,7 +511,7 @@ impl Player {
                     .broadcast_to_nearby(new_chunk, move_packet, Some(self.gameprofile.id));
             } else {
                 let rot_packet = CMoveEntityRot {
-                    entity_id: self.entity_id,
+                    entity_id: self.entity_id(),
                     y_rot: to_angle_byte(yaw),
                     x_rot: to_angle_byte(pitch),
                     on_ground: packet.on_ground,
@@ -522,7 +522,7 @@ impl Player {
 
             if packet.has_rot {
                 let head_packet = CRotateHead {
-                    entity_id: self.entity_id,
+                    entity_id: self.entity_id(),
                     head_y_rot: to_angle_byte(yaw),
                 };
                 self.world
@@ -853,7 +853,7 @@ impl Player {
     /// Returns true if player is sneaking (secondary use active).
     #[must_use]
     pub fn is_secondary_use_active(&self) -> bool {
-        self.shift_key_down.load(Ordering::Relaxed)
+        self.base.get_flag(FLAG_SHIFT_KEY_DOWN)
     }
 
     /// Returns true if player has infinite materials (Creative mode).
@@ -890,7 +890,7 @@ impl Player {
             InteractionHand::MainHand => AnimateAction::SwingMainHand,
             InteractionHand::OffHand => AnimateAction::SwingOffHand,
         };
-        let packet = CAnimate::new(self.entity_id, action);
+        let packet = CAnimate::new(self.entity_id(), action);
 
         let chunk = *self.last_chunk_pos.lock();
         let exclude = if update_self {
@@ -903,7 +903,8 @@ impl Player {
 
     /// Handles player input (sneaking, sprinting).
     pub fn handle_player_input(&self, packet: SPlayerInput) {
-        let was_sneaking = self.shift_key_down.swap(packet.shift(), Ordering::Relaxed);
+        let was_sneaking = self.base.get_flag(FLAG_SHIFT_KEY_DOWN);
+        self.base.set_flag(FLAG_SHIFT_KEY_DOWN, packet.shift());
 
         if was_sneaking != packet.shift() {
             let new_pose = if packet.shift() {
@@ -912,7 +913,7 @@ impl Player {
                 Pose::Standing
             };
 
-            let old_pose = self.pose.swap(new_pose);
+            let old_pose = self.base.pose.swap(new_pose);
             if old_pose != new_pose {
                 self.broadcast_pose_change(new_pose);
             }
@@ -926,7 +927,7 @@ impl Player {
         )];
 
         let packet = CSetEntityData {
-            entity_id: self.entity_id,
+            entity_id: self.entity_id(),
             metadata: entity_data_to_packet_entries(data),
         };
 
@@ -938,12 +939,12 @@ impl Player {
     /// Returns the player's pose.
     #[must_use]
     pub fn pose(&self) -> Pose {
-        self.pose.load()
+        self.base.pose.load()
     }
 
     /// Sets the player's pose.
     pub fn set_pose(&self, pose: Pose) {
-        let old_pose = self.pose.swap(pose);
+        let old_pose = self.base.pose.swap(pose);
         if old_pose != pose {
             self.broadcast_pose_change(pose);
         }
@@ -952,49 +953,13 @@ impl Player {
     /// Packs all entity data for initial spawn.
     #[must_use]
     pub fn pack_entity_data(&self) -> Vec<(u8, EntityDataValue)> {
-        let pose = self.pose.load();
-        self.last_synced_pose.store(pose);
-
-        vec![
-            (
-                EntityDataAccessor::<u8>::SHARED_FLAGS.id(),
-                EntityDataValue::Byte(self.shared_flags()),
-            ),
-            (
-                EntityDataAccessor::<Pose>::POSE.id(),
-                EntityDataValue::Pose(pose),
-            ),
-        ]
+        self.base.pack_entity_data()
     }
 
     /// Packs dirty entity data and marks it as synced. Returns None if nothing dirty.
     #[must_use]
     pub fn pack_dirty_entity_data(&self) -> Option<Vec<(u8, EntityDataValue)>> {
-        let mut dirty = Vec::new();
-
-        let current_pose = self.pose.load();
-        let last_pose = self.last_synced_pose.load();
-        if current_pose != last_pose {
-            self.last_synced_pose.store(current_pose);
-            dirty.push((
-                EntityDataAccessor::<Pose>::POSE.id(),
-                EntityDataValue::Pose(current_pose),
-            ));
-        }
-
-        if dirty.is_empty() { None } else { Some(dirty) }
-    }
-
-    /// Gets the shared entity flags byte.
-    fn shared_flags(&self) -> u8 {
-        let mut flags = 0u8;
-        if self.shift_key_down.load(Ordering::Relaxed) {
-            flags |= 1 << 1; // FLAG_SHIFT_KEY_DOWN
-        }
-        if self.sprinting.load(Ordering::Relaxed) {
-            flags |= 1 << 3; // FLAG_SPRINTING
-        }
-        flags
+        self.base.pack_dirty_entity_data()
     }
 
     /// Handles the use of an item on a block.
@@ -1185,6 +1150,29 @@ impl Player {
 
 impl RegistryPlayer for Player {}
 
+impl Entity for Player {
+    fn base(&self) -> &EntityBase {
+        &self.base
+    }
+
+    fn entity_type(&self) -> EntityTypeRef {
+        vanilla_entities::PLAYER
+    }
+
+    fn dimensions(&self) -> EntityDimensions {
+        vanilla_entities::player_dimensions_for_pose(self.pose())
+    }
+
+    // Override position to use Player's SyncMutex
+    fn position(&self) -> Vector3<f64> {
+        *self.position.lock()
+    }
+
+    fn set_position(&self, pos: Vector3<f64>) {
+        *self.position.lock() = pos;
+    }
+}
+
 impl LivingEntity for Player {
     fn get_health(&self) -> f32 {
         self.health.load()
@@ -1194,16 +1182,10 @@ impl LivingEntity for Player {
         let max_health = self.get_max_health();
         let clamped = health.clamp(0.0, max_health);
         self.health.store(clamped);
-        // TODO: Sync health to client via entity data
     }
 
     fn get_max_health(&self) -> f32 {
-        // TODO: Get from attributes system when implemented
         20.0
-    }
-
-    fn get_position(&self) -> Vector3<f64> {
-        *self.position.lock()
     }
 
     fn get_absorption_amount(&self) -> f32 {
@@ -1212,22 +1194,10 @@ impl LivingEntity for Player {
 
     fn set_absorption_amount(&mut self, amount: f32) {
         self.absorption_amount.store(amount.max(0.0));
-        // TODO: Sync to client
     }
 
     fn get_armor_value(&self) -> i32 {
-        // TODO: Calculate from equipped items when data components are implemented
-        // Will iterate over ARMOR_SLOTS and sum armor values from each piece
         0
-    }
-
-    fn is_sprinting(&self) -> bool {
-        self.sprinting.load(Ordering::Relaxed)
-    }
-
-    fn set_sprinting(&mut self, sprinting: bool) {
-        self.sprinting.store(sprinting, Ordering::Relaxed);
-        // TODO: Apply speed modifiers when attribute system is implemented
     }
 
     fn get_speed(&self) -> f32 {

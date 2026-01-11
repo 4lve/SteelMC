@@ -1,0 +1,30 @@
+[
+  {
+    "name": "FLAG_ONFIRE",
+    "bit": 0
+  },
+  {
+    "name": "FLAG_SHIFT_KEY_DOWN",
+    "bit": 1
+  },
+  {
+    "name": "FLAG_SPRINTING",
+    "bit": 3
+  },
+  {
+    "name": "FLAG_SWIMMING",
+    "bit": 4
+  },
+  {
+    "name": "FLAG_INVISIBLE",
+    "bit": 5
+  },
+  {
+    "name": "FLAG_GLOWING",
+    "bit": 6
+  },
+  {
+    "name": "FLAG_FALL_FLYING",
+    "bit": 7
+  }
+]
