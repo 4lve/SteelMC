@@ -29,9 +29,12 @@ impl CommandArgument for FloatArgument {
     }
 
     fn usage(&self) -> (ArgumentType, Option<SuggestionType>) {
-        (ArgumentType::Float { 
-            min: Some(self.min), 
-            max: None 
-        }, None)
+        (
+            ArgumentType::Float {
+                min: Some(self.min),
+                max: None,
+            },
+            None,
+        )
     }
 }

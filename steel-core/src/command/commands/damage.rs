@@ -2,7 +2,9 @@
 use std::sync::Arc;
 
 use crate::command::arguments::float::FloatArgument;
-use crate::command::commands::{CommandExecutor, CommandHandlerBuilder, CommandHandlerDyn, argument};
+use crate::command::commands::{
+    CommandExecutor, CommandHandlerBuilder, CommandHandlerDyn, argument,
+};
 use crate::command::context::CommandContext;
 use crate::command::error::CommandError;
 use crate::entity::LivingEntity;
@@ -47,7 +49,10 @@ impl CommandExecutor<((), f32)> for DamageCommandExecutor {
         // Send success message
         context.sender.send_message(
             TextComponent::new()
-                .text(format!("Applied {} damage to {}", amount, player.gameprofile.name))
+                .text(format!(
+                    "Applied {} damage to {}",
+                    amount, player.gameprofile.name
+                ))
                 .into(),
         );
 
