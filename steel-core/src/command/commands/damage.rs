@@ -47,13 +47,12 @@ impl CommandExecutor<((), f32)> for DamageCommandExecutor {
         player.set_health(new_health);
 
         // Send success message
-        context.sender.send_message(
-            TextComponent::new()
-                .text(format!(
-                    "Applied {} damage to {}",
-                    amount, player.gameprofile.name
-                )),
-        );
+        context
+            .sender
+            .send_message(TextComponent::new().text(format!(
+                "Applied {} damage to {}",
+                amount, player.gameprofile.name
+            )));
 
         Ok(())
     }
