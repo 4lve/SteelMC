@@ -53,7 +53,9 @@ use steel_utils::BlockPos;
 use steel_utils::types::InteractionHand;
 use steel_utils::{ChunkPos, math::Vector3, text::TextComponent, translations};
 
-use crate::entity::LivingEntity;
+use crate::entity::{
+    EntityDataAccessor, EntityDataValue, LivingEntity, Pose, entity_data_to_packet_entries,
+};
 use crate::inventory::{
     container::Container,
     inventory_menu::InventoryMenu,
@@ -61,6 +63,7 @@ use crate::inventory::{
     menu::Menu,
     slot::Slot,
 };
+use steel_protocol::packets::game::CSetEntityData;
 
 /// Re-export `PreviousMessage` as `PreviousMessageEntry` for use in `signature_cache`
 pub type PreviousMessageEntry = PreviousMessage;
@@ -143,6 +146,12 @@ pub struct Player {
     /// Whether the player is sneaking (shift key down).
     shift_key_down: AtomicBool,
 
+    /// The player's current pose (Standing, Crouching, Swimming, etc.)
+    pose: AtomicCell<Pose>,
+
+    /// Tracks the last synced pose for dirty detection.
+    last_synced_pose: AtomicCell<Pose>,
+
     /// Position we're waiting for the client to confirm via teleport ack.
     /// If Some, we should reject interaction packets until confirmed.
     awaiting_position_from_client: SyncMutex<Option<Vector3<f64>>>,
@@ -189,6 +198,8 @@ impl Player {
             inventory_menu: SyncMutex::new(InventoryMenu::new(inventory)),
             ack_block_changes_up_to: AtomicI32::new(-1),
             shift_key_down: AtomicBool::new(false),
+            pose: AtomicCell::new(Pose::Standing),
+            last_synced_pose: AtomicCell::new(Pose::Standing),
             awaiting_position_from_client: SyncMutex::new(None),
         }
     }
@@ -890,10 +901,100 @@ impl Player {
         self.world.broadcast_to_nearby(chunk, packet, exclude);
     }
 
-    /// Handles a player input packet (movement keys, sneaking, sprinting).
+    /// Handles player input (sneaking, sprinting).
     pub fn handle_player_input(&self, packet: SPlayerInput) {
-        self.shift_key_down.store(packet.shift(), Ordering::Relaxed);
-        // Note: sprinting is handled via SPlayerCommand packet
+        let was_sneaking = self.shift_key_down.swap(packet.shift(), Ordering::Relaxed);
+
+        if was_sneaking != packet.shift() {
+            let new_pose = if packet.shift() {
+                Pose::Crouching
+            } else {
+                Pose::Standing
+            };
+
+            let old_pose = self.pose.swap(new_pose);
+            if old_pose != new_pose {
+                self.broadcast_pose_change(new_pose);
+            }
+        }
+    }
+
+    fn broadcast_pose_change(&self, pose: Pose) {
+        let data = vec![(
+            EntityDataAccessor::<Pose>::POSE.id(),
+            EntityDataValue::Pose(pose),
+        )];
+
+        let packet = CSetEntityData {
+            entity_id: self.entity_id,
+            metadata: entity_data_to_packet_entries(data),
+        };
+
+        let chunk = *self.last_chunk_pos.lock();
+        self.world
+            .broadcast_to_nearby(chunk, packet, Some(self.gameprofile.id));
+    }
+
+    /// Returns the player's pose.
+    #[must_use]
+    pub fn pose(&self) -> Pose {
+        self.pose.load()
+    }
+
+    /// Sets the player's pose.
+    pub fn set_pose(&self, pose: Pose) {
+        let old_pose = self.pose.swap(pose);
+        if old_pose != pose {
+            self.broadcast_pose_change(pose);
+        }
+    }
+
+    /// Packs all entity data for initial spawn.
+    #[must_use]
+    pub fn pack_entity_data(&self) -> Vec<(u8, EntityDataValue)> {
+        let pose = self.pose.load();
+        self.last_synced_pose.store(pose);
+
+        vec![
+            (
+                EntityDataAccessor::<u8>::SHARED_FLAGS.id(),
+                EntityDataValue::Byte(self.shared_flags()),
+            ),
+            (
+                EntityDataAccessor::<Pose>::POSE.id(),
+                EntityDataValue::Pose(pose),
+            ),
+        ]
+    }
+
+    /// Packs dirty entity data and marks it as synced. Returns None if nothing dirty.
+    #[must_use]
+    pub fn pack_dirty_entity_data(&self) -> Option<Vec<(u8, EntityDataValue)>> {
+        let mut dirty = Vec::new();
+
+        let current_pose = self.pose.load();
+        let last_pose = self.last_synced_pose.load();
+        if current_pose != last_pose {
+            self.last_synced_pose.store(current_pose);
+            dirty.push((
+                EntityDataAccessor::<Pose>::POSE.id(),
+                EntityDataValue::Pose(current_pose),
+            ));
+        }
+
+        if dirty.is_empty() { None } else { Some(dirty) }
+    }
+
+    /// Gets the shared entity flags byte.
+    fn shared_flags(&self) -> u8 {
+        let mut flags = 0u8;
+        if self.shift_key_down.load(Ordering::Relaxed) {
+            flags |= 1 << 1; // FLAG_SHIFT_KEY_DOWN
+        }
+        if self.sprinting.load(Ordering::Relaxed) {
+            flags |= 1 << 3; // FLAG_SPRINTING
+        }
+        flags
     }
 
     /// Handles the use of an item on a block.

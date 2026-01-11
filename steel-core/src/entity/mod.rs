@@ -1,4 +1,11 @@
-//! This module contains entity-related traits and types.
+//! Entity system
+
+pub mod entity_data;
+pub mod packet_helpers;
+
+pub use entity_data::{EntityDataAccessor, EntityDataValue};
+pub use packet_helpers::{entity_data_to_packet_entries, serialize_entity_data_value};
+pub use steel_registry::Pose;
 
 use steel_registry::item_stack::ItemStack;
 use steel_utils::math::Vector3;

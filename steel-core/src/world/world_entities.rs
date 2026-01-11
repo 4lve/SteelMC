@@ -2,11 +2,17 @@
 use std::sync::Arc;
 
 use steel_protocol::packets::game::{
-    CAddEntity, CGameEvent, CPlayerInfoUpdate, CRemoveEntities, CRemovePlayerInfo, GameEventType,
+    CAddEntity, CGameEvent, CPlayerInfoUpdate, CRemoveEntities, CRemovePlayerInfo, CSetEntityData,
+    GameEventType,
 };
+
+use crate::entity::entity_data_to_packet_entries;
+use steel_utils::ChunkPos;
 use tokio::time::Instant;
 
-use crate::{player::Player, world::World};
+use crate::{
+    chunk::player_chunk_view::PlayerChunkView, config::STEEL_CONFIG, player::Player, world::World,
+};
 
 impl World {
     /// Removes a player from the world.
@@ -43,10 +49,13 @@ impl World {
             return;
         }
 
-        // Note: player_area_map.on_player_join is called in chunk_map.update_player_status
-        // when the player's view is first computed
-
         let pos = *player.position.lock();
+
+        // Register in area map before reading existing positions to receive their movement broadcasts.
+        // Don't set last_tracking_view so chunk loading still runs in update_player_status.
+        let chunk_pos = ChunkPos::new((pos.x as i32) >> 4, (pos.z as i32) >> 4);
+        let view = PlayerChunkView::new(chunk_pos, STEEL_CONFIG.view_distance);
+        self.player_area_map.on_player_join(&player, &view);
         let (yaw, pitch) = player.rotation.load();
 
         // Send existing players to the new player (tab list + entity spawn)
@@ -83,6 +92,15 @@ impl World {
                     existing_yaw,
                     existing_pitch,
                 ));
+
+                // Send existing player's entity data (pose, flags, etc.)
+                let entity_data = existing_player.pack_entity_data();
+                if !entity_data.is_empty() {
+                    player.connection.send_packet(CSetEntityData {
+                        entity_id: existing_player.entity_id,
+                        metadata: entity_data_to_packet_entries(entity_data),
+                    });
+                }
             }
             true
         });
@@ -103,11 +121,25 @@ impl World {
             pitch,
         );
 
+        // Prepare new player's entity data
+        let new_player_entity_data = player.pack_entity_data();
+        let entity_data_packet = if new_player_entity_data.is_empty() {
+            None
+        } else {
+            Some(CSetEntityData {
+                entity_id: player.entity_id,
+                metadata: entity_data_to_packet_entries(new_player_entity_data),
+            })
+        };
+
         self.players.iter_sync(|_, p| {
             p.connection.send_packet(player_info_packet.clone());
             // Don't send spawn packet to self
             if p.gameprofile.id != player.gameprofile.id {
                 p.connection.send_packet(spawn_packet.clone());
+                if let Some(ref data_packet) = entity_data_packet {
+                    p.connection.send_packet(data_packet.clone());
+                }
             }
             true
         });

@@ -22,6 +22,7 @@ mod menu_types;
 mod packets;
 mod painting_variants;
 mod pig_variants;
+mod poses;
 mod recipes;
 mod timeline_tags;
 mod timelines;
@@ -65,6 +66,7 @@ const ZOMBIE_NAUTILUS_VARIANTS: &str = "zombie_nautilus_variants";
 const RECIPES: &str = "recipes";
 const VANILLA_ENTITIES: &str = "entities";
 const ENTITY_DATA_SERIALIZERS: &str = "entity_data_serializers";
+const POSES: &str = "poses";
 
 pub fn main() {
     if !Path::new(OUT_DIR).exists() {
@@ -102,6 +104,7 @@ pub fn main() {
         (recipes::build(), RECIPES),
         (entities::build(), VANILLA_ENTITIES),
         (entity_data_serializers::build(), ENTITY_DATA_SERIALIZERS),
+        (poses::build(), POSES),
     ];
 
     for (content, file_name) in vanilla_builds {

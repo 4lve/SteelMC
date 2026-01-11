@@ -213,6 +213,12 @@ pub mod vanilla_entity_data_serializers;
 
 #[allow(warnings)]
 #[rustfmt::skip]
+#[path = "generated/vanilla_poses.rs"]
+pub mod vanilla_poses;
+pub use vanilla_poses::Pose;
+
+#[allow(warnings)]
+#[rustfmt::skip]
 #[path = "generated/vanilla_packets.rs"]
 pub mod packets;
 

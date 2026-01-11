@@ -1,0 +1,74 @@
+[
+  {
+    "name": "STANDING",
+    "id": 0
+  },
+  {
+    "name": "FALL_FLYING",
+    "id": 1
+  },
+  {
+    "name": "SLEEPING",
+    "id": 2
+  },
+  {
+    "name": "SWIMMING",
+    "id": 3
+  },
+  {
+    "name": "SPIN_ATTACK",
+    "id": 4
+  },
+  {
+    "name": "CROUCHING",
+    "id": 5
+  },
+  {
+    "name": "LONG_JUMPING",
+    "id": 6
+  },
+  {
+    "name": "DYING",
+    "id": 7
+  },
+  {
+    "name": "CROAKING",
+    "id": 8
+  },
+  {
+    "name": "USING_TONGUE",
+    "id": 9
+  },
+  {
+    "name": "SITTING",
+    "id": 10
+  },
+  {
+    "name": "ROARING",
+    "id": 11
+  },
+  {
+    "name": "SNIFFING",
+    "id": 12
+  },
+  {
+    "name": "EMERGING",
+    "id": 13
+  },
+  {
+    "name": "DIGGING",
+    "id": 14
+  },
+  {
+    "name": "SLIDING",
+    "id": 15
+  },
+  {
+    "name": "SHOOTING",
+    "id": 16
+  },
+  {
+    "name": "INHALING",
+    "id": 17
+  }
+]
