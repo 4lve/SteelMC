@@ -1089,11 +1089,16 @@ impl LivingEntity for Player {
         self.health.load()
     }
 
-    fn set_health(&mut self, health: f32) {
+    fn set_health(&self, health: f32) {
         let max_health = self.get_max_health();
         let clamped = health.clamp(0.0, max_health);
         self.health.store(clamped);
-        // TODO: Sync health to client via entity data
+        // Sync health to client
+        self.connection.send_packet(steel_protocol::packets::game::CSetHealth {
+            health: clamped,
+            food: 20, // TODO: Get from player's food level when implemented
+            food_saturation: 5.0, // TODO: Get from player's saturation when implemented
+        });
     }
 
     fn get_max_health(&self) -> f32 {

@@ -14,13 +14,13 @@ pub trait LivingEntity {
     fn get_health(&self) -> f32;
 
     /// Sets the health of the entity, clamped between 0 and max health.
-    fn set_health(&mut self, health: f32);
+    fn set_health(&self, health: f32);
 
     /// Gets the maximum health of the entity.
     fn get_max_health(&self) -> f32;
 
     /// Heals the entity by the specified amount.
-    fn heal(&mut self, amount: f32) {
+    fn heal(&self, amount: f32) {
         let current_health = self.get_health();
         if current_health > 0.0 {
             self.set_health(current_health + amount);
