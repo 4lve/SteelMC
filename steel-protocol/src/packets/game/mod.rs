@@ -29,6 +29,7 @@ mod c_set_cursor_item;
 mod c_set_held_slot;
 mod c_system_chat;
 mod c_system_chat_message;
+mod c_tab_list;
 mod chat_session_data;
 mod s_accept_teleportation;
 mod s_chat;
@@ -81,7 +82,9 @@ pub use c_move_entity::{
 };
 pub use c_open_screen::COpenScreen;
 pub use c_player_chat::{CPlayerChat, ChatTypeBound, FilterType, PreviousMessage};
-pub use c_player_info_update::CPlayerInfoUpdate;
+pub use c_player_info_update::{
+    CPlayerInfoUpdate, PlayerInfoAction, PlayerInfoEntry, PLAYER_INFO_INIT_ACTIONS,
+};
 pub use c_player_position::{CPlayerPosition, RelativeMovement};
 pub use c_remove_entities::CRemoveEntities;
 pub use c_remove_player_info::CRemovePlayerInfo;
@@ -92,6 +95,7 @@ pub use c_set_cursor_item::CSetCursorItem;
 pub use c_set_held_slot::CSetHeldSlot;
 pub use c_system_chat::CSystemChat;
 pub use c_system_chat_message::CSystemChatMessage;
+pub use c_tab_list::CTabList;
 pub use chat_session_data::ProtocolRemoteChatSessionData;
 pub use s_accept_teleportation::SAcceptTeleportation;
 pub use s_chat::SChat;

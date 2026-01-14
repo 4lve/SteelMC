@@ -1,5 +1,14 @@
 use std::time::{Duration, Instant};
 
+/// Number of tick samples to keep for averaging (matches vanilla).
+const TICK_STATS_SPAN: usize = 100;
+
+/// Nanoseconds per millisecond.
+const NANOS_PER_MS: f32 = 1_000_000.0;
+
+/// Smoothing factor for exponential moving average (matches vanilla's 0.8).
+const TICK_TIME_SMOOTHING: f32 = 0.8;
+
 /// Manages the server tick rate, including freezing, stepping, and sprinting.
 pub struct TickRateManager {
     /// The current tick rate in ticks per second.
@@ -26,6 +35,14 @@ pub struct TickRateManager {
     pub sprint_time_spent: Duration,
     /// Whether the server was frozen before sprinting started.
     pub previous_is_frozen: bool,
+
+    // Tick time tracking (vanilla-style)
+    /// Rolling buffer of the last 100 tick times in nanoseconds.
+    tick_times_nanos: [u64; TICK_STATS_SPAN],
+    /// Aggregated sum of tick times for fast average calculation.
+    aggregated_tick_times_nanos: u64,
+    /// Exponentially smoothed tick time in milliseconds.
+    smoothed_tick_time_ms: f32,
 }
 
 impl TickRateManager {
@@ -44,6 +61,9 @@ impl TickRateManager {
             sprint_tick_start_time: None,
             sprint_time_spent: Duration::ZERO,
             previous_is_frozen: false,
+            tick_times_nanos: [0; TICK_STATS_SPAN],
+            aggregated_tick_times_nanos: 0,
+            smoothed_tick_time_ms: 0.0,
         }
     }
 
@@ -156,6 +176,49 @@ impl TickRateManager {
     #[must_use]
     pub fn is_sprinting(&self) -> bool {
         self.scheduled_current_sprint_ticks > 0
+    }
+
+    // Tick time tracking methods (vanilla-style)
+
+    /// Records the duration of a tick in nanoseconds.
+    /// This should be called at the end of each server tick.
+    pub fn record_tick_time(&mut self, tick_time_nanos: u64) {
+        let tick_index = (self.tick_count as usize) % TICK_STATS_SPAN;
+
+        // Remove old value from aggregated sum, add new value
+        self.aggregated_tick_times_nanos -= self.tick_times_nanos[tick_index];
+        self.aggregated_tick_times_nanos += tick_time_nanos;
+        self.tick_times_nanos[tick_index] = tick_time_nanos;
+
+        // Update smoothed tick time (vanilla uses 80/20 exponential smoothing)
+        let tick_time_ms = tick_time_nanos as f32 / NANOS_PER_MS;
+        self.smoothed_tick_time_ms =
+            self.smoothed_tick_time_ms * TICK_TIME_SMOOTHING + tick_time_ms * (1.0 - TICK_TIME_SMOOTHING);
+    }
+
+    /// Returns the average tick time in milliseconds over the last 100 ticks.
+    #[must_use]
+    pub fn get_average_mspt(&self) -> f32 {
+        let sample_count = self.tick_count.min(TICK_STATS_SPAN as u64).max(1);
+        (self.aggregated_tick_times_nanos as f32 / sample_count as f32) / NANOS_PER_MS
+    }
+
+    /// Returns the exponentially smoothed tick time in milliseconds.
+    #[must_use]
+    pub fn get_smoothed_mspt(&self) -> f32 {
+        self.smoothed_tick_time_ms
+    }
+
+    /// Returns the current TPS (ticks per second) based on average MSPT.
+    /// Capped at the configured tick rate (default 20.0).
+    #[must_use]
+    pub fn get_tps(&self) -> f32 {
+        let mspt = self.get_average_mspt();
+        if mspt <= 0.0 {
+            return self.tick_rate;
+        }
+        // TPS = 1000ms / mspt, but capped at the configured tick rate
+        (1000.0 / mspt).min(self.tick_rate)
     }
 }
 

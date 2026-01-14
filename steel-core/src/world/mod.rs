@@ -33,6 +33,10 @@ mod world_entities;
 pub use player_area_map::PlayerAreaMap;
 pub use player_map::PlayerMap;
 
+/// Interval in ticks between player info broadcasts (600 ticks = 30 seconds).
+/// Matches vanilla PlayerList.SEND_PLAYER_INFO_INTERVAL.
+const SEND_PLAYER_INFO_INTERVAL: u64 = 600;
+
 /// A struct that represents a world.
 pub struct World {
     /// The chunk map of the world.
@@ -318,6 +322,32 @@ impl World {
         let player_tick_elapsed = start.elapsed();
         if player_tick_elapsed >= Duration::from_millis(100) {
             log::warn!("Player tick slow: {player_tick_elapsed:?}");
+        }
+
+        // Broadcast player latency updates periodically
+        if tick_count % SEND_PLAYER_INFO_INTERVAL == 0 {
+            self.broadcast_player_latency_updates();
+        }
+    }
+
+    /// Broadcasts latency updates for all players to all players.
+    /// This is called every SEND_PLAYER_INFO_INTERVAL ticks to update the ping display.
+    fn broadcast_player_latency_updates(&self) {
+        // Collect all player latencies
+        let mut latency_entries = Vec::new();
+        self.players.iter_sync(|uuid, player| {
+            latency_entries.push((*uuid, player.connection.latency()));
+            true
+        });
+
+        // Only broadcast if there are players
+        if !latency_entries.is_empty() {
+            let packet = CPlayerInfoUpdate::update_latency(latency_entries);
+
+            self.players.iter_sync(|_, player| {
+                player.connection.send_packet(packet.clone());
+                true
+            });
         }
     }
 

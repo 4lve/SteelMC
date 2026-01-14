@@ -13,7 +13,8 @@ use std::{
 };
 
 use steel_crypto::key_store::KeyStore;
-use steel_protocol::packets::game::{CLogin, CommonPlayerSpawnInfo};
+use steel_protocol::packets::game::{CLogin, CTabList, CommonPlayerSpawnInfo};
+use steel_utils::text::{TextComponent, color::NamedColor};
 use steel_registry::vanilla_dimension_types::OVERWORLD;
 use steel_registry::{REGISTRY, Registry};
 use steel_utils::locks::SyncRwLock;
@@ -22,12 +23,14 @@ use tick_rate_manager::TickRateManager;
 use tokio::{runtime::Runtime, task::spawn_blocking, time::sleep};
 use tokio_util::sync::CancellationToken;
 
-use crate::behavior::init_behaviors;
 use crate::command::CommandDispatcher;
 use crate::config::STEEL_CONFIG;
 use crate::player::Player;
 use crate::server::registry_cache::RegistryCache;
 use crate::world::World;
+
+/// Interval in ticks between tab list updates (20 ticks = 1 second).
+const TAB_LIST_UPDATE_INTERVAL: u64 = 20;
 
 /// The main server struct.
 pub struct Server {
@@ -62,10 +65,6 @@ impl Server {
         REGISTRY
             .init(registry)
             .expect("We should be the ones who init the REGISTRY");
-
-        // Initialize behavior registries after the main registry is frozen
-        init_behaviors();
-        log::info!("Behavior registries initialized");
 
         let registry_cache = RegistryCache::new().await;
 
@@ -161,6 +160,9 @@ impl Server {
                 break;
             }
 
+            // Record tick start time for MSPT tracking
+            let tick_start = Instant::now();
+
             let tick_count = {
                 let mut tick_manager = self.tick_rate_manager.write();
                 tick_manager.tick();
@@ -169,6 +171,19 @@ impl Server {
 
             // Tick worlds
             self.tick_worlds(tick_count).await;
+
+            // Record tick duration for TPS/MSPT tracking
+            let (tps, mspt) = {
+                let tick_duration_nanos = tick_start.elapsed().as_nanos() as u64;
+                let mut tick_manager = self.tick_rate_manager.write();
+                tick_manager.record_tick_time(tick_duration_nanos);
+                (tick_manager.get_tps(), tick_manager.get_average_mspt())
+            };
+
+            // Update tab list with TPS/MSPT periodically
+            if tick_count % TAB_LIST_UPDATE_INTERVAL == 0 {
+                self.broadcast_tab_list(tps, mspt);
+            }
 
             if is_sprinting && should_sprint_this_tick {
                 let mut tick_manager = self.tick_rate_manager.write();
@@ -192,6 +207,74 @@ impl Server {
                 "Worlds ticked in {:?}, tick count: {tick_count}",
                 start.elapsed()
             );
+        }
+    }
+
+    /// Broadcasts the tab list header/footer with current TPS and MSPT values.
+    fn broadcast_tab_list(&self, tps: f32, mspt: f32) {
+        // Color TPS based on value
+        let tps_color = if tps >= 19.5 {
+            NamedColor::Green
+        } else if tps >= 15.0 {
+            NamedColor::Yellow
+        } else {
+            NamedColor::Red
+        };
+
+        // Color MSPT based on value (under 50ms is good)
+        let mspt_color = if mspt <= 50.0 {
+            NamedColor::Aqua
+        } else {
+            NamedColor::Red
+        };
+
+        let packet = CTabList::new(
+            // Header: Steel Dev Build
+            TextComponent::new()
+                .text("\n")
+                .extra(
+                    TextComponent::new()
+                        .text("Steel Dev Build")
+                        .color(NamedColor::Yellow),
+                )
+                .extra(TextComponent::new().text("\n")),
+            // Footer: TPS and MSPT with live values
+            TextComponent::new()
+                .text("\n")
+                .extra(
+                    TextComponent::new()
+                        .text("TPS: ")
+                        .color(NamedColor::Gray),
+                )
+                .extra(
+                    TextComponent::new()
+                        .text(format!("{tps:.1}"))
+                        .color(tps_color),
+                )
+                .extra(
+                    TextComponent::new()
+                        .text(" | ")
+                        .color(NamedColor::DarkGray),
+                )
+                .extra(
+                    TextComponent::new()
+                        .text("MSPT: ")
+                        .color(NamedColor::Gray),
+                )
+                .extra(
+                    TextComponent::new()
+                        .text(format!("{mspt:.2}"))
+                        .color(mspt_color),
+                )
+                .extra(TextComponent::new().text("\n")),
+        );
+
+        // Broadcast to all players in all worlds
+        for world in &self.worlds {
+            world.players.iter_sync(|_, player| {
+                player.connection.send_packet(packet.clone());
+                true
+            });
         }
     }
 }
