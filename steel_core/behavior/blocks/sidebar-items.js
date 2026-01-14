@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["crafting_table_block","fence_block","rotated_pillar_block"],"struct":["CraftingTableBlock","FenceBlock","RotatedPillarBlock"]};

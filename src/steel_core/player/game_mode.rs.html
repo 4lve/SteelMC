@@ -1,105 +1,118 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `steel-core/src/player/game_mode.rs`."><title>game_mode.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="steel_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.0-nightly (a3f2d5abe 2026-01-09)" data-channel="nightly" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">steel_core/player/</div>game_mode.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Game mode specific logic for player interactions.
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `steel-core/src/player/game_mode.rs`."><title>game_mode.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="steel_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.0-nightly (2850ca829 2026-01-13)" data-channel="nightly" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">steel_core/player/</div>game_mode.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Game mode specific logic for player interactions.
 <a href=#2 id=2 data-nosnippet>2</a>//!
 <a href=#3 id=3 data-nosnippet>3</a>//! This module implements the logic from Java's `ServerPlayerGameMode`, particularly
 <a href=#4 id=4 data-nosnippet>4</a>//! the `useItemOn` method that handles block placement and block interactions.
 <a href=#5 id=5 data-nosnippet>5</a>
 <a href=#6 id=6 data-nosnippet>6</a></span><span class="kw">use </span>steel_registry::REGISTRY;
-<a href=#7 id=7 data-nosnippet>7</a><span class="kw">use </span>steel_registry::items::item::{BlockHitResult, InteractionResult, UseOnContext};
-<a href=#8 id=8 data-nosnippet>8</a><span class="kw">use </span>steel_utils::types::{GameType, InteractionHand};
-<a href=#9 id=9 data-nosnippet>9</a>
-<a href=#10 id=10 data-nosnippet>10</a><span class="kw">use </span><span class="kw">crate</span>::player::Player;
-<a href=#11 id=11 data-nosnippet>11</a><span class="kw">use </span><span class="kw">crate</span>::world::World;
-<a href=#12 id=12 data-nosnippet>12</a>
-<a href=#13 id=13 data-nosnippet>13</a><span class="doccomment">/// Handles using an item on a block.
-<a href=#14 id=14 data-nosnippet>14</a>///
-<a href=#15 id=15 data-nosnippet>15</a>/// This implements the logic from Java's `ServerPlayerGameMode.useItemOn()`.
+<a href=#7 id=7 data-nosnippet>7</a><span class="kw">use </span>steel_utils::types::{GameType, InteractionHand};
+<a href=#8 id=8 data-nosnippet>8</a>
+<a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span><span class="kw">crate</span>::behavior::{
+<a href=#10 id=10 data-nosnippet>10</a>    BLOCK_BEHAVIORS, BlockHitResult, ITEM_BEHAVIORS, InteractionResult, UseOnContext,
+<a href=#11 id=11 data-nosnippet>11</a>};
+<a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span><span class="kw">crate</span>::player::Player;
+<a href=#13 id=13 data-nosnippet>13</a><span class="kw">use </span><span class="kw">crate</span>::world::World;
+<a href=#14 id=14 data-nosnippet>14</a>
+<a href=#15 id=15 data-nosnippet>15</a><span class="doccomment">/// Handles using an item on a block.
 <a href=#16 id=16 data-nosnippet>16</a>///
-<a href=#17 id=17 data-nosnippet>17</a>/// # Flow
-<a href=#18 id=18 data-nosnippet>18</a>/// 1. Spectator mode: Only allow opening menus (currently returns Pass)
-<a href=#19 id=19 data-nosnippet>19</a>/// 2. Check if block interaction should be suppressed (sneaking + holding items)
-<a href=#20 id=20 data-nosnippet>20</a>/// 3. If not suppressed: Call block's `use_item_on` method
-<a href=#21 id=21 data-nosnippet>21</a>/// 4. If block returns `TryEmptyHandInteraction` and main hand: Call block's `use_without_item`
-<a href=#22 id=22 data-nosnippet>22</a>/// 5. If item not empty: Call item behavior's `use_on` for placement
-<a href=#23 id=23 data-nosnippet>23</a>/// 6. Handle creative mode infinite materials
-<a href=#24 id=24 data-nosnippet>24</a></span><span class="kw">pub fn </span>use_item_on(
-<a href=#25 id=25 data-nosnippet>25</a>    player: <span class="kw-2">&amp;</span>Player,
-<a href=#26 id=26 data-nosnippet>26</a>    world: <span class="kw-2">&amp;</span>World,
-<a href=#27 id=27 data-nosnippet>27</a>    hand: InteractionHand,
-<a href=#28 id=28 data-nosnippet>28</a>    hit_result: <span class="kw-2">&amp;</span>BlockHitResult,
-<a href=#29 id=29 data-nosnippet>29</a>) -&gt; InteractionResult {
-<a href=#30 id=30 data-nosnippet>30</a>    <span class="kw">let </span>pos = <span class="kw-2">&amp;</span>hit_result.block_pos;
-<a href=#31 id=31 data-nosnippet>31</a>    <span class="kw">let </span>state = world.get_block_state(pos);
-<a href=#32 id=32 data-nosnippet>32</a>
-<a href=#33 id=33 data-nosnippet>33</a>    <span class="comment">// Spectator mode: can only open menus
-<a href=#34 id=34 data-nosnippet>34</a>    // TODO: Implement menu providers for blocks like chests
-<a href=#35 id=35 data-nosnippet>35</a>    </span><span class="kw">if </span>player.game_mode.load() == GameType::Spectator {
-<a href=#36 id=36 data-nosnippet>36</a>        <span class="kw">return </span>InteractionResult::Pass;
-<a href=#37 id=37 data-nosnippet>37</a>    }
-<a href=#38 id=38 data-nosnippet>38</a>
-<a href=#39 id=39 data-nosnippet>39</a>    <span class="comment">// Check if block interaction should be suppressed (sneaking + holding items in either hand)
-<a href=#40 id=40 data-nosnippet>40</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>inv = player.inventory.lock();
-<a href=#41 id=41 data-nosnippet>41</a>
-<a href=#42 id=42 data-nosnippet>42</a>    <span class="kw">let </span>have_something = !inv.get_item_in_hand(InteractionHand::MainHand).is_empty()
-<a href=#43 id=43 data-nosnippet>43</a>        || !inv.get_item_in_hand(InteractionHand::OffHand).is_empty();
-<a href=#44 id=44 data-nosnippet>44</a>    <span class="kw">let </span>suppress_block_use = player.is_secondary_use_active() &amp;&amp; have_something;
-<a href=#45 id=45 data-nosnippet>45</a>
-<a href=#46 id=46 data-nosnippet>46</a>    <span class="comment">// Try block interaction first (if not suppressed)
-<a href=#47 id=47 data-nosnippet>47</a>    </span><span class="kw">if </span>!suppress_block_use {
-<a href=#48 id=48 data-nosnippet>48</a>        <span class="comment">// Get block behavior and call use_item_on
-<a href=#49 id=49 data-nosnippet>49</a>        </span><span class="kw">let </span><span class="prelude-val">Some</span>(block) = REGISTRY.blocks.by_state_id(state) <span class="kw">else </span>{
-<a href=#50 id=50 data-nosnippet>50</a>            <span class="comment">// Block state not found in registry, skip block interaction
-<a href=#51 id=51 data-nosnippet>51</a>            </span><span class="kw">return </span>InteractionResult::Pass;
-<a href=#52 id=52 data-nosnippet>52</a>        };
-<a href=#53 id=53 data-nosnippet>53</a>        <span class="kw">let </span>behavior = REGISTRY.blocks.get_behavior(block);
-<a href=#54 id=54 data-nosnippet>54</a>        <span class="kw">let </span>item_stack = inv.get_item_in_hand(hand);
-<a href=#55 id=55 data-nosnippet>55</a>
-<a href=#56 id=56 data-nosnippet>56</a>        <span class="kw">let </span>block_result =
-<a href=#57 id=57 data-nosnippet>57</a>            behavior.use_item_on(item_stack, state, world, <span class="kw-2">*</span>pos, player, hand, hit_result);
-<a href=#58 id=58 data-nosnippet>58</a>
-<a href=#59 id=59 data-nosnippet>59</a>        <span class="kw">if </span>block_result.consumes_action() {
-<a href=#60 id=60 data-nosnippet>60</a>            <span class="kw">return </span>block_result;
-<a href=#61 id=61 data-nosnippet>61</a>        }
-<a href=#62 id=62 data-nosnippet>62</a>
-<a href=#63 id=63 data-nosnippet>63</a>        <span class="comment">// Try empty hand interaction for main hand if block requested it
-<a href=#64 id=64 data-nosnippet>64</a>        </span><span class="kw">if </span><span class="macro">matches!</span>(block_result, InteractionResult::TryEmptyHandInteraction)
-<a href=#65 id=65 data-nosnippet>65</a>            &amp;&amp; hand == InteractionHand::MainHand
-<a href=#66 id=66 data-nosnippet>66</a>        {
-<a href=#67 id=67 data-nosnippet>67</a>            <span class="kw">let </span>empty_result = behavior.use_without_item(state, world, <span class="kw-2">*</span>pos, player, hit_result);
+<a href=#17 id=17 data-nosnippet>17</a>/// This implements the logic from Java's `ServerPlayerGameMode.useItemOn()`.
+<a href=#18 id=18 data-nosnippet>18</a>///
+<a href=#19 id=19 data-nosnippet>19</a>/// # Flow
+<a href=#20 id=20 data-nosnippet>20</a>/// 1. Spectator mode: Only allow opening menus (currently returns Pass)
+<a href=#21 id=21 data-nosnippet>21</a>/// 2. Check if block interaction should be suppressed (sneaking + holding items)
+<a href=#22 id=22 data-nosnippet>22</a>/// 3. If not suppressed: Call block's `use_item_on` method
+<a href=#23 id=23 data-nosnippet>23</a>/// 4. If block returns `TryEmptyHandInteraction` and main hand: Call block's `use_without_item`
+<a href=#24 id=24 data-nosnippet>24</a>/// 5. If item not empty: Call item behavior's `use_on` for placement
+<a href=#25 id=25 data-nosnippet>25</a>/// 6. Handle creative mode infinite materials
+<a href=#26 id=26 data-nosnippet>26</a></span><span class="kw">pub fn </span>use_item_on(
+<a href=#27 id=27 data-nosnippet>27</a>    player: <span class="kw-2">&amp;</span>Player,
+<a href=#28 id=28 data-nosnippet>28</a>    world: <span class="kw-2">&amp;</span>World,
+<a href=#29 id=29 data-nosnippet>29</a>    hand: InteractionHand,
+<a href=#30 id=30 data-nosnippet>30</a>    hit_result: <span class="kw-2">&amp;</span>BlockHitResult,
+<a href=#31 id=31 data-nosnippet>31</a>) -&gt; InteractionResult {
+<a href=#32 id=32 data-nosnippet>32</a>    <span class="kw">let </span>pos = <span class="kw-2">&amp;</span>hit_result.block_pos;
+<a href=#33 id=33 data-nosnippet>33</a>    <span class="kw">let </span>state = world.get_block_state(pos);
+<a href=#34 id=34 data-nosnippet>34</a>
+<a href=#35 id=35 data-nosnippet>35</a>    <span class="comment">// Spectator mode: can only open menus
+<a href=#36 id=36 data-nosnippet>36</a>    // TODO: Implement menu providers for blocks like chests
+<a href=#37 id=37 data-nosnippet>37</a>    </span><span class="kw">if </span>player.game_mode.load() == GameType::Spectator {
+<a href=#38 id=38 data-nosnippet>38</a>        <span class="kw">return </span>InteractionResult::Pass;
+<a href=#39 id=39 data-nosnippet>39</a>    }
+<a href=#40 id=40 data-nosnippet>40</a>
+<a href=#41 id=41 data-nosnippet>41</a>    <span class="comment">// Check if block interaction should be suppressed (sneaking + holding items in either hand)
+<a href=#42 id=42 data-nosnippet>42</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>inv = player.inventory.lock();
+<a href=#43 id=43 data-nosnippet>43</a>
+<a href=#44 id=44 data-nosnippet>44</a>    <span class="kw">let </span>have_something = !inv.get_item_in_hand(InteractionHand::MainHand).is_empty()
+<a href=#45 id=45 data-nosnippet>45</a>        || !inv.get_item_in_hand(InteractionHand::OffHand).is_empty();
+<a href=#46 id=46 data-nosnippet>46</a>    <span class="kw">let </span>suppress_block_use = player.is_secondary_use_active() &amp;&amp; have_something;
+<a href=#47 id=47 data-nosnippet>47</a>
+<a href=#48 id=48 data-nosnippet>48</a>    <span class="comment">// Get behavior registries
+<a href=#49 id=49 data-nosnippet>49</a>    </span><span class="kw">let </span>block_behaviors = BLOCK_BEHAVIORS.get().expect(<span class="string">"Behaviors not initialized"</span>);
+<a href=#50 id=50 data-nosnippet>50</a>    <span class="kw">let </span>item_behaviors = ITEM_BEHAVIORS.get().expect(<span class="string">"Behaviors not initialized"</span>);
+<a href=#51 id=51 data-nosnippet>51</a>
+<a href=#52 id=52 data-nosnippet>52</a>    <span class="comment">// Try block interaction first (if not suppressed)
+<a href=#53 id=53 data-nosnippet>53</a>    </span><span class="kw">if </span>!suppress_block_use {
+<a href=#54 id=54 data-nosnippet>54</a>        <span class="comment">// Get block behavior and call use_item_on
+<a href=#55 id=55 data-nosnippet>55</a>        </span><span class="kw">let </span><span class="prelude-val">Some</span>(block) = REGISTRY.blocks.by_state_id(state) <span class="kw">else </span>{
+<a href=#56 id=56 data-nosnippet>56</a>            <span class="comment">// Block state not found in registry, skip block interaction
+<a href=#57 id=57 data-nosnippet>57</a>            </span><span class="kw">return </span>InteractionResult::Pass;
+<a href=#58 id=58 data-nosnippet>58</a>        };
+<a href=#59 id=59 data-nosnippet>59</a>        <span class="kw">let </span>behavior = block_behaviors.get_behavior(block);
+<a href=#60 id=60 data-nosnippet>60</a>        <span class="kw">let </span>item_stack = inv.get_item_in_hand(hand);
+<a href=#61 id=61 data-nosnippet>61</a>
+<a href=#62 id=62 data-nosnippet>62</a>        <span class="kw">let </span>block_result =
+<a href=#63 id=63 data-nosnippet>63</a>            behavior.use_item_on(item_stack, state, world, <span class="kw-2">*</span>pos, player, hand, hit_result);
+<a href=#64 id=64 data-nosnippet>64</a>
+<a href=#65 id=65 data-nosnippet>65</a>        <span class="kw">if </span>block_result.consumes_action() {
+<a href=#66 id=66 data-nosnippet>66</a>            <span class="kw">return </span>block_result;
+<a href=#67 id=67 data-nosnippet>67</a>        }
 <a href=#68 id=68 data-nosnippet>68</a>
-<a href=#69 id=69 data-nosnippet>69</a>            <span class="kw">if </span>empty_result.consumes_action() {
-<a href=#70 id=70 data-nosnippet>70</a>                <span class="kw">return </span>empty_result;
-<a href=#71 id=71 data-nosnippet>71</a>            }
-<a href=#72 id=72 data-nosnippet>72</a>        }
-<a href=#73 id=73 data-nosnippet>73</a>    }
-<a href=#74 id=74 data-nosnippet>74</a>
-<a href=#75 id=75 data-nosnippet>75</a>    <span class="comment">// Try item use (block placement, etc.)
-<a href=#76 id=76 data-nosnippet>76</a>    </span><span class="kw">let </span>item_stack = inv.get_item_in_hand_mut(hand);
-<a href=#77 id=77 data-nosnippet>77</a>    <span class="kw">if </span>!item_stack.is_empty() {
-<a href=#78 id=78 data-nosnippet>78</a>        <span class="comment">// TODO: Check item cooldowns
-<a href=#79 id=79 data-nosnippet>79</a>        // if player.getCooldowns().isOnCooldown(item_stack.item) { return Pass }
-<a href=#80 id=80 data-nosnippet>80</a>
-<a href=#81 id=81 data-nosnippet>81</a>        </span><span class="kw">let </span>original_count = item_stack.count;
+<a href=#69 id=69 data-nosnippet>69</a>        <span class="comment">// Try empty hand interaction for main hand if block requested it
+<a href=#70 id=70 data-nosnippet>70</a>        </span><span class="kw">if </span><span class="macro">matches!</span>(block_result, InteractionResult::TryEmptyHandInteraction)
+<a href=#71 id=71 data-nosnippet>71</a>            &amp;&amp; hand == InteractionHand::MainHand
+<a href=#72 id=72 data-nosnippet>72</a>        {
+<a href=#73 id=73 data-nosnippet>73</a>            <span class="comment">// Release the inventory lock before calling use_without_item
+<a href=#74 id=74 data-nosnippet>74</a>            // since block behaviors may need to open menus
+<a href=#75 id=75 data-nosnippet>75</a>            </span>drop(inv);
+<a href=#76 id=76 data-nosnippet>76</a>
+<a href=#77 id=77 data-nosnippet>77</a>            <span class="kw">let </span>empty_result = behavior.use_without_item(state, world, <span class="kw-2">*</span>pos, player, hit_result);
+<a href=#78 id=78 data-nosnippet>78</a>
+<a href=#79 id=79 data-nosnippet>79</a>            <span class="kw">if </span>empty_result.consumes_action() {
+<a href=#80 id=80 data-nosnippet>80</a>                <span class="kw">return </span>empty_result;
+<a href=#81 id=81 data-nosnippet>81</a>            }
 <a href=#82 id=82 data-nosnippet>82</a>
-<a href=#83 id=83 data-nosnippet>83</a>        <span class="kw">let </span><span class="kw-2">mut </span>context = UseOnContext {
-<a href=#84 id=84 data-nosnippet>84</a>            player,
-<a href=#85 id=85 data-nosnippet>85</a>            hand,
-<a href=#86 id=86 data-nosnippet>86</a>            hit_result: hit_result.clone(),
-<a href=#87 id=87 data-nosnippet>87</a>            world,
-<a href=#88 id=88 data-nosnippet>88</a>            item_stack,
-<a href=#89 id=89 data-nosnippet>89</a>        };
-<a href=#90 id=90 data-nosnippet>90</a>
-<a href=#91 id=91 data-nosnippet>91</a>        <span class="comment">// Get item behavior and call use_on
-<a href=#92 id=92 data-nosnippet>92</a>        </span><span class="kw">let </span>item_behavior = REGISTRY.items.get_behavior(context.item_stack.item);
-<a href=#93 id=93 data-nosnippet>93</a>        <span class="kw">let </span>result = item_behavior.use_on(<span class="kw-2">&amp;mut </span>context);
-<a href=#94 id=94 data-nosnippet>94</a>
-<a href=#95 id=95 data-nosnippet>95</a>        <span class="comment">// Restore count for creative mode (infinite materials)
-<a href=#96 id=96 data-nosnippet>96</a>        </span><span class="kw">if </span>player.has_infinite_materials() &amp;&amp; context.item_stack.count &lt; original_count {
-<a href=#97 id=97 data-nosnippet>97</a>            context.item_stack.count = original_count;
-<a href=#98 id=98 data-nosnippet>98</a>        }
-<a href=#99 id=99 data-nosnippet>99</a>
-<a href=#100 id=100 data-nosnippet>100</a>        <span class="kw">return </span>result;
-<a href=#101 id=101 data-nosnippet>101</a>    }
-<a href=#102 id=102 data-nosnippet>102</a>
-<a href=#103 id=103 data-nosnippet>103</a>    InteractionResult::Pass
-<a href=#104 id=104 data-nosnippet>104</a>}
+<a href=#83 id=83 data-nosnippet>83</a>            <span class="comment">// Re-acquire lock for item use below
+<a href=#84 id=84 data-nosnippet>84</a>            </span>inv = player.inventory.lock();
+<a href=#85 id=85 data-nosnippet>85</a>        }
+<a href=#86 id=86 data-nosnippet>86</a>    }
+<a href=#87 id=87 data-nosnippet>87</a>
+<a href=#88 id=88 data-nosnippet>88</a>    <span class="comment">// Try item use (block placement, etc.)
+<a href=#89 id=89 data-nosnippet>89</a>    </span><span class="kw">let </span>item_stack = inv.get_item_in_hand_mut(hand);
+<a href=#90 id=90 data-nosnippet>90</a>    <span class="kw">if </span>!item_stack.is_empty() {
+<a href=#91 id=91 data-nosnippet>91</a>        <span class="comment">// TODO: Check item cooldowns
+<a href=#92 id=92 data-nosnippet>92</a>        // if player.getCooldowns().isOnCooldown(item_stack.item) { return Pass }
+<a href=#93 id=93 data-nosnippet>93</a>
+<a href=#94 id=94 data-nosnippet>94</a>        </span><span class="kw">let </span>original_count = item_stack.count;
+<a href=#95 id=95 data-nosnippet>95</a>
+<a href=#96 id=96 data-nosnippet>96</a>        <span class="kw">let </span><span class="kw-2">mut </span>context = UseOnContext {
+<a href=#97 id=97 data-nosnippet>97</a>            player,
+<a href=#98 id=98 data-nosnippet>98</a>            hand,
+<a href=#99 id=99 data-nosnippet>99</a>            hit_result: hit_result.clone(),
+<a href=#100 id=100 data-nosnippet>100</a>            world,
+<a href=#101 id=101 data-nosnippet>101</a>            item_stack,
+<a href=#102 id=102 data-nosnippet>102</a>        };
+<a href=#103 id=103 data-nosnippet>103</a>
+<a href=#104 id=104 data-nosnippet>104</a>        <span class="comment">// Get item behavior and call use_on
+<a href=#105 id=105 data-nosnippet>105</a>        </span><span class="kw">let </span>item_behavior = item_behaviors.get_behavior(context.item_stack.item);
+<a href=#106 id=106 data-nosnippet>106</a>        <span class="kw">let </span>result = item_behavior.use_on(<span class="kw-2">&amp;mut </span>context);
+<a href=#107 id=107 data-nosnippet>107</a>
+<a href=#108 id=108 data-nosnippet>108</a>        <span class="comment">// Restore count for creative mode (infinite materials)
+<a href=#109 id=109 data-nosnippet>109</a>        </span><span class="kw">if </span>player.has_infinite_materials() &amp;&amp; context.item_stack.count &lt; original_count {
+<a href=#110 id=110 data-nosnippet>110</a>            context.item_stack.count = original_count;
+<a href=#111 id=111 data-nosnippet>111</a>        }
+<a href=#112 id=112 data-nosnippet>112</a>
+<a href=#113 id=113 data-nosnippet>113</a>        <span class="kw">return </span>result;
+<a href=#114 id=114 data-nosnippet>114</a>    }
+<a href=#115 id=115 data-nosnippet>115</a>
+<a href=#116 id=116 data-nosnippet>116</a>    InteractionResult::Pass
+<a href=#117 id=117 data-nosnippet>117</a>}
 </code></pre></div></section></main></body></html>

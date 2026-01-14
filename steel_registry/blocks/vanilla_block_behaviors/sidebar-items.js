@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["assign_custom_block_behaviors"],"static":["OAK_LOG"]};

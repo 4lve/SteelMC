@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["item","vanilla_item_behaviors"],"static":["DEFAULT_BEHAVIOR"],"struct":["Item","ItemRegistry"],"type":["ItemRef"]};
+window.SIDEBAR_ITEMS = {"mod":["item"],"struct":["Item","ItemRegistry"],"type":["ItemRef"]};

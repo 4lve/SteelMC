@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["assign_custom_item_behaviors"]};

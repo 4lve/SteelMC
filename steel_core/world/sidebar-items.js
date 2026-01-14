@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["player_area_map","world_entities"],"struct":["PlayerAreaMap","World"]};
+window.SIDEBAR_ITEMS = {"mod":["player_area_map","player_map","world_entities"],"struct":["PlayerAreaMap","PlayerMap","World"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":["offset"],"mod":["behaviour","properties","vanilla_behaviours","vanilla_block_behaviors"],"struct":["Block","BlockRegistry"],"type":["BlockRef"]};
+window.SIDEBAR_ITEMS = {"fn":["full_block_shape"],"macro":["offset"],"mod":["behaviour","block_state_ext","properties","shapes"],"struct":["Block","BlockRegistry"],"type":["BlockRef","ShapeFn"]};
