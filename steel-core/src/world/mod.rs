@@ -36,7 +36,7 @@ pub use player_area_map::PlayerAreaMap;
 pub use player_map::PlayerMap;
 
 /// Interval in ticks between player info broadcasts (600 ticks = 30 seconds).
-/// Matches vanilla PlayerList.SEND_PLAYER_INFO_INTERVAL.
+/// Matches vanilla `PlayerList.SEND_PLAYER_INFO_INTERVAL`.
 const SEND_PLAYER_INFO_INTERVAL: u64 = 600;
 
 /// A struct that represents a world.
@@ -327,13 +327,13 @@ impl World {
         }
 
         // Broadcast player latency updates periodically
-        if tick_count % SEND_PLAYER_INFO_INTERVAL == 0 {
+        if tick_count.is_multiple_of(SEND_PLAYER_INFO_INTERVAL) {
             self.broadcast_player_latency_updates();
         }
     }
 
     /// Broadcasts latency updates for all players to all players.
-    /// This is called every SEND_PLAYER_INFO_INTERVAL ticks to update the ping display.
+    /// This is called every `SEND_PLAYER_INFO_INTERVAL` ticks to update the ping display.
     fn broadcast_player_latency_updates(&self) {
         // Collect all player latencies
         let mut latency_entries = Vec::new();
