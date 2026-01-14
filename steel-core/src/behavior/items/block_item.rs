@@ -53,8 +53,9 @@ impl ItemBehavior for BlockItemBehavior {
             return InteractionResult::Fail;
         }
 
-        // Create placement context
-        // TODO: Calculate horizontal_direction from player rotation
+        // Get player rotation for placement context
+        let (yaw, _pitch) = context.player.rotation.load();
+
         let place_context = BlockPlaceContext {
             clicked_pos,
             clicked_face: context.hit_result.direction,
@@ -62,8 +63,8 @@ impl ItemBehavior for BlockItemBehavior {
             inside: context.hit_result.inside,
             relative_pos: place_pos,
             replace_clicked,
-            horizontal_direction: Direction::North,
-            rotation: 0.0,
+            horizontal_direction: Direction::from_yaw(yaw),
+            rotation: yaw,
             world: context.world,
         };
 
