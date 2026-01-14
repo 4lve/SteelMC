@@ -9,7 +9,9 @@ use std::{
 };
 
 use steel_protocol::packet_traits::ClientPacket;
-use steel_protocol::packets::game::{CBlockDestruction, CPlayerChat, CPlayerInfoUpdate, CSystemChat};
+use steel_protocol::packets::game::{
+    CBlockDestruction, CPlayerChat, CPlayerInfoUpdate, CSystemChat,
+};
 use steel_registry::blocks::BlockRef;
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::Direction;
