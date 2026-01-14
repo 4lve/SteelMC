@@ -41,13 +41,13 @@ pub enum PlayerDisplayName {
     /// Use the player's default username (no custom display name).
     Reset,
     /// Use a custom display name.
-    Custom(TextComponent),
+    Custom(Box<TextComponent>),
 }
 
 impl From<Option<TextComponent>> for PlayerDisplayName {
     fn from(opt: Option<TextComponent>) -> Self {
         match opt {
-            Some(component) => Self::Custom(component),
+            Some(component) => Self::Custom(Box::new(component)),
             None => Self::Reset,
         }
     }
