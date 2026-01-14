@@ -1,16 +1,23 @@
 //! Slot abstraction for inventory access.
+//!
+//! This module provides slot types and helper functions for building menus.
+//! The helper functions mirror vanilla Java's `AbstractContainerMenu` methods:
+//! - `add_standard_inventory_slots` - adds main inventory (27 slots) + hotbar (9 slots)
+//! - `add_inventory_slots` - adds main inventory (27 slots, indices 9-35)
+//! - `add_hotbar_slots` - adds hotbar (9 slots, indices 0-8)
 
 use std::{mem, sync::Arc};
 
 use enum_dispatch::enum_dispatch;
 use steel_registry::data_components::vanilla_components::EquippableSlot;
 use steel_registry::item_stack::ItemStack;
-use steel_registry::recipe::CraftingInput;
 use steel_utils::locks::SyncMutex;
 
 use crate::inventory::SyncPlayerInv;
+use crate::inventory::container::Container;
 use crate::inventory::crafting::{CraftingContainer, ResultContainer};
 use crate::inventory::lock::{ContainerId, ContainerLockGuard, ContainerRef};
+use crate::inventory::recipe_manager;
 use crate::player::Player;
 
 /// A synchronized crafting container.
@@ -331,15 +338,18 @@ impl Slot for ArmorSlot {
 /// A slot in a crafting grid.
 ///
 /// This slot holds items placed in the crafting grid and triggers
-/// recipe recalculation when changed.
+/// recipe recalculation when changed. Supports both 2x2 (player inventory)
+/// and 3x3 (crafting table) grids.
 pub struct CraftingGridSlot {
     container: SyncCraftingContainer,
     result_container: SyncResultContainer,
     index: usize,
+    /// Grid width (2 for player inventory, 3 for crafting table).
+    grid_size: usize,
 }
 
 impl CraftingGridSlot {
-    /// Creates a new crafting grid slot.
+    /// Creates a new crafting grid slot for a 2x2 grid (player inventory).
     pub fn new(
         container: SyncCraftingContainer,
         result_container: SyncResultContainer,
@@ -349,6 +359,21 @@ impl CraftingGridSlot {
             container,
             result_container,
             index,
+            grid_size: 2,
+        }
+    }
+
+    /// Creates a new crafting grid slot for a 3x3 grid (crafting table).
+    pub fn new_3x3(
+        container: SyncCraftingContainer,
+        result_container: SyncResultContainer,
+        index: usize,
+    ) -> Self {
+        Self {
+            container,
+            result_container,
+            index,
+            grid_size: 3,
         }
     }
 
@@ -369,27 +394,19 @@ impl CraftingGridSlot {
     /// This recalculates the recipe and updates the result slot, matching
     /// Java's `slotsChanged` -> `slotChangedCraftingGrid` callback pattern.
     fn update_result(&self, guard: &mut ContainerLockGuard) {
-        let container_id = ContainerId::from_arc(&self.container);
-        let result_container_id = ContainerId::from_arc(&self.result_container);
+        let crafting_id = ContainerId::from_arc(&self.container);
+        let result_id = ContainerId::from_arc(&self.result_container);
 
-        // Get the crafting container to read its contents
         let crafting = guard
-            .get(container_id)
+            .get_crafting_container(crafting_id)
             .expect("crafting container not locked");
 
-        // Build the crafting input from the container
-        let items: Vec<ItemStack> = (0..4).map(|i| crafting.get_item(i).clone()).collect();
-        let positioned = CraftingInput::positioned(2, 2, items);
-
-        // Find matching recipe
-        let result_stack = steel_registry::REGISTRY
-            .recipes
-            .find_crafting_recipe_2x2(&positioned.input)
+        let is_2x2 = self.grid_size == 2;
+        let result_stack = recipe_manager::find_recipe(crafting, is_2x2)
             .map_or_else(ItemStack::empty, |r| r.assemble());
 
-        // Update the result container
         guard
-            .get_mut(result_container_id)
+            .get_result_container_mut(result_id)
             .expect("result container not locked")
             .set_item(0, result_stack);
     }
@@ -439,10 +456,12 @@ impl Slot for CraftingGridSlot {
 pub struct CraftingResultSlot {
     result_container: SyncResultContainer,
     crafting_container: SyncCraftingContainer,
+    /// Grid width (2 for player inventory, 3 for crafting table).
+    grid_size: usize,
 }
 
 impl CraftingResultSlot {
-    /// Creates a new crafting result slot.
+    /// Creates a new crafting result slot for a 2x2 grid (player inventory).
     pub fn new(
         result_container: SyncResultContainer,
         crafting_container: SyncCraftingContainer,
@@ -450,6 +469,19 @@ impl CraftingResultSlot {
         Self {
             result_container,
             crafting_container,
+            grid_size: 2,
+        }
+    }
+
+    /// Creates a new crafting result slot for a 3x3 grid (crafting table).
+    pub fn new_3x3(
+        result_container: SyncResultContainer,
+        crafting_container: SyncCraftingContainer,
+    ) -> Self {
+        Self {
+            result_container,
+            crafting_container,
+            grid_size: 3,
         }
     }
 
@@ -541,33 +573,21 @@ impl Slot for CraftingResultSlot {
         // - recipeCraftingHolder.awardUsedRecipes(player, items) for recipe unlocks
 
         let mut remainder_overflow: Vec<ItemStack> = Vec::new();
+        let crafting_id = ContainerId::from_arc(&self.crafting_container);
+        let result_id = ContainerId::from_arc(&self.result_container);
+        let is_2x2 = self.grid_size == 2;
 
-        // First, build the positioned input and get remainders from recipe while holding immutable borrow
-        let crafting_container_id = ContainerId::from_arc(&self.crafting_container);
-        let result_container_id = ContainerId::from_arc(&self.result_container);
-        let (remainders_and_positioned, grid_width) = {
+        // Get remainders and positioned input from recipe_manager
+        let remainders_and_positioned = {
             let crafting = guard
-                .get(crafting_container_id)
+                .get_crafting_container(crafting_id)
                 .expect("crafting container not locked");
-
-            // Build crafting input
-            let width = 2; // 2x2 player crafting grid
-            let items: Vec<ItemStack> = (0..4).map(|i| crafting.get_item(i).clone()).collect();
-            let positioned = CraftingInput::positioned(width, 2, items);
-
-            // Get remainders from recipe
-            let remainders = steel_registry::REGISTRY
-                .recipes
-                .find_crafting_recipe_2x2(&positioned.input)
-                .map(|r| r.get_remaining_items(&positioned.input))
-                .unwrap_or_default();
-
-            (Some((remainders, positioned)), width)
+            recipe_manager::get_remaining_items(crafting, is_2x2)
         };
 
-        // Now apply the changes with mutable borrow
+        // Apply changes with mutable borrow
         let crafting = guard
-            .get_mut(crafting_container_id)
+            .get_crafting_container_mut(crafting_id)
             .expect("crafting container not locked");
 
         if let Some((remainders, positioned)) = remainders_and_positioned {
@@ -577,7 +597,7 @@ impl Slot for CraftingResultSlot {
             for y in 0..input.height {
                 for x in 0..input.width {
                     // Calculate the actual slot index in the original crafting grid
-                    let grid_slot = positioned.to_grid_slot(x, y, grid_width);
+                    let grid_slot = positioned.to_grid_slot(x, y, self.grid_size);
 
                     // Get the remainder for this position in the trimmed input
                     let remainder_idx = x + y * input.width;
@@ -591,11 +611,7 @@ impl Slot for CraftingResultSlot {
                     {
                         let item = crafting.get_item_mut(grid_slot);
                         if !item.is_empty() {
-                            if item.count() > 1 {
-                                item.set_count(item.count() - 1);
-                            } else {
-                                *item = ItemStack::empty();
-                            }
+                            item.shrink(1);
                         }
                     }
 
@@ -611,8 +627,7 @@ impl Slot for CraftingResultSlot {
                             &replacement,
                         ) {
                             // Same item type, try to stack
-                            let new_count = current_item.count() + replacement.count();
-                            crafting.get_item_mut(grid_slot).set_count(new_count);
+                            crafting.get_item_mut(grid_slot).grow(replacement.count());
                         } else {
                             // Different item type - need to return to player inventory
                             remainder_overflow.push(replacement);
@@ -625,17 +640,11 @@ impl Slot for CraftingResultSlot {
         crafting.set_changed();
 
         // Update the crafting result based on remaining ingredients
-        // Build new input after consuming ingredients
-        let items: Vec<ItemStack> = (0..4).map(|i| crafting.get_item(i).clone()).collect();
-        let positioned = CraftingInput::positioned(grid_width, 2, items);
-        let result_stack = steel_registry::REGISTRY
-            .recipes
-            .find_crafting_recipe_2x2(&positioned.input)
+        let result_stack = recipe_manager::find_recipe(crafting, is_2x2)
             .map_or_else(ItemStack::empty, |r| r.assemble());
 
-        // Update the result container
         guard
-            .get_mut(result_container_id)
+            .get_result_container_mut(result_id)
             .expect("result container not locked")
             .set_item(0, result_stack);
 
@@ -685,4 +694,69 @@ impl SlotType {
             }
         }
     }
+
+    /// Returns the primary container ID and container slot index for this slot.
+    /// Used for matching slots between menus when transferring state.
+    ///
+    /// Only returns `Some` for slots that reference a persistent container
+    /// (player inventory). Returns `None` for fake/virtual slots like crafting results.
+    #[must_use]
+    pub fn container_key(&self) -> Option<(ContainerId, usize)> {
+        match self {
+            SlotType::Normal(s) => Some((s.container_ref().container_id(), s.get_container_slot())),
+            SlotType::Armor(s) => Some((s.container_ref().container_id(), s.get_container_slot())),
+            _ => None,
+        }
+    }
+}
+
+// ==================== Slot Builder Helpers ====================
+//
+// These functions mirror vanilla Java's AbstractContainerMenu methods for
+// adding standard inventory slots. They create SlotType vectors that can
+// be appended to a menu's slot list.
+
+/// Adds hotbar slots (9 slots) to the given slot vector.
+///
+/// Maps menu slots to player inventory indices 0-8.
+/// This mirrors Java's `AbstractContainerMenu::addInventoryHotbarSlots`.
+///
+/// # Arguments
+/// * `slots` - The slot vector to append to
+/// * `inventory` - The player's inventory
+pub fn add_hotbar_slots(slots: &mut Vec<SlotType>, inventory: &SyncPlayerInv) {
+    for i in 0..9 {
+        slots.push(SlotType::Normal(NormalSlot::new(inventory.clone(), i)));
+    }
+}
+
+/// Adds main inventory slots (27 slots) to the given slot vector.
+///
+/// Maps menu slots to player inventory indices 9-35.
+/// This mirrors Java's `AbstractContainerMenu::addInventoryExtendedSlots`.
+///
+/// # Arguments
+/// * `slots` - The slot vector to append to
+/// * `inventory` - The player's inventory
+pub fn add_inventory_slots(slots: &mut Vec<SlotType>, inventory: &SyncPlayerInv) {
+    for i in 9..36 {
+        slots.push(SlotType::Normal(NormalSlot::new(inventory.clone(), i)));
+    }
+}
+
+/// Adds standard inventory slots (36 slots total) to the given slot vector.
+///
+/// This adds:
+/// - Main inventory: 27 slots (inventory indices 9-35)
+/// - Hotbar: 9 slots (inventory indices 0-8)
+///
+/// This mirrors Java's `AbstractContainerMenu::addStandardInventorySlots`,
+/// which calls `addInventoryExtendedSlots` followed by `addInventoryHotbarSlots`.
+///
+/// # Arguments
+/// * `slots` - The slot vector to append to
+/// * `inventory` - The player's inventory
+pub fn add_standard_inventory_slots(slots: &mut Vec<SlotType>, inventory: &SyncPlayerInv) {
+    add_inventory_slots(slots, inventory);
+    add_hotbar_slots(slots, inventory);
 }

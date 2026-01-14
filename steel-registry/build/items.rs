@@ -30,6 +30,107 @@ fn get_component_ident(name: &str) -> Option<Ident> {
     Some(Ident::new(&shouty_name, Span::call_site()))
 }
 
+/// Generates the TokenStream for a Tool component from JSON data.
+fn generate_tool_component(value: &Value) -> TokenStream {
+    let rules = value
+        .get("rules")
+        .and_then(|r| r.as_array())
+        .map(|rules_arr| rules_arr.iter().map(generate_tool_rule).collect::<Vec<_>>())
+        .unwrap_or_default();
+
+    let default_mining_speed = value
+        .get("default_mining_speed")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(1.0) as f32;
+
+    let damage_per_block = value
+        .get("damage_per_block")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(1) as i32;
+
+    let can_destroy_blocks_in_creative = value
+        .get("can_destroy_blocks_in_creative")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+
+    quote! {
+        vanilla_components::Tool {
+            rules: vec![#(#rules),*],
+            default_mining_speed: #default_mining_speed,
+            damage_per_block: #damage_per_block,
+            can_destroy_blocks_in_creative: #can_destroy_blocks_in_creative,
+        }
+    }
+}
+
+/// Parses a block or tag reference string into an Identifier TokenStream.
+/// For tags like "#minecraft:mineable/pickaxe", creates Identifier { namespace: "#minecraft", path: "mineable/pickaxe" }
+/// For blocks like "minecraft:stone", creates Identifier { namespace: "minecraft", path: "stone" }
+fn parse_block_or_tag(s: &str) -> TokenStream {
+    let (is_tag, rest) = if let Some(stripped) = s.strip_prefix('#') {
+        (true, stripped)
+    } else {
+        (false, s)
+    };
+
+    // Split namespace:path
+    let parts: Vec<&str> = rest.splitn(2, ':').collect();
+    let (namespace, path) = if parts.len() == 2 {
+        (parts[0], parts[1])
+    } else {
+        // Default to minecraft namespace
+        ("minecraft", rest)
+    };
+
+    if is_tag {
+        // Prefix namespace with # for tags
+        let tag_namespace = format!("#{namespace}");
+        quote! { Identifier::new(#tag_namespace, #path) }
+    } else {
+        quote! { Identifier::new(#namespace, #path) }
+    }
+}
+
+/// Generates the TokenStream for a single ToolRule from JSON data.
+fn generate_tool_rule(rule: &Value) -> TokenStream {
+    // Parse blocks - can be a string (single block or tag), or an array of strings
+    let blocks_value = rule.get("blocks");
+    let blocks_tokens: Vec<TokenStream> = match blocks_value {
+        Some(Value::String(s)) => {
+            vec![parse_block_or_tag(s)]
+        }
+        Some(Value::Array(arr)) => arr
+            .iter()
+            .filter_map(|v| v.as_str())
+            .map(parse_block_or_tag)
+            .collect(),
+        _ => vec![],
+    };
+
+    // Parse optional speed
+    let speed_token = match rule.get("speed").and_then(|v| v.as_f64()) {
+        Some(speed) => {
+            let speed = speed as f32;
+            quote! { Some(#speed) }
+        }
+        None => quote! { None },
+    };
+
+    // Parse optional correct_for_drops
+    let correct_for_drops_token = match rule.get("correct_for_drops").and_then(|v| v.as_bool()) {
+        Some(correct) => quote! { Some(#correct) },
+        None => quote! { None },
+    };
+
+    quote! {
+        vanilla_components::ToolRule {
+            blocks: vec![#(#blocks_tokens),*],
+            speed: #speed_token,
+            correct_for_drops: #correct_for_drops_token,
+        }
+    }
+}
+
 /// Returns the crafting remainder item key for a given item, if any.
 /// Based on vanilla Minecraft's Item.Properties.craftRemainder() calls.
 fn get_craft_remainder(item_name: &str) -> Option<&'static str> {
@@ -115,6 +216,11 @@ fn generate_builder_calls(item: &Item) -> Vec<TokenStream> {
                     );
                 }
             }
+            "minecraft:tool" => {
+                let tool_token = generate_tool_component(value);
+                builder_calls
+                    .push(quote! { .builder_set(vanilla_components::TOOL, Some(#tool_token)) });
+            }
             _ => {
                 // TODO: Implement more
             }
@@ -131,8 +237,6 @@ pub(crate) fn build() -> TokenStream {
 
     let mut item_definitions = TokenStream::new();
     let mut item_construction = TokenStream::new();
-    let mut behavior_definitions = TokenStream::new();
-    let mut behavior_assignments = TokenStream::new();
 
     for item in &item_assets.items {
         let item_ident = Ident::new(&item.name, Span::call_site());
@@ -144,20 +248,6 @@ pub(crate) fn build() -> TokenStream {
 
         if let Some(block_name) = &item.block_item {
             let block_ident = Ident::new(&block_name.to_shouty_snake_case(), Span::call_site());
-            let behavior_ident = Ident::new(
-                &format!("{}_BEHAVIOR", item.name.to_shouty_snake_case()),
-                Span::call_site(),
-            );
-
-            // Generate behavior static
-            behavior_definitions.extend(quote! {
-                static #behavior_ident: BlockItemBehavior = BlockItemBehavior::new(vanilla_blocks::#block_ident);
-            });
-
-            // Generate behavior assignment
-            behavior_assignments.extend(quote! {
-                registry.set_behavior(&ITEMS.#item_ident, &#behavior_ident);
-            });
 
             if block_name != &item.name {
                 item_construction.extend(quote! {
@@ -200,7 +290,7 @@ pub(crate) fn build() -> TokenStream {
         use crate::{
             data_components::{vanilla_components, DataComponentMap},
             vanilla_blocks,
-            items::{Item, ItemRegistry, item::BlockItemBehavior},
+            items::{Item, ItemRegistry},
         };
         use steel_utils::Identifier;
         use std::sync::LazyLock;
@@ -221,14 +311,6 @@ pub(crate) fn build() -> TokenStream {
 
         pub fn register_items(registry: &mut ItemRegistry) {
             #register_stream
-        }
-
-        // Behavior statics
-        #behavior_definitions
-
-        /// Assigns behaviors to items after registration
-        pub fn assign_item_behaviors(registry: &mut ItemRegistry) {
-            #behavior_assignments
         }
     }
 }

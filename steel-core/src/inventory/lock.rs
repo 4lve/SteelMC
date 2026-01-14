@@ -224,6 +224,48 @@ impl ContainerLockGuard {
             })
     }
 
+    /// Get immutable access to a locked crafting container.
+    #[must_use]
+    pub fn get_crafting_container(&self, id: impl Into<ContainerId>) -> Option<&CraftingContainer> {
+        self.id_to_index
+            .get(&id.into())
+            .and_then(|&idx| self.guards.get(idx))
+            .and_then(|(_, guard)| match guard {
+                LockedContainer::CraftingContainer(g) => Some(&**g),
+                _ => None,
+            })
+    }
+
+    /// Get mutable access to a locked crafting container.
+    pub fn get_crafting_container_mut(
+        &mut self,
+        id: impl Into<ContainerId>,
+    ) -> Option<&mut CraftingContainer> {
+        self.id_to_index
+            .get(&id.into())
+            .copied()
+            .and_then(|idx| self.guards.get_mut(idx))
+            .and_then(|(_, guard)| match guard {
+                LockedContainer::CraftingContainer(g) => Some(&mut **g),
+                _ => None,
+            })
+    }
+
+    /// Get mutable access to a locked result container.
+    pub fn get_result_container_mut(
+        &mut self,
+        id: impl Into<ContainerId>,
+    ) -> Option<&mut ResultContainer> {
+        self.id_to_index
+            .get(&id.into())
+            .copied()
+            .and_then(|idx| self.guards.get_mut(idx))
+            .and_then(|(_, guard)| match guard {
+                LockedContainer::ResultContainer(g) => Some(&mut **g),
+                _ => None,
+            })
+    }
+
     /// Check if a container is locked.
     #[must_use]
     pub fn contains(&self, id: ContainerId) -> bool {

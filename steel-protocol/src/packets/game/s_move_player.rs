@@ -122,3 +122,25 @@ impl From<SMovePlayerRot> for SMovePlayer {
         }
     }
 }
+
+/// Status-only movement packet (no position or rotation, just on_ground flag).
+///
+/// Sent by the client when they haven't moved but want to update their ground status.
+#[derive(ReadFrom, Clone, Debug, ServerPacket)]
+pub struct SMovePlayerStatusOnly {
+    pub packed_byte: u8,
+}
+
+impl From<SMovePlayerStatusOnly> for SMovePlayer {
+    fn from(value: SMovePlayerStatusOnly) -> Self {
+        Self {
+            position: Vector3::default(),
+            has_pos: false,
+            has_rot: false,
+            x_rot: 0.0,
+            y_rot: 0.0,
+            on_ground: unpack_on_ground(value.packed_byte),
+            horizontal_collision: unpack_horizontal_collision(value.packed_byte),
+        }
+    }
+}

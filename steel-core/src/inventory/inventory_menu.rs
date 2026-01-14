@@ -23,7 +23,7 @@ use crate::inventory::{
     recipe_manager,
     slot::{
         ArmorSlot, CraftingGridSlot, CraftingResultSlot, NormalSlot, Slot, SlotType,
-        SyncCraftingContainer, SyncResultContainer,
+        SyncCraftingContainer, SyncResultContainer, add_standard_inventory_slots,
     },
 };
 use crate::player::Player;
@@ -101,41 +101,23 @@ impl InventoryMenu {
         // Slots 5-8: Armor (head, chest, legs, feet)
         // Maps to inventory slots 39, 38, 37, 36
         // Order matches Java's SLOT_IDS: HEAD, CHEST, LEGS, FEET
-        menu_slots.push(SlotType::Armor(ArmorSlot::new(
-            inventory.clone(),
-            39,
-            EquippableSlot::Head,
-        ))); // Head
-        menu_slots.push(SlotType::Armor(ArmorSlot::new(
-            inventory.clone(),
-            38,
-            EquippableSlot::Chest,
-        ))); // Chest
-        menu_slots.push(SlotType::Armor(ArmorSlot::new(
-            inventory.clone(),
-            37,
-            EquippableSlot::Legs,
-        ))); // Legs
-        menu_slots.push(SlotType::Armor(ArmorSlot::new(
-            inventory.clone(),
-            36,
-            EquippableSlot::Feet,
-        ))); // Feet
-
-        // Slots 9-35: Main inventory (27 slots)
-        // Maps to inventory slots 9-35
-        for i in 9..36 {
-            menu_slots.push(SlotType::Normal(NormalSlot::new(inventory.clone(), i)));
+        for (offset, slot_type) in [
+            (39, EquippableSlot::Head),
+            (38, EquippableSlot::Chest),
+            (37, EquippableSlot::Legs),
+            (36, EquippableSlot::Feet),
+        ] {
+            menu_slots.push(SlotType::Armor(ArmorSlot::new(
+                inventory.clone(),
+                offset,
+                slot_type,
+            )));
         }
 
-        // Slots 36-44: Hotbar (9 slots)
-        // Maps to inventory slots 0-8
-        for i in 0..9 {
-            menu_slots.push(SlotType::Normal(NormalSlot::new(inventory.clone(), i)));
-        }
+        // Slots 9-44: Standard inventory (main inventory + hotbar)
+        add_standard_inventory_slots(&mut menu_slots, &inventory);
 
-        // Slot 45: Offhand
-        // Maps to inventory slot 40
+        // Slot 45: Offhand (inventory slot 40)
         menu_slots.push(SlotType::Normal(NormalSlot::new(inventory.clone(), 40)));
 
         Self {

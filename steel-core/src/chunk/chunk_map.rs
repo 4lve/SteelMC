@@ -82,8 +82,8 @@ impl ChunkMap {
         )));
 
         Self {
-            chunks: scc::HashMap::with_capacity_and_hasher(1000, FxBuildHasher),
-            unloading_chunks: scc::HashMap::with_capacity_and_hasher(1000, FxBuildHasher),
+            chunks: scc::HashMap::default(),
+            unloading_chunks: scc::HashMap::default(),
             pending_generation_tasks: SyncMutex::new(Vec::new()),
             task_tracker: TaskTracker::new(),
             chunk_tickets: SyncMutex::new(ChunkTicketManager::new()),
@@ -163,13 +163,20 @@ impl ChunkMap {
                     let block_pos = section_pos.relative_to_block_pos(packed);
                     let block_state = world.get_block_state(&block_pos);
 
+                    log::debug!(
+                        "Broadcasting single block update at {:?} state={:?} to {} players",
+                        block_pos,
+                        block_state,
+                        tracking_players.len()
+                    );
+
                     let update_packet = CBlockUpdate {
                         pos: block_pos,
                         block_state,
                     };
 
-                    for uuid in &tracking_players {
-                        if let Some(player) = world.players.read_sync(uuid, |_, p| p.clone()) {
+                    for entity_id in &tracking_players {
+                        if let Some(player) = world.players.get_by_entity_id(*entity_id) {
                             player.connection.send_packet(update_packet.clone());
                         }
                     }
@@ -187,13 +194,20 @@ impl ChunkMap {
                         })
                         .collect();
 
+                    log::debug!(
+                        "Broadcasting {} block updates in section {:?} to {} players",
+                        changes.len(),
+                        section_pos,
+                        tracking_players.len()
+                    );
+
                     let packet = CSectionBlocksUpdate {
                         section_pos,
                         changes,
                     };
 
-                    for uuid in &tracking_players {
-                        if let Some(player) = world.players.read_sync(uuid, |_, p| p.clone()) {
+                    for entity_id in &tracking_players {
+                        if let Some(player) = world.players.get_by_entity_id(*entity_id) {
                             player.connection.send_packet(packet.clone());
                         }
                     }
@@ -492,7 +506,7 @@ impl ChunkMap {
 
                 // Update the player area map with the diff
                 world.player_area_map.on_player_view_change(
-                    player.gameprofile.id,
+                    player.entity_id,
                     &added_chunks,
                     &removed_chunks,
                 );

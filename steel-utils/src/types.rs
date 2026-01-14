@@ -144,6 +144,12 @@ impl BlockPos {
     /// Maximum horizontal coordinate value: `(1 << 26) / 2 - 1 = 33554431`
     pub const MAX_HORIZONTAL_COORDINATE: i32 = (1 << Self::PACKED_HORIZONTAL_LEN) / 2 - 1;
 
+    /// Creates a new `BlockPos` from coordinates.
+    #[must_use]
+    pub const fn new(x: i32, y: i32, z: i32) -> Self {
+        Self(Vector3::new(x, y, z))
+    }
+
     /// Converts the `BlockPos` to an `i64`.
     /// Layout: X (26 bits, offset 38) | Z (26 bits, offset 12) | Y (12 bits, offset 0)
     #[must_use]
@@ -291,21 +297,23 @@ impl SectionPos {
     }
 
     /// Packs the section position into an i64.
+    /// Format: (x << 42) | (z << 20) | y
     #[must_use]
     pub fn as_i64(&self) -> i64 {
         let x = i64::from(self.0.x);
         let y = i64::from(self.0.y);
         let z = i64::from(self.0.z);
 
-        ((x & 0x3F_FFFF) << 42) | ((y & 0xF_FFFF) << 20) | (z & 0x3F_FFFF)
+        ((x & 0x3F_FFFF) << 42) | ((z & 0x3F_FFFF) << 20) | (y & 0xF_FFFF)
     }
 
     /// Unpacks a section position from an i64.
+    /// Format: (x << 42) | (z << 20) | y
     #[must_use]
     pub fn from_i64(value: i64) -> Self {
         let x = value >> 42;
-        let y = (value >> 20) & 0xF_FFFF;
-        let z = value & 0x3F_FFFF;
+        let z = (value >> 20) & 0x3F_FFFF;
+        let y = value & 0xF_FFFF;
 
         // Sign extend
         let x = (x << 42) >> 42;
@@ -404,6 +412,18 @@ impl Debug for Identifier {
 impl Identifier {
     /// The vanilla namespace.
     pub const VANILLA_NAMESPACE: &'static str = "minecraft";
+
+    /// Creates a new `Identifier` with the given namespace and path.
+    #[must_use]
+    pub fn new(
+        namespace: impl Into<Cow<'static, str>>,
+        path: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        Identifier {
+            namespace: namespace.into(),
+            path: path.into(),
+        }
+    }
 
     /// Creates a new `Identifier` with the vanilla namespace.
     #[must_use]

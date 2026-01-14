@@ -1,6 +1,7 @@
 /target
 /steel-registry/src/generated
 /steel-utils/src/generated
+/steel-core/src/behavior/generated
 /config
 /minecraft-src
 profile.json.gz

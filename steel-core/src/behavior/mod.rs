@@ -1,0 +1,80 @@
+//! Block and item behavior system.
+//!
+//! This module contains the behavior traits and registries that define how
+//! blocks and items behave dynamically. This is separate from the static data
+//! in steel-registry to maintain a clean separation between constant data and
+//! functional/dynamic behavior.
+//!
+//! # Architecture
+//!
+//! After the main registry (`steel-registry`) is frozen, behavior registries
+//! are created:
+//! - `BlockBehaviorRegistry` - assigns default or custom behaviors to each block
+//! - `ItemBehaviorRegistry` - assigns default or custom behaviors to each item
+//!
+//! # Usage
+//!
+//! ```ignore
+//! use steel_core::behavior::{init_behaviors, BLOCK_BEHAVIORS, ITEM_BEHAVIORS};
+//!
+//! // After registry is frozen, call once at startup:
+//! init_behaviors();
+//!
+//! // Then access behaviors via the global registries:
+//! let behavior = BLOCK_BEHAVIORS.get().unwrap().get_behavior(block);
+//! ```
+
+mod block;
+pub mod blocks;
+mod context;
+mod item;
+pub mod items;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/blocks.rs"]
+pub mod block_behaviours;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/items.rs"]
+pub mod item_behaviours;
+
+pub use block::{BlockBehaviorRegistry, BlockBehaviour, DefaultBlockBehaviour};
+use block_behaviours::register_block_behaviors;
+pub use context::{BlockHitResult, BlockPlaceContext, InteractionResult, UseOnContext};
+pub use item::{ItemBehavior, ItemBehaviorRegistry};
+use item_behaviours::register_item_behaviors;
+pub use items::{BlockItemBehavior, DefaultItemBehavior};
+use std::sync::OnceLock;
+
+/// Global block behavior registry.
+pub static BLOCK_BEHAVIORS: OnceLock<BlockBehaviorRegistry> = OnceLock::new();
+
+/// Global item behavior registry.
+pub static ITEM_BEHAVIORS: OnceLock<ItemBehaviorRegistry> = OnceLock::new();
+
+/// Initializes the global behavior registries.
+///
+/// This should be called once after the main registry is frozen.
+///
+/// # Panics
+///
+/// Panics if called more than once.
+pub fn init_behaviors() {
+    let mut block_behaviors = BlockBehaviorRegistry::new();
+    register_block_behaviors(&mut block_behaviors);
+
+    assert!(
+        BLOCK_BEHAVIORS.set(block_behaviors).is_ok(),
+        "Block behavior registry already initialized"
+    );
+
+    let mut item_behaviors = ItemBehaviorRegistry::new();
+    register_item_behaviors(&mut item_behaviors);
+
+    assert!(
+        ITEM_BEHAVIORS.set(item_behaviors).is_ok(),
+        "Item behavior registry already initialized"
+    );
+}

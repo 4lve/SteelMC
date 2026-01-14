@@ -6,7 +6,7 @@ use std::sync::OnceLock;
 
 use rustc_hash::FxHashMap;
 
-use steel_registry::{BlockStateExt, REGISTRY, blocks::BlockRef};
+use steel_registry::{REGISTRY, blocks::BlockRef, blocks::block_state_ext::BlockStateExt};
 use steel_utils::{BlockStateId, Identifier};
 
 /// The different types of heightmaps.

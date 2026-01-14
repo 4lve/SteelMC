@@ -7,7 +7,7 @@ use std::sync::{
 use rustc_hash::FxHashMap;
 
 use crossbeam::atomic::AtomicCell;
-use steel_registry::{BlockStateExt, REGISTRY, vanilla_blocks};
+use steel_registry::{REGISTRY, blocks::block_state_ext::BlockStateExt, vanilla_blocks};
 use steel_utils::{BlockPos, BlockStateId, ChunkPos, locks::SyncRwLock, types::UpdateFlags};
 
 use crate::chunk::{

@@ -179,6 +179,48 @@ impl PlayerInventory {
         -1
     }
 
+    /// Finds a slot containing an item matching the given stack (same item type).
+    /// Returns -1 if not found.
+    #[must_use]
+    pub fn find_slot_matching_item(&self, stack: &ItemStack) -> i32 {
+        for i in 0..self.items.len() {
+            if !self.items[i].is_empty() && ItemStack::is_same_item(&self.items[i], stack) {
+                return i as i32;
+            }
+        }
+        -1
+    }
+
+    /// Swaps items between selected hotbar slot and the given slot.
+    /// Used for pick block when item is in main inventory but not hotbar.
+    pub fn pick_slot(&mut self, slot: i32) {
+        let slot = slot as usize;
+        if slot >= self.items.len() {
+            return;
+        }
+        let selected = self.selected as usize;
+        self.items.swap(selected, slot);
+        self.set_changed();
+    }
+
+    /// Adds an item to the hotbar (for creative pick block) and selects it.
+    /// Returns true if successful.
+    pub fn add_and_pick_item(&mut self, stack: ItemStack) -> bool {
+        // Find first empty hotbar slot
+        for i in 0..Self::SELECTION_SIZE {
+            if self.items[i].is_empty() {
+                self.items[i] = stack;
+                self.selected = i as u8;
+                self.set_changed();
+                return true;
+            }
+        }
+        // No empty slot, replace current slot
+        self.items[self.selected as usize] = stack;
+        self.set_changed();
+        true
+    }
+
     /// Gets the item in the specified hand.
     #[must_use]
     pub fn get_item_in_hand(&self, hand: InteractionHand) -> &ItemStack {

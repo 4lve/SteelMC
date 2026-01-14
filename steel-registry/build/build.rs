@@ -18,6 +18,7 @@ mod instruments;
 mod item_tags;
 mod items;
 mod jukebox_songs;
+mod loot_tables;
 mod menu_types;
 mod packets;
 mod painting_variants;
@@ -65,6 +66,7 @@ const ZOMBIE_NAUTILUS_VARIANTS: &str = "zombie_nautilus_variants";
 const RECIPES: &str = "recipes";
 const VANILLA_ENTITIES: &str = "entities";
 const ENTITY_DATA_SERIALIZERS: &str = "entity_data_serializers";
+const LOOT_TABLES: &str = "loot_tables";
 
 pub fn main() {
     if !Path::new(OUT_DIR).exists() {
@@ -102,6 +104,7 @@ pub fn main() {
         (recipes::build(), RECIPES),
         (entities::build(), VANILLA_ENTITIES),
         (entity_data_serializers::build(), ENTITY_DATA_SERIALIZERS),
+        (loot_tables::build(), LOOT_TABLES),
     ];
 
     for (content, file_name) in vanilla_builds {

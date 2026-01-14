@@ -17,6 +17,8 @@ rustc-hash.workspace = true
 
 # Logging
 log.workspace = true
+# Utils
+rand.workspace = true
 
 [build-dependencies]
 # Internal crates

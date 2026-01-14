@@ -14,13 +14,13 @@ impl World {
         let uuid = player.gameprofile.id;
         let entity_id = player.entity_id;
 
-        if self.players.remove_async(&uuid).await.is_some() {
+        if self.players.remove(&uuid).await.is_some() {
             let start = Instant::now();
 
             self.player_area_map.on_player_leave(&player);
             let remove_entity = CRemoveEntities::single(entity_id);
             let remove_info = CRemovePlayerInfo::single(uuid);
-            self.players.iter_sync(|_, p| {
+            self.players.iter_players(|_, p| {
                 p.connection.send_packet(remove_entity.clone());
                 p.connection.send_packet(remove_info.clone());
                 true
@@ -34,11 +34,7 @@ impl World {
 
     /// Adds a player to the world.
     pub fn add_player(self: &Arc<Self>, player: Arc<Player>) {
-        if self
-            .players
-            .insert_sync(player.gameprofile.id, player.clone())
-            .is_err()
-        {
+        if !self.players.insert(player.clone()) {
             player.connection.close();
             return;
         }
@@ -50,7 +46,7 @@ impl World {
         let (yaw, pitch) = player.rotation.load();
 
         // Send existing players to the new player (tab list + entity spawn)
-        self.players.iter_sync(|_, existing_player| {
+        self.players.iter_players(|_, existing_player| {
             if existing_player.gameprofile.id != player.gameprofile.id {
                 // Add to tab list
                 let add_existing = CPlayerInfoUpdate::add_player(
@@ -103,7 +99,7 @@ impl World {
             pitch,
         );
 
-        self.players.iter_sync(|_, p| {
+        self.players.iter_players(|_, p| {
             p.connection.send_packet(player_info_packet.clone());
             // Don't send spawn packet to self
             if p.gameprofile.id != player.gameprofile.id {
