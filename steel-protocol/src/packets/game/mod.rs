@@ -83,7 +83,7 @@ pub use c_move_entity::{
 pub use c_open_screen::COpenScreen;
 pub use c_player_chat::{CPlayerChat, ChatTypeBound, FilterType, PreviousMessage};
 pub use c_player_info_update::{
-    CPlayerInfoUpdate, PlayerInfoAction, PlayerInfoEntry, PLAYER_INFO_INIT_ACTIONS,
+    CPlayerInfoUpdate, PLAYER_INFO_INIT_ACTIONS, PlayerInfoAction, PlayerInfoEntry,
 };
 pub use c_player_position::{CPlayerPosition, RelativeMovement};
 pub use c_remove_entities::CRemoveEntities;

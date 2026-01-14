@@ -35,7 +35,6 @@ pub const PLAYER_INFO_INIT_ACTIONS: u8 = PlayerInfoAction::AddPlayer as u8
     | PlayerInfoAction::UpdateListOrder as u8
     | PlayerInfoAction::UpdateHat as u8;
 
-
 /// Represents the display name state for a player.
 #[derive(Debug, Clone)]
 pub enum PlayerDisplayName {

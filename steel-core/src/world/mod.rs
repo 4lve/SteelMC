@@ -9,7 +9,7 @@ use std::{
 };
 
 use steel_protocol::packet_traits::ClientPacket;
-use steel_protocol::packets::game::{CBlockDestruction, CPlayerChat, CSystemChat};
+use steel_protocol::packets::game::{CBlockDestruction, CPlayerChat, CPlayerInfoUpdate, CSystemChat};
 use steel_registry::blocks::BlockRef;
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::Direction;
@@ -335,7 +335,7 @@ impl World {
     fn broadcast_player_latency_updates(&self) {
         // Collect all player latencies
         let mut latency_entries = Vec::new();
-        self.players.iter_sync(|uuid, player| {
+        self.players.iter_players(|uuid, player| {
             latency_entries.push((*uuid, player.connection.latency()));
             true
         });
@@ -344,7 +344,7 @@ impl World {
         if !latency_entries.is_empty() {
             let packet = CPlayerInfoUpdate::update_latency(latency_entries);
 
-            self.players.iter_sync(|_, player| {
+            self.players.iter_players(|_, player| {
                 player.connection.send_packet(packet.clone());
                 true
             });

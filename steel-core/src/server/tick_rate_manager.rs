@@ -192,8 +192,8 @@ impl TickRateManager {
 
         // Update smoothed tick time (vanilla uses 80/20 exponential smoothing)
         let tick_time_ms = tick_time_nanos as f32 / NANOS_PER_MS;
-        self.smoothed_tick_time_ms =
-            self.smoothed_tick_time_ms * TICK_TIME_SMOOTHING + tick_time_ms * (1.0 - TICK_TIME_SMOOTHING);
+        self.smoothed_tick_time_ms = self.smoothed_tick_time_ms * TICK_TIME_SMOOTHING
+            + tick_time_ms * (1.0 - TICK_TIME_SMOOTHING);
     }
 
     /// Returns the average tick time in milliseconds over the last 100 ticks.

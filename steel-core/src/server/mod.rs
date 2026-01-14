@@ -14,10 +14,10 @@ use std::{
 
 use steel_crypto::key_store::KeyStore;
 use steel_protocol::packets::game::{CLogin, CTabList, CommonPlayerSpawnInfo};
-use steel_utils::text::{TextComponent, color::NamedColor};
 use steel_registry::vanilla_dimension_types::OVERWORLD;
 use steel_registry::{REGISTRY, Registry};
 use steel_utils::locks::SyncRwLock;
+use steel_utils::text::{TextComponent, color::NamedColor};
 use steel_utils::{Identifier, types::GameType};
 use tick_rate_manager::TickRateManager;
 use tokio::{runtime::Runtime, task::spawn_blocking, time::sleep};
@@ -241,26 +241,14 @@ impl Server {
             // Footer: TPS and MSPT with live values
             TextComponent::new()
                 .text("\n")
-                .extra(
-                    TextComponent::new()
-                        .text("TPS: ")
-                        .color(NamedColor::Gray),
-                )
+                .extra(TextComponent::new().text("TPS: ").color(NamedColor::Gray))
                 .extra(
                     TextComponent::new()
                         .text(format!("{tps:.1}"))
                         .color(tps_color),
                 )
-                .extra(
-                    TextComponent::new()
-                        .text(" | ")
-                        .color(NamedColor::DarkGray),
-                )
-                .extra(
-                    TextComponent::new()
-                        .text("MSPT: ")
-                        .color(NamedColor::Gray),
-                )
+                .extra(TextComponent::new().text(" | ").color(NamedColor::DarkGray))
+                .extra(TextComponent::new().text("MSPT: ").color(NamedColor::Gray))
                 .extra(
                     TextComponent::new()
                         .text(format!("{mspt:.2}"))
@@ -271,7 +259,7 @@ impl Server {
 
         // Broadcast to all players in all worlds
         for world in &self.worlds {
-            world.players.iter_sync(|_, player| {
+            world.players.iter_players(|_, player| {
                 player.connection.send_packet(packet.clone());
                 true
             });
