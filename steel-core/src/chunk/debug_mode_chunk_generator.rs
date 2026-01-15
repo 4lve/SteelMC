@@ -44,7 +44,7 @@ impl DebugModeChunkGenerator {
 
         // Calculate grid width (how many blocks wide the showcase is)
         // Using a square root to make it roughly square
-        let grid_width = (self.total_states as f32).sqrt().ceil() as i32;
+        let grid_width = f32::from(self.total_states).sqrt().ceil() as i32;
 
         if world_x >= grid_width || world_z >= grid_width {
             return air;
@@ -53,7 +53,7 @@ impl DebugModeChunkGenerator {
         // Calculate block state index from position
         let state_index = world_z * grid_width + world_x;
 
-        if state_index >= 0 && state_index < self.total_states as i32 {
+        if state_index >= 0 && state_index < i32::from(self.total_states) {
             BlockStateId(state_index as u16)
         } else {
             air
