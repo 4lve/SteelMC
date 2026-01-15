@@ -4,10 +4,11 @@
 //! the `useItemOn` method that handles block placement and block interactions.
 
 use steel_registry::REGISTRY;
-use steel_registry::item_stack::ItemStack;
-use steel_registry::items::item::{BlockHitResult, InteractionResult, UseOnContext};
 use steel_utils::types::{GameType, InteractionHand};
 
+use crate::behavior::{
+    BLOCK_BEHAVIORS, BlockHitResult, ITEM_BEHAVIORS, InteractionResult, UseOnContext,
+};
 use crate::player::Player;
 use crate::world::World;
 
@@ -25,7 +26,6 @@ use crate::world::World;
 pub fn use_item_on(
     player: &Player,
     world: &World,
-    item_stack: &mut ItemStack,
     hand: InteractionHand,
     hit_result: &BlockHitResult,
 ) -> InteractionResult {
@@ -39,11 +39,15 @@ pub fn use_item_on(
     }
 
     // Check if block interaction should be suppressed (sneaking + holding items in either hand)
-    let have_something = !player
-        .get_item_in_hand(InteractionHand::MainHand)
-        .is_empty()
-        || !player.get_item_in_hand(InteractionHand::OffHand).is_empty();
+    let mut inv = player.inventory.lock();
+
+    let have_something = !inv.get_item_in_hand(InteractionHand::MainHand).is_empty()
+        || !inv.get_item_in_hand(InteractionHand::OffHand).is_empty();
     let suppress_block_use = player.is_secondary_use_active() && have_something;
+
+    // Get behavior registries
+    let block_behaviors = BLOCK_BEHAVIORS.get().expect("Behaviors not initialized");
+    let item_behaviors = ITEM_BEHAVIORS.get().expect("Behaviors not initialized");
 
     // Try block interaction first (if not suppressed)
     if !suppress_block_use {
@@ -52,7 +56,8 @@ pub fn use_item_on(
             // Block state not found in registry, skip block interaction
             return InteractionResult::Pass;
         };
-        let behavior = REGISTRY.blocks.get_behavior(block);
+        let behavior = block_behaviors.get_behavior(block);
+        let item_stack = inv.get_item_in_hand(hand);
 
         let block_result =
             behavior.use_item_on(item_stack, state, world, *pos, player, hand, hit_result);
@@ -65,36 +70,44 @@ pub fn use_item_on(
         if matches!(block_result, InteractionResult::TryEmptyHandInteraction)
             && hand == InteractionHand::MainHand
         {
+            // Release the inventory lock before calling use_without_item
+            // since block behaviors may need to open menus
+            drop(inv);
+
             let empty_result = behavior.use_without_item(state, world, *pos, player, hit_result);
 
             if empty_result.consumes_action() {
                 return empty_result;
             }
+
+            // Re-acquire lock for item use below
+            inv = player.inventory.lock();
         }
     }
 
     // Try item use (block placement, etc.)
+    let item_stack = inv.get_item_in_hand_mut(hand);
     if !item_stack.is_empty() {
         // TODO: Check item cooldowns
         // if player.getCooldowns().isOnCooldown(item_stack.item) { return Pass }
 
-        let context = UseOnContext {
+        let original_count = item_stack.count;
+
+        let mut context = UseOnContext {
             player,
             hand,
             hit_result: hit_result.clone(),
             world,
-            item_stack: item_stack.clone(),
+            item_stack,
         };
 
-        let original_count = item_stack.count;
-
         // Get item behavior and call use_on
-        let item_behavior = REGISTRY.items.get_behavior(item_stack.item);
-        let result = item_behavior.use_on(&context);
+        let item_behavior = item_behaviors.get_behavior(context.item_stack.item);
+        let result = item_behavior.use_on(&mut context);
 
         // Restore count for creative mode (infinite materials)
-        if player.has_infinite_materials() && item_stack.count < original_count {
-            item_stack.count = original_count;
+        if player.has_infinite_materials() && context.item_stack.count < original_count {
+            context.item_stack.count = original_count;
         }
 
         return result;

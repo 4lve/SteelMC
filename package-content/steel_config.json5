@@ -27,4 +27,13 @@
         threshold: 256,
         level: 4,
     },
+    // Movement and anti-cheat checks
+    checks: {
+        // Enable collision detection for player movement
+        collision: true,
+        // Enable speed validation (prevents moving too fast)
+        speed: true,
+        // Enable movement error checking
+        movement_error: true,
+    },
 }

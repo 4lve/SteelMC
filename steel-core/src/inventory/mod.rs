@@ -5,11 +5,15 @@
 
 pub mod container;
 pub mod crafting;
+pub mod crafting_menu;
 pub mod equipment;
 pub mod inventory_menu;
 pub mod lock;
 pub mod menu;
+pub mod menu_provider;
 pub mod recipe_manager;
 pub mod slot;
 
+pub use crafting_menu::{CraftingMenu, CraftingMenuProvider};
 pub use lock::SyncPlayerInv;
+pub use menu_provider::{MenuInstance, MenuProvider};

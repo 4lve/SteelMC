@@ -1,17 +1,30 @@
 [package]
 name = "steel-crypto"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
-steel-utils = { path = "../steel-utils" }
-rsa.workspace = true
-base64 = "0.22"
-thiserror = "2.0"
-rand.workspace = true
+# Internal crates
+steel-utils.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# Error handling
+thiserror.workspace = true
+
+# Concurrency
+parking_lot.workspace = true
+
+# Logging
+log.workspace = true
+
+# Networking
 reqwest.workspace = true
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-parking_lot = "0.12"
-log = "0.4"
-rsa-der = "0.3.0"
+
+# Cryptography
+rsa.workspace = true
+rsa-der.workspace = true
+rand.workspace = true
+base64.workspace = true

@@ -3,14 +3,11 @@ use rustc_hash::FxHashMap;
 use steel_utils::Identifier;
 
 pub mod item;
-pub mod vanilla_item_behaviors;
 
 use crate::{
     REGISTRY, RegistryExt, blocks::BlockRef, data_components::DataComponentMap,
     item_stack::ItemStack,
 };
-
-use self::item::{DefaultItemBehavior, ItemBehavior};
 
 /// A Minecraft item type.
 pub struct Item {
@@ -65,14 +62,9 @@ impl Item {
 
 pub type ItemRef = &'static Item;
 
-/// Default behavior instance used for items without special behavior
-static DEFAULT_BEHAVIOR: DefaultItemBehavior = DefaultItemBehavior;
-
 pub struct ItemRegistry {
     items_by_id: Vec<ItemRef>,
     items_by_key: FxHashMap<Identifier, usize>,
-    /// Parallel to items_by_id - stores behavior for each item
-    behaviors: Vec<&'static dyn ItemBehavior>,
     tags: FxHashMap<Identifier, Vec<ItemRef>>,
     allows_registering: bool,
 }
@@ -89,7 +81,6 @@ impl ItemRegistry {
         Self {
             items_by_id: Vec::new(),
             items_by_key: FxHashMap::default(),
-            behaviors: Vec::new(),
             tags: FxHashMap::default(),
             allows_registering: true,
         }
@@ -104,7 +95,6 @@ impl ItemRegistry {
         let id = self.items_by_id.len();
         self.items_by_key.insert(item.key.clone(), id);
         self.items_by_id.push(item);
-        self.behaviors.push(&DEFAULT_BEHAVIOR);
 
         id
     }
@@ -187,46 +177,6 @@ impl ItemRegistry {
     /// Gets all tag keys.
     pub fn tag_keys(&self) -> impl Iterator<Item = &Identifier> + '_ {
         self.tags.keys()
-    }
-
-    // Behavior-related methods
-
-    /// Gets the behavior for an item.
-    #[must_use]
-    pub fn get_behavior(&self, item: ItemRef) -> &dyn ItemBehavior {
-        let id = self.get_id(item);
-        self.behaviors[*id]
-    }
-
-    /// Gets the behavior for an item by ID.
-    #[must_use]
-    pub fn get_behavior_by_id(&self, id: usize) -> Option<&dyn ItemBehavior> {
-        self.behaviors.get(id).copied()
-    }
-
-    /// Sets the behavior for an item.
-    /// Can only be called before the registry is frozen.
-    pub fn set_behavior(&mut self, item: ItemRef, behavior: &'static dyn ItemBehavior) {
-        assert!(
-            self.allows_registering,
-            "Cannot set behaviors after the registry has been frozen"
-        );
-
-        let id = *self.get_id(item);
-        self.behaviors[id] = behavior;
-    }
-
-    /// Sets the behavior for an item by key.
-    /// Can only be called before the registry is frozen.
-    pub fn set_behavior_by_key(&mut self, key: &Identifier, behavior: &'static dyn ItemBehavior) {
-        assert!(
-            self.allows_registering,
-            "Cannot set behaviors after the registry has been frozen"
-        );
-
-        if let Some(&id) = self.items_by_key.get(key) {
-            self.behaviors[id] = behavior;
-        }
     }
 }
 

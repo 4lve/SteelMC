@@ -35,12 +35,6 @@ impl EntityEquipment {
         }
     }
 
-    /// Gets a clone of the item in a slot.
-    #[must_use]
-    pub fn get_cloned(&self, slot: EquipmentSlot) -> ItemStack {
-        self.slots[slot.index()].clone()
-    }
-
     /// Gets a reference to the item in a slot.
     #[must_use]
     pub fn get_ref(&self, slot: EquipmentSlot) -> &ItemStack {

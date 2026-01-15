@@ -1,6 +1,8 @@
 //! Chunk ticket management for tracking chunk levels and propagation.
 #![allow(missing_docs)]
 
+use std::mem;
+
 use rustc_hash::{FxBuildHasher, FxHashMap};
 use smallvec::SmallVec;
 use steel_utils::ChunkPos;
@@ -150,7 +152,7 @@ impl ChunkTicketManager {
 
         // Swap out old levels to compare against later, reusing capacity
         let old_capacity = self.levels.capacity();
-        let old_levels = std::mem::replace(
+        let old_levels = mem::replace(
             &mut self.levels,
             FxHashMap::with_capacity_and_hasher(old_capacity, FxBuildHasher),
         );

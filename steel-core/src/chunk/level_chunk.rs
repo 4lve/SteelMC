@@ -1,6 +1,7 @@
 //! This module contains the `LevelChunk` struct, which is a chunk that is ready to be sent to the client.
 use std::{
     io::Cursor,
+    ptr,
     sync::{
         Arc, Weak,
         atomic::{AtomicBool, Ordering},
@@ -10,11 +11,12 @@ use std::{
 use steel_protocol::packets::game::{
     ChunkPacketData, HeightmapType as ProtocolHeightmapType, Heightmaps, LightUpdatePacketData,
 };
-use steel_registry::{BlockStateExt, REGISTRY, vanilla_blocks};
+use steel_registry::{REGISTRY, blocks::block_state_ext::BlockStateExt, vanilla_blocks};
 use steel_utils::{
     BlockPos, BlockStateId, ChunkPos, codec::BitSet, locks::SyncRwLock, types::UpdateFlags,
 };
 
+use crate::behavior::BLOCK_BEHAVIORS;
 use crate::chunk::{
     heightmap::{ChunkHeightmaps, HeightmapType},
     proto_chunk::ProtoChunk,
@@ -152,6 +154,10 @@ impl LevelChunk {
     /// * `pos` - The absolute block position
     /// * `state` - The new block state to set
     /// * `flags` - Update flags controlling behavior
+    ///
+    /// # Panics
+    ///
+    /// Panics if the behavior registry has not been initialized.
     #[must_use]
     pub fn set_block_state(
         &self,
@@ -204,28 +210,75 @@ impl LevelChunk {
         let old_block = old_state.get_block();
         let new_block = state.get_block();
 
+        // TODO: Light updates
+        // In vanilla, light engine is notified when section emptiness changes:
+        // let is_empty = section.read().states.has_only_air();
+        // if was_empty != is_empty {
+        //     level.chunk_source.light_engine.update_section_status(pos, is_empty);
+        //     level.chunk_source.on_section_emptiness_changed(chunk_pos.x, section_y, chunk_pos.z, is_empty);
+        // }
+        //
+        // And when light properties change:
+        // if LightEngine::has_different_light_properties(old_state, state) {
+        //     self.sky_light_sources.update(self, local_x, y, local_z);
+        //     level.chunk_source.light_engine.check_block(pos);
+        // }
+
+        // Re-read the block to verify it wasn't changed concurrently
         let current_block = section
             .read()
             .states
             .get(local_x, local_y, local_z)
             .get_block();
-        if !std::ptr::eq(current_block, new_block) {
+        if !ptr::eq(current_block, new_block) {
             return None;
         }
 
         if let Some(level) = self.get_level() {
-            let block_changed = !std::ptr::eq(old_block, new_block);
+            let block_changed = !ptr::eq(old_block, new_block);
             let moved_by_piston = flags.contains(UpdateFlags::UPDATE_MOVE_BY_PISTON);
+            let side_effects = !flags.contains(UpdateFlags::UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS);
 
+            // TODO: Block entity handling
+            // In vanilla, block entities are removed when the block type changes:
+            // if block_changed && old_state.has_block_entity() && !state.should_keep_block_entity(old_state) {
+            //     if !level.is_client_side() && side_effects {
+            //         if let Some(block_entity) = level.get_block_entity(pos) {
+            //             block_entity.pre_remove_side_effects(pos, old_state);
+            //         }
+            //     }
+            //     self.remove_block_entity(pos);
+            // }
+            let _ = side_effects; // suppress unused warning until block entities are implemented
+
+            // Notify neighbors that we were removed (for rails, etc.)
             if block_changed && (flags.contains(UpdateFlags::UPDATE_NEIGHBORS) || moved_by_piston) {
-                let behavior = REGISTRY.blocks.get_behavior(old_block);
-                behavior.affect_neighbors_after_removal(old_state, &*level, pos, moved_by_piston);
+                let block_behaviors = BLOCK_BEHAVIORS.get().expect("Behaviors not initialized");
+                let behavior = block_behaviors.get_behavior(old_block);
+                behavior.affect_neighbors_after_removal(old_state, &level, pos, moved_by_piston);
             }
 
+            // Call on_place for the new block
             if !flags.contains(UpdateFlags::UPDATE_SKIP_ON_PLACE) {
-                let behavior = REGISTRY.blocks.get_behavior(new_block);
-                behavior.on_place(state, &*level, pos, old_state, moved_by_piston);
+                let block_behaviors = BLOCK_BEHAVIORS.get().expect("Behaviors not initialized");
+                let behavior = block_behaviors.get_behavior(new_block);
+                behavior.on_place(state, &level, pos, old_state, moved_by_piston);
             }
+
+            // TODO: Block entity creation
+            // In vanilla, new block entities are created after on_place:
+            // if state.has_block_entity() {
+            //     let block_entity = self.get_block_entity(pos, CHECK);
+            //     if block_entity.is_none() {
+            //         let new_entity = new_block.new_block_entity(pos, state);
+            //         if let Some(entity) = new_entity {
+            //             self.add_and_register_block_entity(entity);
+            //         }
+            //     } else {
+            //         block_entity.set_block_state(state);
+            //         self.update_block_entity_ticker(block_entity);
+            //     }
+            // }
         }
 
         self.mark_unsaved();

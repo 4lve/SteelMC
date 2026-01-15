@@ -16,7 +16,16 @@ version = "0.0.0"
 edition = "2024"
 
 [workspace.dependencies]
-tokio = { version = "1.48", features = [
+# Internal crates
+steel-core = { path = "steel-core" }
+steel-crypto = { path = "steel-crypto" }
+steel-macros = { path = "steel-macros" }
+steel-protocol = { path = "steel-protocol" }
+steel-registry = { path = "steel-registry" }
+steel-utils = { path = "steel-utils" }
+
+# Async runtime
+tokio = { version = "1.49", features = [
     "macros",
     "net",
     "rt-multi-thread",
@@ -27,37 +36,90 @@ tokio = { version = "1.48", features = [
     "time",
     "signal",
 ] }
-tokio-util = { version = "0.7.17", features = ["rt"] }
-scc = { version = "3.4.8" }
+tokio-util = { version = "0.7.18", features = ["rt"] }
+futures = "0.3.31"
+
+# Serialization
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.148"
-thiserror = "2.0.17"
-proc-macro2 = "1.0.104"
-quote = "1.0.42"
-crossbeam = "0.8.4"
-uuid = { version = "1.19", features = ["serde", "v4"] }
-log = "0.4.29"
+serde_json = "1.0.149"
+serde_json5 = "0.2.1"
 simdnbt = "0.9.0"
-enum_dispatch = "0.3.13"
+wincode = { version = "0.2.5", features = ["derive"] }
+
+# Error handling
+thiserror = "2.0.17"
 anyhow = "1.0.100"
+
+# Proc macros
+proc-macro2 = "1.0.105"
+quote = "1.0.43"
+syn = "2.0.114"
+
+# Concurrency
+crossbeam = "0.8.4"
 parking_lot = { version = "0.12.5", features = ["nightly", "arc_lock"] }
 rayon = "1.11.0"
-wincode = { version = "0.2.5", features = ["derive"] }
+scc = "3.4.10"
+arc-swap = "1.8.0"
+
+# Data structures
 rustc-hash = "2.1.1"
+smallvec = "1.15.1"
+bitflags = "2.10.0"
+phf = { version = "0.13.1", features = ["macros"] }
+
+# UUID
+uuid = { version = "1.19", features = ["serde", "v4"] }
+
+# Logging
+log = "0.4.29"
+simplelog = "0.12.2"
+
+# Networking
 reqwest = { version = "0.13.1", features = [
     "json",
     "rustls",
 ], default-features = false }
-rand = "0.10.0-rc.5"
+
+# Cryptography
 rsa = { version = "0.10.0-rc.10", features = ["sha2"] }
-arc-swap = "1.8.0"
-bitflags = "2.10.0"
+rand = "0.10.0-rc.5"
+aes = "0.9.0-rc.2"
+cfb8 = "0.9.0-rc.1"
+sha1 = "0.10.6"
+sha2 = "0.10.9"
+md5 = "0.8.0"
+base64 = "0.22.1"
+hex = "0.4.3"
+rsa-der = "0.3.0"
+
+# Compression
+async-compression = { version = "0.4.36", features = ["tokio", "zlib"] }
+zstd = "0.13"
+
+# Utilities
+enum_dispatch = "0.3.13"
+num-traits = "0.2.19"
+replace_with = { version = "0.1.8", features = ["nightly"] }
+
+heck = "0.5.0"
+
+# Build dependencies
+phf_codegen = "0.13.1"
+
+# Dev/Bench dependencies
+criterion = "0.8.1"
 
 
 [profile.release]
 lto = true
 codegen-units = 1
 panic = "abort"
+
+[profile.profiling]
+inherits = "release"
+debug = true
+
 
 [profile.bench]
 debug = true
@@ -81,6 +143,7 @@ cast_sign_loss = "allow"
 cast_possible_wrap = "allow"
 cast_possible_truncation = "allow"
 cast_precision_loss = "allow"
+absolute_paths = "warn"
 
 all = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -2 }

@@ -362,7 +362,7 @@ impl JavaTcpClient {
             ConnectionProtocol::Status => self.handle_status(packet).await,
             ConnectionProtocol::Login => self.handle_login(packet).await,
             ConnectionProtocol::Config => self.handle_config(packet).await,
-            ConnectionProtocol::Play => unreachable!(),
+            ConnectionProtocol::Play => Err(PacketError::InvalidProtocol("Play".to_string())),
         }
     }
 
@@ -382,7 +382,10 @@ impl JavaTcpClient {
                     //TODO: Handle client version being too low or high
                 }
             }
-            _ => unreachable!(),
+            id => {
+                log::error!("Received unexpected packet id: {id}");
+                return Err(PacketError::InvalidProtocol(id.to_string()));
+            }
         }
         Ok(())
     }
@@ -399,7 +402,7 @@ impl JavaTcpClient {
                 self.handle_ping_request(SPingRequest::read_packet(data)?)
                     .await;
             }
-            _ => unreachable!(),
+            _ => return Err(PacketError::InvalidProtocol("Status".to_string())),
         }
         Ok(())
     }
@@ -414,7 +417,7 @@ impl JavaTcpClient {
             login::S_LOGIN_ACKNOWLEDGED => {
                 self.handle_login_acknowledged().await;
             }
-            _ => unreachable!(),
+            _ => return Err(PacketError::InvalidProtocol("Login".to_string())),
         }
         Ok(())
     }
@@ -437,7 +440,7 @@ impl JavaTcpClient {
             config::S_FINISH_CONFIGURATION => {
                 self.finish_configuration().await;
             }
-            _ => unreachable!(),
+            _ => return Err(PacketError::InvalidProtocol("Config".to_string())),
         }
         Ok(())
     }

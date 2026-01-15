@@ -1,0 +1,234 @@
+//! Block behavior trait and registry.
+
+use steel_registry::REGISTRY;
+use steel_registry::blocks::BlockRef;
+use steel_registry::blocks::properties::Direction;
+use steel_registry::item_stack::ItemStack;
+use steel_utils::types::InteractionHand;
+use steel_utils::{BlockPos, BlockStateId};
+
+use crate::behavior::context::{BlockHitResult, BlockPlaceContext, InteractionResult};
+use crate::player::Player;
+use crate::world::World;
+
+/// Trait defining the behavior of a block.
+///
+/// This trait handles all dynamic/functional aspects of blocks:
+/// - Placement logic
+/// - Neighbor updates
+/// - Player interactions
+/// - State changes
+pub trait BlockBehaviour: Send + Sync {
+    /// Called when a neighboring block changes shape.
+    /// Returns the new state for this block after considering the neighbor change.
+    fn update_shape(
+        &self,
+        state: BlockStateId,
+        _world: &World,
+        _pos: BlockPos,
+        _direction: Direction,
+        _neighbor_pos: BlockPos,
+        _neighbor_state: BlockStateId,
+    ) -> BlockStateId {
+        state
+    }
+
+    /// Returns the block state to use when placing this block.
+    fn get_state_for_placement(&self, context: &BlockPlaceContext<'_>) -> Option<BlockStateId>;
+
+    /// Called when this block is placed in the world.
+    ///
+    /// # Arguments
+    /// * `state` - The new block state that was placed
+    /// * `world` - The world the block was placed in
+    /// * `pos` - The position where the block was placed
+    /// * `old_state` - The previous block state at this position
+    /// * `moved_by_piston` - Whether the block was moved by a piston
+    #[allow(unused_variables)]
+    fn on_place(
+        &self,
+        state: BlockStateId,
+        world: &World,
+        pos: BlockPos,
+        old_state: BlockStateId,
+        moved_by_piston: bool,
+    ) {
+        // Default: no-op
+    }
+
+    /// Called after this block is removed from the world, to affect neighbors.
+    ///
+    /// This is used for things like rails notifying neighbors when removed.
+    ///
+    /// # Arguments
+    /// * `state` - The block state that was removed
+    /// * `world` - The world the block was removed from
+    /// * `pos` - The position where the block was removed
+    /// * `moved_by_piston` - Whether the block was moved by a piston
+    #[allow(unused_variables)]
+    fn affect_neighbors_after_removal(
+        &self,
+        state: BlockStateId,
+        world: &World,
+        pos: BlockPos,
+        moved_by_piston: bool,
+    ) {
+        // Default: no-op
+    }
+
+    /// Called when a player uses an item on this block.
+    ///
+    /// Returns `TryEmptyHandInteraction` by default to fall through to item use.
+    /// Override this to handle block-specific interactions (e.g., opening chests,
+    /// using buttons, etc.).
+    #[allow(unused_variables, clippy::too_many_arguments)]
+    fn use_item_on(
+        &self,
+        item_stack: &ItemStack,
+        state: BlockStateId,
+        world: &World,
+        pos: BlockPos,
+        player: &Player,
+        hand: InteractionHand,
+        hit_result: &BlockHitResult,
+    ) -> InteractionResult {
+        InteractionResult::TryEmptyHandInteraction
+    }
+
+    /// Called when a player uses this block without an item (or as a fallback
+    /// when `use_item_on` returns `TryEmptyHandInteraction`).
+    ///
+    /// Returns `Pass` by default. Override this for blocks that have interactions
+    /// without needing an item (e.g., buttons, levers, repeaters).
+    #[allow(unused_variables)]
+    fn use_without_item(
+        &self,
+        state: BlockStateId,
+        world: &World,
+        pos: BlockPos,
+        player: &Player,
+        hit_result: &BlockHitResult,
+    ) -> InteractionResult {
+        InteractionResult::Pass
+    }
+
+    /// Called when a neighboring block changes (not shape-related).
+    ///
+    /// This is the Rust equivalent of vanilla's `BlockState.handleNeighborChanged()`.
+    /// Used by redstone components, doors, and other blocks that react to neighbor changes.
+    ///
+    /// # Arguments
+    /// * `state` - The current block state
+    /// * `world` - The world
+    /// * `pos` - Position of this block
+    /// * `source_block` - The block type that changed
+    /// * `moved_by_piston` - Whether the change was caused by a piston
+    #[allow(unused_variables)]
+    fn handle_neighbor_changed(
+        &self,
+        state: BlockStateId,
+        world: &World,
+        pos: BlockPos,
+        source_block: BlockRef,
+        moved_by_piston: bool,
+    ) {
+        // Default: no-op
+        // Override for redstone components, doors, etc.
+    }
+
+    /// Returns the item stack to give when a player picks this block (middle click).
+    ///
+    /// The default implementation looks up an item with the same key as the block.
+    /// Override this for blocks where the pick item differs from the block key
+    /// (e.g., crops → seeds, redstone wire → redstone dust, wall torch → torch).
+    ///
+    /// # Arguments
+    /// * `block` - The block being picked
+    /// * `_state` - The block state (some blocks vary pick item based on state)
+    /// * `_include_data` - Whether to include block entity data (creative + Ctrl)
+    #[allow(unused_variables)]
+    fn get_clone_item_stack(
+        &self,
+        block: BlockRef,
+        state: BlockStateId,
+        include_data: bool,
+    ) -> Option<ItemStack> {
+        // Default: look up item by block's key
+        REGISTRY.items.by_key(&block.key).map(ItemStack::new)
+    }
+}
+
+/// Default block behavior that returns the block's default state for placement.
+pub struct DefaultBlockBehaviour {
+    block: BlockRef,
+}
+
+impl DefaultBlockBehaviour {
+    /// Creates a new default block behavior for the given block.
+    #[must_use]
+    pub const fn new(block: BlockRef) -> Self {
+        Self { block }
+    }
+}
+
+impl BlockBehaviour for DefaultBlockBehaviour {
+    fn get_state_for_placement(&self, _context: &BlockPlaceContext<'_>) -> Option<BlockStateId> {
+        Some(self.block.default_state())
+    }
+}
+
+/// Registry for block behaviors.
+///
+/// Created after the main registry is frozen. All blocks are initialized with
+/// default behaviors, then custom behaviors are registered for specific blocks.
+pub struct BlockBehaviorRegistry {
+    behaviors: Vec<Box<dyn BlockBehaviour>>,
+}
+
+impl BlockBehaviorRegistry {
+    /// Creates a new behavior registry with default behaviors for all blocks.
+    #[must_use]
+    pub fn new() -> Self {
+        let block_count = REGISTRY.blocks.len();
+        let mut behaviors: Vec<Box<dyn BlockBehaviour>> = Vec::with_capacity(block_count);
+
+        // Initialize all blocks with default behavior
+        for (_, block) in REGISTRY.blocks.iter() {
+            behaviors.push(Box::new(DefaultBlockBehaviour::new(block)));
+        }
+
+        Self { behaviors }
+    }
+
+    /// Sets a custom behavior for a block.
+    pub fn set_behavior(&mut self, block: BlockRef, behavior: Box<dyn BlockBehaviour>) {
+        let id = *REGISTRY.blocks.get_id(block);
+        self.behaviors[id] = behavior;
+    }
+
+    /// Gets the behavior for a block.
+    #[must_use]
+    pub fn get_behavior(&self, block: BlockRef) -> &dyn BlockBehaviour {
+        let id = *REGISTRY.blocks.get_id(block);
+        self.behaviors[id].as_ref()
+    }
+
+    /// Gets the behavior for a block by its ID.
+    #[must_use]
+    pub fn get_behavior_by_id(&self, id: usize) -> Option<&dyn BlockBehaviour> {
+        self.behaviors.get(id).map(AsRef::as_ref)
+    }
+
+    /// Gets the behavior for a block state.
+    #[must_use]
+    pub fn get_behavior_for_state(&self, state: BlockStateId) -> Option<&dyn BlockBehaviour> {
+        let block = REGISTRY.blocks.by_state_id(state)?;
+        Some(self.get_behavior(block))
+    }
+}
+
+impl Default for BlockBehaviorRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}

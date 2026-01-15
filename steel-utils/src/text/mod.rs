@@ -1,13 +1,14 @@
 //! This module contains everything related to text components.
+use std::{
+    borrow::Cow,
+    fmt::{self, Display},
+    io::{Result as IoResult, Write},
+};
+
 use serde::{Deserialize, Serialize};
 use simdnbt::{
     ToNbtTag,
     owned::{NbtCompound, NbtList, NbtTag},
-};
-use std::{
-    borrow::Cow,
-    fmt::{self, Display},
-    io::Write,
 };
 
 use crate::text::{
@@ -215,7 +216,7 @@ impl TextComponent {
     }
 
     /// Helper to write NBT compound content
-    fn write_nbt_compound(writer: &mut Vec<u8>, compound: &NbtCompound) -> std::io::Result<()> {
+    fn write_nbt_compound(writer: &mut Vec<u8>, compound: &NbtCompound) -> IoResult<()> {
         for (key, value) in compound.iter() {
             // Write tag type
             writer.write_all(&[Self::get_nbt_tag_id(value)])?;
@@ -248,7 +249,7 @@ impl TextComponent {
         }
     }
 
-    fn write_nbt_tag_payload(writer: &mut Vec<u8>, tag: &NbtTag) -> std::io::Result<()> {
+    fn write_nbt_tag_payload(writer: &mut Vec<u8>, tag: &NbtTag) -> IoResult<()> {
         match tag {
             NbtTag::Byte(v) => writer.write_all(&[*v as u8])?,
             NbtTag::Short(v) => writer.write_all(&v.to_be_bytes())?,
@@ -283,7 +284,7 @@ impl TextComponent {
         Ok(())
     }
 
-    fn write_nbt_list(writer: &mut Vec<u8>, list: &NbtList) -> std::io::Result<()> {
+    fn write_nbt_list(writer: &mut Vec<u8>, list: &NbtList) -> IoResult<()> {
         match list {
             NbtList::Empty => {
                 writer.write_all(&[0x00])?; // TAG_End
@@ -323,7 +324,7 @@ impl TextComponent {
         Ok(())
     }
 
-    fn write_nbt_list_long(writer: &mut Vec<u8>, v: &[i64]) -> std::io::Result<()> {
+    fn write_nbt_list_long(writer: &mut Vec<u8>, v: &[i64]) -> IoResult<()> {
         writer.write_all(&[0x04])?;
         writer.write_all(&(v.len() as i32).to_be_bytes())?;
         for l in v {
@@ -332,7 +333,7 @@ impl TextComponent {
         Ok(())
     }
 
-    fn write_nbt_list_float(writer: &mut Vec<u8>, v: &[f32]) -> std::io::Result<()> {
+    fn write_nbt_list_float(writer: &mut Vec<u8>, v: &[f32]) -> IoResult<()> {
         writer.write_all(&[0x05])?;
         writer.write_all(&(v.len() as i32).to_be_bytes())?;
         for f in v {
@@ -341,7 +342,7 @@ impl TextComponent {
         Ok(())
     }
 
-    fn write_nbt_list_double(writer: &mut Vec<u8>, v: &[f64]) -> std::io::Result<()> {
+    fn write_nbt_list_double(writer: &mut Vec<u8>, v: &[f64]) -> IoResult<()> {
         writer.write_all(&[0x06])?;
         writer.write_all(&(v.len() as i32).to_be_bytes())?;
         for d in v {
@@ -350,7 +351,7 @@ impl TextComponent {
         Ok(())
     }
 
-    fn write_nbt_list_byte_array(writer: &mut Vec<u8>, v: &[Vec<u8>]) -> std::io::Result<()> {
+    fn write_nbt_list_byte_array(writer: &mut Vec<u8>, v: &[Vec<u8>]) -> IoResult<()> {
         writer.write_all(&[0x07])?;
         writer.write_all(&(v.len() as i32).to_be_bytes())?;
         for arr in v {
@@ -360,10 +361,7 @@ impl TextComponent {
         Ok(())
     }
 
-    fn write_nbt_list_string(
-        writer: &mut Vec<u8>,
-        v: &[simdnbt::Mutf8String],
-    ) -> std::io::Result<()> {
+    fn write_nbt_list_string(writer: &mut Vec<u8>, v: &[simdnbt::Mutf8String]) -> IoResult<()> {
         writer.write_all(&[0x08])?;
         writer.write_all(&(v.len() as i32).to_be_bytes())?;
         for s in v {
@@ -374,7 +372,7 @@ impl TextComponent {
         Ok(())
     }
 
-    fn write_nbt_list_list(writer: &mut Vec<u8>, v: &[NbtList]) -> std::io::Result<()> {
+    fn write_nbt_list_list(writer: &mut Vec<u8>, v: &[NbtList]) -> IoResult<()> {
         writer.write_all(&[0x09])?;
         writer.write_all(&(v.len() as i32).to_be_bytes())?;
         for l in v {
@@ -383,7 +381,7 @@ impl TextComponent {
         Ok(())
     }
 
-    fn write_nbt_list_compound(writer: &mut Vec<u8>, v: &[NbtCompound]) -> std::io::Result<()> {
+    fn write_nbt_list_compound(writer: &mut Vec<u8>, v: &[NbtCompound]) -> IoResult<()> {
         writer.write_all(&[0x0A])?;
         writer.write_all(&(v.len() as i32).to_be_bytes())?;
         for c in v {
@@ -392,7 +390,7 @@ impl TextComponent {
         Ok(())
     }
 
-    fn write_nbt_list_int_array(writer: &mut Vec<u8>, v: &[Vec<i32>]) -> std::io::Result<()> {
+    fn write_nbt_list_int_array(writer: &mut Vec<u8>, v: &[Vec<i32>]) -> IoResult<()> {
         writer.write_all(&[0x0B])?;
         writer.write_all(&(v.len() as i32).to_be_bytes())?;
         for arr in v {
@@ -404,7 +402,7 @@ impl TextComponent {
         Ok(())
     }
 
-    fn write_nbt_list_long_array(writer: &mut Vec<u8>, v: &[Vec<i64>]) -> std::io::Result<()> {
+    fn write_nbt_list_long_array(writer: &mut Vec<u8>, v: &[Vec<i64>]) -> IoResult<()> {
         writer.write_all(&[0x0C])?;
         writer.write_all(&(v.len() as i32).to_be_bytes())?;
         for arr in v {

@@ -1,16 +1,17 @@
 #![allow(missing_docs)]
 
-use bitflags::bitflags;
 use std::{
     borrow::Cow,
-    fmt::{self, Display},
+    fmt::{self, Debug, Display, Formatter},
+    hash::{Hash, Hasher},
     io::{self, Read, Write},
     mem::MaybeUninit,
     str::FromStr,
 };
 
-use serde::{Deserialize, Serialize};
-use wincode::{SchemaRead, SchemaWrite};
+use bitflags::bitflags;
+use serde::{Deserialize, Serialize, de::Error as _};
+use wincode::{SchemaRead, SchemaWrite, io::Reader, io::Writer};
 
 use crate::{
     codec::VarInt,
@@ -44,8 +45,8 @@ impl ReadFrom for BlockStateId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ChunkPos(pub Vector2<i32>);
 
-impl std::hash::Hash for ChunkPos {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl Hash for ChunkPos {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         state.write_u64(self.as_i64() as u64);
     }
 }
@@ -142,6 +143,12 @@ impl BlockPos {
 
     /// Maximum horizontal coordinate value: `(1 << 26) / 2 - 1 = 33554431`
     pub const MAX_HORIZONTAL_COORDINATE: i32 = (1 << Self::PACKED_HORIZONTAL_LEN) / 2 - 1;
+
+    /// Creates a new `BlockPos` from coordinates.
+    #[must_use]
+    pub const fn new(x: i32, y: i32, z: i32) -> Self {
+        Self(Vector3::new(x, y, z))
+    }
 
     /// Converts the `BlockPos` to an `i64`.
     /// Layout: X (26 bits, offset 38) | Z (26 bits, offset 12) | Y (12 bits, offset 0)
@@ -290,21 +297,23 @@ impl SectionPos {
     }
 
     /// Packs the section position into an i64.
+    /// Format: (x << 42) | (z << 20) | y
     #[must_use]
     pub fn as_i64(&self) -> i64 {
         let x = i64::from(self.0.x);
         let y = i64::from(self.0.y);
         let z = i64::from(self.0.z);
 
-        ((x & 0x3F_FFFF) << 42) | ((y & 0xF_FFFF) << 20) | (z & 0x3F_FFFF)
+        ((x & 0x3F_FFFF) << 42) | ((z & 0x3F_FFFF) << 20) | (y & 0xF_FFFF)
     }
 
     /// Unpacks a section position from an i64.
+    /// Format: (x << 42) | (z << 20) | y
     #[must_use]
     pub fn from_i64(value: i64) -> Self {
         let x = value >> 42;
-        let y = (value >> 20) & 0xF_FFFF;
-        let z = value & 0x3F_FFFF;
+        let z = (value >> 20) & 0x3F_FFFF;
+        let y = value & 0xF_FFFF;
 
         // Sign extend
         let x = (x << 42) >> 42;
@@ -312,6 +321,27 @@ impl SectionPos {
         let z = (z << 42) >> 42;
 
         Self(Vector3::new(x as i32, y as i32, z as i32))
+    }
+
+    /// Packs a block position into a section-relative short.
+    /// Format: (x << 8) | (z << 4) | y (each coordinate masked to 4 bits)
+    #[must_use]
+    #[inline]
+    pub fn section_relative_pos(pos: &BlockPos) -> i16 {
+        let x = pos.0.x & Self::SECTION_MASK;
+        let y = pos.0.y & Self::SECTION_MASK;
+        let z = pos.0.z & Self::SECTION_MASK;
+        ((x << 8) | (z << 4) | y) as i16
+    }
+
+    /// Converts a section-relative packed position back to a block position.
+    #[must_use]
+    pub fn relative_to_block_pos(&self, relative: i16) -> BlockPos {
+        BlockPos(Vector3::new(
+            self.relative_to_block_x(relative),
+            self.relative_to_block_y(relative),
+            self.relative_to_block_z(relative),
+        ))
     }
 }
 
@@ -373,8 +403,8 @@ pub struct Identifier {
     pub path: Cow<'static, str>,
 }
 
-impl std::fmt::Debug for Identifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Debug for Identifier {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str(&format!("{}:{}", self.namespace, self.path))
     }
 }
@@ -382,6 +412,18 @@ impl std::fmt::Debug for Identifier {
 impl Identifier {
     /// The vanilla namespace.
     pub const VANILLA_NAMESPACE: &'static str = "minecraft";
+
+    /// Creates a new `Identifier` with the given namespace and path.
+    #[must_use]
+    pub fn new(
+        namespace: impl Into<Cow<'static, str>>,
+        path: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        Identifier {
+            namespace: namespace.into(),
+            path: path.into(),
+        }
+    }
 
     /// Creates a new `Identifier` with the vanilla namespace.
     #[must_use]
@@ -482,7 +524,7 @@ impl<'de> Deserialize<'de> for Identifier {
         D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Identifier::from_str(&s).map_err(serde::de::Error::custom)
+        Identifier::from_str(&s).map_err(D::Error::custom)
     }
 }
 
@@ -493,7 +535,7 @@ impl SchemaWrite for Identifier {
         <str>::size_of(&src.to_string())
     }
 
-    fn write(writer: &mut impl wincode::io::Writer, src: &Self::Src) -> wincode::WriteResult<()> {
+    fn write(writer: &mut impl Writer, src: &Self::Src) -> wincode::WriteResult<()> {
         <str>::write(writer, &src.to_string())
     }
 }
@@ -502,8 +544,8 @@ impl<'de> SchemaRead<'de> for Identifier {
     type Dst = Identifier;
 
     fn read(
-        reader: &mut impl wincode::io::Reader<'de>,
-        dst: &mut std::mem::MaybeUninit<Self::Dst>,
+        reader: &mut impl Reader<'de>,
+        dst: &mut MaybeUninit<Self::Dst>,
     ) -> wincode::ReadResult<()> {
         let mut s = MaybeUninit::<String>::uninit();
         String::read(reader, &mut s)?;
@@ -546,8 +588,8 @@ mod tests {
             BlockPos(Vector3::new(0, 0, 0)),
             BlockPos(Vector3::new(100, 64, -100)),
             BlockPos(Vector3::new(-1000, -64, 1000)),
-            BlockPos(Vector3::new(33554431, 2047, 33554431)), // Max positive values
-            BlockPos(Vector3::new(-33554432, -2048, -33554432)), // Max negative values
+            BlockPos(Vector3::new(33_554_431, 2047, 33_554_431)), // Max positive values
+            BlockPos(Vector3::new(-33_554_432, -2048, -33_554_432)), // Max negative values
         ];
 
         for pos in positions {
@@ -555,8 +597,7 @@ mod tests {
             let decoded = BlockPos::from_i64(encoded);
             assert_eq!(
                 pos, decoded,
-                "Roundtrip failed for {:?}: encoded={}, decoded={:?}",
-                pos, encoded, decoded
+                "Roundtrip failed for {pos:?}: encoded={encoded}, decoded={decoded:?}"
             );
         }
     }
