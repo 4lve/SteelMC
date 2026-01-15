@@ -113,7 +113,7 @@ impl<W: AsyncWrite + Unpin> TCPNetworkEncoder<W> {
             panic!("Cannot upgrade a stream that already has a cipher!");
         }
         let cipher = Aes128Cfb8Enc::new_from_slices(key, key).expect("invalid key");
-        take_mut::take(&mut self.writer, |encoder| encoder.upgrade(cipher));
+        replace_with::replace_with_or_abort(&mut self.writer, |encoder| encoder.upgrade(cipher));
     }
 
     /// Writes a packet to the stream.

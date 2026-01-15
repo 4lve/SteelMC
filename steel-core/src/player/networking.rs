@@ -9,10 +9,11 @@ use steel_protocol::packet_traits::{ClientPacket, CompressionInfo, EncodedPacket
 use steel_protocol::packet_writer::TCPNetworkEncoder;
 use steel_protocol::packets::common::{CDisconnect, CKeepAlive, SCustomPayload, SKeepAlive};
 use steel_protocol::packets::game::{
-    SChat, SChatAck, SChatCommand, SChatSessionUpdate, SChunkBatchReceived, SClientTickEnd,
-    SContainerButtonClick, SContainerClick, SContainerClose, SContainerSlotStateChanged,
-    SMovePlayerPos, SMovePlayerPosRot, SMovePlayerRot, SPlayerInput, SPlayerLoad, SSetCarriedItem,
-    SSetCreativeModeSlot, SUseItem, SUseItemOn,
+    SAcceptTeleportation, SChat, SChatAck, SChatCommand, SChatSessionUpdate, SChunkBatchReceived,
+    SClientTickEnd, SContainerButtonClick, SContainerClick, SContainerClose,
+    SContainerSlotStateChanged, SMovePlayerPos, SMovePlayerPosRot, SMovePlayerRot,
+    SMovePlayerStatusOnly, SPickItemFromBlock, SPlayerAction, SPlayerInput, SPlayerLoad,
+    SSetCarriedItem, SSetCreativeModeSlot, SSwing, SUseItem, SUseItemOn,
 };
 use steel_protocol::utils::{ConnectionProtocol, EnqueuedPacket, PacketError, RawPacket};
 use steel_registry::packets::play;
@@ -142,6 +143,20 @@ impl JavaConnection {
         }
     }
 
+    /// Sends an encoded packet to the client.
+    ///
+    /// # Panics
+    /// - If the packet fails to be sent through the channel.
+    pub fn send_encoded_packet(&self, packet: EncodedPacket) {
+        if self
+            .outgoing_packets
+            .send(EnqueuedPacket::EncodedPacket(packet))
+            .is_err()
+        {
+            self.close();
+        }
+    }
+
     /// Closes the connection.
     pub fn close(&self) {
         self.cancel_token.cancel();
@@ -168,6 +183,9 @@ impl JavaConnection {
         let data = &mut Cursor::new(packet.payload);
 
         match packet.id {
+            play::S_ACCEPT_TELEPORTATION => {
+                player.handle_accept_teleportation(SAcceptTeleportation::read_packet(data)?);
+            }
             play::C_CUSTOM_PAYLOAD => {
                 player.handle_custom_payload(SCustomPayload::read_packet(data)?);
             }
@@ -202,6 +220,9 @@ impl JavaConnection {
             }
             play::S_MOVE_PLAYER_ROT => {
                 player.handle_move_player(SMovePlayerRot::read_packet(data)?.into());
+            }
+            play::S_MOVE_PLAYER_STATUS_ONLY => {
+                player.handle_move_player(SMovePlayerStatusOnly::read_packet(data)?.into());
             }
             play::S_PLAYER_LOADED => {
                 let _ = SPlayerLoad::read_packet(data)?;
@@ -244,6 +265,18 @@ impl JavaConnection {
             }
             play::S_SET_CARRIED_ITEM => {
                 player.handle_set_carried_item(SSetCarriedItem::read_packet(data)?);
+            }
+            play::S_SWING => {
+                let packet = SSwing::read_packet(data)?;
+                player.swing(packet.hand, false);
+            }
+            play::S_PLAYER_ACTION => {
+                let packet = SPlayerAction::read_packet(data)?;
+                player.handle_player_action(packet);
+            }
+            play::S_PICK_ITEM_FROM_BLOCK => {
+                let packet = SPickItemFromBlock::read_packet(data)?;
+                player.handle_pick_item_from_block(packet);
             }
             id => log::info!("play packet id {id} is not known"),
         }

@@ -70,10 +70,10 @@ mod tests {
             127i64,
             128i64,
             255i64,
-            2147483647i64,
-            9223372036854775807i64,
+            2_147_483_647_i64,
+            9_223_372_036_854_775_807_i64,
             -1i64,
-            -2147483648i64,
+            -2_147_483_648_i64,
         ];
 
         for val in test_values {
@@ -83,7 +83,7 @@ mod tests {
 
             let mut cursor = Cursor::new(buf);
             let read_val = VarLong::read(&mut cursor).expect("read failed");
-            assert_eq!(read_val, var_long, "Failed for value {}", val);
+            assert_eq!(read_val, var_long, "Failed for value {val}");
         }
     }
 }

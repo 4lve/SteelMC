@@ -9,6 +9,7 @@ use syn::{
     Data, DeriveInput, Fields, Ident, Meta,
     parse::{Parse, ParseStream},
     parse_macro_input,
+    token::Paren,
 };
 
 const ALLOWED_TYPES: [&str; 12] = [
@@ -81,7 +82,7 @@ impl Parse for Strategy {
         let mut inner = None;
 
         // Check for parentheses with arguments
-        if input.peek(syn::token::Paren) {
+        if input.peek(Paren) {
             let content;
             syn::parenthesized!(content in input);
 

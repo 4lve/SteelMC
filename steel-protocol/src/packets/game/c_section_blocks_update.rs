@@ -36,7 +36,7 @@ impl WriteTo for CSectionBlocksUpdate {
             let section_y = change.pos.0.y & 0xF;
             let section_z = change.pos.0.z & 0xF;
 
-            // Pack as: (section_y << 8) | (section_z << 4) | section_x
+            // Pack as: (section_x << 8) | (section_z << 4) | section_y
             let packed_pos = ((section_x << 8) | (section_z << 4) | section_y) as u16;
 
             // Pack as: (block_state_id << 12) | packed_pos

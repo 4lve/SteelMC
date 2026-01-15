@@ -308,6 +308,30 @@ impl Direction {
             Direction::East => Axis::X,
         }
     }
+
+    /// Returns the opposite direction.
+    #[must_use]
+    pub const fn opposite(&self) -> Direction {
+        match self {
+            Direction::Down => Direction::Up,
+            Direction::Up => Direction::Down,
+            Direction::North => Direction::South,
+            Direction::South => Direction::North,
+            Direction::West => Direction::East,
+            Direction::East => Direction::West,
+        }
+    }
+
+    /// The order in which neighbor shape updates are processed.
+    /// This matches vanilla's `BlockBehaviour.UPDATE_SHAPE_ORDER`.
+    pub const UPDATE_SHAPE_ORDER: [Direction; 6] = [
+        Direction::West,
+        Direction::East,
+        Direction::North,
+        Direction::South,
+        Direction::Down,
+        Direction::Up,
+    ];
 }
 
 // Additional enum types for properties

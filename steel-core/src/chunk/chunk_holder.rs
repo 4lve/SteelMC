@@ -1,11 +1,12 @@
 //! `ChunkHolder` manages chunk state and asynchronous generation tasks.
 use arc_swap::{ArcSwapOption, Guard};
 use futures::Future;
+use rustc_hash::FxHashSet;
 use std::fmt::Debug;
-use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
+use std::mem;
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, Weak};
-use steel_utils::{ChunkPos, locks::SyncMutex};
-use tokio::select;
+use steel_utils::{BlockPos, ChunkPos, SectionPos, locks::SyncMutex};
 use tokio::sync::{oneshot, watch};
 
 use crate::chunk::chunk_generation_task::{NeighborReady, StaticCache2D};
@@ -55,12 +56,16 @@ pub struct ChunkHolder {
     /// The highest status that has started work.
     started_work: AtomicUsize,
     /// The highest status that generation is allowed to reach.
-    highest_allowed_status: watch::Receiver<u8>,
-    highest_allowed_status_sender: watch::Sender<u8>,
+    highest_allowed_status: AtomicU8,
     /// The minimum Y coordinate of the world.
     min_y: i32,
     /// The total height of the world.
     height: i32,
+    /// Whether any sections have pending block changes.
+    has_changed_sections: AtomicBool,
+    /// Per-section sets of changed block positions (section-relative packed shorts).
+    /// Index is `(block_y - min_y) / 16`.
+    changed_blocks_per_section: Box<[SyncMutex<FxHashSet<i16>>]>,
 }
 
 impl ChunkHolder {
@@ -83,9 +88,13 @@ impl ChunkHolder {
     #[must_use]
     pub fn new(pos: ChunkPos, ticket_level: u8, min_y: i32, height: i32) -> Self {
         let (sender, receiver) = watch::channel(ChunkResult::Unloaded);
-        let (highest_allowed_status_sender, highest_allowed_status_receiver) = watch::channel(
-            generation_status(Some(ticket_level)).map_or(STATUS_NONE, |s| s.get_index() as u8),
-        );
+        let highest_allowed_status =
+            generation_status(Some(ticket_level)).map_or(STATUS_NONE, |s| s.get_index() as u8);
+
+        let section_count = (height / 16) as usize;
+        let changed_blocks_per_section: Box<[SyncMutex<FxHashSet<i16>>]> = (0..section_count)
+            .map(|_| SyncMutex::new(FxHashSet::default()))
+            .collect();
 
         Self {
             data: ArcSwapOption::new(None),
@@ -95,10 +104,11 @@ impl ChunkHolder {
             pos,
             ticket_level: AtomicU8::new(ticket_level),
             started_work: AtomicUsize::new(usize::MAX),
-            highest_allowed_status: highest_allowed_status_receiver,
-            highest_allowed_status_sender,
+            highest_allowed_status: AtomicU8::new(highest_allowed_status),
             min_y,
             height,
+            has_changed_sections: AtomicBool::new(false),
+            changed_blocks_per_section,
         }
     }
 
@@ -106,12 +116,57 @@ impl ChunkHolder {
     pub fn update_highest_allowed_status(&self, ticket_level: u8) {
         let new_status =
             generation_status(Some(ticket_level)).map_or(STATUS_NONE, |s| s.get_index() as u8);
-        self.highest_allowed_status_sender.send_replace(new_status);
+        self.highest_allowed_status
+            .store(new_status, Ordering::Release);
+    }
+
+    /// Records a block change at the given position.
+    /// Returns `true` if this is the first change (chunk should be added to broadcast list).
+    pub fn block_changed(&self, pos: &BlockPos) -> bool {
+        let section_index = ((pos.0.y - self.min_y) / 16) as usize;
+        if section_index >= self.changed_blocks_per_section.len() {
+            return false;
+        }
+
+        let had_changes = self.has_changed_sections.swap(true, Ordering::AcqRel);
+        let packed = SectionPos::section_relative_pos(pos);
+        self.changed_blocks_per_section[section_index]
+            .lock()
+            .insert(packed);
+
+        !had_changes
+    }
+
+    /// Returns whether there are pending block changes to broadcast.
+    pub fn has_changes_to_broadcast(&self) -> bool {
+        self.has_changed_sections.load(Ordering::Acquire)
+    }
+
+    /// Takes all pending block changes, grouped by section index.
+    /// Returns a vec of (`section_index`, set of packed positions).
+    pub fn take_changed_blocks(&self) -> Vec<(usize, FxHashSet<i16>)> {
+        if !self.has_changed_sections.swap(false, Ordering::AcqRel) {
+            return Vec::new();
+        }
+
+        let mut result = Vec::new();
+        for (section_index, section_changes) in self.changed_blocks_per_section.iter().enumerate() {
+            let mut guard = section_changes.lock();
+            if !guard.is_empty() {
+                result.push((section_index, mem::take(&mut *guard)));
+            }
+        }
+        result
+    }
+
+    /// Returns the number of sections in this chunk.
+    pub fn section_count(&self) -> usize {
+        self.changed_blocks_per_section.len()
     }
 
     /// Checks if the given status is disallowed.
     pub fn is_status_disallowed(&self, status: ChunkStatus) -> bool {
-        let allowed = *self.highest_allowed_status.borrow();
+        let allowed = self.highest_allowed_status.load(Ordering::Acquire);
         if allowed == STATUS_NONE {
             return true;
         }
@@ -172,7 +227,6 @@ impl ChunkHolder {
         status: ChunkStatus,
     ) -> impl Future<Output = Option<Guard<Option<Arc<ChunkAccess>>>>> {
         let mut subscriber = self.sender.subscribe();
-        let mut status_subscriber = self.highest_allowed_status_sender.subscribe();
         async move {
             loop {
                 {
@@ -192,19 +246,9 @@ impl ChunkHolder {
                     return None;
                 }
 
-                select! {
-                    val = subscriber.changed() => {
-                        if val.is_err() {
-                            log::error!("Failed to wait for chunk access");
-                            return None;
-                        }
-                    }
-                    val = status_subscriber.changed() => {
-                        if val.is_err() {
-                            log::error!("Failed to wait for highest allowed status");
-                            return None;
-                        }
-                    }
+                if subscriber.changed().await.is_err() {
+                    log::error!("Failed to wait for chunk access");
+                    return None;
                 }
             }
         }
@@ -263,11 +307,15 @@ impl ChunkHolder {
                 {
                     self_clone.insert_chunk(chunk, status);
                 } else {
+                    // Clone holder before moving into rayon closure
+                    let holder_for_notify = self_clone.clone();
                     rayon_spawn(&thread_pool, move || {
                         task(context, step, &cache, self_clone)
                     })
                     .await
                     .expect("Should never fail creating an empty chunk");
+                    // Notify after rayon completes - this runs on tokio, not rayon
+                    holder_for_notify.notify_status(target_status);
                 }
                 Some(())
             } else {
@@ -385,8 +433,22 @@ impl ChunkHolder {
     }
 
     /// Inserts a chunk into the holder with a specific status.
+    /// This notifies watchers - use `insert_chunk_no_notify` + separate notification
+    /// if calling from a rayon thread to avoid contention.
     pub fn insert_chunk(&self, chunk: ChunkAccess, status: ChunkStatus) {
         self.data.store(Some(Arc::new(chunk)));
+        self.sender.send_replace(ChunkResult::Ok(status));
+    }
+
+    /// Inserts a chunk into the holder without notifying watchers.
+    /// The caller is responsible for notifying via the completion channel.
+    pub(crate) fn insert_chunk_no_notify(&self, chunk: ChunkAccess) {
+        self.data.store(Some(Arc::new(chunk)));
+    }
+
+    /// Notifies watchers that the chunk has reached a status.
+    /// Called by the drainer task after `insert_chunk_no_notify`.
+    pub(crate) fn notify_status(&self, status: ChunkStatus) {
         self.sender.send_replace(ChunkResult::Ok(status));
     }
 

@@ -1,7 +1,8 @@
 //! `ChunkGenerationTask` handles the generation process for chunks.
 use std::{
+    cmp::max,
     future::Future,
-    mem::MaybeUninit,
+    mem::{self, MaybeUninit},
     pin::Pin,
     sync::{
         Arc,
@@ -9,6 +10,7 @@ use std::{
     },
 };
 
+use futures::future::join_all;
 use rayon::ThreadPool;
 use steel_utils::{ChunkPos, locks::SyncMutex};
 
@@ -57,7 +59,7 @@ impl<T> StaticCache2D<T> {
             min_z,
             size,
             // SAFETY: We know that T is Send + Sync, and that the whole cache is initialized, so we can transmute it to a Vec<T>.
-            cache: unsafe { std::mem::transmute::<Vec<MaybeUninit<T>>, Vec<T>>(cache) },
+            cache: unsafe { mem::transmute::<Vec<MaybeUninit<T>>, Vec<T>>(cache) },
         }
     }
 
@@ -281,8 +283,7 @@ impl ChunkGenerationTask {
 
             for x in (self.pos.0.x - range)..=(self.pos.0.x + range) {
                 for z in (self.pos.0.y - range)..=(self.pos.0.y + range) {
-                    let distance =
-                        std::cmp::max((self.pos.0.x - x).abs(), (self.pos.0.y - z).abs()) as usize;
+                    let distance = max((self.pos.0.x - x).abs(), (self.pos.0.y - z).abs()) as usize;
                     if let Some(required_status) = dependencies.get(distance) {
                         let neighbor = self.cache.get(x, z);
                         let persisted = neighbor.persisted_status();
@@ -325,14 +326,14 @@ impl ChunkGenerationTask {
         // Collect all futures first to avoid locking the mutex during await
         let futures: Vec<_> = {
             let mut lock = self.neighbor_ready.lock();
-            std::mem::take(&mut *lock)
+            mem::take(&mut *lock)
         };
 
         if futures.is_empty() {
             return;
         }
 
-        let results = futures::future::join_all(futures).await;
+        let results = join_all(futures).await;
 
         for result in results {
             if result.is_none() {

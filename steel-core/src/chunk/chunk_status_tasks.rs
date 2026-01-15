@@ -37,7 +37,9 @@ impl ChunkStatusTasks {
 
         //log::info!("Inserted proto chunk for {:?}", holder.get_pos());
 
-        holder.insert_chunk(ChunkAccess::Proto(proto_chunk), ChunkStatus::Empty);
+        // Use no_notify variant - the caller (apply_step) will notify via the completion channel
+        // to avoid rayon threads contending on tokio's scheduler mutex
+        holder.insert_chunk_no_notify(ChunkAccess::Proto(proto_chunk));
         Ok(())
     }
 

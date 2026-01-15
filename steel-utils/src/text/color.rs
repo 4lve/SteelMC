@@ -1,4 +1,4 @@
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
 use simdnbt::{ToNbtTag, owned::NbtTag};
 
 /// An RGB color.
@@ -172,23 +172,24 @@ impl<'de> Deserialize<'de> for Color {
             Ok(Color::Reset)
         } else if let Some(hex) = s.strip_prefix('#') {
             if s.len() != 7 {
-                return Err(serde::de::Error::custom(
+                return Err(D::Error::custom(
                     "Hex color must be in the format '#RRGGBB'",
                 ));
             }
 
             let r = u8::from_str_radix(&hex[0..2], 16)
-                .map_err(|_| serde::de::Error::custom("Invalid red component in hex color"))?;
+                .map_err(|_| D::Error::custom("Invalid red component in hex color"))?;
             let g = u8::from_str_radix(&hex[2..4], 16)
-                .map_err(|_| serde::de::Error::custom("Invalid green component in hex color"))?;
+                .map_err(|_| D::Error::custom("Invalid green component in hex color"))?;
             let b = u8::from_str_radix(&hex[4..6], 16)
-                .map_err(|_| serde::de::Error::custom("Invalid blue component in hex color"))?;
+                .map_err(|_| D::Error::custom("Invalid blue component in hex color"))?;
 
             Ok(Color::Rgb(RGBColor::new(r, g, b)))
         } else {
-            Ok(Color::Named(NamedColor::try_from(s.as_str()).map_err(
-                |()| serde::de::Error::custom("Invalid named color"),
-            )?))
+            Ok(Color::Named(
+                NamedColor::try_from(s.as_str())
+                    .map_err(|()| D::Error::custom("Invalid named color"))?,
+            ))
         }
     }
 }

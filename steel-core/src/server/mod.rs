@@ -4,8 +4,13 @@ pub mod registry_cache;
 /// The tick rate manager for the server.
 pub mod tick_rate_manager;
 
-use std::sync::Arc;
-use std::time::Instant;
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicI32, Ordering},
+    },
+    time::{Duration, Instant},
+};
 
 use steel_crypto::key_store::KeyStore;
 use steel_protocol::packets::game::{CLogin, CommonPlayerSpawnInfo};
@@ -14,10 +19,10 @@ use steel_registry::{REGISTRY, Registry};
 use steel_utils::locks::SyncRwLock;
 use steel_utils::{Identifier, types::GameType};
 use tick_rate_manager::TickRateManager;
-use tokio::runtime::Runtime;
-use tokio::task::spawn_blocking;
+use tokio::{runtime::Runtime, task::spawn_blocking, time::sleep};
 use tokio_util::sync::CancellationToken;
 
+use crate::behavior::init_behaviors;
 use crate::command::CommandDispatcher;
 use crate::config::STEEL_CONFIG;
 use crate::player::Player;
@@ -38,6 +43,8 @@ pub struct Server {
     pub tick_rate_manager: SyncRwLock<TickRateManager>,
     /// Saves and dispatches commands to appropriate handlers.
     pub command_dispatcher: SyncRwLock<CommandDispatcher>,
+    /// Counter for assigning unique entity IDs.
+    next_entity_id: AtomicI32,
 }
 
 impl Server {
@@ -56,6 +63,10 @@ impl Server {
             .init(registry)
             .expect("We should be the ones who init the REGISTRY");
 
+        // Initialize behavior registries after the main registry is frozen
+        init_behaviors();
+        log::info!("Behavior registries initialized");
+
         let registry_cache = RegistryCache::new().await;
 
         Server {
@@ -65,13 +76,20 @@ impl Server {
             registry_cache,
             tick_rate_manager: SyncRwLock::new(TickRateManager::new()),
             command_dispatcher: SyncRwLock::new(CommandDispatcher::new()),
+            next_entity_id: AtomicI32::new(1), // Start at 1, 0 is reserved
         }
+    }
+
+    /// Allocates a new unique entity ID.
+    #[must_use]
+    pub fn next_entity_id(&self) -> i32 {
+        self.next_entity_id.fetch_add(1, Ordering::Relaxed)
     }
 
     /// Adds a player to the server.
     pub fn add_player(&self, player: Arc<Player>) {
         player.connection.send_packet(CLogin {
-            player_id: 0,
+            player_id: player.entity_id,
             hardcore: false,
             levels: vec![Identifier::vanilla_static("overworld")],
             max_players: 5,
@@ -133,10 +151,10 @@ impl Server {
                 if now < next_tick_time {
                     tokio::select! {
                         () = cancel_token.cancelled() => break,
-                        () = tokio::time::sleep(next_tick_time - now) => {}
+                        () = sleep(next_tick_time - now) => {}
                     }
                 }
-                next_tick_time += std::time::Duration::from_nanos(nanoseconds_per_tick);
+                next_tick_time += Duration::from_nanos(nanoseconds_per_tick);
             }
 
             if cancel_token.is_cancelled() {

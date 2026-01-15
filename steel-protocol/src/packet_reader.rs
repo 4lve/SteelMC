@@ -124,7 +124,7 @@ impl<R: AsyncRead + Unpin> TCPNetworkDecoder<R> {
             panic!("Cannot upgrade a stream that already has a cipher!");
         }
         let cipher = Aes128Cfb8Dec::new_from_slices(key, key).expect("invalid key");
-        take_mut::take(&mut self.reader, |decoder| decoder.upgrade(cipher));
+        replace_with::replace_with_or_abort(&mut self.reader, |decoder| decoder.upgrade(cipher));
     }
 
     /// Gets a raw packet from the stream.

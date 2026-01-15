@@ -5,7 +5,7 @@ use std::{
     io::{Result, Write},
 };
 
-use steel_registry::BlockStateExt;
+use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_utils::{BlockStateId, codec::VarInt, serial::WriteTo};
 
 /// A trait for converting a value to a global ID.

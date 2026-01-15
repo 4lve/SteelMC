@@ -5,7 +5,11 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use rsa::RsaPublicKey;
-use steel_crypto::{public_key_from_bytes, public_key_to_bytes};
+use steel_crypto::{
+    CryptError, SignatureValidator, public_key_from_bytes, public_key_to_bytes,
+    signature::RsaPublicKeyValidator,
+};
+use steel_protocol::packets::game::ProtocolRemoteChatSessionData;
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -28,7 +32,7 @@ pub enum ValidationError {
 
     /// Cryptographic error
     #[error("Cryptographic error: {0}")]
-    CryptoError(#[from] steel_crypto::CryptError),
+    CryptoError(#[from] CryptError),
 }
 
 /// Profile public key data containing key, expiry, and Mojang signature.
@@ -80,7 +84,7 @@ impl ProfilePublicKeyData {
     pub fn validate_signature(
         &self,
         profile_id: Uuid,
-        validator: &dyn steel_crypto::SignatureValidator,
+        validator: &dyn SignatureValidator,
     ) -> Result<(), ValidationError> {
         let payload = self.signed_payload(profile_id)?;
         let updater = ByteSliceUpdater(&payload);
@@ -157,9 +161,7 @@ impl ProfilePublicKeyData {
     /// Panics if slice-to-array conversion fails (should not happen due to length checks)
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, ValidationError> {
         if bytes.len() < 16 {
-            return Err(ValidationError::CryptoError(
-                steel_crypto::CryptError::InvalidKeyFormat,
-            ));
+            return Err(ValidationError::CryptoError(CryptError::InvalidKeyFormat));
         }
 
         let mut offset = 0;
@@ -175,9 +177,7 @@ impl ProfilePublicKeyData {
 
         // Read public key length
         if bytes.len() < offset + 4 {
-            return Err(ValidationError::CryptoError(
-                steel_crypto::CryptError::InvalidKeyFormat,
-            ));
+            return Err(ValidationError::CryptoError(CryptError::InvalidKeyFormat));
         }
         let key_len = i32::from_be_bytes(
             bytes[offset..offset + 4]
@@ -188,18 +188,14 @@ impl ProfilePublicKeyData {
 
         // Read public key
         if bytes.len() < offset + key_len {
-            return Err(ValidationError::CryptoError(
-                steel_crypto::CryptError::InvalidKeyFormat,
-            ));
+            return Err(ValidationError::CryptoError(CryptError::InvalidKeyFormat));
         }
         let key = public_key_from_bytes(&bytes[offset..offset + key_len])?;
         offset += key_len;
 
         // Read signature length
         if bytes.len() < offset + 4 {
-            return Err(ValidationError::CryptoError(
-                steel_crypto::CryptError::InvalidKeyFormat,
-            ));
+            return Err(ValidationError::CryptoError(CryptError::InvalidKeyFormat));
         }
         let sig_len = i32::from_be_bytes(
             bytes[offset..offset + 4]
@@ -210,9 +206,7 @@ impl ProfilePublicKeyData {
 
         // Read signature
         if bytes.len() < offset + sig_len {
-            return Err(ValidationError::CryptoError(
-                steel_crypto::CryptError::InvalidKeyFormat,
-            ));
+            return Err(ValidationError::CryptoError(CryptError::InvalidKeyFormat));
         }
         let key_signature = bytes[offset..offset + sig_len].to_vec();
 
@@ -250,7 +244,7 @@ impl ProfilePublicKey {
     pub fn create_validated(
         profile_id: Uuid,
         data: ProfilePublicKeyData,
-        validator: &dyn steel_crypto::SignatureValidator,
+        validator: &dyn SignatureValidator,
     ) -> Result<Self, ValidationError> {
         data.validate_signature(profile_id, validator)?;
         Ok(Self::new(data))
@@ -264,8 +258,8 @@ impl ProfilePublicKey {
 
     /// Creates a signature validator for this key
     #[must_use]
-    pub fn create_signature_validator(&self) -> steel_crypto::signature::RsaPublicKeyValidator {
-        steel_crypto::signature::RsaPublicKeyValidator::new(self.data.key.clone())
+    pub fn create_signature_validator(&self) -> RsaPublicKeyValidator {
+        RsaPublicKeyValidator::new(self.data.key.clone())
     }
 }
 
@@ -325,7 +319,7 @@ impl RemoteChatSessionData {
     pub fn validate(
         self,
         profile_id: Uuid,
-        validator: &dyn steel_crypto::SignatureValidator,
+        validator: &dyn SignatureValidator,
     ) -> Result<RemoteChatSession, ValidationError> {
         let public_key =
             ProfilePublicKey::create_validated(profile_id, self.profile_public_key, validator)?;
@@ -336,12 +330,10 @@ impl RemoteChatSessionData {
     ///
     /// # Errors
     /// Returns `ValidationError` if key encoding fails
-    pub fn to_protocol_data(
-        &self,
-    ) -> Result<steel_protocol::packets::game::RemoteChatSessionData, ValidationError> {
+    pub fn to_protocol_data(&self) -> Result<ProtocolRemoteChatSessionData, ValidationError> {
         let key_bytes = public_key_to_bytes(&self.profile_public_key.key)?;
 
-        Ok(steel_protocol::packets::game::RemoteChatSessionData::new(
+        Ok(ProtocolRemoteChatSessionData::new(
             self.session_id,
             self.profile_public_key.expires_at,
             key_bytes,

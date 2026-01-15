@@ -9,11 +9,8 @@ pub(crate) fn build() -> TokenStream {
 
     let menu_types_file = "build_assets/menutypes.json";
     let content = fs::read_to_string(menu_types_file).unwrap();
-    let mut menu_types: Vec<String> = serde_json::from_str(&content)
+    let menu_types: Vec<String> = serde_json::from_str(&content)
         .unwrap_or_else(|e| panic!("Failed to parse menutypes.json: {}", e));
-
-    // Sort menu types by name for consistent generation
-    menu_types.sort();
 
     let mut stream = TokenStream::new();
 

@@ -8,6 +8,7 @@ use std::{
     io,
     path::PathBuf,
     sync::{Arc, Weak},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use arc_swap::Guard;
@@ -573,8 +574,8 @@ impl RegionManager {
             .collect();
 
         PersistentChunk {
-            last_modified: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
+            last_modified: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
                 .map(|d| d.as_secs() as u32)
                 .unwrap_or(0),
             block_states: builder.block_states,
