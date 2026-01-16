@@ -78,17 +78,17 @@ impl CommandExecutor<((), i32)> for WeatherCommandExecutor {
             WeatherCommandExecutor::Clear => {
                 context
                     .sender
-                    .send_message(translations::COMMANDS_WEATHER_SET_CLEAR.msg().into());
+                    .send_message(&translations::COMMANDS_WEATHER_SET_CLEAR.msg().into());
             }
             WeatherCommandExecutor::Rain => {
                 context
                     .sender
-                    .send_message(translations::COMMANDS_WEATHER_SET_RAIN.msg().into());
+                    .send_message(&translations::COMMANDS_WEATHER_SET_RAIN.msg().into());
             }
             WeatherCommandExecutor::Thunder => {
                 context
                     .sender
-                    .send_message(translations::COMMANDS_WEATHER_SET_THUNDER.msg().into());
+                    .send_message(&translations::COMMANDS_WEATHER_SET_THUNDER.msg().into());
             }
         }
 

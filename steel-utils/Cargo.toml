@@ -34,6 +34,7 @@ md5.workspace = true
 # Utilities
 enum_dispatch.workspace = true
 num-traits.workspace = true
+text_components.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true
@@ -41,18 +42,19 @@ criterion.workspace = true
 [build-dependencies]
 # Serialization
 serde_json.workspace = true
-
 # Proc macros
 proc-macro2.workspace = true
 quote.workspace = true
 
 # Data structures
+
 rustc-hash.workspace = true
 phf_codegen.workspace = true
 
 # Utilities
-heck.workspace = true
 
+heck.workspace = true
+text_components = { workspace = true, features = ["build"] }
 [[bench]]
 name = "xoroshiro"
 harness = false

@@ -2,7 +2,7 @@
 use std::{fmt, sync::Arc};
 
 use steel_protocol::packets::game::CSystemChatMessage;
-use steel_utils::text::TextComponent;
+use text_components::TextComponent;
 
 use crate::player::Player;
 
@@ -28,13 +28,12 @@ impl CommandSender {
     }
 
     /// Sends a system message to the command sender.
-    pub fn send_message(&self, text: TextComponent) {
+    pub fn send_message(&self, text: &TextComponent) {
         match self {
-            Self::Player(player) => player.connection.send_packet(CSystemChatMessage {
-                content: text,
-                overlay: false,
-            }),
-            Self::Console => log::info!("{text}"),
+            Self::Player(player) => player
+                .connection
+                .send_packet(CSystemChatMessage::new(text, player, false)),
+            Self::Console => log::info!("{:p}", text),
             // TODO: Implement Rcon message sending
             Self::Rcon => unimplemented!(),
         }

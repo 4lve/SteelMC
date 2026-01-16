@@ -5,6 +5,7 @@ pub mod float;
 pub mod gamemode;
 pub mod integer;
 pub mod rotation;
+pub mod text;
 pub mod time;
 pub mod vector2;
 pub mod vector3;

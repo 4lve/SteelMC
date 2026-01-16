@@ -55,7 +55,7 @@ impl CommandExecutor<((), GameType)> for GameModeCommandExecutor {
         };
 
         context.sender.send_message(
-            translations::COMMANDS_GAMEMODE_SUCCESS_SELF
+            &translations::COMMANDS_GAMEMODE_SUCCESS_SELF
                 .message([mode_translation])
                 .into(),
         );

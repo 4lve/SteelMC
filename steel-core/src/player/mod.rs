@@ -40,6 +40,10 @@ use steel_registry::vanilla_game_rules::{ELYTRA_MOVEMENT_CHECK, PLAYER_MOVEMENT_
 
 use steel_utils::locks::SyncMutex;
 use steel_utils::types::GameType;
+use text_components::interactivity::{ClickEvent, HoverEvent};
+use text_components::resolving::TextResolutor;
+use text_components::{Modifier, TextComponent};
+use uuid::Uuid;
 
 use crate::config::STEEL_CONFIG;
 use crate::inventory::SyncPlayerInv;
@@ -63,7 +67,7 @@ use crate::behavior::{BLOCK_BEHAVIORS, InteractionResult};
 use steel_utils::BlockPos;
 
 use steel_utils::types::InteractionHand;
-use steel_utils::{ChunkPos, math::Vector3, text::TextComponent, translations};
+use steel_utils::{ChunkPos, math::Vector3, translations};
 
 use crate::entity::LivingEntity;
 use crate::inventory::{
@@ -495,15 +499,14 @@ impl Player {
             match &verification_result {
                 Some(Ok(_)) => {}
                 Some(Err(err)) => {
-                    self.connection.disconnect(
-                        TextComponent::new().text(format!("Chat message validation failed: {err}")),
-                    );
+                    self.connection
+                        .disconnect(format!("Chat message validation failed: {err}"));
                     return;
                 }
                 None => {
-                    self.connection.disconnect(TextComponent::new().text(
+                    self.connection.disconnect(
                         "Secure chat is enforced on this server, but your message was not signed",
-                    ));
+                    );
                     return;
                 }
             }
@@ -526,12 +529,23 @@ impl Player {
             packet.timestamp,
             packet.salt,
             Box::new([]),
-            Some(TextComponent::new().text(chat_message.clone())),
+            Some(TextComponent::plain(chat_message.clone())),
             FilterType::PassThrough,
             ChatTypeBound {
                 //TODO: Use the registry to derive this instead of hardcoding it
                 registry_id: 0,
-                sender_name: TextComponent::new().text(player.gameprofile.name.clone()),
+                sender_name: TextComponent::plain(player.gameprofile.name.clone())
+                    .insertion(player.gameprofile.name.clone())
+                    .click_event(ClickEvent::suggest_command(format!(
+                        "/tell {} ",
+                        player.gameprofile.name
+                    )))
+                    // TODO: Set the true player uuid
+                    .hover_event(HoverEvent::show_entity(
+                        "minecraft:player",
+                        Uuid::new_v4(),
+                        Some(player.gameprofile.name.clone()),
+                    )),
                 target_name: None,
             },
         );
@@ -952,8 +966,7 @@ impl Player {
                         "Player {} kicked for invalid public key",
                         self.gameprofile.name
                     );
-                    self.connection
-                        .disconnect(TextComponent::new().text("Invalid profile public key"));
+                    self.connection.disconnect("Invalid profile public key");
                 }
                 return;
             }
@@ -979,9 +992,8 @@ impl Player {
                     self.gameprofile.name
                 );
                 if STEEL_CONFIG.enforce_secure_chat {
-                    self.connection.disconnect(
-                        TextComponent::new().text(format!("Chat session validation failed: {err}")),
-                    );
+                    self.connection
+                        .disconnect(format!("Chat session validation failed: {err}"));
                 }
             }
         }
@@ -1942,5 +1954,19 @@ impl LivingEntity for Player {
 
     fn set_speed(&mut self, speed: f32) {
         self.speed.store(speed);
+    }
+}
+
+impl TextResolutor for Player {
+    fn resolve_content(&self, _resolvable: &text_components::content::Resolvable) -> TextComponent {
+        TextComponent::new()
+    }
+
+    fn resolve_custom(&self, _data: &text_components::custom::CustomData) -> Option<TextComponent> {
+        None
+    }
+
+    fn translate(&self, _key: &str) -> Option<String> {
+        None
     }
 }

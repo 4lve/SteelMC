@@ -59,6 +59,7 @@ zstd.workspace = true
 # Utilities
 enum_dispatch.workspace = true
 replace_with.workspace = true
+text_components.workspace = true
 
 [build-dependencies]
 serde.workspace = true

@@ -45,6 +45,7 @@ rsa-der.workspace = true
 sha1.workspace = true
 sha2.workspace = true
 hex.workspace = true
+text_components.workspace = true
 
 # Memory
 mimalloc = { version = "0.1.48", optional = true }

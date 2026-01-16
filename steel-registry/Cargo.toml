@@ -19,6 +19,7 @@ rustc-hash.workspace = true
 log.workspace = true
 # Utils
 rand.workspace = true
+text_components.workspace = true
 
 [build-dependencies]
 # Internal crates
