@@ -684,7 +684,6 @@ impl NoteBlockInstrument {
     }
 }
 
-
 #[derive(Clone, Debug)]
 #[derive_const(PartialEq)]
 pub enum PistonType {

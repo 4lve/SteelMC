@@ -12,4 +12,3 @@ pub use crafting_table_block::CraftingTableBlock;
 pub use fence_block::FenceBlock;
 pub use note_block::NoteBlock;
 pub use rotated_pillar_block::RotatedPillarBlock;
-

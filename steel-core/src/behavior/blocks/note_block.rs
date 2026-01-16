@@ -14,6 +14,7 @@ use crate::behavior::block::BlockBehaviour;
 use crate::behavior::context::{BlockHitResult, BlockPlaceContext, InteractionResult};
 use crate::player::Player;
 use crate::world::World;
+use steel_registry::blocks::properties::EnumProperty;
 
 /// Behavior for note blocks.
 ///
@@ -27,7 +28,7 @@ pub struct NoteBlock {
 
 impl NoteBlock {
     /// The instrument property.
-    pub const INSTRUMENT: steel_registry::blocks::properties::EnumProperty<NoteBlockInstrument> =
+    pub const INSTRUMENT: EnumProperty<NoteBlockInstrument> =
         BlockStateProperties::NOTEBLOCK_INSTRUMENT;
     /// The note property (0-24).
     pub const NOTE: IntProperty = BlockStateProperties::NOTE;
@@ -77,14 +78,18 @@ impl NoteBlock {
 
     /// Plays the note block (sends block event and game event).
     /// Currently a stub - sound playing will be implemented later.
-    #[allow(unused_variables)]
-    fn play_note(&self, player: Option<&Player>, state: BlockStateId, world: &World, pos: &BlockPos) {
+    fn play_note(
+        _player: Option<&Player>,
+        state: BlockStateId,
+        world: &World,
+        pos: &BlockPos,
+    ) {
         let instrument: NoteBlockInstrument = state.get_value(&Self::INSTRUMENT);
 
         // Only play if instrument works from above OR block above is air
         if instrument.works_above_note_block() {
             // Mob head instruments always play
-            log::debug!("Note block at {:?} would play {:?} sound", pos, instrument);
+            log::debug!("Note block at {pos:?} would play {instrument:?} sound");
         } else {
             // Check if block above is air
             let above_pos = Direction::Up.relative(pos);
@@ -92,10 +97,7 @@ impl NoteBlock {
             if above_state.is_air() {
                 let note: u8 = state.get_value(&Self::NOTE);
                 log::debug!(
-                    "Note block at {:?} would play {:?} at note {}",
-                    pos,
-                    instrument,
-                    note
+                    "Note block at {pos:?} would play {instrument:?} at note {note}"
                 );
             }
         }
@@ -107,7 +109,11 @@ impl NoteBlock {
 impl BlockBehaviour for NoteBlock {
     fn get_state_for_placement(&self, context: &BlockPlaceContext<'_>) -> Option<BlockStateId> {
         let state = self.block.default_state();
-        Some(Self::set_instrument(context.world, &context.relative_pos, state))
+        Some(Self::set_instrument(
+            context.world,
+            &context.relative_pos,
+            state,
+        ))
     }
 
     fn update_shape(
@@ -148,7 +154,7 @@ impl BlockBehaviour for NoteBlock {
         world.set_block(pos, new_state, UpdateFlags::UPDATE_ALL);
 
         // Play the note
-        self.play_note(Some(player), new_state, world, &pos);
+        Self::play_note(Some(player), new_state, world, &pos);
 
         // TODO: Award stat Stats::TUNE_NOTEBLOCK
 

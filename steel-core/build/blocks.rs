@@ -75,4 +75,3 @@ pub fn build(blocks: &[BlockClass]) -> String {
 
     output.to_string()
 }
-
