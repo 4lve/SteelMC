@@ -78,12 +78,7 @@ impl NoteBlock {
 
     /// Plays the note block (sends block event and game event).
     /// Currently a stub - sound playing will be implemented later.
-    fn play_note(
-        _player: Option<&Player>,
-        state: BlockStateId,
-        world: &World,
-        pos: &BlockPos,
-    ) {
+    fn play_note(_player: Option<&Player>, state: BlockStateId, world: &World, pos: &BlockPos) {
         let instrument: NoteBlockInstrument = state.get_value(&Self::INSTRUMENT);
 
         // Only play if instrument works from above OR block above is air
@@ -96,9 +91,7 @@ impl NoteBlock {
             let above_state = world.get_block_state(&above_pos);
             if above_state.is_air() {
                 let note: u8 = state.get_value(&Self::NOTE);
-                log::debug!(
-                    "Note block at {pos:?} would play {instrument:?} at note {note}"
-                );
+                log::debug!("Note block at {pos:?} would play {instrument:?} at note {note}");
             }
         }
         // TODO: Actually play the sound via block event system
