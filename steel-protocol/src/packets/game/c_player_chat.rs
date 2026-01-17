@@ -3,7 +3,6 @@ use steel_registry::packets::play::C_PLAYER_CHAT;
 use steel_utils::{
     codec::{BitSet, VarInt},
     serial::PrefixedWrite,
-    text::encode_text_component,
 };
 use text_components::TextComponent;
 use uuid::Uuid;
@@ -110,7 +109,7 @@ impl steel_utils::serial::WriteTo for CPlayerChat {
         match &self.unsigned_content {
             Some(content) => {
                 true.write(writer)?;
-                writer.write_all(&encode_text_component(content))?;
+                content.write(writer)?;
             }
             None => false.write(writer)?,
         }

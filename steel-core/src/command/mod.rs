@@ -53,7 +53,7 @@ impl CommandDispatcher {
         let mut context = CommandContext::new(sender.clone(), server.clone());
 
         if let Err(error) = Self::split_command(&command)
-            .and_then(|(command, args)| self.execute(command, &args, &mut context, &server))
+            .and_then(|(command, args)| self.execute(command, &args, &mut context, server))
         {
             let text = match error {
                 CommandError::InvalidConsumption(s) => {

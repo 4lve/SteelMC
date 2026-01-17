@@ -14,16 +14,19 @@ use steel_utils::translations::{
 use uuid::Uuid;
 
 /// A entity argument.
+#[derive(Default)]
 pub struct EntityArgument {
     /// If only accepts one entity
     one: bool,
 }
 impl EntityArgument {
     /// Creates a selector for multiple entities
+    #[must_use]
     pub fn new() -> Self {
         EntityArgument { one: false }
     }
     /// Creates a selector for one entity
+    #[must_use]
     pub fn one() -> Self {
         EntityArgument { one: true }
     }
@@ -45,9 +48,7 @@ impl CommandArgument for EntityArgument {
                 .map(|p| p as Arc<dyn LivingEntity + Send + Sync>)
                 .collect(),
             "@n" | "@p" => {
-                let Some(position) = context.position else {
-                    return None;
-                };
+                let position = context.position?;
                 let mut near_dist = (f64::MAX, players[0].clone());
                 for player in players {
                     let dist = player.get_position().squared_distance_to_vec(position);
@@ -62,10 +63,7 @@ impl CommandArgument for EntityArgument {
                     as Arc<dyn LivingEntity + Send + Sync>]
             }
             "@s" => {
-                let Some(player) = &context.player else {
-                    return None;
-                };
-                vec![player.clone() as Arc<dyn LivingEntity + Send + Sync>]
+                vec![context.player.clone()? as Arc<dyn LivingEntity + Send + Sync>]
             }
             name => {
                 let uuid = if let Ok(uuid) = Uuid::parse_str(name) {
@@ -73,15 +71,13 @@ impl CommandArgument for EntityArgument {
                 } else {
                     Uuid::nil()
                 };
-                let Some(player) = players.into_iter().find_map(|p| {
+                let player = players.into_iter().find_map(|p| {
                     if p.gameprofile.name == name || p.get_uuid() == uuid {
                         Some(p)
                     } else {
                         None
                     }
-                }) else {
-                    return None;
-                };
+                })?;
                 vec![player as Arc<dyn LivingEntity + Send + Sync>]
             }
         };
@@ -92,7 +88,7 @@ impl CommandArgument for EntityArgument {
     fn usage(&self) -> (ArgumentType, Option<SuggestionType>) {
         (
             ArgumentType::Entity {
-                flags: self.one as u8,
+                flags: u8::from(self.one),
             },
             Some(SuggestionType::AskServer),
         )

@@ -22,7 +22,9 @@ use steel_protocol::{
 };
 use steel_registry::packets::{config, handshake, login, status};
 use steel_utils::locks::AsyncMutex;
-use text_components::{TextComponent, resolving::TextResolutor};
+use text_components::{
+    TextComponent, content::Resolvable, custom::CustomData, resolving::TextResolutor,
+};
 use tokio::{
     io::{BufReader, BufWriter},
     net::{
@@ -451,11 +453,11 @@ impl JavaTcpClient {
 }
 
 impl TextResolutor for JavaTcpClient {
-    fn resolve_content(&self, _resolvable: &text_components::content::Resolvable) -> TextComponent {
+    fn resolve_content(&self, _resolvable: &Resolvable) -> TextComponent {
         TextComponent::new()
     }
 
-    fn resolve_custom(&self, _data: &text_components::custom::CustomData) -> Option<TextComponent> {
+    fn resolve_custom(&self, _data: &CustomData) -> Option<TextComponent> {
         None
     }
 

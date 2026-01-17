@@ -14,16 +14,19 @@ use steel_utils::translations::{
 use uuid::Uuid;
 
 /// A player argument.
+#[derive(Default)]
 pub struct PlayerArgument {
     /// If only accepts one player
     one: bool,
 }
 impl PlayerArgument {
     /// Creates a selector for multiple players
+    #[must_use]
     pub fn new() -> Self {
         PlayerArgument { one: false }
     }
     /// Creates a selector for one player
+    #[must_use]
     pub fn one() -> Self {
         PlayerArgument { one: true }
     }
@@ -41,9 +44,7 @@ impl CommandArgument for PlayerArgument {
         let entities = match arg[0] {
             "@a" => players,
             "@p" => {
-                let Some(position) = context.position else {
-                    return None;
-                };
+                let position = context.position?;
                 let mut near_dist = (f64::MAX, players[0].clone());
                 for player in players {
                     let dist = player.get_position().squared_distance_to_vec(position);
@@ -57,10 +58,7 @@ impl CommandArgument for PlayerArgument {
                 vec![players.into_iter().choose(&mut rand::rng())?]
             }
             "@s" => {
-                let Some(player) = &context.player else {
-                    return None;
-                };
-                vec![player.clone()]
+                vec![context.player.clone()?]
             }
             name => {
                 let uuid = if let Ok(uuid) = Uuid::parse_str(name) {
@@ -68,15 +66,13 @@ impl CommandArgument for PlayerArgument {
                 } else {
                     Uuid::nil()
                 };
-                let Some(player) = players.into_iter().find_map(|p| {
+                let player = players.into_iter().find_map(|p| {
                     if p.gameprofile.name == name || p.get_uuid() == uuid {
                         Some(p)
                     } else {
                         None
                     }
-                }) else {
-                    return None;
-                };
+                })?;
                 vec![player]
             }
         };
@@ -87,7 +83,7 @@ impl CommandArgument for PlayerArgument {
     fn usage(&self) -> (ArgumentType, Option<SuggestionType>) {
         (
             ArgumentType::Entity {
-                flags: 2 | self.one as u8,
+                flags: 2 | u8::from(self.one),
             },
             Some(SuggestionType::AskServer),
         )

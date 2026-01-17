@@ -22,6 +22,8 @@ use steel_registry::packets::play;
 use steel_utils::locks::{AsyncMutex, SyncMutex};
 use steel_utils::translations;
 use text_components::TextComponent;
+use text_components::content::Resolvable;
+use text_components::custom::CustomData;
 use text_components::resolving::TextResolutor;
 use tokio::io::{BufReader, BufWriter};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
@@ -366,11 +368,11 @@ impl JavaConnection {
 }
 
 impl TextResolutor for JavaConnection {
-    fn resolve_content(&self, _resolvable: &text_components::content::Resolvable) -> TextComponent {
+    fn resolve_content(&self, _resolvable: &Resolvable) -> TextComponent {
         TextComponent::new()
     }
 
-    fn resolve_custom(&self, _data: &text_components::custom::CustomData) -> Option<TextComponent> {
+    fn resolve_custom(&self, _data: &CustomData) -> Option<TextComponent> {
         None
     }
 

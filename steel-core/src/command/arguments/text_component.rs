@@ -19,7 +19,7 @@ impl CommandArgument for TextComponentArgument {
             Ok(component) => Some((&[], component)),
             Err(e) => {
                 log::warn!("{e}");
-                return None;
+                None
             }
         }
     }

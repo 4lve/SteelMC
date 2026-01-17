@@ -44,9 +44,13 @@ use steel_registry::vanilla_game_rules::{ELYTRA_MOVEMENT_CHECK, PLAYER_MOVEMENT_
 
 use steel_utils::locks::SyncMutex;
 use steel_utils::types::GameType;
-use text_components::interactivity::{ClickEvent, HoverEvent};
 use text_components::resolving::TextResolutor;
 use text_components::{Modifier, TextComponent};
+use text_components::{
+    content::Resolvable,
+    custom::CustomData,
+    interactivity::{ClickEvent, HoverEvent},
+};
 use uuid::Uuid;
 
 use crate::inventory::SyncPlayerInv;
@@ -1977,11 +1981,11 @@ impl LivingEntity for Player {
 }
 
 impl TextResolutor for Player {
-    fn resolve_content(&self, _resolvable: &text_components::content::Resolvable) -> TextComponent {
+    fn resolve_content(&self, _resolvable: &Resolvable) -> TextComponent {
         TextComponent::new()
     }
 
-    fn resolve_custom(&self, _data: &text_components::custom::CustomData) -> Option<TextComponent> {
+    fn resolve_custom(&self, _data: &CustomData) -> Option<TextComponent> {
         None
     }
 
