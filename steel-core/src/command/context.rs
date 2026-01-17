@@ -18,7 +18,7 @@ pub struct CommandContext {
     pub player: Option<Arc<Player>>,
     /// The world/dimension of the command.
     pub world: Option<Arc<World>>,
-    /// The server where the command has been runned.
+    /// The server where the command has been run.
     pub server: Arc<Server>,
     /// The position of the command.
     pub position: Option<Vector3<f64>>,
