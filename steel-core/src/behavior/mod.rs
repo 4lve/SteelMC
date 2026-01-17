@@ -45,7 +45,7 @@ use block_behaviours::register_block_behaviors;
 pub use context::{BlockHitResult, BlockPlaceContext, InteractionResult, UseOnContext};
 pub use item::{ItemBehavior, ItemBehaviorRegistry};
 use item_behaviours::register_item_behaviors;
-pub use items::{BlockItemBehavior, DefaultItemBehavior};
+pub use items::{BlockItemBehavior, DefaultItemBehavior, EnderEyeBehavior};
 use std::sync::OnceLock;
 
 /// Global block behavior registry.

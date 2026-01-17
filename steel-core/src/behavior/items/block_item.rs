@@ -2,6 +2,7 @@
 
 use steel_registry::REGISTRY;
 use steel_registry::blocks::BlockRef;
+use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::Direction;
 use steel_utils::types::UpdateFlags;
 
@@ -53,8 +54,9 @@ impl ItemBehavior for BlockItemBehavior {
             return InteractionResult::Fail;
         }
 
-        // Create placement context
-        // TODO: Calculate horizontal_direction from player rotation
+        // Get player rotation for placement context
+        let (yaw, _pitch) = context.player.rotation.load();
+
         let place_context = BlockPlaceContext {
             clicked_pos,
             clicked_face: context.hit_result.direction,
@@ -62,8 +64,8 @@ impl ItemBehavior for BlockItemBehavior {
             inside: context.hit_result.inside,
             relative_pos: place_pos,
             replace_clicked,
-            horizontal_direction: Direction::North,
-            rotation: 0.0,
+            horizontal_direction: Direction::from_yaw(yaw),
+            rotation: yaw,
             world: context.world,
         };
 
@@ -73,6 +75,12 @@ impl ItemBehavior for BlockItemBehavior {
         let Some(new_state) = behavior.get_state_for_placement(&place_context) else {
             return InteractionResult::Fail;
         };
+
+        // Check if the block placement would intersect with any entity (vanilla: Level.isUnobstructed)
+        let collision_shape = new_state.get_collision_shape();
+        if !context.world.is_unobstructed(collision_shape, &place_pos) {
+            return InteractionResult::Fail;
+        }
 
         // Place the block
         if !context
