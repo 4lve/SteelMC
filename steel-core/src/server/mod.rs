@@ -66,6 +66,10 @@ impl Server {
             .init(registry)
             .expect("We should be the ones who init the REGISTRY");
 
+        // Initialize behavior registries after the main registry is frozen
+        init_behaviors();
+        log::info!("Behavior registries initialized");
+        
         let registry_cache = RegistryCache::new().await;
 
         Server {
