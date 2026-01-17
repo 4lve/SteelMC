@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["DecompressionReader","DecryptionReader"],"struct":["TCPNetworkDecoder"]};
+window.SIDEBAR_ITEMS = {"enum":["DecryptionReader"],"struct":["TCPNetworkDecoder"]};
