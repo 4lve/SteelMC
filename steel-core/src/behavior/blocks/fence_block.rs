@@ -4,7 +4,7 @@
 
 use steel_registry::REGISTRY;
 use steel_registry::blocks::BlockRef;
-use steel_registry::blocks::block_state_ext::BlockStateExt;
+use steel_registry::blocks::block_state_ext::{BlockStateExt, is_exception_for_connection};
 use steel_registry::blocks::properties::{BlockStateProperties, BoolProperty, Direction};
 use steel_utils::{BlockPos, BlockStateId, Identifier};
 
@@ -42,62 +42,78 @@ impl FenceBlock {
     }
 
     /// Checks if this fence should connect to the given neighbor state.
-    fn connects_to(neighbor_state: BlockStateId, direction: Direction) -> bool {
-        let neighbor_block = neighbor_state.get_block();
-
-        // Check if it's a fence (same tag)
-        let fences_tag = Identifier::vanilla_static("fences");
-        if REGISTRY.blocks.is_in_tag(neighbor_block, &fences_tag) {
+    fn connects_to(&self, neighbor_state: BlockStateId, direction: Direction) -> bool {
+        let opposite = direction.opposite();
+        if is_exception_for_connection(neighbor_state) {
+            return false;
+        }
+        if neighbor_state.is_face_sturdy(opposite) {
             return true;
         }
+        if self.is_same_fence_type(neighbor_state) {
+            return true;
+        }
+        if Self::connect_to_fence_gates(neighbor_state, direction) {
+            return true;
+        }
+        false
+    }
 
+    fn get_fence_gates_direction(state: BlockStateId) -> Option<Direction> {
+         if let Some(facing_str) = state.get_property_str("facing") {
+            let facing = match facing_str.as_str() {
+                "north" => Some(Direction::North),
+                "south" => Some(Direction::South),
+                "east" => Some(Direction::East),
+                "west" => Some(Direction::West),
+                _ => None,
+            };
+            return facing;
+        }
+        None
+    }
+
+    fn connect_to_fence_gates(state: BlockStateId, direction: Direction) -> bool {
         // Check if it's a fence gate facing the right direction
         let fence_gates_tag = Identifier::vanilla_static("fence_gates");
-        if REGISTRY.blocks.is_in_tag(neighbor_block, &fence_gates_tag) {
+        if REGISTRY.blocks.is_in_tag(state.get_block(), &fence_gates_tag) {
             // Fence gates connect perpendicular to their facing direction
             // A gate facing north/south connects to fences to its east/west
             // A gate facing east/west connects to fences to its north/south
-            if let Some(facing_str) = neighbor_state.get_property_str("facing") {
-                let gate_facing = match facing_str.as_str() {
-                    "north" => Some(Direction::North),
-                    "south" => Some(Direction::South),
-                    "east" => Some(Direction::East),
-                    "west" => Some(Direction::West),
-                    _ => None,
-                };
+           
 
-                if let Some(gate_facing) = gate_facing {
-                    // Gate connects perpendicular to its facing
-                    let connects = match (gate_facing, direction) {
-                        // Gate facing N/S connects to blocks on E/W sides,
-                        // Gate facing E/W connects to blocks on N/S sides
-                        (
-                            Direction::North | Direction::South,
-                            Direction::East | Direction::West,
-                        )
-                        | (
-                            Direction::East | Direction::West,
-                            Direction::North | Direction::South,
-                        ) => true,
-                        _ => false,
-                    };
-                    if connects {
-                        return true;
-                    }
+            let gate_facing = Self::get_fence_gates_direction(state);
+            if let Some(gate_facing) = gate_facing {
+                // Gate connects perpendicular to its facing
+                let connects = match (gate_facing, direction) {
+                    // Gate facing N/S connects to blocks on E/W sides,
+                    // Gate facing E/W connects to blocks on N/S sides
+                    (
+                        Direction::North | Direction::South,
+                        Direction::East | Direction::West,
+                    )
+                    | (
+                        Direction::East | Direction::West,
+                        Direction::North | Direction::South,
+                    ) => true,
+                    _ => false,
+                };
+                if connects {
+                    return true;
                 }
             }
         }
+        false
+    }
 
-        // Check if the neighbor has a sturdy face on the opposite side
-        let opposite = match direction {
-            Direction::North => Direction::South,
-            Direction::South => Direction::North,
-            Direction::East => Direction::West,
-            Direction::West => Direction::East,
-            Direction::Up => Direction::Down,
-            Direction::Down => Direction::Up,
-        };
-        neighbor_state.is_face_sturdy(opposite)
+    fn is_same_fence_type(&self, neighbor_state: BlockStateId) -> bool {
+        let neighbor_block = neighbor_state.get_block();
+        let fences_tag = Identifier::vanilla_static("fences");
+        if !REGISTRY.blocks.is_in_tag(neighbor_block, &fences_tag) {
+            return false;
+        }
+        let wooden_fences_tag = Identifier::vanilla_static("wooden_fences");
+        REGISTRY.blocks.is_in_tag(self.block, &wooden_fences_tag) == REGISTRY.blocks.is_in_tag(neighbor_block, &wooden_fences_tag)
     }
 
     /// Gets the connection state for a position by checking all 4 horizontal neighbors.
@@ -107,25 +123,25 @@ impl FenceBlock {
         // Check north
         let north_pos = Direction::North.relative(pos);
         let north_state = world.get_block_state(&north_pos);
-        let connects_north = Self::connects_to(north_state, Direction::North);
+        let connects_north = self.connects_to(north_state, Direction::North);
         state = state.set_value(&Self::NORTH, connects_north);
 
         // Check east
         let east_pos = Direction::East.relative(pos);
         let east_state = world.get_block_state(&east_pos);
-        let connects_east = Self::connects_to(east_state, Direction::East);
+        let connects_east = self.connects_to(east_state, Direction::East);
         state = state.set_value(&Self::EAST, connects_east);
 
         // Check south
         let south_pos = Direction::South.relative(pos);
         let south_state = world.get_block_state(&south_pos);
-        let connects_south = Self::connects_to(south_state, Direction::South);
+        let connects_south = self.connects_to(south_state, Direction::South);
         state = state.set_value(&Self::SOUTH, connects_south);
 
         // Check west
         let west_pos = Direction::West.relative(pos);
         let west_state = world.get_block_state(&west_pos);
-        let connects_west = Self::connects_to(west_state, Direction::West);
+        let connects_west = self.connects_to(west_state, Direction::West);
         state = state.set_value(&Self::WEST, connects_west);
 
         state
@@ -151,26 +167,14 @@ impl BlockBehaviour for FenceBlock {
         _neighbor_pos: BlockPos,
         neighbor_state: BlockStateId,
     ) -> BlockStateId {
+        // TODO: Waterlogged
+
         // Only update for horizontal directions
-        match direction {
-            Direction::North => {
-                let connects = Self::connects_to(neighbor_state, Direction::North);
-                state.set_value(&Self::NORTH, connects)
-            }
-            Direction::East => {
-                let connects = Self::connects_to(neighbor_state, Direction::East);
-                state.set_value(&Self::EAST, connects)
-            }
-            Direction::South => {
-                let connects = Self::connects_to(neighbor_state, Direction::South);
-                state.set_value(&Self::SOUTH, connects)
-            }
-            Direction::West => {
-                let connects = Self::connects_to(neighbor_state, Direction::West);
-                state.set_value(&Self::WEST, connects)
-            }
-            // Vertical directions don't affect fence connections
-            Direction::Up | Direction::Down => state,
+        if direction.is_horizontal() {
+            let connects = self.connects_to(neighbor_state, direction);
+            state.set_value(&direction.to_connection_property().unwrap(), connects)
+        } else {
+            state
         }
     }
 }

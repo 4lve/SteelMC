@@ -322,6 +322,25 @@ impl Direction {
         }
     }
 
+    /// Returns true if this direction is horizontal (North, South, East, West).
+    #[must_use]
+    pub const fn is_horizontal(&self) -> bool {
+        matches!(self, Direction::North | Direction::South | Direction::East | Direction::West)
+    }
+
+    /// Returns the boolean connection property for this horizontal direction.
+    /// Returns None for vertical directions (Up, Down).
+    #[must_use]
+    pub const fn to_connection_property(&self) -> Option<BoolProperty> {
+        match self {
+            Direction::North => Some(BlockStateProperties::NORTH),
+            Direction::East => Some(BlockStateProperties::EAST),
+            Direction::South => Some(BlockStateProperties::SOUTH),
+            Direction::West => Some(BlockStateProperties::WEST),
+            Direction::Up | Direction::Down => None,
+        }
+    }
+
     /// The order in which neighbor shape updates are processed.
     /// This matches vanilla's `BlockBehaviour.UPDATE_SHAPE_ORDER`.
     pub const UPDATE_SHAPE_ORDER: [Direction; 6] = [

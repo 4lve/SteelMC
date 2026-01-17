@@ -76,3 +76,27 @@ impl BlockStateExt for BlockStateId {
         blocks::shapes::is_face_sturdy(shape, direction, support_type)
     }
 }
+
+// TODO: optimize
+pub fn is_exception_for_connection(state: BlockStateId) -> bool {
+    let key: &str = &state.get_block().key.path;
+    matches!(
+        key,
+        "barrier"
+            | "carved_pumpkin"
+            | "jack_o_lantern"
+            | "melon"
+            | "pumpkin"
+            | "acacia_leaves"
+            | "azalea_leaves"
+            | "birch_leaves"
+            | "cherry_leaves"
+            | "dark_oak_leaves"
+            | "flowering_azalea_leaves"
+            | "jungle_leaves"
+            | "mangrove_leaves"
+            | "oak_leaves"
+            | "pale_oak_leaves"
+            | "spruce_leaves"
+    ) || key.ends_with("_shulker_box")
+}
