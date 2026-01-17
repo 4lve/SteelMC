@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["COLLISION_EPSILON","MOVEMENT_ERROR_THRESHOLD","Y_TOLERANCE"],"enum":["MoverType"],"fn":["collide","join_is_not_empty","move_entity","translate_shape"],"mod":["collision","entity_move","physics_state","shapes"],"struct":["EntityPhysicsState","MoveResult","WorldCollisionProvider"],"trait":["CollisionWorld"]};

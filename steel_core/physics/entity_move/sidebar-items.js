@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MoverType"],"fn":["apply_sneak_edge_prevention","collide_with_world","move_entity","should_try_step_up","sweep_aabb","try_step_up"],"struct":["MoveResult"]};

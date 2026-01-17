@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["intersects_aabb"],"struct":["WorldCollisionProvider"],"trait":["CollisionWorld"]};
