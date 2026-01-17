@@ -171,7 +171,9 @@ impl BlockBehaviour for FenceBlock {
         // TODO: Waterlogged
 
         // Only update for horizontal directions
-        if direction.is_horizontal() && let Some(direction_connection) = direction.to_connection_property() {
+        if direction.is_horizontal()
+            && let Some(direction_connection) = direction.to_connection_property()
+        {
             let connects = self.connects_to(neighbor_state, direction);
             state.set_value(&direction_connection, connects)
         } else {
