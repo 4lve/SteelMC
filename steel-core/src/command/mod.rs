@@ -216,6 +216,7 @@ impl CommandDispatcher {
 
         // Get suggestions from handler
         if let Some(result) = handler.suggest(args, args_start_pos, &mut context) {
+            log::info!("PASSES");
             // Adjust start position to account for leading slash
             player.connection.send_packet(CCommandSuggestions::new(
                 id,

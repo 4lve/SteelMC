@@ -36,7 +36,7 @@ impl CommandExecutor<()> for SeedCommandExecutor {
             &translations::COMMANDS_SEED_SUCCESS
                 .message([TextComponent::plain(&STEEL_CONFIG.seed)
                     .color(Color::Green)
-                    .hover_event(HoverEvent::show_text(translations::CHAT_COPY_CLICK))
+                    .hover_event(HoverEvent::show_text(&translations::CHAT_COPY_CLICK))
                     .click_event(ClickEvent::CopyToClipboard {
                         value: (&STEEL_CONFIG.seed).into(),
                     })])

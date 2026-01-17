@@ -12,10 +12,9 @@ pub struct CSystemChatMessage {
 
 impl CSystemChatMessage {
     pub fn new<T: TextResolutor>(content: &TextComponent, player: &T, overlay: bool) -> Self {
-        log::info!("{:?}", content);
-        let content = content.resolve(player);
-        log::info!("{:?}", content);
-
-        CSystemChatMessage { content, overlay }
+        CSystemChatMessage {
+            content: content.resolve(player),
+            overlay,
+        }
     }
 }

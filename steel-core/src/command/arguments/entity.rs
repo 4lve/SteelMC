@@ -4,7 +4,9 @@ use crate::command::context::CommandContext;
 use crate::{command::arguments::CommandArgument, entity::LivingEntity};
 use std::sync::Arc;
 use steel_protocol::packets::game::{ArgumentType, SuggestionEntry, SuggestionType};
-use steel_utils::translations::ARGUMENT_ENTITY_SELECTOR_SELF;
+use steel_utils::translations::{
+    ARGUMENT_ENTITY_SELECTOR_ALL_PLAYERS, ARGUMENT_ENTITY_SELECTOR_SELF,
+};
 
 /// A entity argument.
 pub struct EntityArgument {
@@ -53,9 +55,9 @@ impl CommandArgument for EntityArgument {
     }
 
     fn suggest(&self, _prefix: &str, _suggestion_ctx: &SuggestionContext) -> Vec<SuggestionEntry> {
-        vec![SuggestionEntry::with_tooltip(
-            "@s",
-            ARGUMENT_ENTITY_SELECTOR_SELF,
-        )]
+        vec![
+            SuggestionEntry::with_tooltip("@s", &ARGUMENT_ENTITY_SELECTOR_SELF),
+            SuggestionEntry::with_tooltip("@a", &ARGUMENT_ENTITY_SELECTOR_ALL_PLAYERS),
+        ]
     }
 }
