@@ -2528,7 +2528,8 @@ dependencies = [
 [[package]]
 name = "text_components"
 version = "0.1.1"
-source = "git+https://github.com/DarkMrMelther/text-components-rs#90e3ae47af0f74762f687b02d9dde08168f31906"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7506f4e8c1a479a509dd6b30bae29ff1d9fa64726b191e45dae103ca1b09487c"
 dependencies = [
  "colored",
  "heck",
