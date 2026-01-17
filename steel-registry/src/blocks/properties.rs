@@ -325,7 +325,10 @@ impl Direction {
     /// Returns true if this direction is horizontal (North, South, East, West).
     #[must_use]
     pub const fn is_horizontal(&self) -> bool {
-        matches!(self, Direction::North | Direction::South | Direction::East | Direction::West)
+        matches!(
+            self,
+            Direction::North | Direction::South | Direction::East | Direction::West
+        )
     }
 
     /// Returns the boolean connection property for this horizontal direction.

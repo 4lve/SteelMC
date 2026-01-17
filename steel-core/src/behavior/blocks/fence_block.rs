@@ -60,7 +60,7 @@ impl FenceBlock {
     }
 
     fn get_fence_gates_direction(state: BlockStateId) -> Option<Direction> {
-         if let Some(facing_str) = state.get_property_str("facing") {
+        if let Some(facing_str) = state.get_property_str("facing") {
             let facing = match facing_str.as_str() {
                 "north" => Some(Direction::North),
                 "south" => Some(Direction::South),
@@ -76,32 +76,30 @@ impl FenceBlock {
     fn connect_to_fence_gates(state: BlockStateId, direction: Direction) -> bool {
         // Check if it's a fence gate facing the right direction
         let fence_gates_tag = Identifier::vanilla_static("fence_gates");
-        if REGISTRY.blocks.is_in_tag(state.get_block(), &fence_gates_tag) {
-            // Fence gates connect perpendicular to their facing direction
-            // A gate facing north/south connects to fences to its east/west
-            // A gate facing east/west connects to fences to its north/south
-           
+        if !REGISTRY
+            .blocks
+            .is_in_tag(state.get_block(), &fence_gates_tag)
+        {
+            return false;
+        }
+        // Fence gates connect perpendicular to their facing direction
+        // A gate facing north/south connects to fences to its east/west
+        // A gate facing east/west connects to fences to its north/south
 
-            let gate_facing = Self::get_fence_gates_direction(state);
-            if let Some(gate_facing) = gate_facing {
-                // Gate connects perpendicular to its facing
-                let connects = match (gate_facing, direction) {
-                    // Gate facing N/S connects to blocks on E/W sides,
-                    // Gate facing E/W connects to blocks on N/S sides
-                    (
-                        Direction::North | Direction::South,
-                        Direction::East | Direction::West,
-                    )
-                    | (
-                        Direction::East | Direction::West,
-                        Direction::North | Direction::South,
-                    ) => true,
-                    _ => false,
-                };
-                if connects {
-                    return true;
-                }
-            }
+        let gate_facing = Self::get_fence_gates_direction(state);
+        let Some(gate_facing) = gate_facing else {
+            return false;
+        };
+        // Gate connects perpendicular to its facing
+        let connects = match (gate_facing, direction) {
+            // Gate facing N/S connects to blocks on E/W sides,
+            // Gate facing E/W connects to blocks on N/S sides
+            (Direction::North | Direction::South, Direction::East | Direction::West)
+            | (Direction::East | Direction::West, Direction::North | Direction::South) => true,
+            _ => false,
+        };
+        if connects {
+            return true;
         }
         false
     }
@@ -113,7 +111,10 @@ impl FenceBlock {
             return false;
         }
         let wooden_fences_tag = Identifier::vanilla_static("wooden_fences");
-        REGISTRY.blocks.is_in_tag(self.block, &wooden_fences_tag) == REGISTRY.blocks.is_in_tag(neighbor_block, &wooden_fences_tag)
+        REGISTRY.blocks.is_in_tag(self.block, &wooden_fences_tag)
+            == REGISTRY
+                .blocks
+                .is_in_tag(neighbor_block, &wooden_fences_tag)
     }
 
     /// Gets the connection state for a position by checking all 4 horizontal neighbors.
@@ -170,9 +171,9 @@ impl BlockBehaviour for FenceBlock {
         // TODO: Waterlogged
 
         // Only update for horizontal directions
-        if direction.is_horizontal() {
+        if direction.is_horizontal() && let Some(direction_connection) = direction.to_connection_property() {
             let connects = self.connects_to(neighbor_state, direction);
-            state.set_value(&direction.to_connection_property().unwrap(), connects)
+            state.set_value(&direction_connection, connects)
         } else {
             state
         }
