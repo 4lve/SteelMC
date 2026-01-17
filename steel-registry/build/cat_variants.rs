@@ -128,9 +128,6 @@ pub(crate) fn build() -> TokenStream {
         }
     }
 
-    // Sort cat variants by name for consistent generation
-    cat_variants.sort_by(|a, b| a.0.cmp(&b.0));
-
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {

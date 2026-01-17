@@ -86,9 +86,6 @@ pub(crate) fn build() -> TokenStream {
         }
     }
 
-    // Sort dialogs by name for consistent generation
-    dialogs.sort_by(|a, b| a.0.cmp(&b.0));
-
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {

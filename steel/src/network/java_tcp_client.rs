@@ -6,7 +6,7 @@ use std::{
 };
 
 use crossbeam::atomic::AtomicCell;
-use steel_core::player::{GameProfile, networking::JavaConnection};
+use steel_core::player::{ClientInformation, GameProfile, networking::JavaConnection};
 use steel_protocol::{
     packet_reader::TCPNetworkDecoder,
     packet_traits::{ClientPacket, CompressionInfo, EncodedPacket, ServerPacket},
@@ -70,6 +70,8 @@ pub struct JavaTcpClient {
     pub id: u64,
     /// The client's game profile information.
     pub gameprofile: AsyncMutex<Option<GameProfile>>,
+    /// The client's settings (view distance, language, etc.) received during config.
+    pub client_information: AsyncMutex<ClientInformation>,
     /// The current connection state of the client (e.g., Handshaking, Status, Play).
     pub protocol: Arc<AtomicCell<ConnectionProtocol>>,
     /// The client's IP address.
@@ -116,6 +118,7 @@ impl JavaTcpClient {
         let client = Self {
             id,
             gameprofile: AsyncMutex::new(None),
+            client_information: AsyncMutex::new(ClientInformation::default()),
             address,
             protocol: Arc::new(AtomicCell::new(ConnectionProtocol::Handshake)),
             cancel_token,
@@ -431,7 +434,8 @@ impl JavaTcpClient {
                 self.handle_config_custom_payload(SCustomPayload::read_packet(data)?);
             }
             config::S_CLIENT_INFORMATION => {
-                self.handle_client_information(SClientInformation::read_packet(data)?);
+                self.handle_client_information(SClientInformation::read_packet(data)?)
+                    .await;
             }
             config::S_SELECT_KNOWN_PACKS => {
                 self.handle_select_known_packs(SSelectKnownPacks::read_packet(data)?)

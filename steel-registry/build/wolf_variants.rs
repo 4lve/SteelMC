@@ -99,9 +99,6 @@ pub(crate) fn build() -> TokenStream {
         }
     }
 
-    // Sort wolf variants by name for consistent generation
-    wolf_variants.sort_by(|a, b| a.0.cmp(&b.0));
-
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {

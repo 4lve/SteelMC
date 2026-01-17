@@ -102,9 +102,6 @@ pub(crate) fn build() -> TokenStream {
         }
     }
 
-    // Sort chicken variants by name for consistent generation
-    chicken_variants.sort_by(|a, b| a.0.cmp(&b.0));
-
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {

@@ -94,8 +94,6 @@ pub struct Shape {
 #[derive(Deserialize, Clone, Debug)]
 pub struct BlockAssets {
     pub blocks: Vec<Block>,
-    #[allow(dead_code)]
-    pub block_entity_types: Vec<String>,
     pub shapes: Vec<Shape>,
 }
 

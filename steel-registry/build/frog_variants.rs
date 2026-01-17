@@ -92,9 +92,6 @@ pub(crate) fn build() -> TokenStream {
         }
     }
 
-    // Sort frog variants by name for consistent generation
-    frog_variants.sort_by(|a, b| a.0.cmp(&b.0));
-
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {

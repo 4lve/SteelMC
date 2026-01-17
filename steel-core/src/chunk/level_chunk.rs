@@ -47,6 +47,11 @@ pub struct LevelChunk {
 }
 
 impl LevelChunk {
+    /// Ticks this chunk, processing random block ticks and scheduled ticks.
+    pub fn tick(&self) {
+        //log::info!("Tick called for chunk {:?}", self.pos);
+    }
+
     /// Creates a new `LevelChunk` from a `ProtoChunk`.
     ///
     /// Transfers final heightmaps from the proto chunk if available.

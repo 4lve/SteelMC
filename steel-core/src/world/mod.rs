@@ -8,14 +8,17 @@ use std::{
     time::Duration,
 };
 
+use sha2::{Digest, Sha256};
 use steel_protocol::packet_traits::ClientPacket;
 use steel_protocol::packets::game::{CBlockDestruction, CPlayerChat, CSystemChat};
 use steel_registry::blocks::BlockRef;
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::Direction;
+use steel_registry::game_rules::{GameRuleRef, GameRuleValue};
 use steel_registry::vanilla_blocks;
 use steel_registry::{REGISTRY, dimension_type::DimensionTypeRef};
 
+use steel_utils::locks::SyncRwLock;
 use steel_utils::{BlockPos, BlockStateId, ChunkPos, SectionPos, types::UpdateFlags};
 use tokio::{runtime::Runtime, time::Instant};
 
@@ -23,6 +26,7 @@ use crate::{
     ChunkMap,
     behavior::BLOCK_BEHAVIORS,
     chunk::chunk_access::ChunkAccess,
+    level_data::LevelDataManager,
     player::{LastSeen, Player},
 };
 
@@ -43,6 +47,8 @@ pub struct World {
     pub player_area_map: PlayerAreaMap,
     /// The dimension of the world.
     pub dimension: DimensionTypeRef,
+    /// Level data manager for persistent world state.
+    pub level_data: SyncRwLock<LevelDataManager>,
     /// Whether the tick rate is running normally (not frozen/paused).
     /// When false, movement validation checks are skipped.
     tick_runs_normally: AtomicBool,
@@ -54,15 +60,40 @@ impl World {
     /// Uses `Arc::new_cyclic` to create a cyclic reference between
     /// the World and its `ChunkMap`'s `WorldGenContext`.
     #[allow(clippy::new_without_default)]
-    #[must_use]
-    pub fn new(chunk_runtime: Arc<Runtime>, dimension: DimensionTypeRef) -> Arc<Self> {
-        Arc::new_cyclic(|weak_self: &Weak<World>| Self {
+    pub async fn new(
+        chunk_runtime: Arc<Runtime>,
+        dimension: DimensionTypeRef,
+        seed: i64,
+    ) -> io::Result<Arc<Self>> {
+        let level_data =
+            LevelDataManager::new(format!("world/{}", dimension.key.path), seed).await?;
+
+        Ok(Arc::new_cyclic(|weak_self: &Weak<World>| Self {
             chunk_map: Arc::new(ChunkMap::new(chunk_runtime, weak_self.clone(), &dimension)),
             players: PlayerMap::new(),
             player_area_map: PlayerAreaMap::new(),
             dimension,
+            level_data: SyncRwLock::new(level_data),
             tick_runs_normally: AtomicBool::new(true),
-        })
+        }))
+    }
+
+    /// Cleans up the world by saving all chunks.
+    /// `await_holding_lock` is safe here cause it's only done on shutdown
+    #[allow(clippy::await_holding_lock)]
+    pub async fn cleanup(&self, total_saved: &mut usize) {
+        match self.level_data.write().save_force().await {
+            Ok(()) => log::info!(
+                "World {} level data saved successfully",
+                self.dimension.key.path
+            ),
+            Err(e) => log::error!("Failed to save world level data: {e}"),
+        }
+
+        match self.save_all_chunks().await {
+            Ok(count) => *total_saved += count,
+            Err(e) => log::error!("Failed to save world chunks: {e}"),
+        }
     }
 
     /// Returns the total height of the world in blocks.
@@ -127,6 +158,47 @@ impl World {
     pub fn set_tick_runs_normally(&self, runs_normally: bool) {
         self.tick_runs_normally
             .store(runs_normally, Ordering::Relaxed);
+    }
+
+    /// Gets the value of a game rule.
+    #[must_use]
+    pub fn get_game_rule(&self, rule: GameRuleRef) -> GameRuleValue {
+        let level_data = self.level_data.read();
+        level_data
+            .data()
+            .game_rules_values
+            .get(rule, &REGISTRY.game_rules)
+    }
+
+    /// Sets the value of a game rule.
+    pub fn set_game_rule(&self, rule: GameRuleRef, value: GameRuleValue) -> bool {
+        let mut level_data = self.level_data.write();
+        level_data
+            .data_mut()
+            .game_rules_values
+            .set(rule, value, &REGISTRY.game_rules)
+    }
+
+    /// Gets the world seed.
+    #[must_use]
+    pub fn seed(&self) -> i64 {
+        self.level_data.read().data().seed
+    }
+
+    /// Gets the obfuscated seed for sending to clients.
+    ///
+    /// This uses SHA-256 hashing to prevent clients from easily extracting
+    /// the actual world seed, matching vanilla's `BiomeManager.obfuscateSeed()`.
+    #[must_use]
+    #[allow(clippy::missing_panics_doc)] // SHA-256 always produces 32 bytes
+    pub fn obfuscated_seed(&self) -> i64 {
+        let seed = self.seed();
+        let mut hasher = Sha256::new();
+        hasher.update(seed.to_be_bytes());
+        let result = hasher.finalize();
+        // SHA-256 always produces 32 bytes, so taking 8 bytes always succeeds
+        let bytes: [u8; 8] = result[0..8].try_into().expect("SHA-256 produces 32 bytes");
+        i64::from_be_bytes(bytes)
     }
 
     /// Gets the block state at the given position.

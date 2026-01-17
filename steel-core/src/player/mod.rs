@@ -42,13 +42,14 @@ use crate::player::player_inventory::PlayerInventory;
 
 use steel_crypto::{SignatureValidator, public_key_from_bytes, signature::NoValidation};
 use steel_protocol::packets::{
-    common::SCustomPayload,
+    common::{SClientInformation, SCustomPayload},
     game::{
         CBlockChangedAck, CBlockUpdate, CContainerClose, CGameEvent, CMoveEntityPosRot,
-        CMoveEntityRot, COpenScreen, CPlayerChat, CPlayerInfoUpdate, CRotateHead, ChatTypeBound,
-        FilterType, GameEventType, PreviousMessage, SChat, SChatAck, SChatSessionUpdate,
-        SContainerButtonClick, SContainerClick, SContainerClose, SContainerSlotStateChanged,
-        SMovePlayer, SPlayerInput, SSetCreativeModeSlot, calc_delta, to_angle_byte,
+        CMoveEntityRot, COpenScreen, CPlayerChat, CPlayerInfoUpdate, CRotateHead,
+        CSetChunkCacheRadius, ChatTypeBound, FilterType, GameEventType, PreviousMessage, SChat,
+        SChatAck, SChatSessionUpdate, SContainerButtonClick, SContainerClick, SContainerClose,
+        SContainerSlotStateChanged, SMovePlayer, SPlayerInput, SSetCreativeModeSlot, calc_delta,
+        to_angle_byte,
     },
 };
 use steel_registry::{blocks::properties::Direction, item_stack::ItemStack};
@@ -71,6 +72,48 @@ use crate::inventory::{
 
 /// Re-export `PreviousMessage` as `PreviousMessageEntry` for use in `signature_cache`
 pub type PreviousMessageEntry = PreviousMessage;
+
+pub use steel_protocol::packets::common::{ChatVisibility, HumanoidArm, ParticleStatus};
+
+/// Client-side settings sent via `SClientInformation` packet.
+/// This is stored separately from the packet struct to allow default initialization.
+#[derive(Debug, Clone)]
+pub struct ClientInformation {
+    /// The client's language (e.g., "`en_us`").
+    pub language: String,
+    /// The client's requested view distance in chunks.
+    pub view_distance: u8,
+    /// Chat visibility setting.
+    pub chat_visibility: ChatVisibility,
+    /// Whether chat colors are enabled.
+    pub chat_colors: bool,
+    /// Bitmask for displayed skin parts.
+    pub model_customisation: i32,
+    /// The player's main hand (left or right).
+    pub main_hand: HumanoidArm,
+    /// Whether text filtering is enabled.
+    pub text_filtering_enabled: bool,
+    /// Whether the player appears in the server list.
+    pub allows_listing: bool,
+    /// Particle rendering setting.
+    pub particle_status: ParticleStatus,
+}
+
+impl Default for ClientInformation {
+    fn default() -> Self {
+        Self {
+            language: "en_us".to_string(),
+            view_distance: 8, // Default client view distance
+            chat_visibility: ChatVisibility::Full,
+            chat_colors: true,
+            model_customisation: 0,
+            main_hand: HumanoidArm::Right,
+            text_filtering_enabled: false,
+            allows_listing: true,
+            particle_status: ParticleStatus::All,
+        }
+    }
+}
 
 use crate::chunk::player_chunk_view::PlayerChunkView;
 use crate::player::{chunk_sender::ChunkSender, networking::JavaConnection};
@@ -117,6 +160,10 @@ pub struct Player {
     pub last_tracking_view: SyncMutex<Option<PlayerChunkView>>,
     /// The chunk sender for the player.
     pub chunk_sender: SyncMutex<ChunkSender>,
+
+    /// The client's settings/information (language, view distance, chat visibility, etc.).
+    /// Updated when the client sends `SClientInformation` during config or play phase.
+    client_information: SyncMutex<ClientInformation>,
 
     /// Counter for chat messages sent BY this player
     messages_sent: AtomicI32,
@@ -212,6 +259,7 @@ impl Player {
         world: Arc<World>,
         entity_id: i32,
         player: &Weak<Player>,
+        client_information: ClientInformation,
     ) -> Self {
         // Create a single shared inventory container used by both the player and inventory menu
         let inventory = Arc::new(SyncMutex::new(PlayerInventory::new(player.clone())));
@@ -234,6 +282,7 @@ impl Player {
             last_chunk_pos: SyncMutex::new(ChunkPos::new(0, 0)),
             last_tracking_view: SyncMutex::new(None),
             chunk_sender: SyncMutex::new(ChunkSender::default()),
+            client_information: SyncMutex::new(client_information),
             messages_sent: AtomicI32::new(0),
             messages_received: AtomicI32::new(0),
             signature_cache: SyncMutex::new(MessageCache::new()),
@@ -1060,6 +1109,31 @@ impl Player {
         }
     }
 
+    /// Handles client information updates during play phase.
+    pub fn handle_client_information(&self, packet: SClientInformation) {
+        let old_view_distance = self.view_distance();
+
+        let info = ClientInformation {
+            language: packet.language,
+            view_distance: packet.view_distance.clamp(2, 32) as u8,
+            chat_visibility: packet.chat_visibility,
+            chat_colors: packet.chat_colors,
+            model_customisation: packet.model_customisation,
+            main_hand: packet.main_hand,
+            text_filtering_enabled: packet.text_filtering_enabled,
+            allows_listing: packet.allows_listing,
+            particle_status: packet.particle_status,
+        };
+        self.set_client_information(info);
+
+        let new_view_distance = self.view_distance();
+        if old_view_distance != new_view_distance {
+            self.connection.send_packet(CSetChunkCacheRadius {
+                radius: i32::from(new_view_distance),
+            });
+        }
+    }
+
     /// Sets the player's game mode and notifies the client.
     ///
     /// Returns `true` if the game mode was changed, `false` if the player was already in the requested game mode.
@@ -1340,6 +1414,27 @@ impl Player {
     #[must_use]
     pub fn is_on_ground(&self) -> bool {
         self.on_ground.load(Ordering::Relaxed)
+    }
+
+    /// Returns the player's client information settings.
+    #[must_use]
+    pub fn client_information(&self) -> ClientInformation {
+        self.client_information.lock().clone()
+    }
+
+    /// Updates the player's client information settings.
+    pub fn set_client_information(&self, info: ClientInformation) {
+        *self.client_information.lock() = info;
+    }
+
+    /// Returns the effective view distance for this player.
+    ///
+    /// This is the minimum of the client's requested view distance and
+    /// the server's configured maximum view distance.
+    #[must_use]
+    pub fn view_distance(&self) -> u8 {
+        let client_view_distance = self.client_information.lock().view_distance;
+        client_view_distance.min(STEEL_CONFIG.view_distance)
     }
 
     /// Returns the player's current velocity.

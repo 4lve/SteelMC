@@ -99,9 +99,6 @@ pub(crate) fn build() -> TokenStream {
         }
     }
 
-    // Sort damage types by name for consistent generation
-    damage_types.sort_by(|a, b| a.0.cmp(&b.0));
-
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {

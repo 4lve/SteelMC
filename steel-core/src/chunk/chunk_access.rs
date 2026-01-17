@@ -266,4 +266,20 @@ impl ChunkAccess {
             Self::Proto(proto_chunk) => proto_chunk.get_block_state(pos),
         }
     }
+
+    /// Returns a reference to the `LevelChunk` if this is a full chunk.
+    #[must_use]
+    pub const fn as_full(&self) -> Option<&LevelChunk> {
+        match self {
+            Self::Full(chunk) => Some(chunk),
+            Self::Proto(_) => None,
+        }
+    }
+
+    /// Ticks the chunk if it's a full chunk.
+    pub fn tick(&self) {
+        if let Self::Full(chunk) = self {
+            chunk.tick();
+        }
+    }
 }

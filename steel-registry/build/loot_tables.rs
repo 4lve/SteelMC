@@ -1658,9 +1658,6 @@ pub(crate) fn build() -> TokenStream {
         &mut tables,
     );
 
-    // Sort by key for consistent generation
-    tables.sort_by(|a, b| a.key.cmp(&b.key));
-
     let mut stream = TokenStream::new();
 
     // Imports

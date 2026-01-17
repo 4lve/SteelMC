@@ -42,9 +42,6 @@ pub(crate) fn build() -> TokenStream {
         }
     }
 
-    // Sort banner patterns by name for consistent generation
-    banner_patterns.sort_by(|a, b| a.0.cmp(&b.0));
-
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {

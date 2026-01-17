@@ -120,10 +120,7 @@ async fn main_async(chunk_runtime: Arc<Runtime>) {
     log::info!("Saving world data...");
     let mut total_saved = 0;
     for world in &server.worlds {
-        match world.save_all_chunks().await {
-            Ok(count) => total_saved += count,
-            Err(e) => log::error!("Failed to save world chunks: {e}"),
-        }
+        world.cleanup(&mut total_saved).await;
     }
     log::info!("Saved {total_saved} chunks");
 

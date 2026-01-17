@@ -98,9 +98,6 @@ pub(crate) fn build() -> TokenStream {
         }
     }
 
-    // Sort zombie nautilus variants by name for consistent generation
-    zombie_nautilus_variants.sort_by(|a, b| a.0.cmp(&b.0));
-
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {

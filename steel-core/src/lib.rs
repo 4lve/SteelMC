@@ -11,6 +11,7 @@ pub mod command;
 pub mod config;
 pub mod entity;
 pub mod inventory;
+pub mod level_data;
 pub mod player;
 pub mod server;
 pub mod world;

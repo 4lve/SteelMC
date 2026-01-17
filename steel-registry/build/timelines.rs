@@ -37,9 +37,6 @@ pub(crate) fn build() -> TokenStream {
         }
     }
 
-    // Sort timelines by name for consistent generation
-    timelines.sort();
-
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {
