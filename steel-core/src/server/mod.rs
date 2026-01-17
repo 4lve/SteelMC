@@ -23,6 +23,7 @@ use tick_rate_manager::TickRateManager;
 use tokio::{runtime::Runtime, task::spawn_blocking, time::sleep};
 use tokio_util::sync::CancellationToken;
 
+use crate::behavior::init_behaviors;
 use crate::command::CommandDispatcher;
 use crate::config::STEEL_CONFIG;
 use crate::player::Player;

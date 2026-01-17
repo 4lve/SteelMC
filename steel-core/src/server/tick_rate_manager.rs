@@ -220,6 +220,47 @@ impl TickRateManager {
         // TPS = 1000ms / mspt, but capped at the configured tick rate
         (1000.0 / mspt).min(self.tick_rate)
     }
+
+    // Percentile methods (vanilla-style, used by /tick query)
+
+    /// Returns the P50 (median) tick time in milliseconds.
+    #[must_use]
+    pub fn get_p50(&self) -> f32 {
+        self.get_percentile(50)
+    }
+
+    /// Returns the P95 tick time in milliseconds.
+    #[must_use]
+    pub fn get_p95(&self) -> f32 {
+        self.get_percentile(95)
+    }
+
+    /// Returns the P99 tick time in milliseconds.
+    #[must_use]
+    pub fn get_p99(&self) -> f32 {
+        self.get_percentile(99)
+    }
+
+    /// Returns the number of tick samples currently available.
+    #[must_use]
+    pub fn get_sample_count(&self) -> usize {
+        (self.tick_count as usize).min(TICK_STATS_SPAN)
+    }
+
+    /// Returns the tick time at a given percentile in milliseconds.
+    fn get_percentile(&self, percentile: u8) -> f32 {
+        let sample_count = self.get_sample_count();
+        if sample_count == 0 {
+            return 0.0;
+        }
+
+        // Copy and sort only the valid samples
+        let mut sorted = self.tick_times_nanos;
+        sorted[..sample_count].sort_unstable();
+
+        let idx = (sample_count * percentile as usize / 100).min(sample_count - 1);
+        sorted[idx] as f32 / NANOS_PER_MS
+    }
 }
 
 impl Default for TickRateManager {
