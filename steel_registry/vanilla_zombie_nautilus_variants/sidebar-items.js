@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["TEMPERATE","WARM"],"fn":["register_zombie_nautilus_variants"]};
+window.SIDEBAR_ITEMS = {"fn":["register_zombie_nautilus_variants"],"static":["TEMPERATE","WARM"]};

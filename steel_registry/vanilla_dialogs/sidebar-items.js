@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["CUSTOM_OPTIONS","QUICK_ACTIONS","SERVER_LINKS"],"fn":["register_dialogs"]};
+window.SIDEBAR_ITEMS = {"fn":["register_dialogs"],"static":["CUSTOM_OPTIONS","QUICK_ACTIONS","SERVER_LINKS"]};

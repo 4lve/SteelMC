@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["ALL_BLACK","BLACK","BRITISH_SHORTHAIR","CALICO","JELLIE","PERSIAN","RAGDOLL","RED","SIAMESE","TABBY","WHITE"],"fn":["register_cat_variants"]};
+window.SIDEBAR_ITEMS = {"fn":["register_cat_variants"],"static":["ALL_BLACK","BLACK","BRITISH_SHORTHAIR","CALICO","JELLIE","PERSIAN","RAGDOLL","RED","SIAMESE","TABBY","WHITE"]};

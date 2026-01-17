@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["DAY","EARLY_GAME","MOON","VILLAGER_SCHEDULE"],"fn":["register_timelines"]};
+window.SIDEBAR_ITEMS = {"fn":["register_timelines"],"static":["DAY","EARLY_GAME","MOON","VILLAGER_SCHEDULE"]};

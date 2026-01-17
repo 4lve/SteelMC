@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["ASHEN","BLACK","CHESTNUT","PALE","RUSTY","SNOWY","SPOTTED","STRIPED","WOODS"],"fn":["register_wolf_variants"]};
+window.SIDEBAR_ITEMS = {"fn":["register_wolf_variants"],"static":["ASHEN","BLACK","CHESTNUT","PALE","RUSTY","SNOWY","SPOTTED","STRIPED","WOODS"]};

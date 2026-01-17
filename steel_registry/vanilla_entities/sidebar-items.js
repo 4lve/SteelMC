@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["PLAYER"],"fn":["register_entity_types"]};
+window.SIDEBAR_ITEMS = {"fn":["register_entity_types"],"static":["PLAYER"]};

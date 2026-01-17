@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["COLD","TEMPERATE","WARM"],"fn":["register_chicken_variants"]};
+window.SIDEBAR_ITEMS = {"fn":["register_chicken_variants"],"static":["COLD","TEMPERATE","WARM"]};
