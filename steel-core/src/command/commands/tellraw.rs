@@ -1,13 +1,15 @@
 //! Handler for the "tellraw" command.
 use text_components::TextComponent;
 
-use crate::command::arguments::text::TextArgument;
+use crate::command::arguments::entity::EntityArgument;
+use crate::command::arguments::text_component::TextComponentArgument;
 use crate::command::commands::{
     CommandExecutor, CommandHandlerBuilder, CommandHandlerDyn, argument,
 };
 use crate::command::context::CommandContext;
 use crate::command::error::CommandError;
 use crate::command::sender::CommandSender;
+use crate::entity::LivingEntity;
 use crate::server::Server;
 use std::sync::Arc;
 
@@ -19,15 +21,26 @@ pub fn command_handler() -> impl CommandHandlerDyn {
         "Sends a JSON message to players.",
         "minecraft:command.tellraw",
     )
-    .then(argument("message", TextArgument).executes(TellrawCommandExecutor))
+    .then(
+        argument("targets", EntityArgument::entities())
+            .then(argument("message", TextComponentArgument).executes(TellrawCommandExecutor)),
+    )
 }
 
 struct TellrawCommandExecutor;
 
-impl CommandExecutor<((), String)> for TellrawCommandExecutor {
+impl
+    CommandExecutor<(
+        ((), Vec<Arc<dyn LivingEntity + Send + Sync>>),
+        TextComponent,
+    )> for TellrawCommandExecutor
+{
     fn execute(
         &self,
-        args: ((), String),
+        args: (
+            ((), Vec<Arc<dyn LivingEntity + Send + Sync>>),
+            TextComponent,
+        ),
         context: &mut CommandContext,
         _server: &Arc<Server>,
     ) -> Result<(), CommandError> {
@@ -36,16 +49,12 @@ impl CommandExecutor<((), String)> for TellrawCommandExecutor {
             CommandSender::Console => "Console",
             CommandSender::Rcon => "Rcon",
         };
-        match TextComponent::from_snbt(&args.1) {
-            Ok(component) => {
-                log::info!("{}'s tellraw: {:p}", sender, component);
-                context.sender.send_message(&component);
-                Ok(())
-            }
-            Err(e) => {
-                log::warn!("{e}");
-                return Err(CommandError::InvalidRequirement);
+        log::info!("{}'s tellraw: {:p}", sender, &args.1);
+        for entity in args.0.1 {
+            if let Some(player) = entity.as_player() {
+                player.send_message(&args.1);
             }
         }
+        Ok(())
     }
 }

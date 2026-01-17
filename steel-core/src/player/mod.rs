@@ -27,13 +27,11 @@ use message_chain::SignedMessageChain;
 use message_validator::LastSeenMessagesValidator;
 use profile_key::RemoteChatSession;
 pub use signature_cache::{LastSeen, MessageCache};
-use steel_protocol::packet_traits::EncodedPacket;
-use steel_protocol::packets::game::CSetHeldSlot;
 use steel_protocol::packets::game::{
     AnimateAction, CAnimate, CPlayerPosition, PlayerAction, SAcceptTeleportation,
     SPickItemFromBlock, SPlayerAction, SSetCarriedItem, SUseItem, SUseItemOn,
 };
-use steel_protocol::utils::ConnectionProtocol;
+use steel_protocol::packets::game::{CSetHeldSlot, CSystemChatMessage};
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::game_rules::GameRuleValue;
 use steel_registry::vanilla_game_rules::{ELYTRA_MOVEMENT_CHECK, PLAYER_MOVEMENT_CHECK};
@@ -45,9 +43,9 @@ use text_components::resolving::TextResolutor;
 use text_components::{Modifier, TextComponent};
 use uuid::Uuid;
 
-use crate::config::STEEL_CONFIG;
 use crate::inventory::SyncPlayerInv;
 use crate::player::player_inventory::PlayerInventory;
+use crate::{config::STEEL_CONFIG, entity::Entity};
 
 use steel_crypto::{SignatureValidator, public_key_from_bytes, signature::NoValidation};
 use steel_protocol::packets::{
@@ -582,6 +580,12 @@ impl Player {
                 &chat_message,
             );
         }
+    }
+
+    /// Sends a system message to the player.
+    pub fn send_message(&self, text: &TextComponent) {
+        self.connection
+            .send_packet(CSystemChatMessage::new(text, self, false));
     }
 
     fn is_invalid_position(x: f64, y: f64, z: f64, rot_x: f32, rot_y: f32) -> bool {
@@ -1901,6 +1905,16 @@ impl Player {
 
     /// Cleans up player resources.
     pub fn cleanup(&self) {}
+}
+
+impl Entity for Player {
+    fn get_uuid(&self) -> Uuid {
+        self.gameprofile.id
+    }
+
+    fn as_player(self: Arc<Self>) -> Option<Arc<Player>> {
+        Some(self)
+    }
 }
 
 impl LivingEntity for Player {

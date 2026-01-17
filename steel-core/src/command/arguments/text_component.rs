@@ -2,22 +2,29 @@
 use crate::command::arguments::CommandArgument;
 use crate::command::context::CommandContext;
 use steel_protocol::packets::game::{ArgumentType, SuggestionType};
+use text_components::TextComponent;
 
 /// A text argument.
-pub struct TextArgument;
+pub struct TextComponentArgument;
 
-impl CommandArgument for TextArgument {
-    type Output = String;
+impl CommandArgument for TextComponentArgument {
+    type Output = TextComponent;
 
     fn parse<'a>(
         &self,
         arg: &'a [&'a str],
         _context: &mut CommandContext,
     ) -> Option<(&'a [&'a str], Self::Output)> {
-        Some((&[], arg.join(" ")))
+        match TextComponent::from_snbt(&arg.join(" ")) {
+            Ok(component) => Some((&[], component)),
+            Err(e) => {
+                log::warn!("{e}");
+                return None;
+            }
+        }
     }
 
     fn usage(&self) -> (ArgumentType, Option<SuggestionType>) {
-        (ArgumentType::NbtTag, None)
+        (ArgumentType::Component, None)
     }
 }

@@ -1,7 +1,5 @@
 //! Module defining the sender of a command.
 use std::{fmt, sync::Arc};
-
-use steel_protocol::packets::game::CSystemChatMessage;
 use text_components::TextComponent;
 
 use crate::player::Player;
@@ -30,9 +28,7 @@ impl CommandSender {
     /// Sends a system message to the command sender.
     pub fn send_message(&self, text: &TextComponent) {
         match self {
-            Self::Player(player) => player
-                .connection
-                .send_packet(CSystemChatMessage::new(text, player, false)),
+            Self::Player(player) => player.send_message(text),
             Self::Console => log::info!("{:p}", text),
             // TODO: Implement Rcon message sending
             Self::Rcon => unimplemented!(),

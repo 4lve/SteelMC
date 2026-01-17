@@ -1,11 +1,12 @@
 //! This module contains types and utilities for parsing command arguments.
 pub mod anchor;
 pub mod bool;
+pub mod entity;
 pub mod float;
 pub mod gamemode;
 pub mod integer;
 pub mod rotation;
-pub mod text;
+pub mod text_component;
 pub mod time;
 pub mod vector2;
 pub mod vector3;
