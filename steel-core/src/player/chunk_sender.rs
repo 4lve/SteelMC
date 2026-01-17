@@ -18,7 +18,7 @@ use crate::{
 };
 
 /// Minimum chunks per tick (vanilla: 0.01)
-const MIN_CHUNKS_PER_TICK: f32 = 0.01;
+const MIN_CHUNKS_PER_TICK: f32 = 16f32;
 /// Maximum chunks per tick (vanilla: 64.0, we use 500.0 for faster loading)
 const MAX_CHUNKS_PER_TICK: f32 = 500.0;
 /// Starting chunks per tick (vanilla: 9.0)
