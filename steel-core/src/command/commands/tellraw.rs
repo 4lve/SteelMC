@@ -38,7 +38,7 @@ impl CommandExecutor<(((), Vec<Arc<Player>>), TextComponent)> for TellrawCommand
             CommandSender::Console => "Console",
             CommandSender::Rcon => "Rcon",
         };
-        log::info!("{}'s tellraw: {:p}", sender, &args.1);
+        log::info!("{}'s tellraw: {:p}", sender, args.1);
         for player in args.0.1 {
             player.send_message(&args.1);
         }
