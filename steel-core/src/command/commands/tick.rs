@@ -86,9 +86,9 @@ impl CommandExecutor<()> for TickQueryExecutor {
         context.sender.send_message(
             translations::COMMANDS_TICK_QUERY_RATE_RUNNING
                 .message([
-                    TextComponent::from(format!("{:.1}", tick_rate)),
-                    TextComponent::from(format!("{:.1}", mspt)),
-                    TextComponent::from(format!("{:.1}", target_mspt)),
+                    TextComponent::from(format!("{tick_rate:.1}")),
+                    TextComponent::from(format!("{mspt:.1}")),
+                    TextComponent::from(format!("{target_mspt:.1}")),
                 ])
                 .into(),
         );
@@ -97,10 +97,10 @@ impl CommandExecutor<()> for TickQueryExecutor {
         context.sender.send_message(
             translations::COMMANDS_TICK_QUERY_PERCENTILES
                 .message([
-                    TextComponent::from(format!("{:.1}", p50)),
-                    TextComponent::from(format!("{:.1}", p95)),
-                    TextComponent::from(format!("{:.1}", p99)),
-                    TextComponent::from(format!("{}", sample_count)),
+                    TextComponent::from(format!("{p50:.1}")),
+                    TextComponent::from(format!("{p95:.1}")),
+                    TextComponent::from(format!("{p99:.1}")),
+                    TextComponent::from(format!("{sample_count}")),
                 ])
                 .into(),
         );
