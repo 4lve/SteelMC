@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["block_item","default"],"struct":["BlockItemBehavior","DefaultItemBehavior"]};
+window.SIDEBAR_ITEMS = {"mod":["block_item","default","ender_eye"],"struct":["BlockItemBehavior","DefaultItemBehavior","EnderEyeBehavior"]};
