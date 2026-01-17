@@ -6,7 +6,7 @@ use steel_utils::translations;
 
 use crate::command::arguments::time::TimeArgument;
 use crate::command::commands::{
-    argument, literal, CommandExecutor, CommandHandlerBuilder, CommandHandlerDyn,
+    CommandExecutor, CommandHandlerBuilder, CommandHandlerDyn, argument, literal,
 };
 use crate::command::context::CommandContext;
 use crate::command::error::CommandError;
@@ -15,27 +15,31 @@ use crate::server::Server;
 /// Handler for the "tick" command.
 #[must_use]
 pub fn command_handler() -> impl CommandHandlerDyn {
-    CommandHandlerBuilder::new(&["tick"], "Controls server tick rate.", "minecraft:command.tick")
-        // /tick query
-        .then(literal("query").executes(TickQueryExecutor))
-        // /tick freeze
-        .then(literal("freeze").executes(TickFreezeExecutor))
-        // /tick unfreeze
-        .then(literal("unfreeze").executes(TickUnfreezeExecutor))
-        // /tick sprint <time> | /tick sprint stop
-        .then(
-            literal("sprint")
-                .then(literal("stop").executes(TickSprintStopExecutor))
-                .then(argument("time", TimeArgument).executes(TickSprintExecutor)),
-        )
-        // TODO: /tick rate <rate> - needs FloatArgument implementation
-        // TODO: /tick step [time] - needs stepGameIfPaused() logic in TickRateManager
-        // TODO: /tick step stop - needs stopStepping() logic in TickRateManager
-        //
-        // TODOs requiring GAME LOOP integration:
-        // - Sprint report message: When sprint finishes in finish_tick_sprint(), broadcast
-        //   translations::COMMANDS_TICK_SPRINT_REPORT with TPS and ms/tick stats
-        //   to the command sender (requires storing sender in tick manager or using events)
+    CommandHandlerBuilder::new(
+        &["tick"],
+        "Controls server tick rate.",
+        "minecraft:command.tick",
+    )
+    // /tick query
+    .then(literal("query").executes(TickQueryExecutor))
+    // /tick freeze
+    .then(literal("freeze").executes(TickFreezeExecutor))
+    // /tick unfreeze
+    .then(literal("unfreeze").executes(TickUnfreezeExecutor))
+    // /tick sprint <time> | /tick sprint stop
+    .then(
+        literal("sprint")
+            .then(literal("stop").executes(TickSprintStopExecutor))
+            .then(argument("time", TimeArgument).executes(TickSprintExecutor)),
+    )
+    // TODO: /tick rate <rate> - needs FloatArgument implementation
+    // TODO: /tick step [time] - needs stepGameIfPaused() logic in TickRateManager
+    // TODO: /tick step stop - needs stopStepping() logic in TickRateManager
+    //
+    // TODOs requiring GAME LOOP integration:
+    // - Sprint report message: When sprint finishes in finish_tick_sprint(), broadcast
+    //   translations::COMMANDS_TICK_SPRINT_REPORT with TPS and ms/tick stats
+    //   to the command sender (requires storing sender in tick manager or using events)
 }
 
 // /tick query

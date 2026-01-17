@@ -10,8 +10,9 @@ use std::{
 
 use sha2::{Digest, Sha256};
 use steel_protocol::packet_traits::EncodedPacket;
-use steel_protocol::packet_traits::ClientPacket;
-use steel_protocol::packets::game::{CBlockDestruction, CPlayerChat,CPlayerInfoUpdate, CSystemChat};
+use steel_protocol::packets::game::{
+    CBlockDestruction, CPlayerChat, CPlayerInfoUpdate, CSystemChat,
+};
 use steel_protocol::utils::ConnectionProtocol;
 
 use steel_registry::blocks::BlockRef;

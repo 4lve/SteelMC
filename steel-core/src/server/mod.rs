@@ -13,14 +13,14 @@ use std::{
 };
 
 use steel_crypto::key_store::KeyStore;
-use steel_protocol::packets::game::{CLogin,CTabList, CommonPlayerSpawnInfo};
+use steel_protocol::packets::game::{CLogin, CTabList, CommonPlayerSpawnInfo};
 use steel_registry::game_rules::GameRuleValue;
 use steel_registry::vanilla_dimension_types::OVERWORLD;
 use steel_registry::vanilla_game_rules::{IMMEDIATE_RESPAWN, LIMITED_CRAFTING, REDUCED_DEBUG_INFO};
 use steel_registry::{REGISTRY, Registry};
 use steel_utils::locks::SyncRwLock;
 use steel_utils::text::{TextComponent, color::NamedColor};
-use steel_utils::{Identifier, types::GameType};
+use steel_utils::types::GameType;
 use tick_rate_manager::TickRateManager;
 use tokio::{runtime::Runtime, task::spawn_blocking, time::sleep};
 use tokio_util::sync::CancellationToken;
