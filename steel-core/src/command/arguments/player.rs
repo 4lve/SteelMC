@@ -1,36 +1,36 @@
-//! A entity argument.
+//! A player argument.
 use crate::command::arguments::SuggestionContext;
 use crate::command::context::CommandContext;
 use crate::entity::Entity;
+use crate::player::Player;
 use crate::{command::arguments::CommandArgument, entity::LivingEntity};
 use rand::seq::IteratorRandom;
 use std::sync::Arc;
 use steel_protocol::packets::game::{ArgumentType, SuggestionEntry, SuggestionType};
 use steel_utils::translations::{
-    ARGUMENT_ENTITY_SELECTOR_ALL_ENTITIES, ARGUMENT_ENTITY_SELECTOR_ALL_PLAYERS,
-    ARGUMENT_ENTITY_SELECTOR_NEAREST_ENTITY, ARGUMENT_ENTITY_SELECTOR_NEAREST_PLAYER,
+    ARGUMENT_ENTITY_SELECTOR_ALL_PLAYERS, ARGUMENT_ENTITY_SELECTOR_NEAREST_PLAYER,
     ARGUMENT_ENTITY_SELECTOR_RANDOM_PLAYER, ARGUMENT_ENTITY_SELECTOR_SELF,
 };
 use uuid::Uuid;
 
-/// A entity argument.
-pub struct EntityArgument {
-    /// If only accepts one entity
+/// A player argument.
+pub struct PlayerArgument {
+    /// If only accepts one player
     one: bool,
 }
-impl EntityArgument {
-    /// Creates a selector for multiple entities
+impl PlayerArgument {
+    /// Creates a selector for multiple players
     pub fn new() -> Self {
-        EntityArgument { one: false }
+        PlayerArgument { one: false }
     }
-    /// Creates a selector for one entity
+    /// Creates a selector for one player
     pub fn one() -> Self {
-        EntityArgument { one: true }
+        PlayerArgument { one: true }
     }
 }
 
-impl CommandArgument for EntityArgument {
-    type Output = Vec<Arc<dyn LivingEntity + Send + Sync>>;
+impl CommandArgument for PlayerArgument {
+    type Output = Vec<Arc<Player>>;
 
     fn parse<'a>(
         &self,
@@ -39,12 +39,8 @@ impl CommandArgument for EntityArgument {
     ) -> Option<(&'a [&'a str], Self::Output)> {
         let players = context.server.get_players();
         let entities = match arg[0] {
-            // TODO: Add getting entities
-            "@a" | "@e" => players
-                .into_iter()
-                .map(|p| p as Arc<dyn LivingEntity + Send + Sync>)
-                .collect(),
-            "@n" | "@p" => {
+            "@a" => players,
+            "@p" => {
                 let Some(position) = context.position else {
                     return None;
                 };
@@ -55,17 +51,16 @@ impl CommandArgument for EntityArgument {
                         near_dist = (dist, player);
                     }
                 }
-                vec![near_dist.1 as Arc<dyn LivingEntity + Send + Sync>]
+                vec![near_dist.1]
             }
             "@r" => {
-                vec![players.into_iter().choose(&mut rand::rng())?
-                    as Arc<dyn LivingEntity + Send + Sync>]
+                vec![players.into_iter().choose(&mut rand::rng())?]
             }
             "@s" => {
                 let Some(player) = &context.player else {
                     return None;
                 };
-                vec![player.clone() as Arc<dyn LivingEntity + Send + Sync>]
+                vec![player.clone()]
             }
             name => {
                 let uuid = if let Ok(uuid) = Uuid::parse_str(name) {
@@ -82,7 +77,7 @@ impl CommandArgument for EntityArgument {
                 }) else {
                     return None;
                 };
-                vec![player as Arc<dyn LivingEntity + Send + Sync>]
+                vec![player]
             }
         };
         // TODO: Add entity argiments. (e.g. @e[limit=1])
@@ -92,7 +87,7 @@ impl CommandArgument for EntityArgument {
     fn usage(&self) -> (ArgumentType, Option<SuggestionType>) {
         (
             ArgumentType::Entity {
-                flags: self.one as u8,
+                flags: 2 | self.one as u8,
             },
             Some(SuggestionType::AskServer),
         )
@@ -101,8 +96,6 @@ impl CommandArgument for EntityArgument {
     fn suggest(&self, prefix: &str, suggestion_ctx: &SuggestionContext) -> Vec<SuggestionEntry> {
         let mut suggestions = vec![
             SuggestionEntry::with_tooltip("@a", &ARGUMENT_ENTITY_SELECTOR_ALL_PLAYERS),
-            SuggestionEntry::with_tooltip("@e", &ARGUMENT_ENTITY_SELECTOR_ALL_ENTITIES),
-            SuggestionEntry::with_tooltip("@n", &ARGUMENT_ENTITY_SELECTOR_NEAREST_ENTITY),
             SuggestionEntry::with_tooltip("@p", &ARGUMENT_ENTITY_SELECTOR_NEAREST_PLAYER),
             SuggestionEntry::with_tooltip("@r", &ARGUMENT_ENTITY_SELECTOR_RANDOM_PLAYER),
             SuggestionEntry::with_tooltip("@s", &ARGUMENT_ENTITY_SELECTOR_SELF),

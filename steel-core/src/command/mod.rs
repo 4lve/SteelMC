@@ -50,10 +50,10 @@ impl CommandDispatcher {
 
     /// Executes a command.
     pub fn handle_command(&self, sender: CommandSender, command: String, server: &Arc<Server>) {
-        let mut context = CommandContext::new(sender.clone());
+        let mut context = CommandContext::new(sender.clone(), server.clone());
 
         if let Err(error) = Self::split_command(&command)
-            .and_then(|(command, args)| self.execute(command, &args, &mut context, server))
+            .and_then(|(command, args)| self.execute(command, &args, &mut context, &server))
         {
             let text = match error {
                 CommandError::InvalidConsumption(s) => {
@@ -167,7 +167,13 @@ impl CommandDispatcher {
     }
 
     /// Handles a command suggestion request from a player.
-    pub fn handle_suggestions(&self, player: &Arc<Player>, id: i32, command: &str) {
+    pub fn handle_suggestions(
+        &self,
+        player: &Arc<Player>,
+        id: i32,
+        command: &str,
+        server: Arc<Server>,
+    ) {
         // Remove leading slash if present
         let command = command.strip_prefix('/').unwrap_or(command);
 
@@ -212,11 +218,10 @@ impl CommandDispatcher {
         let args = &parts[1..];
 
         // Create context for suggestion
-        let mut context = CommandContext::new(CommandSender::Player(Arc::clone(player)));
+        let mut context = CommandContext::new(CommandSender::Player(Arc::clone(player)), server);
 
         // Get suggestions from handler
         if let Some(result) = handler.suggest(args, args_start_pos, &mut context) {
-            log::info!("PASSES");
             // Adjust start position to account for leading slash
             player.connection.send_packet(CCommandSuggestions::new(
                 id,

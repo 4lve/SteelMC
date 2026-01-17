@@ -168,6 +168,18 @@ impl Server {
         world.add_player(player);
     }
 
+    /// Gets all the players on the server
+    pub fn get_players(&self) -> Vec<Arc<Player>> {
+        let mut players = vec![];
+        for world in &self.worlds {
+            world.players.iter_players(|_, p| {
+                players.push(p.clone());
+                true
+            });
+        }
+        players
+    }
+
     /// Runs the server tick loop.
     pub async fn run(self: Arc<Self>, cancel_token: CancellationToken) {
         let mut next_tick_time = Instant::now();

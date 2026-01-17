@@ -27,11 +27,17 @@ use message_chain::SignedMessageChain;
 use message_validator::LastSeenMessagesValidator;
 use profile_key::RemoteChatSession;
 pub use signature_cache::{LastSeen, MessageCache};
-use steel_protocol::packets::game::{
-    AnimateAction, CAnimate, CPlayerPosition, PlayerAction, SAcceptTeleportation,
-    SPickItemFromBlock, SPlayerAction, SSetCarriedItem, SUseItem, SUseItemOn,
+use steel_protocol::{
+    packet_traits::EncodedPacket,
+    packets::game::{
+        AnimateAction, CAnimate, CPlayerPosition, PlayerAction, SAcceptTeleportation,
+        SPickItemFromBlock, SPlayerAction, SSetCarriedItem, SUseItem, SUseItemOn,
+    },
 };
-use steel_protocol::packets::game::{CSetHeldSlot, CSystemChatMessage};
+use steel_protocol::{
+    packets::game::{CSetHeldSlot, CSystemChatMessage},
+    utils::ConnectionProtocol,
+};
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::game_rules::GameRuleValue;
 use steel_registry::vanilla_game_rules::{ELYTRA_MOVEMENT_CHECK, PLAYER_MOVEMENT_CHECK};
@@ -538,10 +544,9 @@ impl Player {
                         "/tell {} ",
                         player.gameprofile.name
                     )))
-                    // TODO: Set the true player uuid
                     .hover_event(HoverEvent::show_entity(
                         "minecraft:player",
-                        Uuid::new_v4(),
+                        self.get_uuid(),
                         Some(player.gameprofile.name.clone()),
                     )),
                 target_name: None,

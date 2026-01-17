@@ -250,6 +250,7 @@ impl JavaConnection {
                     &player,
                     packet.id,
                     &packet.command,
+                    server.clone(),
                 );
             }
             play::S_CONTAINER_BUTTON_CLICK => {

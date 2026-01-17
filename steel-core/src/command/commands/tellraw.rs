@@ -1,7 +1,5 @@
 //! Handler for the "tellraw" command.
-use text_components::TextComponent;
-
-use crate::command::arguments::entity::EntityArgument;
+use crate::command::arguments::player::PlayerArgument;
 use crate::command::arguments::text_component::TextComponentArgument;
 use crate::command::commands::{
     CommandExecutor, CommandHandlerBuilder, CommandHandlerDyn, argument,
@@ -9,9 +7,9 @@ use crate::command::commands::{
 use crate::command::context::CommandContext;
 use crate::command::error::CommandError;
 use crate::command::sender::CommandSender;
-use crate::entity::LivingEntity;
-use crate::server::Server;
+use crate::player::Player;
 use std::sync::Arc;
+use text_components::TextComponent;
 
 /// Handler for the "tellraw" command.
 #[must_use]
@@ -22,27 +20,18 @@ pub fn command_handler() -> impl CommandHandlerDyn {
         "minecraft:command.tellraw",
     )
     .then(
-        argument("targets", EntityArgument::entities())
+        argument("targets", PlayerArgument::new())
             .then(argument("message", TextComponentArgument).executes(TellrawCommandExecutor)),
     )
 }
 
 struct TellrawCommandExecutor;
 
-impl
-    CommandExecutor<(
-        ((), Vec<Arc<dyn LivingEntity + Send + Sync>>),
-        TextComponent,
-    )> for TellrawCommandExecutor
-{
+impl CommandExecutor<(((), Vec<Arc<Player>>), TextComponent)> for TellrawCommandExecutor {
     fn execute(
         &self,
-        args: (
-            ((), Vec<Arc<dyn LivingEntity + Send + Sync>>),
-            TextComponent,
-        ),
+        args: (((), Vec<Arc<Player>>), TextComponent),
         context: &mut CommandContext,
-        _server: &Arc<Server>,
     ) -> Result<(), CommandError> {
         let sender = match &context.sender {
             CommandSender::Player(player) => &player.gameprofile.name,
@@ -50,10 +39,8 @@ impl
             CommandSender::Rcon => "Rcon",
         };
         log::info!("{}'s tellraw: {:p}", sender, &args.1);
-        for entity in args.0.1 {
-            if let Some(player) = entity.as_player() {
-                player.send_message(&args.1);
-            }
+        for player in args.0.1 {
+            player.send_message(&args.1);
         }
         Ok(())
     }
