@@ -19,7 +19,6 @@ const DEFAULT_CONFIG: &str = include_str!("../../package-content/steel_config.js
 pub static STEEL_CONFIG: LazyLock<ServerConfig> =
     LazyLock::new(|| ServerConfig::load_or_create(Path::new("config/steel_config.json5")));
 
-
 /// Label type for server links - either built-in string or custom TextComponent
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
