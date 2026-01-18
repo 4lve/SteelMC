@@ -70,7 +70,7 @@ impl ItemBehavior for BlockItemBehavior {
         };
 
         // Get block state for placement from the block behavior
-        let block_behaviors = BLOCK_BEHAVIORS.get().expect("Behaviors not initialized");
+        let block_behaviors = &*BLOCK_BEHAVIORS;
         let behavior = block_behaviors.get_behavior(self.block);
         let Some(new_state) = behavior.get_state_for_placement(&place_context) else {
             return InteractionResult::Fail;

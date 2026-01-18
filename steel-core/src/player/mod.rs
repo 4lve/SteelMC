@@ -269,6 +269,8 @@ impl Player {
         // Create a single shared inventory container used by both the player and inventory menu
         let inventory = Arc::new(SyncMutex::new(PlayerInventory::new(player.clone())));
 
+        let pos = Vector3::new(0.0, 0.0, 0.0);
+
         Self {
             gameprofile,
             connection,
@@ -276,9 +278,9 @@ impl Player {
             world,
             entity_id,
             client_loaded: AtomicBool::new(false),
-            position: SyncMutex::new(Vector3::default()),
+            position: SyncMutex::new(pos),
             rotation: AtomicCell::new((0.0, 0.0)),
-            prev_position: SyncMutex::new(Vector3::default()),
+            prev_position: SyncMutex::new(pos),
             prev_rotation: AtomicCell::new((0.0, 0.0)),
             health: AtomicCell::new(20.0), // Default max health
             absorption_amount: AtomicCell::new(0.0),
@@ -1650,7 +1652,7 @@ impl Player {
 
         // Get the block and its behavior
         let block = state.get_block();
-        let block_behaviors = BLOCK_BEHAVIORS.get().expect("Behaviors not initialized");
+        let block_behaviors = &*BLOCK_BEHAVIORS;
         let behavior = block_behaviors.get_behavior(block);
 
         // Only include data if player has infinite materials (creative mode)
