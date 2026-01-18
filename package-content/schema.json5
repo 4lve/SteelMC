@@ -96,28 +96,6 @@
             ],
             "additionalProperties": false
         },
-        "checks": {
-            "type": "object",
-            "description": "Movement and anti-cheat check settings",
-            "properties": {
-                "collision": {
-                    "type": "boolean",
-                    "description": "Enable collision detection for player movement",
-                    "default": true
-                },
-                "speed": {
-                    "type": "boolean",
-                    "description": "Enable speed validation (prevents moving too fast)",
-                    "default": true
-                },
-                "movement_error": {
-                    "type": "boolean",
-                    "description": "Enable movement error checking",
-                    "default": true
-                }
-            },
-            "additionalProperties": false
-        },
         "server_links": {
             "type": "object",
             "description": "Server links configuration",
