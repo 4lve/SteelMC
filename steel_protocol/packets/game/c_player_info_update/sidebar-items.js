@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["PlayerInfoAction"],"struct":["CPlayerInfoUpdate","PlayerInfoEntry"]};
+window.SIDEBAR_ITEMS = {"constant":["PLAYER_INFO_INIT_ACTIONS"],"enum":["PlayerDisplayName","PlayerInfoAction"],"struct":["CPlayerInfoUpdate","PlayerInfoEntry"]};

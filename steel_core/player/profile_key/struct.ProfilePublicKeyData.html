@@ -17,7 +17,7 @@
 </div></details><details class="toggle method-toggle" open><summary><section id="method.validate_signature" class="method"><a class="src rightside" href="../../../src/steel_core/player/profile_key.rs.html#84-101">Source</a><h4 class="code-header">pub fn <a href="#method.validate_signature" class="fn">validate_signature</a>(
     &amp;self,
     profile_id: <a class="struct" href="https://docs.rs/uuid/1.19.0/uuid/struct.Uuid.html" title="struct uuid::Uuid">Uuid</a>,
-    validator: &amp;dyn <a class="trait" href="../../../steel_crypto/signature/trait.SignatureValidator.html" title="trait steel_crypto::signature::SignatureValidator">SignatureValidator</a>,
+    validator: &amp;dyn SignatureValidator,
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ValidationError.html" title="enum steel_core::player::profile_key::ValidationError">ValidationError</a>&gt;</h4></section></summary><div class="docblock"><p>Validates the key signature using Mojang’s signature validator.</p>
 <p>The signature covers: profileId + expiresAt + key bytes</p>
 <h5 id="errors"><a class="doc-anchor" href="#errors">§</a>Errors</h5>
