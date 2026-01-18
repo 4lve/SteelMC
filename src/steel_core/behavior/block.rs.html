@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `steel-core/src/behavior/block.rs`."><title>block.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="steel_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.0-nightly (f6a07efc8 2026-01-16)" data-channel="nightly" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">steel_core/behavior/</div>block.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Block behavior trait and registry.
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `steel-core/src/behavior/block.rs`."><title>block.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="steel_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.0-nightly (fe98ddcfc 2026-01-17)" data-channel="nightly" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">steel_core/behavior/</div>block.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Block behavior trait and registry.
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a></span><span class="kw">use </span>steel_registry::REGISTRY;
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span>steel_registry::blocks::BlockRef;
@@ -156,80 +156,104 @@
 <a href=#156 id=156 data-nosnippet>156</a>        <span class="comment">// Default: look up item by block's key
 <a href=#157 id=157 data-nosnippet>157</a>        </span>REGISTRY.items.by_key(<span class="kw-2">&amp;</span>block.key).map(ItemStack::new)
 <a href=#158 id=158 data-nosnippet>158</a>    }
-<a href=#159 id=159 data-nosnippet>159</a>}
-<a href=#160 id=160 data-nosnippet>160</a>
-<a href=#161 id=161 data-nosnippet>161</a><span class="doccomment">/// Default block behavior that returns the block's default state for placement.
-<a href=#162 id=162 data-nosnippet>162</a></span><span class="kw">pub struct </span>DefaultBlockBehaviour {
-<a href=#163 id=163 data-nosnippet>163</a>    block: BlockRef,
-<a href=#164 id=164 data-nosnippet>164</a>}
-<a href=#165 id=165 data-nosnippet>165</a>
-<a href=#166 id=166 data-nosnippet>166</a><span class="kw">impl </span>DefaultBlockBehaviour {
-<a href=#167 id=167 data-nosnippet>167</a>    <span class="doccomment">/// Creates a new default block behavior for the given block.
-<a href=#168 id=168 data-nosnippet>168</a>    </span><span class="attr">#[must_use]
-<a href=#169 id=169 data-nosnippet>169</a>    </span><span class="kw">pub const fn </span>new(block: BlockRef) -&gt; <span class="self">Self </span>{
-<a href=#170 id=170 data-nosnippet>170</a>        <span class="self">Self </span>{ block }
-<a href=#171 id=171 data-nosnippet>171</a>    }
-<a href=#172 id=172 data-nosnippet>172</a>}
-<a href=#173 id=173 data-nosnippet>173</a>
-<a href=#174 id=174 data-nosnippet>174</a><span class="kw">impl </span>BlockBehaviour <span class="kw">for </span>DefaultBlockBehaviour {
-<a href=#175 id=175 data-nosnippet>175</a>    <span class="kw">fn </span>get_state_for_placement(<span class="kw-2">&amp;</span><span class="self">self</span>, _context: <span class="kw-2">&amp;</span>BlockPlaceContext&lt;<span class="lifetime">'_</span>&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;BlockStateId&gt; {
-<a href=#176 id=176 data-nosnippet>176</a>        <span class="prelude-val">Some</span>(<span class="self">self</span>.block.default_state())
-<a href=#177 id=177 data-nosnippet>177</a>    }
-<a href=#178 id=178 data-nosnippet>178</a>}
-<a href=#179 id=179 data-nosnippet>179</a>
-<a href=#180 id=180 data-nosnippet>180</a><span class="doccomment">/// Registry for block behaviors.
-<a href=#181 id=181 data-nosnippet>181</a>///
-<a href=#182 id=182 data-nosnippet>182</a>/// Created after the main registry is frozen. All blocks are initialized with
-<a href=#183 id=183 data-nosnippet>183</a>/// default behaviors, then custom behaviors are registered for specific blocks.
-<a href=#184 id=184 data-nosnippet>184</a></span><span class="kw">pub struct </span>BlockBehaviorRegistry {
-<a href=#185 id=185 data-nosnippet>185</a>    behaviors: Vec&lt;Box&lt;<span class="kw">dyn </span>BlockBehaviour&gt;&gt;,
-<a href=#186 id=186 data-nosnippet>186</a>}
-<a href=#187 id=187 data-nosnippet>187</a>
-<a href=#188 id=188 data-nosnippet>188</a><span class="kw">impl </span>BlockBehaviorRegistry {
-<a href=#189 id=189 data-nosnippet>189</a>    <span class="doccomment">/// Creates a new behavior registry with default behaviors for all blocks.
-<a href=#190 id=190 data-nosnippet>190</a>    </span><span class="attr">#[must_use]
-<a href=#191 id=191 data-nosnippet>191</a>    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
-<a href=#192 id=192 data-nosnippet>192</a>        <span class="kw">let </span>block_count = REGISTRY.blocks.len();
-<a href=#193 id=193 data-nosnippet>193</a>        <span class="kw">let </span><span class="kw-2">mut </span>behaviors: Vec&lt;Box&lt;<span class="kw">dyn </span>BlockBehaviour&gt;&gt; = Vec::with_capacity(block_count);
-<a href=#194 id=194 data-nosnippet>194</a>
-<a href=#195 id=195 data-nosnippet>195</a>        <span class="comment">// Initialize all blocks with default behavior
-<a href=#196 id=196 data-nosnippet>196</a>        </span><span class="kw">for </span>(<span class="kw">_</span>, block) <span class="kw">in </span>REGISTRY.blocks.iter() {
-<a href=#197 id=197 data-nosnippet>197</a>            behaviors.push(Box::new(DefaultBlockBehaviour::new(block)));
-<a href=#198 id=198 data-nosnippet>198</a>        }
-<a href=#199 id=199 data-nosnippet>199</a>
-<a href=#200 id=200 data-nosnippet>200</a>        <span class="self">Self </span>{ behaviors }
+<a href=#159 id=159 data-nosnippet>159</a>
+<a href=#160 id=160 data-nosnippet>160</a>    <span class="doccomment">/// Returns whether this block should receive random ticks.
+<a href=#161 id=161 data-nosnippet>161</a>    ///
+<a href=#162 id=162 data-nosnippet>162</a>    /// Override to return true for blocks like crops, grass, ice, fire, etc.
+<a href=#163 id=163 data-nosnippet>163</a>    /// This is used to optimize chunk ticking by skipping sections with no
+<a href=#164 id=164 data-nosnippet>164</a>    /// randomly-ticking blocks.
+<a href=#165 id=165 data-nosnippet>165</a>    </span><span class="attr">#[allow(unused_variables)]
+<a href=#166 id=166 data-nosnippet>166</a>    </span><span class="kw">fn </span>is_randomly_ticking(<span class="kw-2">&amp;</span><span class="self">self</span>, state: BlockStateId) -&gt; bool {
+<a href=#167 id=167 data-nosnippet>167</a>        <span class="bool-val">false
+<a href=#168 id=168 data-nosnippet>168</a>    </span>}
+<a href=#169 id=169 data-nosnippet>169</a>
+<a href=#170 id=170 data-nosnippet>170</a>    <span class="doccomment">/// Called on random tick for blocks that support random ticking.
+<a href=#171 id=171 data-nosnippet>171</a>    ///
+<a href=#172 id=172 data-nosnippet>172</a>    /// This is only called if `is_randomly_ticking()` returns true.
+<a href=#173 id=173 data-nosnippet>173</a>    /// Used for crop growth, grass spread, ice melting, fire behavior, etc.
+<a href=#174 id=174 data-nosnippet>174</a>    ///
+<a href=#175 id=175 data-nosnippet>175</a>    /// # Arguments
+<a href=#176 id=176 data-nosnippet>176</a>    /// * `state` - The current block state
+<a href=#177 id=177 data-nosnippet>177</a>    /// * `world` - The world the block is in
+<a href=#178 id=178 data-nosnippet>178</a>    /// * `pos` - The position of the block
+<a href=#179 id=179 data-nosnippet>179</a>    </span><span class="attr">#[allow(unused_variables)]
+<a href=#180 id=180 data-nosnippet>180</a>    </span><span class="kw">fn </span>random_tick(<span class="kw-2">&amp;</span><span class="self">self</span>, state: BlockStateId, world: <span class="kw-2">&amp;</span>World, pos: BlockPos) {
+<a href=#181 id=181 data-nosnippet>181</a>        <span class="comment">// Default: no-op
+<a href=#182 id=182 data-nosnippet>182</a>    </span>}
+<a href=#183 id=183 data-nosnippet>183</a>}
+<a href=#184 id=184 data-nosnippet>184</a>
+<a href=#185 id=185 data-nosnippet>185</a><span class="doccomment">/// Default block behavior that returns the block's default state for placement.
+<a href=#186 id=186 data-nosnippet>186</a></span><span class="kw">pub struct </span>DefaultBlockBehaviour {
+<a href=#187 id=187 data-nosnippet>187</a>    block: BlockRef,
+<a href=#188 id=188 data-nosnippet>188</a>}
+<a href=#189 id=189 data-nosnippet>189</a>
+<a href=#190 id=190 data-nosnippet>190</a><span class="kw">impl </span>DefaultBlockBehaviour {
+<a href=#191 id=191 data-nosnippet>191</a>    <span class="doccomment">/// Creates a new default block behavior for the given block.
+<a href=#192 id=192 data-nosnippet>192</a>    </span><span class="attr">#[must_use]
+<a href=#193 id=193 data-nosnippet>193</a>    </span><span class="kw">pub const fn </span>new(block: BlockRef) -&gt; <span class="self">Self </span>{
+<a href=#194 id=194 data-nosnippet>194</a>        <span class="self">Self </span>{ block }
+<a href=#195 id=195 data-nosnippet>195</a>    }
+<a href=#196 id=196 data-nosnippet>196</a>}
+<a href=#197 id=197 data-nosnippet>197</a>
+<a href=#198 id=198 data-nosnippet>198</a><span class="kw">impl </span>BlockBehaviour <span class="kw">for </span>DefaultBlockBehaviour {
+<a href=#199 id=199 data-nosnippet>199</a>    <span class="kw">fn </span>get_state_for_placement(<span class="kw-2">&amp;</span><span class="self">self</span>, _context: <span class="kw-2">&amp;</span>BlockPlaceContext&lt;<span class="lifetime">'_</span>&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;BlockStateId&gt; {
+<a href=#200 id=200 data-nosnippet>200</a>        <span class="prelude-val">Some</span>(<span class="self">self</span>.block.default_state())
 <a href=#201 id=201 data-nosnippet>201</a>    }
-<a href=#202 id=202 data-nosnippet>202</a>
-<a href=#203 id=203 data-nosnippet>203</a>    <span class="doccomment">/// Sets a custom behavior for a block.
-<a href=#204 id=204 data-nosnippet>204</a>    </span><span class="kw">pub fn </span>set_behavior(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: BlockRef, behavior: Box&lt;<span class="kw">dyn </span>BlockBehaviour&gt;) {
-<a href=#205 id=205 data-nosnippet>205</a>        <span class="kw">let </span>id = <span class="kw-2">*</span>REGISTRY.blocks.get_id(block);
-<a href=#206 id=206 data-nosnippet>206</a>        <span class="self">self</span>.behaviors[id] = behavior;
-<a href=#207 id=207 data-nosnippet>207</a>    }
-<a href=#208 id=208 data-nosnippet>208</a>
-<a href=#209 id=209 data-nosnippet>209</a>    <span class="doccomment">/// Gets the behavior for a block.
-<a href=#210 id=210 data-nosnippet>210</a>    </span><span class="attr">#[must_use]
-<a href=#211 id=211 data-nosnippet>211</a>    </span><span class="kw">pub fn </span>get_behavior(<span class="kw-2">&amp;</span><span class="self">self</span>, block: BlockRef) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>BlockBehaviour {
-<a href=#212 id=212 data-nosnippet>212</a>        <span class="kw">let </span>id = <span class="kw-2">*</span>REGISTRY.blocks.get_id(block);
-<a href=#213 id=213 data-nosnippet>213</a>        <span class="self">self</span>.behaviors[id].as_ref()
-<a href=#214 id=214 data-nosnippet>214</a>    }
-<a href=#215 id=215 data-nosnippet>215</a>
-<a href=#216 id=216 data-nosnippet>216</a>    <span class="doccomment">/// Gets the behavior for a block by its ID.
-<a href=#217 id=217 data-nosnippet>217</a>    </span><span class="attr">#[must_use]
-<a href=#218 id=218 data-nosnippet>218</a>    </span><span class="kw">pub fn </span>get_behavior_by_id(<span class="kw-2">&amp;</span><span class="self">self</span>, id: usize) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="kw">dyn </span>BlockBehaviour&gt; {
-<a href=#219 id=219 data-nosnippet>219</a>        <span class="self">self</span>.behaviors.get(id).map(AsRef::as_ref)
-<a href=#220 id=220 data-nosnippet>220</a>    }
-<a href=#221 id=221 data-nosnippet>221</a>
-<a href=#222 id=222 data-nosnippet>222</a>    <span class="doccomment">/// Gets the behavior for a block state.
-<a href=#223 id=223 data-nosnippet>223</a>    </span><span class="attr">#[must_use]
-<a href=#224 id=224 data-nosnippet>224</a>    </span><span class="kw">pub fn </span>get_behavior_for_state(<span class="kw-2">&amp;</span><span class="self">self</span>, state: BlockStateId) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="kw">dyn </span>BlockBehaviour&gt; {
-<a href=#225 id=225 data-nosnippet>225</a>        <span class="kw">let </span>block = REGISTRY.blocks.by_state_id(state)<span class="question-mark">?</span>;
-<a href=#226 id=226 data-nosnippet>226</a>        <span class="prelude-val">Some</span>(<span class="self">self</span>.get_behavior(block))
-<a href=#227 id=227 data-nosnippet>227</a>    }
-<a href=#228 id=228 data-nosnippet>228</a>}
-<a href=#229 id=229 data-nosnippet>229</a>
-<a href=#230 id=230 data-nosnippet>230</a><span class="kw">impl </span>Default <span class="kw">for </span>BlockBehaviorRegistry {
-<a href=#231 id=231 data-nosnippet>231</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-<a href=#232 id=232 data-nosnippet>232</a>        <span class="self">Self</span>::new()
-<a href=#233 id=233 data-nosnippet>233</a>    }
-<a href=#234 id=234 data-nosnippet>234</a>}
+<a href=#202 id=202 data-nosnippet>202</a>}
+<a href=#203 id=203 data-nosnippet>203</a>
+<a href=#204 id=204 data-nosnippet>204</a><span class="doccomment">/// Registry for block behaviors.
+<a href=#205 id=205 data-nosnippet>205</a>///
+<a href=#206 id=206 data-nosnippet>206</a>/// Created after the main registry is frozen. All blocks are initialized with
+<a href=#207 id=207 data-nosnippet>207</a>/// default behaviors, then custom behaviors are registered for specific blocks.
+<a href=#208 id=208 data-nosnippet>208</a></span><span class="kw">pub struct </span>BlockBehaviorRegistry {
+<a href=#209 id=209 data-nosnippet>209</a>    behaviors: Vec&lt;Box&lt;<span class="kw">dyn </span>BlockBehaviour&gt;&gt;,
+<a href=#210 id=210 data-nosnippet>210</a>}
+<a href=#211 id=211 data-nosnippet>211</a>
+<a href=#212 id=212 data-nosnippet>212</a><span class="kw">impl </span>BlockBehaviorRegistry {
+<a href=#213 id=213 data-nosnippet>213</a>    <span class="doccomment">/// Creates a new behavior registry with default behaviors for all blocks.
+<a href=#214 id=214 data-nosnippet>214</a>    </span><span class="attr">#[must_use]
+<a href=#215 id=215 data-nosnippet>215</a>    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+<a href=#216 id=216 data-nosnippet>216</a>        <span class="kw">let </span>block_count = REGISTRY.blocks.len();
+<a href=#217 id=217 data-nosnippet>217</a>        <span class="kw">let </span><span class="kw-2">mut </span>behaviors: Vec&lt;Box&lt;<span class="kw">dyn </span>BlockBehaviour&gt;&gt; = Vec::with_capacity(block_count);
+<a href=#218 id=218 data-nosnippet>218</a>
+<a href=#219 id=219 data-nosnippet>219</a>        <span class="comment">// Initialize all blocks with default behavior
+<a href=#220 id=220 data-nosnippet>220</a>        </span><span class="kw">for </span>(<span class="kw">_</span>, block) <span class="kw">in </span>REGISTRY.blocks.iter() {
+<a href=#221 id=221 data-nosnippet>221</a>            behaviors.push(Box::new(DefaultBlockBehaviour::new(block)));
+<a href=#222 id=222 data-nosnippet>222</a>        }
+<a href=#223 id=223 data-nosnippet>223</a>
+<a href=#224 id=224 data-nosnippet>224</a>        <span class="self">Self </span>{ behaviors }
+<a href=#225 id=225 data-nosnippet>225</a>    }
+<a href=#226 id=226 data-nosnippet>226</a>
+<a href=#227 id=227 data-nosnippet>227</a>    <span class="doccomment">/// Sets a custom behavior for a block.
+<a href=#228 id=228 data-nosnippet>228</a>    </span><span class="kw">pub fn </span>set_behavior(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: BlockRef, behavior: Box&lt;<span class="kw">dyn </span>BlockBehaviour&gt;) {
+<a href=#229 id=229 data-nosnippet>229</a>        <span class="kw">let </span>id = <span class="kw-2">*</span>REGISTRY.blocks.get_id(block);
+<a href=#230 id=230 data-nosnippet>230</a>        <span class="self">self</span>.behaviors[id] = behavior;
+<a href=#231 id=231 data-nosnippet>231</a>    }
+<a href=#232 id=232 data-nosnippet>232</a>
+<a href=#233 id=233 data-nosnippet>233</a>    <span class="doccomment">/// Gets the behavior for a block.
+<a href=#234 id=234 data-nosnippet>234</a>    </span><span class="attr">#[must_use]
+<a href=#235 id=235 data-nosnippet>235</a>    </span><span class="kw">pub fn </span>get_behavior(<span class="kw-2">&amp;</span><span class="self">self</span>, block: BlockRef) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>BlockBehaviour {
+<a href=#236 id=236 data-nosnippet>236</a>        <span class="kw">let </span>id = <span class="kw-2">*</span>REGISTRY.blocks.get_id(block);
+<a href=#237 id=237 data-nosnippet>237</a>        <span class="self">self</span>.behaviors[id].as_ref()
+<a href=#238 id=238 data-nosnippet>238</a>    }
+<a href=#239 id=239 data-nosnippet>239</a>
+<a href=#240 id=240 data-nosnippet>240</a>    <span class="doccomment">/// Gets the behavior for a block by its ID.
+<a href=#241 id=241 data-nosnippet>241</a>    </span><span class="attr">#[must_use]
+<a href=#242 id=242 data-nosnippet>242</a>    </span><span class="kw">pub fn </span>get_behavior_by_id(<span class="kw-2">&amp;</span><span class="self">self</span>, id: usize) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="kw">dyn </span>BlockBehaviour&gt; {
+<a href=#243 id=243 data-nosnippet>243</a>        <span class="self">self</span>.behaviors.get(id).map(AsRef::as_ref)
+<a href=#244 id=244 data-nosnippet>244</a>    }
+<a href=#245 id=245 data-nosnippet>245</a>
+<a href=#246 id=246 data-nosnippet>246</a>    <span class="doccomment">/// Gets the behavior for a block state.
+<a href=#247 id=247 data-nosnippet>247</a>    </span><span class="attr">#[must_use]
+<a href=#248 id=248 data-nosnippet>248</a>    </span><span class="kw">pub fn </span>get_behavior_for_state(<span class="kw-2">&amp;</span><span class="self">self</span>, state: BlockStateId) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="kw">dyn </span>BlockBehaviour&gt; {
+<a href=#249 id=249 data-nosnippet>249</a>        <span class="kw">let </span>block = REGISTRY.blocks.by_state_id(state)<span class="question-mark">?</span>;
+<a href=#250 id=250 data-nosnippet>250</a>        <span class="prelude-val">Some</span>(<span class="self">self</span>.get_behavior(block))
+<a href=#251 id=251 data-nosnippet>251</a>    }
+<a href=#252 id=252 data-nosnippet>252</a>}
+<a href=#253 id=253 data-nosnippet>253</a>
+<a href=#254 id=254 data-nosnippet>254</a><span class="kw">impl </span>Default <span class="kw">for </span>BlockBehaviorRegistry {
+<a href=#255 id=255 data-nosnippet>255</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href=#256 id=256 data-nosnippet>256</a>        <span class="self">Self</span>::new()
+<a href=#257 id=257 data-nosnippet>257</a>    }
+<a href=#258 id=258 data-nosnippet>258</a>}
 </code></pre></div></section></main></body></html>

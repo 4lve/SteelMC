@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["crafting_table_block","end_portal_frame_block","fence_block","rotated_pillar_block"],"struct":["CraftingTableBlock","EndPortalFrameBlock","FenceBlock","RotatedPillarBlock"]};
+window.SIDEBAR_ITEMS = {"mod":["crafting_table_block","crop_block","end_portal_frame_block","farmland_block","fence_block","rotated_pillar_block"],"struct":["CraftingTableBlock","CropBlock","EndPortalFrameBlock","FarmlandBlock","FenceBlock","RotatedPillarBlock"]};

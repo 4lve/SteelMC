@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ChunkBuilder","RegionHandle","RegionManager"]};
+window.SIDEBAR_ITEMS = {"struct":["ChunkBuilder","PreparedChunkSave","RegionHandle","RegionManager"]};

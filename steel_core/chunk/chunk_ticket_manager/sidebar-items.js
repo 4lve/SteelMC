@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["MAX_LEVEL","MAX_VIEW_DISTANCE","RADIUS_AROUND_FULL_CHUNK"],"fn":["generation_status","is_full"],"struct":["ChunkTicketManager","LevelChange"],"type":["TicketLevels"]};
+window.SIDEBAR_ITEMS = {"constant":["MAX_LEVEL","MAX_VIEW_DISTANCE","RADIUS_AROUND_FULL_CHUNK"],"fn":["generation_status","is_full","is_ticked"],"struct":["ChunkTicketManager","LevelChange"],"type":["TicketLevels"]};

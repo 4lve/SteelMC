@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `steel/src/network/mojang_authentication.rs`."><title>mojang_authentication.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="steel" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.0-nightly (f6a07efc8 2026-01-16)" data-channel="nightly" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">steel/network/</div>mojang_authentication.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>reqwest::StatusCode;
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `steel/src/network/mojang_authentication.rs`."><title>mojang_authentication.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="steel" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.0-nightly (fe98ddcfc 2026-01-17)" data-channel="nightly" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">steel/network/</div>mojang_authentication.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>reqwest::StatusCode;
 <a href=#2 id=2 data-nosnippet>2</a><span class="kw">use </span>steel_core::player::GameProfile;
 <a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span>thiserror::Error;
 <a href=#4 id=4 data-nosnippet>4</a>
@@ -52,69 +52,80 @@
 <a href=#52 id=52 data-nosnippet>52</a>    </span>JSONError(String),
 <a href=#53 id=53 data-nosnippet>53</a>}
 <a href=#54 id=54 data-nosnippet>54</a>
-<a href=#55 id=55 data-nosnippet>55</a><span class="doccomment">/// Authenticates a player with Mojang's servers.
-<a href=#56 id=56 data-nosnippet>56</a></span><span class="kw">pub async fn </span>mojang_authenticate(
-<a href=#57 id=57 data-nosnippet>57</a>    username: <span class="kw-2">&amp;</span>str,
-<a href=#58 id=58 data-nosnippet>58</a>    server_hash: <span class="kw-2">&amp;</span>str,
-<a href=#59 id=59 data-nosnippet>59</a>) -&gt; <span class="prelude-ty">Result</span>&lt;GameProfile, AuthError&gt; {
-<a href=#60 id=60 data-nosnippet>60</a>    <span class="kw">let </span>cap = MOJANG_AUTH_URL.len() + SERVER_ID_ARG.len() + username.len() + server_hash.len();
-<a href=#61 id=61 data-nosnippet>61</a>    <span class="kw">let </span><span class="kw-2">mut </span>auth_url = String::with_capacity(cap);
-<a href=#62 id=62 data-nosnippet>62</a>    auth_url += MOJANG_AUTH_URL;
-<a href=#63 id=63 data-nosnippet>63</a>    auth_url += username;
-<a href=#64 id=64 data-nosnippet>64</a>    auth_url += SERVER_ID_ARG;
-<a href=#65 id=65 data-nosnippet>65</a>    auth_url += server_hash;
-<a href=#66 id=66 data-nosnippet>66</a>
-<a href=#67 id=67 data-nosnippet>67</a>    <span class="kw">let </span>response = reqwest::get(auth_url)
-<a href=#68 id=68 data-nosnippet>68</a>        .<span class="kw">await
-<a href=#69 id=69 data-nosnippet>69</a>        </span>.map_err(|<span class="kw">_</span>| AuthError::FailedResponse)<span class="question-mark">?</span>;
+<a href=#55 id=55 data-nosnippet>55</a><span class="kw">const </span>MAX_RETRIES: u32 = <span class="number">3</span>;
+<a href=#56 id=56 data-nosnippet>56</a>
+<a href=#57 id=57 data-nosnippet>57</a><span class="doccomment">/// Authenticates a player with Mojang's servers.
+<a href=#58 id=58 data-nosnippet>58</a></span><span class="kw">pub async fn </span>mojang_authenticate(
+<a href=#59 id=59 data-nosnippet>59</a>    username: <span class="kw-2">&amp;</span>str,
+<a href=#60 id=60 data-nosnippet>60</a>    server_hash: <span class="kw-2">&amp;</span>str,
+<a href=#61 id=61 data-nosnippet>61</a>) -&gt; <span class="prelude-ty">Result</span>&lt;GameProfile, AuthError&gt; {
+<a href=#62 id=62 data-nosnippet>62</a>    <span class="kw">let </span>cap = MOJANG_AUTH_URL.len() + SERVER_ID_ARG.len() + username.len() + server_hash.len();
+<a href=#63 id=63 data-nosnippet>63</a>    <span class="kw">let </span><span class="kw-2">mut </span>auth_url = String::with_capacity(cap);
+<a href=#64 id=64 data-nosnippet>64</a>    auth_url += MOJANG_AUTH_URL;
+<a href=#65 id=65 data-nosnippet>65</a>    auth_url += username;
+<a href=#66 id=66 data-nosnippet>66</a>    auth_url += SERVER_ID_ARG;
+<a href=#67 id=67 data-nosnippet>67</a>    auth_url += server_hash;
+<a href=#68 id=68 data-nosnippet>68</a>
+<a href=#69 id=69 data-nosnippet>69</a>    <span class="kw">let </span><span class="kw-2">mut </span>last_error = AuthError::FailedResponse;
 <a href=#70 id=70 data-nosnippet>70</a>
-<a href=#71 id=71 data-nosnippet>71</a>    <span class="kw">match </span>response.status() {
-<a href=#72 id=72 data-nosnippet>72</a>        StatusCode::OK =&gt; {}
-<a href=#73 id=73 data-nosnippet>73</a>        StatusCode::NO_CONTENT =&gt; <span class="prelude-val">Err</span>(AuthError::UnverifiedUsername)<span class="question-mark">?</span>,
-<a href=#74 id=74 data-nosnippet>74</a>        other =&gt; <span class="prelude-val">Err</span>(AuthError::UnknownStatusCode(other))<span class="question-mark">?</span>,
-<a href=#75 id=75 data-nosnippet>75</a>    }
+<a href=#71 id=71 data-nosnippet>71</a>    <span class="kw">for _ in </span><span class="number">0</span>..MAX_RETRIES {
+<a href=#72 id=72 data-nosnippet>72</a>        <span class="kw">let </span><span class="prelude-val">Ok</span>(response) = reqwest::get(<span class="kw-2">&amp;</span>auth_url).<span class="kw">await else </span>{
+<a href=#73 id=73 data-nosnippet>73</a>            last_error = AuthError::FailedResponse;
+<a href=#74 id=74 data-nosnippet>74</a>            <span class="kw">continue</span>;
+<a href=#75 id=75 data-nosnippet>75</a>        };
 <a href=#76 id=76 data-nosnippet>76</a>
-<a href=#77 id=77 data-nosnippet>77</a>    response.json().<span class="kw">await</span>.map_err(|<span class="kw">_</span>| AuthError::FailedParse)
-<a href=#78 id=78 data-nosnippet>78</a>}
-<a href=#79 id=79 data-nosnippet>79</a>
-<a href=#80 id=80 data-nosnippet>80</a><span class="doccomment">/// Converts a signed bytes big endian to a hex string.
-<a href=#81 id=81 data-nosnippet>81</a></span><span class="attr">#[must_use]
-<a href=#82 id=82 data-nosnippet>82</a></span><span class="kw">pub fn </span>signed_bytes_be_to_hex(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; String {
-<a href=#83 id=83 data-nosnippet>83</a>    <span class="kw">if </span>bytes.is_empty() {
-<a href=#84 id=84 data-nosnippet>84</a>        <span class="kw">return </span><span class="string">"0"</span>.to_string();
-<a href=#85 id=85 data-nosnippet>85</a>    }
-<a href=#86 id=86 data-nosnippet>86</a>
-<a href=#87 id=87 data-nosnippet>87</a>    <span class="comment">// Find the first non-zero byte to handle cases like `[0x00, 0x1a]`
-<a href=#88 id=88 data-nosnippet>88</a>    </span><span class="kw">let </span>first_digit = bytes.iter().position(|<span class="kw-2">&amp;</span>b| <span class="macro">b !</span>= <span class="number">0</span>);
-<a href=#89 id=89 data-nosnippet>89</a>
-<a href=#90 id=90 data-nosnippet>90</a>    <span class="comment">// If all bytes are zero, the number is 0.
-<a href=#91 id=91 data-nosnippet>91</a>    </span><span class="kw">let </span><span class="prelude-val">Some</span>(start_index) = first_digit <span class="kw">else </span>{
-<a href=#92 id=92 data-nosnippet>92</a>        <span class="kw">return </span><span class="string">"0"</span>.to_string();
-<a href=#93 id=93 data-nosnippet>93</a>    };
-<a href=#94 id=94 data-nosnippet>94</a>
-<a href=#95 id=95 data-nosnippet>95</a>    <span class="kw">let </span>significant_bytes = <span class="kw-2">&amp;</span>bytes[start_index..];
-<a href=#96 id=96 data-nosnippet>96</a>    <span class="kw">let </span>is_negative = (significant_bytes[<span class="number">0</span>] &amp; <span class="number">0x80</span>) != <span class="number">0</span>;
+<a href=#77 id=77 data-nosnippet>77</a>        <span class="kw">match </span>response.status() {
+<a href=#78 id=78 data-nosnippet>78</a>            StatusCode::OK =&gt; {
+<a href=#79 id=79 data-nosnippet>79</a>                <span class="kw">return </span>response.json().<span class="kw">await</span>.map_err(|<span class="kw">_</span>| AuthError::FailedParse);
+<a href=#80 id=80 data-nosnippet>80</a>            }
+<a href=#81 id=81 data-nosnippet>81</a>            StatusCode::NO_CONTENT =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(AuthError::UnverifiedUsername),
+<a href=#82 id=82 data-nosnippet>82</a>            other =&gt; last_error = AuthError::UnknownStatusCode(other),
+<a href=#83 id=83 data-nosnippet>83</a>        }
+<a href=#84 id=84 data-nosnippet>84</a>    }
+<a href=#85 id=85 data-nosnippet>85</a>
+<a href=#86 id=86 data-nosnippet>86</a>    <span class="macro">log::warn!</span>(<span class="string">"Plauer {username} auth failed"</span>);
+<a href=#87 id=87 data-nosnippet>87</a>
+<a href=#88 id=88 data-nosnippet>88</a>    <span class="prelude-val">Err</span>(last_error)
+<a href=#89 id=89 data-nosnippet>89</a>}
+<a href=#90 id=90 data-nosnippet>90</a>
+<a href=#91 id=91 data-nosnippet>91</a><span class="doccomment">/// Converts a signed bytes big endian to a hex string.
+<a href=#92 id=92 data-nosnippet>92</a></span><span class="attr">#[must_use]
+<a href=#93 id=93 data-nosnippet>93</a></span><span class="kw">pub fn </span>signed_bytes_be_to_hex(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; String {
+<a href=#94 id=94 data-nosnippet>94</a>    <span class="kw">if </span>bytes.is_empty() {
+<a href=#95 id=95 data-nosnippet>95</a>        <span class="kw">return </span><span class="string">"0"</span>.to_string();
+<a href=#96 id=96 data-nosnippet>96</a>    }
 <a href=#97 id=97 data-nosnippet>97</a>
-<a href=#98 id=98 data-nosnippet>98</a>    <span class="kw">if </span>is_negative {
-<a href=#99 id=99 data-nosnippet>99</a>        <span class="comment">// Negative case: calculate two's complement of the original full byte array
-<a href=#100 id=100 data-nosnippet>100</a>        // to preserve the correct number of bits for the calculation.
-<a href=#101 id=101 data-nosnippet>101</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>inverted_bytes: Vec&lt;u8&gt; = bytes.iter().map(|b| !<span class="kw-2">*</span>b).collect();
-<a href=#102 id=102 data-nosnippet>102</a>        <span class="kw">for </span>byte <span class="kw">in </span>inverted_bytes.iter_mut().rev() {
-<a href=#103 id=103 data-nosnippet>103</a>            <span class="kw">let </span>(result, carry) = byte.overflowing_add(<span class="number">1</span>);
-<a href=#104 id=104 data-nosnippet>104</a>            <span class="kw-2">*</span>byte = result;
-<a href=#105 id=105 data-nosnippet>105</a>            <span class="kw">if </span>!carry {
-<a href=#106 id=106 data-nosnippet>106</a>                <span class="kw">break</span>;
-<a href=#107 id=107 data-nosnippet>107</a>            }
-<a href=#108 id=108 data-nosnippet>108</a>        }
-<a href=#109 id=109 data-nosnippet>109</a>
-<a href=#110 id=110 data-nosnippet>110</a>        <span class="comment">// Now, find the first significant digit of the *result*
-<a href=#111 id=111 data-nosnippet>111</a>        </span><span class="kw">let </span>mag_start_index = inverted_bytes.iter().position(|<span class="kw-2">&amp;</span>b| <span class="macro">b !</span>= <span class="number">0</span>).unwrap_or(<span class="number">0</span>);
-<a href=#112 id=112 data-nosnippet>112</a>
-<a href=#113 id=113 data-nosnippet>113</a>        <span class="comment">// Format the result with a leading '-'
-<a href=#114 id=114 data-nosnippet>114</a>        </span><span class="macro">format!</span>(<span class="string">"-{}"</span>, hex::encode(<span class="kw-2">&amp;</span>inverted_bytes[mag_start_index..]))
-<a href=#115 id=115 data-nosnippet>115</a>    } <span class="kw">else </span>{
-<a href=#116 id=116 data-nosnippet>116</a>        <span class="comment">// Positive case: just encode the significant bytes.
-<a href=#117 id=117 data-nosnippet>117</a>        </span>hex::encode(significant_bytes)
-<a href=#118 id=118 data-nosnippet>118</a>    }
-<a href=#119 id=119 data-nosnippet>119</a>}
+<a href=#98 id=98 data-nosnippet>98</a>    <span class="comment">// Find the first non-zero byte to handle cases like `[0x00, 0x1a]`
+<a href=#99 id=99 data-nosnippet>99</a>    </span><span class="kw">let </span>first_digit = bytes.iter().position(|<span class="kw-2">&amp;</span>b| <span class="macro">b !</span>= <span class="number">0</span>);
+<a href=#100 id=100 data-nosnippet>100</a>
+<a href=#101 id=101 data-nosnippet>101</a>    <span class="comment">// If all bytes are zero, the number is 0.
+<a href=#102 id=102 data-nosnippet>102</a>    </span><span class="kw">let </span><span class="prelude-val">Some</span>(start_index) = first_digit <span class="kw">else </span>{
+<a href=#103 id=103 data-nosnippet>103</a>        <span class="kw">return </span><span class="string">"0"</span>.to_string();
+<a href=#104 id=104 data-nosnippet>104</a>    };
+<a href=#105 id=105 data-nosnippet>105</a>
+<a href=#106 id=106 data-nosnippet>106</a>    <span class="kw">let </span>significant_bytes = <span class="kw-2">&amp;</span>bytes[start_index..];
+<a href=#107 id=107 data-nosnippet>107</a>    <span class="kw">let </span>is_negative = (significant_bytes[<span class="number">0</span>] &amp; <span class="number">0x80</span>) != <span class="number">0</span>;
+<a href=#108 id=108 data-nosnippet>108</a>
+<a href=#109 id=109 data-nosnippet>109</a>    <span class="kw">if </span>is_negative {
+<a href=#110 id=110 data-nosnippet>110</a>        <span class="comment">// Negative case: calculate two's complement of the original full byte array
+<a href=#111 id=111 data-nosnippet>111</a>        // to preserve the correct number of bits for the calculation.
+<a href=#112 id=112 data-nosnippet>112</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>inverted_bytes: Vec&lt;u8&gt; = bytes.iter().map(|b| !<span class="kw-2">*</span>b).collect();
+<a href=#113 id=113 data-nosnippet>113</a>        <span class="kw">for </span>byte <span class="kw">in </span>inverted_bytes.iter_mut().rev() {
+<a href=#114 id=114 data-nosnippet>114</a>            <span class="kw">let </span>(result, carry) = byte.overflowing_add(<span class="number">1</span>);
+<a href=#115 id=115 data-nosnippet>115</a>            <span class="kw-2">*</span>byte = result;
+<a href=#116 id=116 data-nosnippet>116</a>            <span class="kw">if </span>!carry {
+<a href=#117 id=117 data-nosnippet>117</a>                <span class="kw">break</span>;
+<a href=#118 id=118 data-nosnippet>118</a>            }
+<a href=#119 id=119 data-nosnippet>119</a>        }
+<a href=#120 id=120 data-nosnippet>120</a>
+<a href=#121 id=121 data-nosnippet>121</a>        <span class="comment">// Now, find the first significant digit of the *result*
+<a href=#122 id=122 data-nosnippet>122</a>        </span><span class="kw">let </span>mag_start_index = inverted_bytes.iter().position(|<span class="kw-2">&amp;</span>b| <span class="macro">b !</span>= <span class="number">0</span>).unwrap_or(<span class="number">0</span>);
+<a href=#123 id=123 data-nosnippet>123</a>
+<a href=#124 id=124 data-nosnippet>124</a>        <span class="comment">// Format the result with a leading '-'
+<a href=#125 id=125 data-nosnippet>125</a>        </span><span class="macro">format!</span>(<span class="string">"-{}"</span>, hex::encode(<span class="kw-2">&amp;</span>inverted_bytes[mag_start_index..]))
+<a href=#126 id=126 data-nosnippet>126</a>    } <span class="kw">else </span>{
+<a href=#127 id=127 data-nosnippet>127</a>        <span class="comment">// Positive case: just encode the significant bytes.
+<a href=#128 id=128 data-nosnippet>128</a>        </span>hex::encode(significant_bytes)
+<a href=#129 id=129 data-nosnippet>129</a>    }
+<a href=#130 id=130 data-nosnippet>130</a>}
 </code></pre></div></section></main></body></html>

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ChunkSection","Sections"]};
+window.SIDEBAR_ITEMS = {"struct":["ChunkSection","SectionHolder","Sections"]};
