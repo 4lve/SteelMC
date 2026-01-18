@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["register_dialog_tags"],"static":["PAUSE_SCREEN_ADDITIONS_TAG","QUICK_ACTIONS_TAG"]};

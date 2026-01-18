@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["bit_set","var_int","var_long","var_uint"]};
+window.SIDEBAR_ITEMS = {"mod":["bit_set","or","var_int","var_long","var_uint"]};

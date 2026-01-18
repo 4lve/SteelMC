@@ -1,9 +1,9 @@
 (function() {
-    var type_impls = Object.fromEntries([["steel_utils",[]]]);
+    var type_impls = Object.fromEntries([["steel_utils",[["<details class=\"toggle implementors-toggle\" open><summary><section id=\"impl-WriteTo-for-()\" class=\"impl\"><a class=\"src rightside\" href=\"src/steel_utils/codec/or.rs.html#59-63\">Source</a><a href=\"#impl-WriteTo-for-()\" class=\"anchor\">§</a><h3 class=\"code-header\">impl <a class=\"trait\" href=\"steel_utils/serial/trait.WriteTo.html\" title=\"trait steel_utils::serial::WriteTo\">WriteTo</a> for <a class=\"primitive\" href=\"https://doc.rust-lang.org/nightly/std/primitive.unit.html\">()</a></h3></section></summary><div class=\"impl-items\"><details class=\"toggle method-toggle\" open><summary><section id=\"method.write\" class=\"method trait-impl\"><a class=\"src rightside\" href=\"src/steel_utils/codec/or.rs.html#60-62\">Source</a><a href=\"#method.write\" class=\"anchor\">§</a><h4 class=\"code-header\">fn <a href=\"steel_utils/serial/trait.WriteTo.html#tymethod.write\" class=\"fn\">write</a>(&amp;self, _writer: &amp;mut impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a>) -&gt; <a class=\"enum\" href=\"https://doc.rust-lang.org/nightly/core/result/enum.Result.html\" title=\"enum core::result::Result\">Result</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/nightly/std/primitive.unit.html\">()</a>, <a class=\"struct\" href=\"https://doc.rust-lang.org/nightly/std/io/error/struct.Error.html\" title=\"struct std::io::error::Error\">Error</a>&gt;</h4></section></summary><div class='docblock'>Writes data to a writer.</div></details></div></details>","WriteTo","steel_utils::types::Todo"]]]]);
     if (window.register_type_impls) {
         window.register_type_impls(type_impls);
     } else {
         window.pending_type_impls = type_impls;
     }
 })()
-//{"start":55,"fragment_lengths":[18]}
+//{"start":55,"fragment_lengths":[1633]}
