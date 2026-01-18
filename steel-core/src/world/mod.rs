@@ -434,13 +434,17 @@ impl World {
     }
 
     /// Ticks the world.
-    pub fn tick_b(&self, tick_count: u64) {
-        // Get random tick speed from game rules
+    ///
+    /// * `tick_count` - The current tick number
+    /// * `runs_normally` - Whether game elements (random ticks, entities) should run.
+    ///   When false (frozen), only essential operations like chunk loading run.
+    pub fn tick_b(&self, tick_count: u64, runs_normally: bool) {
         let random_tick_speed = self.get_game_rule(RANDOM_TICK_SPEED).as_int().unwrap_or(3) as u32;
 
-        self.chunk_map.tick_b(tick_count, random_tick_speed);
+        self.chunk_map
+            .tick_b(tick_count, random_tick_speed, runs_normally);
 
-        // Tick players
+        // Tick players (always tick players - they can move when frozen)
         let start = Instant::now();
         self.players.iter_players(|_uuid, player| {
             player.tick();

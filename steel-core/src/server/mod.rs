@@ -13,7 +13,7 @@ use std::{
 };
 
 use steel_crypto::key_store::KeyStore;
-use steel_protocol::packets::game::{CLogin, CTabList, CommonPlayerSpawnInfo};
+use steel_protocol::packets::game::{CLogin, CSystemChat, CTabList, CommonPlayerSpawnInfo};
 use steel_registry::game_rules::GameRuleValue;
 use steel_registry::vanilla_dimension_types::OVERWORLD;
 use steel_registry::vanilla_game_rules::{IMMEDIATE_RESPAWN, LIMITED_CRAFTING, REDUCED_DEBUG_INFO};
@@ -21,7 +21,7 @@ use steel_registry::{REGISTRY, Registry};
 use steel_utils::locks::SyncRwLock;
 use steel_utils::text::{TextComponent, color::NamedColor};
 use steel_utils::types::GameType;
-use tick_rate_manager::TickRateManager;
+use tick_rate_manager::{SprintReport, TickRateManager};
 use tokio::{runtime::Runtime, task::spawn_blocking, time::sleep};
 use tokio_util::sync::CancellationToken;
 
@@ -172,21 +172,22 @@ impl Server {
                 break;
             }
 
-            let (nanoseconds_per_tick, is_sprinting, should_sprint_this_tick) = {
+            let (nanoseconds_per_tick, should_sprint_this_tick) = {
                 let mut tick_manager = self.tick_rate_manager.write();
                 let nanoseconds_per_tick = tick_manager.nanoseconds_per_tick;
 
-                // Handle sprinting
-                let is_sprinting = tick_manager.is_sprinting();
-                let should_sprint_this_tick = if is_sprinting {
-                    tick_manager.check_should_sprint_this_tick()
-                } else {
-                    false
-                };
-                (nanoseconds_per_tick, is_sprinting, should_sprint_this_tick)
+                // Handle sprinting - returns (should_sprint, Option<sprint_report>)
+                let (should_sprint, sprint_report) = tick_manager.check_should_sprint_this_tick();
+
+                // If sprint finished, broadcast the report to all players
+                if let Some(report) = sprint_report {
+                    self.broadcast_sprint_report(&report);
+                }
+
+                (nanoseconds_per_tick, should_sprint)
             };
 
-            if is_sprinting && should_sprint_this_tick {
+            if should_sprint_this_tick {
                 // If sprinting, we don't wait
                 next_tick_time = Instant::now();
             } else {
@@ -208,14 +209,19 @@ impl Server {
             // Record tick start time for MSPT tracking
             let tick_start = Instant::now();
 
-            let tick_count = {
+            let (tick_count, runs_normally) = {
                 let mut tick_manager = self.tick_rate_manager.write();
                 tick_manager.tick();
-                tick_manager.tick_count
+                let runs_normally = tick_manager.runs_normally();
+                if runs_normally {
+                    tick_manager.increment_tick_count();
+                }
+                (tick_manager.tick_count, runs_normally)
             };
 
-            // Tick worlds
-            self.tick_worlds(tick_count).await;
+            // Always tick worlds (for chunk loading/gen), but pass runs_normally
+            // so game elements like random ticks only run when not frozen
+            self.tick_worlds(tick_count, runs_normally).await;
 
             // Record tick duration for TPS/MSPT tracking
             let (tps, mspt) = {
@@ -230,18 +236,20 @@ impl Server {
                 self.broadcast_tab_list(tps, mspt);
             }
 
-            if is_sprinting && should_sprint_this_tick {
+            if should_sprint_this_tick {
                 let mut tick_manager = self.tick_rate_manager.write();
                 tick_manager.end_tick_work();
             }
         }
     }
 
-    async fn tick_worlds(&self, tick_count: u64) {
+    async fn tick_worlds(&self, tick_count: u64, runs_normally: bool) {
         let mut tasks = Vec::with_capacity(self.worlds.len());
         for world in &self.worlds {
             let world_clone = world.clone();
-            tasks.push(spawn_blocking(move || world_clone.tick_b(tick_count)));
+            tasks.push(spawn_blocking(move || {
+                world_clone.tick_b(tick_count, runs_normally)
+            }));
         }
         let start = Instant::now();
         for task in tasks {
@@ -303,6 +311,27 @@ impl Server {
         );
 
         // Broadcast to all players in all worlds
+        for world in &self.worlds {
+            world.players.iter_players(|_, player| {
+                player.connection.send_packet(packet.clone());
+                true
+            });
+        }
+    }
+
+    /// Broadcasts a sprint completion report to all players.
+    fn broadcast_sprint_report(&self, report: &SprintReport) {
+        use steel_utils::translations;
+
+        let message: TextComponent = translations::COMMANDS_TICK_SPRINT_REPORT
+            .message([
+                TextComponent::from(format!("{}", report.ticks_per_second)),
+                TextComponent::from(format!("{:.2}", report.ms_per_tick)),
+            ])
+            .into();
+
+        let packet = CSystemChat::new(message, false);
+
         for world in &self.worlds {
             world.players.iter_players(|_, player| {
                 player.connection.send_packet(packet.clone());
