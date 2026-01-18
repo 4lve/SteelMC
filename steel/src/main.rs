@@ -13,6 +13,14 @@ use tokio::{
 };
 use tokio_util::task::TaskTracker;
 
+#[cfg(feature = "dhat-heap")]
+#[global_allocator]
+static ALLOC: dhat::Alloc = dhat::Alloc;
+
+#[cfg(all(feature = "mimalloc", not(feature = "dhat-heap")))]
+#[global_allocator]
+static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 /// Main entry point for the Steel Minecraft server.
 ///
 ///
@@ -25,6 +33,9 @@ use tokio_util::task::TaskTracker;
 /// We have to create the runtimes at this level cause tokio panics if you drop a runtime in a context where blocking is not allowed.
 #[allow(clippy::unwrap_used)]
 fn main() {
+    #[cfg(feature = "dhat-heap")]
+    let _profiler = dhat::Profiler::new_heap();
+
     let chunk_runtime = Arc::new(Builder::new_multi_thread().enable_all().build().unwrap());
 
     let main_runtime = Builder::new_multi_thread().enable_all().build().unwrap();

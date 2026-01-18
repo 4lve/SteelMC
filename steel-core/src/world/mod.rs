@@ -20,6 +20,7 @@ use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::Direction;
 use steel_registry::game_rules::{GameRuleRef, GameRuleValue};
 use steel_registry::vanilla_blocks;
+use steel_registry::vanilla_game_rules::RANDOM_TICK_SPEED;
 use steel_registry::{REGISTRY, dimension_type::DimensionTypeRef};
 
 use steel_registry::blocks::shapes::{AABBd, VoxelShape};
@@ -30,7 +31,6 @@ use tokio::{runtime::Runtime, time::Instant};
 use crate::{
     ChunkMap,
     behavior::BLOCK_BEHAVIORS,
-    chunk::chunk_access::ChunkAccess,
     config::STEEL_CONFIG,
     level_data::LevelDataManager,
     player::{LastSeen, Player},
@@ -266,11 +266,10 @@ impl World {
             return REGISTRY.blocks.get_base_state_id(vanilla_blocks::AIR);
         }
 
-        let Some(chunk) = self.get_chunk_at(pos) else {
-            return REGISTRY.blocks.get_base_state_id(vanilla_blocks::AIR);
-        };
-
-        chunk.get_block_state(*pos)
+        let chunk_pos = Self::chunk_pos_for_block(pos);
+        self.chunk_map
+            .with_full_chunk(&chunk_pos, |chunk| chunk.get_block_state(*pos))
+            .unwrap_or_else(|| REGISTRY.blocks.get_base_state_id(vanilla_blocks::AIR))
     }
 
     /// Sets a block at the given position.
@@ -302,11 +301,14 @@ impl World {
             return false;
         }
 
-        let Some(chunk) = self.get_chunk_at(&pos) else {
-            return false;
-        };
-
-        let Some(old_state) = chunk.set_block_state(pos, block_state, flags) else {
+        let chunk_pos = Self::chunk_pos_for_block(&pos);
+        let Some(old_state) = self
+            .chunk_map
+            .with_full_chunk(&chunk_pos, |chunk| {
+                chunk.set_block_state(pos, block_state, flags)
+            })
+            .flatten()
+        else {
             return false;
         };
 
@@ -390,7 +392,7 @@ impl World {
         // if flags.contains(UpdateFlags::UPDATE_SKIP_SHAPE_UPDATE_ON_WIRE)
         //     && current_state.is_redstone_wire() { return; }
 
-        let block_behaviors = BLOCK_BEHAVIORS.get().expect("Behaviors not initialized");
+        let block_behaviors = &*BLOCK_BEHAVIORS;
         let behavior = block_behaviors.get_behavior(current_state.get_block());
         let new_state = behavior.update_shape(
             current_state,
@@ -419,22 +421,24 @@ impl World {
         }
 
         let state = self.get_block_state(&pos);
-        let block_behaviors = BLOCK_BEHAVIORS.get().expect("Behaviors not initialized");
+        let block_behaviors = &*BLOCK_BEHAVIORS;
         let behavior = block_behaviors.get_behavior(state.get_block());
         behavior.handle_neighbor_changed(state, self, pos, source_block, moved_by_piston);
     }
 
-    fn get_chunk_at(&self, pos: &BlockPos) -> Option<Arc<ChunkAccess>> {
-        let chunk_pos = ChunkPos::new(
+    fn chunk_pos_for_block(pos: &BlockPos) -> ChunkPos {
+        ChunkPos::new(
             SectionPos::block_to_section_coord(pos.0.x),
             SectionPos::block_to_section_coord(pos.0.z),
-        );
-        self.chunk_map.get_full_chunk(&chunk_pos)
+        )
     }
 
     /// Ticks the world.
     pub fn tick_b(&self, tick_count: u64) {
-        self.chunk_map.tick_b(tick_count);
+        // Get random tick speed from game rules
+        let random_tick_speed = self.get_game_rule(RANDOM_TICK_SPEED).as_int().unwrap_or(3) as u32;
+
+        self.chunk_map.tick_b(tick_count, random_tick_speed);
 
         // Tick players
         let start = Instant::now();
