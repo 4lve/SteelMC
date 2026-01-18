@@ -13,7 +13,9 @@ use std::{
 };
 
 use steel_crypto::key_store::KeyStore;
-use steel_protocol::packets::game::{CLogin, CSystemChat, CTabList, CommonPlayerSpawnInfo};
+use steel_protocol::packets::game::{
+    CLogin, CSystemChat, CTabList, CTickingState, CTickingStep, CommonPlayerSpawnInfo,
+};
 use steel_registry::game_rules::GameRuleValue;
 use steel_registry::vanilla_dimension_types::OVERWORLD;
 use steel_registry::vanilla_game_rules::{IMMEDIATE_RESPAWN, LIMITED_CRAFTING, REDUCED_DEBUG_INFO};
@@ -160,6 +162,9 @@ impl Server {
         let commands = self.command_dispatcher.read().get_commands();
         player.connection.send_packet(commands);
 
+        // Send current ticking state to the joining player
+        self.send_ticking_state_to_player(&player);
+
         world.add_player(player);
     }
 
@@ -178,10 +183,12 @@ impl Server {
 
                 // Handle sprinting - returns (should_sprint, Option<sprint_report>)
                 let (should_sprint, sprint_report) = tick_manager.check_should_sprint_this_tick();
+                drop(tick_manager);
 
-                // If sprint finished, broadcast the report to all players
+                // If sprint finished, broadcast the report and state change to all players
                 if let Some(report) = sprint_report {
                     self.broadcast_sprint_report(&report);
+                    self.broadcast_ticking_state();
                 }
 
                 (nanoseconds_per_tick, should_sprint)
@@ -338,5 +345,47 @@ impl Server {
                 true
             });
         }
+    }
+
+    /// Broadcasts the current tick rate and frozen state to all clients.
+    /// This should be called whenever the tick rate or frozen state changes.
+    pub fn broadcast_ticking_state(&self) {
+        let tick_manager = self.tick_rate_manager.read();
+        let packet = CTickingState::new(tick_manager.tick_rate(), tick_manager.is_frozen());
+        drop(tick_manager);
+
+        for world in &self.worlds {
+            world.players.iter_players(|_, player| {
+                player.connection.send_packet(packet.clone());
+                true
+            });
+        }
+    }
+
+    /// Broadcasts the current step tick count to all clients.
+    /// This should be called whenever the step tick count changes.
+    pub fn broadcast_ticking_step(&self) {
+        let tick_manager = self.tick_rate_manager.read();
+        let packet = CTickingStep::new(tick_manager.frozen_ticks_to_run());
+        drop(tick_manager);
+
+        for world in &self.worlds {
+            world.players.iter_players(|_, player| {
+                player.connection.send_packet(packet.clone());
+                true
+            });
+        }
+    }
+
+    /// Sends the current ticking state and step packets to a joining player.
+    /// This should be called when a player joins the server.
+    pub fn send_ticking_state_to_player(&self, player: &Player) {
+        let tick_manager = self.tick_rate_manager.read();
+        let state_packet = CTickingState::new(tick_manager.tick_rate(), tick_manager.is_frozen());
+        let step_packet = CTickingStep::new(tick_manager.frozen_ticks_to_run());
+        drop(tick_manager);
+
+        player.connection.send_packet(state_packet);
+        player.connection.send_packet(step_packet);
     }
 }

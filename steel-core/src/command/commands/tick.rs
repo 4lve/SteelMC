@@ -161,6 +161,7 @@ impl CommandExecutor<((), f32)> for TickRateExecutor {
         let ((), rate) = args;
 
         server.tick_rate_manager.write().set_tick_rate(rate);
+        server.broadcast_ticking_state();
 
         let rate_string = format!("{rate:.1}");
         context.sender.send_message(
@@ -197,6 +198,8 @@ impl CommandExecutor<()> for TickFreezeExecutor {
         tick_manager.set_frozen(true);
         drop(tick_manager);
 
+        server.broadcast_ticking_state();
+
         context
             .sender
             .send_message(translations::COMMANDS_TICK_STATUS_FROZEN.msg().into());
@@ -215,6 +218,7 @@ impl CommandExecutor<()> for TickUnfreezeExecutor {
         server: &Arc<Server>,
     ) -> Result<(), CommandError> {
         server.tick_rate_manager.write().set_frozen(false);
+        server.broadcast_ticking_state();
 
         context
             .sender
@@ -259,6 +263,7 @@ fn step_impl(
     let success = server.tick_rate_manager.write().step_game_if_paused(ticks);
 
     if success {
+        server.broadcast_ticking_step();
         context.sender.send_message(
             translations::COMMANDS_TICK_STEP_SUCCESS
                 .message([TextComponent::from(format!("{ticks}"))])
@@ -284,6 +289,7 @@ impl CommandExecutor<()> for TickStepStopExecutor {
         let stopped = server.tick_rate_manager.write().stop_stepping();
 
         if stopped {
+            server.broadcast_ticking_step();
             context
                 .sender
                 .send_message(translations::COMMANDS_TICK_STEP_STOP_SUCCESS.msg().into());
@@ -312,6 +318,9 @@ impl CommandExecutor<((), i32)> for TickSprintExecutor {
             .write()
             .request_game_to_sprint(ticks);
 
+        // Broadcast state change (unfrozen during sprint)
+        server.broadcast_ticking_state();
+
         if interrupted {
             context
                 .sender
@@ -338,6 +347,9 @@ impl CommandExecutor<()> for TickSprintStopExecutor {
         let report = server.tick_rate_manager.write().stop_sprinting();
 
         if let Some(report) = report {
+            // Broadcast state change (restored previous frozen state)
+            server.broadcast_ticking_state();
+
             // Send sprint report
             context.sender.send_message(
                 translations::COMMANDS_TICK_SPRINT_REPORT
