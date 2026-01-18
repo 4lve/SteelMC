@@ -248,7 +248,7 @@ impl Server {
         for world in &self.worlds {
             let world_clone = world.clone();
             tasks.push(spawn_blocking(move || {
-                world_clone.tick_b(tick_count, runs_normally)
+                world_clone.tick_b(tick_count, runs_normally);
             }));
         }
         let start = Instant::now();
