@@ -1,8 +1,8 @@
 use std::sync::Arc;
-
+use steel_core::config::ServerLinks;
 use steel_protocol::packets::common::CCustomPayload;
 use steel_protocol::packets::common::{SClientInformation, SCustomPayload};
-use steel_protocol::packets::config::{CFinishConfiguration, CServerLinks};
+use steel_protocol::packets::config::CFinishConfiguration;
 
 use steel_protocol::packets::config::CSelectKnownPacks;
 use steel_protocol::packets::config::SSelectKnownPacks;
@@ -53,7 +53,10 @@ impl JavaTcpClient {
         ))
         .await;
 
-        self.send_bare_packet_now(CServerLinks::load()).await;
+        // Send server links if enabled and configured
+        if let Some(server_links) = ServerLinks::from_config() {
+            self.send_bare_packet_now(server_links).await;
+        }
 
         self.send_bare_packet_now(CSelectKnownPacks::new(vec![KnownPack::new(
             "minecraft".to_string(),

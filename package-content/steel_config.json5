@@ -36,4 +36,31 @@
         // Enable movement error checking
         movement_error: true,
     },
+    // Server links configuration
+    server_links: {
+        // Enable server links feature
+        enable: false,
+        // List of links to display in the server menu
+        links: [
+            // Built-in link type (simple string label)
+            {
+                label: "bug_report",
+                url: "https://bugs.example.com"
+            },
+            // Another built-in type
+            {
+                label: "website",
+                url: "https://example.com"
+            },
+            // Custom TextComponent (object label with formatting)
+            {
+                label: {
+                    text: "Visit our Discord",
+                    color: "blue",
+                    bold: true
+                },
+                url: "https://discord.gg/example"
+            }
+        ]
+    },
 }

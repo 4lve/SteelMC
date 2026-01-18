@@ -10,5 +10,7 @@ pub use c_registry_data::CRegistryData;
 pub use c_registry_data::RegistryEntry;
 pub use c_select_known::CSelectKnownPacks;
 pub use c_server_links::CServerLinks;
+pub use c_server_links::Link;
+pub use c_server_links::ServerLinksType;
 pub use s_finish_configuration::SFinishConfiguration;
 pub use s_select_known::SSelectKnownPacks;

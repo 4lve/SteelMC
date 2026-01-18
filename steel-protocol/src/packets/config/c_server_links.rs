@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use steel_macros::{ClientPacket, WriteTo};
 use steel_registry::packets::config::C_SERVER_LINKS;
 use steel_utils::codec::Or;
@@ -9,21 +10,9 @@ pub struct CServerLinks {
     pub links: Vec<Link>,
 }
 
-impl CServerLinks {
-    // Generates the data structure from the config file
-    pub fn load() -> CServerLinks {
-        Self {
-            links: vec![
-                Link::new(Or::Left(ServerLinksType::BugReport), "https://test.de".into()),
-                Link::new(Or::Left(ServerLinksType::Website), "https://example.de".into()),
-                Link::new(Or::Left(ServerLinksType::News), "https://testssss.de".into()),
-            ],
-        }
-    }
-}
-
-#[derive(WriteTo, Clone, Copy, Debug)]
+#[derive(WriteTo, Clone, Copy, Debug, Serialize, Deserialize)]
 #[write(as = VarInt)]
+#[serde(rename_all = "snake_case")]
 pub enum ServerLinksType {
     BugReport = 0,
     CommunityGuidelines = 1,

@@ -159,10 +159,7 @@ impl RegistryCache {
             Identifier::vanilla_static("pause_screen_additions"),
             Vec::new(),
         ));
-        dialog_tags.push((
-            Identifier::vanilla_static("quick_actions"),
-            Vec::new(),
-        ));
+        dialog_tags.push((Identifier::vanilla_static("quick_actions"), Vec::new()));
         tags_by_registry.push((DIALOG_REGISTRY, dialog_tags));
         // Build and return a CUpdateTagsPacket based on the registry data
         CUpdateTags::new(tags_by_registry)
