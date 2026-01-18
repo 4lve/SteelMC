@@ -105,6 +105,9 @@ impl Server {
     }
 
     /// Adds a player to the server.
+    ///
+    /// # Panics
+    /// Panics if the registry is not initialized.
     pub fn add_player(&self, player: Arc<Player>) {
         let world = &self.worlds[0];
 
@@ -130,7 +133,12 @@ impl Server {
             show_death_screen: !immediate_respawn,
             do_limited_crafting,
             common_player_spawn_info: CommonPlayerSpawnInfo {
-                dimension_type: 0,
+                dimension_type: *(REGISTRY.dimension_types.get_id(
+                    REGISTRY
+                        .dimension_types
+                        .by_key(&dimension_key)
+                        .expect("Should be registered"),
+                )) as i32,
                 dimension: dimension_key,
                 seed: hashed_seed,
                 game_type: GameType::Survival,
