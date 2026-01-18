@@ -1,6 +1,7 @@
 use steel_macros::{ClientPacket, WriteTo};
 use steel_registry::packets::config::C_SERVER_LINKS;
-// use steel_utils::text::TextComponent;
+use steel_utils::codec::Or;
+use steel_utils::text::TextComponent;
 
 #[derive(ClientPacket, WriteTo, Clone, Debug)]
 #[packet_id(Config = C_SERVER_LINKS)]
@@ -9,14 +10,21 @@ pub struct CServerLinks {
 }
 
 impl CServerLinks {
-    pub fn new() -> CServerLinks {
-        Self { links: vec![Link::new(ServerLinksType::BugReport, "test".into()), Link::new(ServerLinksType::Website, "huhu".into())] }
+    // Generates the data structure from the config file
+    pub fn load() -> CServerLinks {
+        Self {
+            links: vec![
+                Link::new(Or::Left(ServerLinksType::BugReport), "https://test.de".into()),
+                Link::new(Or::Left(ServerLinksType::Website), "https://example.de".into()),
+                Link::new(Or::Left(ServerLinksType::News), "https://testssss.de".into()),
+            ],
+        }
     }
 }
 
 #[derive(WriteTo, Clone, Copy, Debug)]
 #[write(as = VarInt)]
-pub enum ServerLinksType{
+pub enum ServerLinksType {
     BugReport = 0,
     CommunityGuidelines = 1,
     Support = 2,
@@ -26,39 +34,27 @@ pub enum ServerLinksType{
     Website = 6,
     Forums = 7,
     News = 8,
-    Announcements = 9
+    Announcements = 9,
 }
 
 #[derive(WriteTo, Clone, Debug)]
 pub struct Link {
     pub is_built_in: bool,
-    pub label: ServerLinksType,
-    #[write(as = Prefixed(VarInt), bound = 40)]
+    pub label: Label,
+    #[write(as = Prefixed(VarInt))]
     pub url: String,
 }
 
 impl Link {
-    pub fn new(label: ServerLinksType, url: String) -> Self {
+    pub fn new(label: Label, url: String) -> Self {
         Self {
-            is_built_in: true,
+            is_built_in: label.is_left(),
             label,
             url,
         }
     }
 }
-//
-// #[derive(WriteTo, Clone, Debug)]
-// #[write(as = VarInt)]
-// pub enum Label {
-//     BuiltIn(),
-//     TextComponent(Box<TextComponent>),
-// }
 
-// impl Serialize for Label {
-//     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-//         match self {
-//             Label::BuiltIn(link_type) => link_type.serialize(serializer),
-//             Label::TextComponent(component) => component.serialize(serializer),
-//         }
-//     }
-// }
+/// Label can be either a built-in ServerLinksType (Left) or a custom TextComponent (Right).
+/// The discriminant is stored separately in the `is_built_in` field of the Link struct.
+pub type Label = Or<ServerLinksType, TextComponent>; // TextComponent goes here when uncommented

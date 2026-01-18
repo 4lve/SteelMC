@@ -7,8 +7,11 @@ pub mod var_int;
 pub mod var_long;
 /// A module for a variable-length unsigned integer.
 pub mod var_uint;
+/// A module for an Or type that can be one of two types.
+pub mod or;
 
 pub use bit_set::BitSet;
+pub use or::Or;
 pub use var_int::VarInt;
 pub use var_long::VarLong;
 pub use var_uint::VarUint;

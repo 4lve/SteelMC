@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use steel_protocol::packets::common::CCustomPayload;
 use steel_protocol::packets::common::{SClientInformation, SCustomPayload};
-use steel_protocol::packets::config::CFinishConfiguration;
+use steel_protocol::packets::config::{CFinishConfiguration, CServerLinks};
 
 use steel_protocol::packets::config::CSelectKnownPacks;
 use steel_protocol::packets::config::SSelectKnownPacks;
@@ -52,6 +52,8 @@ impl JavaTcpClient {
             Box::new(BRAND_PAYLOAD),
         ))
         .await;
+
+        self.send_bare_packet_now(CServerLinks::load()).await;
 
         self.send_bare_packet_now(CSelectKnownPacks::new(vec![KnownPack::new(
             "minecraft".to_string(),

@@ -9,13 +9,14 @@ use steel_protocol::{
     },
     utils::ConnectionProtocol,
 };
+use steel_registry::dialog::Dialog;
 use steel_registry::{
     BANNER_PATTERN_REGISTRY, BIOMES_REGISTRY, BLOCKS_REGISTRY, CAT_VARIANT_REGISTRY,
     CHAT_TYPE_REGISTRY, CHICKEN_VARIANT_REGISTRY, COW_VARIANT_REGISTRY, DAMAGE_TYPE_REGISTRY,
-    DIMENSION_TYPE_REGISTRY, FROG_VARIANT_REGISTRY, INSTRUMENT_REGISTRY, ITEMS_REGISTRY,
-    JUKEBOX_SONG_REGISTRY, PAINTING_VARIANT_REGISTRY, PIG_VARIANT_REGISTRY, REGISTRY, Registry,
-    TIMELINE_REGISTRY, TRIM_MATERIAL_REGISTRY, TRIM_PATTERN_REGISTRY, WOLF_SOUND_VARIANT_REGISTRY,
-    WOLF_VARIANT_REGISTRY, ZOMBIE_NAUTILUS_VARIANT_REGISTRY,
+    DIALOG_REGISTRY, DIMENSION_TYPE_REGISTRY, FROG_VARIANT_REGISTRY, INSTRUMENT_REGISTRY,
+    ITEMS_REGISTRY, JUKEBOX_SONG_REGISTRY, PAINTING_VARIANT_REGISTRY, PIG_VARIANT_REGISTRY,
+    REGISTRY, Registry, TIMELINE_REGISTRY, TRIM_MATERIAL_REGISTRY, TRIM_PATTERN_REGISTRY,
+    WOLF_SOUND_VARIANT_REGISTRY, WOLF_VARIANT_REGISTRY, ZOMBIE_NAUTILUS_VARIANT_REGISTRY,
 };
 use steel_utils::Identifier;
 use steel_utils::codec::VarInt;
@@ -86,7 +87,18 @@ impl RegistryCache {
         add_registry!(JUKEBOX_SONG_REGISTRY, jukebox_songs);
         add_registry!(INSTRUMENT_REGISTRY, instruments);
         add_registry!(TIMELINE_REGISTRY, timelines);
-
+        // Dialog is always stupid...
+        packets.push(CRegistryData::new(
+            DIALOG_REGISTRY,
+            registry
+                .dialogs
+                .iter()
+                .map(|(_, entry)| match entry {
+                    Dialog::DialogList(key) => RegistryEntry::new(key.key.clone(), None),
+                    Dialog::ServerLinks(key) => RegistryEntry::new(key.key.clone(), None),
+                })
+                .collect(),
+        ));
         packets
     }
 
@@ -141,6 +153,17 @@ impl RegistryCache {
 
         tags_by_registry.push((TIMELINE_REGISTRY, timeline_tags));
 
+        // TODO Dialogs have no tags so need to hardcode here, maybe someone with more experience or I will come back later, to make it better!
+        let mut dialog_tags: Vec<(Identifier, Vec<VarInt>)> = Vec::with_capacity(2);
+        dialog_tags.push((
+            Identifier::vanilla_static("pause_screen_additions"),
+            Vec::new(),
+        ));
+        dialog_tags.push((
+            Identifier::vanilla_static("quick_actions"),
+            Vec::new(),
+        ));
+        tags_by_registry.push((DIALOG_REGISTRY, dialog_tags));
         // Build and return a CUpdateTagsPacket based on the registry data
         CUpdateTags::new(tags_by_registry)
     }
