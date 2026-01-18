@@ -39,27 +39,32 @@
     // Server links configuration
     server_links: {
         // Enable server links feature
-        enable: false,
+        enable: true,
         // List of links to display in the server menu
         links: [
             // Built-in link type (simple string label)
             {
                 label: "bug_report",
-                url: "https://bugs.example.com"
+                url: "https://github.com/4lve/SteelMC/issues"
             },
             // Another built-in type
             {
                 label: "website",
-                url: "https://example.com"
+                url: "https://github.com/4lve/SteelMC"
+            },
+            // The news channel on discord
+            {
+                label: "announcements",
+                url: "https://discord.com/channels/1428487339759370322/1428487584966774795"
             },
             // Custom TextComponent (object label with formatting)
             {
                 label: {
-                    text: "Visit our Discord",
+                    text: "Visit the SteelMC Discord",
                     color: "blue",
                     bold: true
                 },
-                url: "https://discord.gg/example"
+                url: "https://discord.gg/y5N4MUPuTz"
             }
         ]
     },
