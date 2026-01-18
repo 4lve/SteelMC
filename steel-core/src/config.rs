@@ -19,11 +19,12 @@ const DEFAULT_CONFIG: &str = include_str!("../../package-content/steel_config.js
 pub static STEEL_CONFIG: LazyLock<ServerConfig> =
     LazyLock::new(|| ServerConfig::load_or_create(Path::new("config/steel_config.json5")));
 
-/// Label type for server links - either built-in string or custom TextComponent
+/// Label type for server links - either built-in string or custom `TextComponent`
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
 pub enum ConfigLabel {
-    /// Built-in server link type (e.g., "bug_report", "website")
+    /// Built-in server link type (e.g., "`bug_report`", "website")
     BuiltIn(ServerLinksType),
     /// Custom text component with formatting
     Custom(TextComponent),
@@ -32,14 +33,14 @@ pub enum ConfigLabel {
 /// A single server link configuration entry
 #[derive(Debug, Clone, Deserialize)]
 pub struct ConfigLink {
-    /// The label for this link (built-in type or custom TextComponent)
+    /// The label for this link (built-in type or custom `TextComponent`)
     pub label: ConfigLabel,
     /// The URL for this link
     pub url: String,
 }
 
 /// Server links configuration
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 #[serde(default)]
 pub struct ServerLinks {
     /// Enable the server links feature
@@ -51,6 +52,7 @@ pub struct ServerLinks {
 
 impl ServerLinks {
     /// Creates the server link package from the server config
+    #[must_use]
     pub fn from_config() -> Option<CServerLinks> {
         let server_links = STEEL_CONFIG.server_links.as_ref()?;
 
@@ -71,15 +73,6 @@ impl ServerLinks {
             .collect();
 
         Some(CServerLinks { links })
-    }
-}
-
-impl Default for ServerLinks {
-    fn default() -> Self {
-        Self {
-            enable: false,
-            links: Vec::new(),
-        }
     }
 }
 

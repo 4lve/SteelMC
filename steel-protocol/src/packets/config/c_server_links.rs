@@ -44,6 +44,6 @@ impl Link {
     }
 }
 
-/// Label can be either a built-in ServerLinksType (Left) or a custom TextComponent (Right).
+/// Label can be either a built-in ServerLinksType (Left) or a custom `TextComponent` (Right).
 /// The discriminant is stored separately in the `is_built_in` field of the Link struct.
 pub type Label = Or<ServerLinksType, TextComponent>; // TextComponent goes here when uncommented

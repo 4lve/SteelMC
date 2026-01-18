@@ -161,13 +161,13 @@ impl RegistryCache {
         tags_by_registry.push((TIMELINE_REGISTRY, timeline_tags));
 
         // TODO Dialogs have no tags so need to hardcode here, maybe someone with more experience or I will come back later, to make it better!
-        let mut dialog_tags: Vec<(Identifier, Vec<VarInt>)> = Vec::with_capacity(2);
-        dialog_tags.push((
-            Identifier::vanilla_static("pause_screen_additions"),
-            Vec::new(),
+        tags_by_registry.push((
+            DIALOG_REGISTRY,
+            vec![
+                (Identifier::vanilla_static("pause_screen_additions"), vec![]),
+                (Identifier::vanilla_static("quick_actions"), vec![]),
+            ],
         ));
-        dialog_tags.push((Identifier::vanilla_static("quick_actions"), Vec::new()));
-        tags_by_registry.push((DIALOG_REGISTRY, dialog_tags));
         // Build and return a CUpdateTagsPacket based on the registry data
         CUpdateTags::new(tags_by_registry)
     }
