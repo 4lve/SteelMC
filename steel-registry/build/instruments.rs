@@ -79,7 +79,7 @@ pub(crate) fn build() -> TokenStream {
         let description = generate_text_component(&instrument.description);
 
         stream.extend(quote! {
-            pub const #instrument_ident: &Instrument = &Instrument {
+            pub static #instrument_ident: &Instrument = &Instrument {
                 key: #key,
                 sound_event: #sound_event,
                 use_duration: #use_duration,

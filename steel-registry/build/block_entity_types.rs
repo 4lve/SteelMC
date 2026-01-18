@@ -38,7 +38,7 @@ pub(crate) fn build() -> TokenStream {
         let key = quote! { Identifier::vanilla_static(#block_entity_type_name_str) };
 
         stream.extend(quote! {
-            pub const #block_entity_type_ident: &BlockEntityType = &BlockEntityType {
+            pub static #block_entity_type_ident: &BlockEntityType = &BlockEntityType {
                 key: #key,
             };
         });

@@ -12,6 +12,7 @@ pub mod config;
 pub mod entity;
 pub mod inventory;
 pub mod level_data;
+pub mod physics;
 pub mod player;
 pub mod server;
 pub mod world;

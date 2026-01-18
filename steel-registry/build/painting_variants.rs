@@ -134,7 +134,7 @@ pub(crate) fn build() -> TokenStream {
         let author = generate_option(&painting_variant.author, generate_text_component);
 
         stream.extend(quote! {
-            pub const #painting_variant_ident: &PaintingVariant = &PaintingVariant {
+            pub static #painting_variant_ident: &PaintingVariant = &PaintingVariant {
                 key: #key,
                 width: #width,
                 height: #height,

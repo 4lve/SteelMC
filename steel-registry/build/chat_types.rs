@@ -132,7 +132,7 @@ pub(crate) fn build() -> TokenStream {
         let narration = generate_chat_type_decoration(&chat_type.narration);
 
         stream.extend(quote! {
-            pub const #chat_type_ident: &ChatType = &ChatType {
+            pub static #chat_type_ident: &ChatType = &ChatType {
                 key: #key,
                 chat: #chat,
                 narration: #narration,

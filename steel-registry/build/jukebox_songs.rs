@@ -86,7 +86,7 @@ pub(crate) fn build() -> TokenStream {
         let comparator_output = jukebox_song.comparator_output;
 
         stream.extend(quote! {
-            pub const #jukebox_song_ident: &JukeboxSong = &JukeboxSong {
+            pub static #jukebox_song_ident: &JukeboxSong = &JukeboxSong {
                 key: #key,
                 sound_event: #sound_event,
                 description: #description,

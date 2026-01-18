@@ -66,7 +66,7 @@ pub fn build() -> TokenStream {
         };
 
         constants.extend(quote! {
-            pub const #const_name: &GameRule = &GameRule {
+            pub static #const_name: &GameRule = &GameRule {
                 key: Identifier::vanilla_static(#rule_name),
                 category: GameRuleCategory::#category,
                 value_type: #value_type,

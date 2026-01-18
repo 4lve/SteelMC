@@ -53,7 +53,7 @@ pub(crate) fn build() -> TokenStream {
         let key = quote! { Identifier::vanilla_static(#timeline_name_str) };
 
         stream.extend(quote! {
-            pub const #timeline_ident: &Timeline = &Timeline {
+            pub static #timeline_ident: &Timeline = &Timeline {
                 key: #key,
             };
         });

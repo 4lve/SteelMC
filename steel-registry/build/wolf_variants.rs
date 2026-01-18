@@ -127,7 +127,7 @@ pub(crate) fn build() -> TokenStream {
             .collect();
 
         stream.extend(quote! {
-            pub const #wolf_variant_ident: &WolfVariant = &WolfVariant {
+            pub static #wolf_variant_ident: &WolfVariant = &WolfVariant {
                 key: #key,
                 assets: WolfAssetInfo {
                     wild: #wild,

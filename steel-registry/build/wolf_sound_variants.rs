@@ -73,7 +73,7 @@ pub(crate) fn build() -> TokenStream {
         let whine_sound = generate_identifier(&wolf_sound_variant.whine_sound);
 
         stream.extend(quote! {
-            pub const #wolf_sound_variant_ident: &WolfSoundVariant = &WolfSoundVariant {
+            pub static #wolf_sound_variant_ident: &WolfSoundVariant = &WolfSoundVariant {
                 key: #key,
                 ambient_sound: #ambient_sound,
                 death_sound: #death_sound,

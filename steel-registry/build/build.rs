@@ -73,6 +73,9 @@ const BLOCK_ENTITY_TYPES: &str = "block_entity_types";
 const GAME_RULES: &str = "game_rules";
 
 pub fn main() {
+    // Rerun build script when any file in the build/ directory changes
+    println!("cargo:rerun-if-changed=build/");
+
     if !Path::new(OUT_DIR).exists() {
         fs::create_dir(OUT_DIR).unwrap();
     }

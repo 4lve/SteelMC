@@ -63,7 +63,7 @@ pub(crate) fn build() -> TokenStream {
         let translation_key = banner_pattern.translation_key.as_str();
 
         stream.extend(quote! {
-            pub const #banner_pattern_ident: &BannerPattern = &BannerPattern {
+            pub static #banner_pattern_ident: &BannerPattern = &BannerPattern {
                 key: #key,
                 asset_id: #asset_id,
                 translation_key: #translation_key,

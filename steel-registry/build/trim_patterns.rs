@@ -71,7 +71,7 @@ pub(crate) fn build() -> TokenStream {
         let decal = trim_pattern.decal;
 
         stream.extend(quote! {
-            pub const #trim_pattern_ident: &TrimPattern = &TrimPattern {
+            pub static #trim_pattern_ident: &TrimPattern = &TrimPattern {
                 key: #key,
                 asset_id: #asset_id,
                 description: TextComponent::const_translate(#translate),

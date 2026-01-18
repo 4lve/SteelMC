@@ -122,7 +122,7 @@ pub(crate) fn build() -> TokenStream {
         let death_message_type = generate_death_message_type(damage_type.death_message_type);
 
         stream.extend(quote! {
-            pub const #damage_type_ident: &DamageType = &DamageType {
+            pub static #damage_type_ident: &DamageType = &DamageType {
                 key: #key,
                 message_id: #message_id,
                 scaling: #scaling,

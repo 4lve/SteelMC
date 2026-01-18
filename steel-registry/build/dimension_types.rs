@@ -174,7 +174,7 @@ pub(crate) fn build() -> TokenStream {
         let monster_spawn_block_light_limit = dimension_type.monster_spawn_block_light_limit;
 
         stream.extend(quote! {
-            pub const #dimension_type_ident: &DimensionType = &DimensionType {
+            pub static #dimension_type_ident: &DimensionType = &DimensionType {
                 key: #key,
                 fixed_time: #fixed_time,
                 has_skylight: #has_skylight,

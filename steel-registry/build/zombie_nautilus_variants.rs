@@ -130,7 +130,7 @@ pub(crate) fn build() -> TokenStream {
             .collect();
 
         stream.extend(quote! {
-            pub const #zombie_nautilus_variant_ident: &ZombieNautilusVariant = &ZombieNautilusVariant {
+            pub static #zombie_nautilus_variant_ident: &ZombieNautilusVariant = &ZombieNautilusVariant {
                 key: #key,
                 asset_id: #asset_id,
                 model: #model,

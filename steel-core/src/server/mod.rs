@@ -69,7 +69,7 @@ impl Server {
         init_behaviors();
         log::info!("Behavior registries initialized");
 
-        let registry_cache = RegistryCache::new().await;
+        let registry_cache = RegistryCache::new();
 
         let seed: i64 = if STEEL_CONFIG.seed.is_empty() {
             rand::random()

@@ -5,6 +5,8 @@
 
 mod block_item;
 mod default;
+mod ender_eye;
 
 pub use block_item::BlockItemBehavior;
 pub use default::DefaultItemBehavior;
+pub use ender_eye::EnderEyeBehavior;

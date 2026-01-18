@@ -9,8 +9,9 @@ use std::{
 };
 
 use sha2::{Digest, Sha256};
-use steel_protocol::packet_traits::ClientPacket;
+use steel_protocol::packet_traits::EncodedPacket;
 use steel_protocol::packets::game::{CBlockDestruction, CPlayerChat, CSystemChat};
+use steel_protocol::utils::ConnectionProtocol;
 use steel_registry::blocks::BlockRef;
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::Direction;
@@ -18,6 +19,7 @@ use steel_registry::game_rules::{GameRuleRef, GameRuleValue};
 use steel_registry::vanilla_blocks;
 use steel_registry::{REGISTRY, dimension_type::DimensionTypeRef};
 
+use steel_registry::blocks::shapes::{AABBd, VoxelShape};
 use steel_utils::locks::SyncRwLock;
 use steel_utils::{BlockPos, BlockStateId, ChunkPos, SectionPos, types::UpdateFlags};
 use tokio::{runtime::Runtime, time::Instant};
@@ -26,6 +28,7 @@ use crate::{
     ChunkMap,
     behavior::BLOCK_BEHAVIORS,
     chunk::chunk_access::ChunkAccess,
+    config::STEEL_CONFIG,
     level_data::LevelDataManager,
     player::{LastSeen, Player},
 };
@@ -141,6 +144,52 @@ impl World {
     #[must_use]
     pub fn may_interact(&self, _player: &Player, pos: &BlockPos) -> bool {
         self.is_in_valid_bounds(pos)
+    }
+
+    /// Player dimensions matching vanilla Minecraft.
+    const PLAYER_WIDTH: f64 = 0.6;
+    const PLAYER_HEIGHT: f64 = 1.8;
+
+    /// Checks if a block's collision shape at the given position is unobstructed by entities.
+    ///
+    /// This is the Rust equivalent of vanilla's `Level.isUnobstructed(BlockState, BlockPos, CollisionContext)`.
+    /// In vanilla, this checks all entities with `blocksBuilding=true` (players, mobs, boats, etc.).
+    /// Currently only checks players since other entities aren't fully implemented.
+    ///
+    /// Returns `true` if the position is clear, `false` if an entity would obstruct placement.
+    #[must_use]
+    pub fn is_unobstructed(&self, collision_shape: VoxelShape, pos: &BlockPos) -> bool {
+        if collision_shape.is_empty() {
+            return true;
+        }
+
+        // TODO: Check other entities with blocksBuilding=true (mobs, boats, minecarts, etc.)
+        let mut obstructed = false;
+        self.players.iter_players(|_uuid, player| {
+            let player_pos = player.position.lock();
+            let half_width = Self::PLAYER_WIDTH / 2.0;
+            let player_aabb = AABBd::new(
+                player_pos.x - half_width,
+                player_pos.y,
+                player_pos.z - half_width,
+                player_pos.x + half_width,
+                player_pos.y + Self::PLAYER_HEIGHT,
+                player_pos.z + half_width,
+            );
+
+            // Check if any block AABB intersects with the player
+            for block_aabb in collision_shape {
+                let world_aabb = block_aabb.at_block(pos.x(), pos.y(), pos.z());
+                if player_aabb.intersects_block_aabb(&world_aabb) {
+                    obstructed = true;
+                    return false; // stop iteration
+                }
+            }
+
+            true // continue iteration
+        });
+
+        !obstructed
     }
 
     /// Returns whether the tick rate is running normally.
@@ -489,12 +538,11 @@ impl World {
         });
     }
 
-    /// Broadcasts a packet to all players tracking the given chunk.
-    /// TODO: Look into sending `EncodedPacket` instead
-    pub fn broadcast_to_nearby<P: ClientPacket + Clone>(
+    /// Broadcasts an encoded packet to all players tracking the given chunk.
+    pub fn broadcast_to_nearby(
         &self,
         chunk: ChunkPos,
-        packet: P,
+        packet: EncodedPacket,
         exclude: Option<i32>,
     ) {
         let tracking_players = self.player_area_map.get_tracking_players(chunk);
@@ -503,7 +551,7 @@ impl World {
                 continue;
             }
             if let Some(player) = self.players.get_by_entity_id(entity_id) {
-                player.connection.send_packet(packet.clone());
+                player.connection.send_encoded_packet(packet.clone());
             }
         }
     }
@@ -536,6 +584,12 @@ impl World {
             pos,
             progress: progress.clamp(-1, 9) as u8,
         };
-        self.broadcast_to_nearby(chunk, packet, Some(entity_id));
+        let Ok(encoded) =
+            EncodedPacket::from_bare(packet, STEEL_CONFIG.compression, ConnectionProtocol::Play)
+        else {
+            log::warn!("Failed to encode block destruction packet");
+            return;
+        };
+        self.broadcast_to_nearby(chunk, encoded, Some(entity_id));
     }
 }

@@ -154,7 +154,7 @@ pub(crate) fn build() -> TokenStream {
             .collect();
 
         stream.extend(quote! {
-            pub const #cat_variant_ident: &CatVariant = &CatVariant {
+            pub static #cat_variant_ident: &CatVariant = &CatVariant {
                 key: #key,
                 asset_id: #asset_id,
                 spawn_conditions: &[#(#spawn_conditions),*],

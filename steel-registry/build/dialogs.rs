@@ -113,7 +113,7 @@ pub(crate) fn build() -> TokenStream {
                 let title = generate_text_component(&dialog_list.title);
 
                 stream.extend(quote! {
-                    pub const #dialog_ident: &Dialog = &Dialog::DialogList(DialogList {
+                    pub static #dialog_ident: &Dialog = &Dialog::DialogList(DialogList {
                         key: #key,
                         button_width: #button_width,
                         columns: #columns,
@@ -132,7 +132,7 @@ pub(crate) fn build() -> TokenStream {
                 let title = generate_text_component(&server_links.title);
 
                 stream.extend(quote! {
-                    pub const #dialog_ident: &Dialog = &Dialog::ServerLinks(ServerLinks {
+                    pub static #dialog_ident: &Dialog = &Dialog::ServerLinks(ServerLinks {
                         key: #key,
                         button_width: #button_width,
                         columns: #columns,

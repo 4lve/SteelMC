@@ -131,7 +131,7 @@ pub(crate) fn build() -> TokenStream {
             .collect();
 
         stream.extend(quote! {
-            pub const #chicken_variant_ident: &ChickenVariant = &ChickenVariant {
+            pub static #chicken_variant_ident: &ChickenVariant = &ChickenVariant {
                 key: #key,
                 asset_id: #asset_id,
                 model: #model,

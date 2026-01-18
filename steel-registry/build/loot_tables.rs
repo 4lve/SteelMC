@@ -1687,7 +1687,7 @@ pub(crate) fn build() -> TokenStream {
         };
 
         stream.extend(quote! {
-            pub const #const_ident: &LootTable = &LootTable {
+            pub static #const_ident: &LootTable = &LootTable {
                 key: Identifier::vanilla_static(#key),
                 loot_type: #loot_type,
                 pools: &[#(#pools),*],

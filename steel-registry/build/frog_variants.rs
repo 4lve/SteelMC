@@ -118,7 +118,7 @@ pub(crate) fn build() -> TokenStream {
             .collect();
 
         stream.extend(quote! {
-            pub const #frog_variant_ident: &FrogVariant = &FrogVariant {
+            pub static #frog_variant_ident: &FrogVariant = &FrogVariant {
                 key: #key,
                 asset_id: #asset_id,
                 spawn_conditions: &[#(#spawn_conditions),*],
