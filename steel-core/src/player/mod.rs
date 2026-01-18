@@ -38,9 +38,9 @@ use steel_protocol::{
     packets::game::{CSetHeldSlot, CSystemChatMessage},
     utils::ConnectionProtocol,
 };
-use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::game_rules::GameRuleValue;
 use steel_registry::vanilla_game_rules::{ELYTRA_MOVEMENT_CHECK, PLAYER_MOVEMENT_CHECK};
+use steel_registry::{REGISTRY, blocks::block_state_ext::BlockStateExt, vanilla_chat_types};
 
 use steel_utils::locks::SyncMutex;
 use steel_utils::types::GameType;
@@ -528,6 +528,8 @@ impl Player {
 
         let sender_index = player.messages_sent.fetch_add(1, Ordering::SeqCst);
 
+        let registry_id = *REGISTRY.chat_types.get_id(vanilla_chat_types::CHAT) as i32;
+
         let chat_packet = CPlayerChat::new(
             0,
             player.gameprofile.id,
@@ -540,8 +542,7 @@ impl Player {
             Some(TextComponent::plain(chat_message.clone())),
             FilterType::PassThrough,
             ChatTypeBound {
-                //TODO: Use the registry to derive this instead of hardcoding it
-                registry_id: 0,
+                registry_id,
                 sender_name: TextComponent::plain(player.gameprofile.name.clone())
                     .insertion(player.gameprofile.name.clone())
                     .click_event(ClickEvent::suggest_command(format!(
