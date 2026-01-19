@@ -3,6 +3,7 @@
 //! The actual behavior registration is auto-generated from classes.json.
 //! See `src/generated/behaviors.rs` for the generated registration code.
 
+mod bars_block;
 mod crafting_table_block;
 mod crop_block;
 mod end_portal_frame_block;
@@ -10,6 +11,7 @@ mod farmland_block;
 mod fence_block;
 mod rotated_pillar_block;
 
+pub use bars_block::BarBlock;
 pub use crafting_table_block::CraftingTableBlock;
 pub use crop_block::CropBlock;
 pub use end_portal_frame_block::EndPortalFrameBlock;

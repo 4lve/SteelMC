@@ -32,6 +32,7 @@ use crate::chunk::{
     flat_chunk_generator::FlatChunkGenerator, world_gen_context::WorldGenContext,
 };
 use crate::chunk_saver::RegionManager;
+use crate::config::STEEL_CONFIG;
 use crate::player::Player;
 use crate::world::World;
 
@@ -319,8 +320,9 @@ impl ChunkMap {
     /// # Arguments
     /// * `tick_count` - The current server tick count
     /// * `random_tick_speed` - Number of random blocks to tick per section per tick
+    /// * `runs_normally` - Whether game elements should run (false when frozen)
     #[allow(clippy::too_many_lines)]
-    pub fn tick_b(self: &Arc<Self>, tick_count: u64, random_tick_speed: u32) {
+    pub fn tick_b(self: &Arc<Self>, tick_count: u64, random_tick_speed: u32, runs_normally: bool) {
         let start = Instant::now();
 
         {
@@ -359,7 +361,14 @@ impl ChunkMap {
             if holder_creation_elapsed >= SLOW_TASK_WARN_THRESHOLD {
                 log::warn!("holder_creation slow: {holder_creation_elapsed:?}");
             }
-            if schedule_elapsed >= SLOW_TASK_WARN_THRESHOLD {
+            if schedule_elapsed >= SLOW_TASK_WARN_THRESHOLD
+                && STEEL_CONFIG.debug.is_some()
+                && STEEL_CONFIG
+                    .debug
+                    .as_ref()
+                    .unwrap()
+                    .enable_schedule_slow_warning
+            {
                 log::warn!("schedule slow: {schedule_elapsed:?}");
             }
         };
@@ -386,7 +395,14 @@ impl ChunkMap {
         }
 
         let tick_elapsed = start.elapsed();
-        if tick_elapsed >= SLOW_TASK_WARN_THRESHOLD {
+        if tick_elapsed >= SLOW_TASK_WARN_THRESHOLD
+            && STEEL_CONFIG.debug.is_some()
+            && STEEL_CONFIG
+                .debug
+                .as_ref()
+                .unwrap()
+                .enable_tick_b_slow_warning
+        {
             log::warn!("Tick_b slow: total {tick_elapsed:?}");
         }
 
@@ -398,7 +414,11 @@ impl ChunkMap {
             );
         }
 
-        // Chunk ticking - tick all full chunks in parallel
+        // Chunk ticking - skip when frozen
+        if !runs_normally {
+            return;
+        }
+
         let start_collect = Instant::now();
         let mut total_chunks = 0;
         let last_len = self.last_tickable_len.load(Ordering::Relaxed);
@@ -414,7 +434,14 @@ impl ChunkMap {
         self.last_tickable_len
             .store(tickable_chunks.len(), Ordering::Relaxed);
         let collect_elapsed = start_collect.elapsed();
-        if collect_elapsed >= SLOW_TASK_WARN_THRESHOLD {
+        if collect_elapsed >= SLOW_TASK_WARN_THRESHOLD
+            && STEEL_CONFIG.debug.is_some()
+            && STEEL_CONFIG
+                .debug
+                .as_ref()
+                .unwrap()
+                .enable_chunk_tick_loop_slow_warning
+        {
             log::warn!(
                 "tickable_chunks collect slow: {collect_elapsed:?}, count: {}",
                 tickable_chunks.len()
@@ -430,7 +457,14 @@ impl ChunkMap {
                 }
             }
             let tick_elapsed = start_tick.elapsed();
-            if tick_elapsed >= SLOW_TASK_WARN_THRESHOLD_BIG {
+            if tick_elapsed >= SLOW_TASK_WARN_THRESHOLD_BIG
+                && STEEL_CONFIG.debug.is_some()
+                && STEEL_CONFIG
+                    .debug
+                    .as_ref()
+                    .unwrap()
+                    .enable_chunk_tick_loop_slow_warning
+            {
                 log::warn!(
                     "chunk tick loop slow: {tick_elapsed:?}, count: {}/{}",
                     tickable_chunks.len(),
