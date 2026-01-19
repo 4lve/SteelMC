@@ -182,8 +182,8 @@
                 }
             },
             "additionalProperties": false
-        },
-    }
+        }
+    },
 },
     "required": [
         "server_port",
