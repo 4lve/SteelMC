@@ -371,12 +371,11 @@ impl ChunkMap {
                 if holder_creation_elapsed >= SLOW_TASK_WARN_THRESHOLD {
                     log::warn!("holder_creation slow: {holder_creation_elapsed:?}");
                 }
-                if schedule_elapsed >= SLOW_TASK_WARN_THRESHOLD
-                {
+                if schedule_elapsed >= SLOW_TASK_WARN_THRESHOLD {
                     log::warn!("schedule slow: {schedule_elapsed:?}");
                 }
             }
-            };
+        };
         #[cfg(feature = "debug_measurement_output")]
         let start_gen = Instant::now();
         self.run_generation_tasks_b();
@@ -413,8 +412,7 @@ impl ChunkMap {
         #[cfg(feature = "debug_measurement_output")]
         {
             let tick_elapsed = start.elapsed();
-            if tick_elapsed >= SLOW_TASK_WARN_THRESHOLD
-            {
+            if tick_elapsed >= SLOW_TASK_WARN_THRESHOLD {
                 log::warn!("Tick_b slow: total {tick_elapsed:?}");
             }
         }
@@ -434,7 +432,10 @@ impl ChunkMap {
 
         #[cfg(feature = "debug_measurement_output")]
         let start_collect = Instant::now();
-        #[cfg_attr(not(feature = "debug_measurement_output"), allow(unused_mut, unused_variables))]
+        #[cfg_attr(
+            not(feature = "debug_measurement_output"),
+            allow(unused_mut, unused_variables)
+        )]
         let mut total_chunks = 0;
         let last_len = self.last_tickable_len.load(Ordering::Relaxed);
         let mut tickable_chunks = Vec::with_capacity(last_len);
@@ -451,8 +452,7 @@ impl ChunkMap {
         #[cfg(feature = "debug_measurement_output")]
         {
             let collect_elapsed = start_collect.elapsed();
-            if collect_elapsed >= SLOW_TASK_WARN_THRESHOLD
-            {
+            if collect_elapsed >= SLOW_TASK_WARN_THRESHOLD {
                 log::warn!(
                     "tickable_chunks collect slow: {collect_elapsed:?}, count: {}",
                     tickable_chunks.len()
@@ -472,8 +472,7 @@ impl ChunkMap {
             #[cfg(feature = "debug_measurement_output")]
             {
                 let tick_elapsed = start_tick.elapsed();
-                if tick_elapsed >= SLOW_TASK_WARN_THRESHOLD_BIG
-                {
+                if tick_elapsed >= SLOW_TASK_WARN_THRESHOLD_BIG {
                     log::warn!(
                         "chunk tick loop slow: {tick_elapsed:?}, count: {}/{}",
                         tickable_chunks.len(),

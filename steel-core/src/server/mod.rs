@@ -264,8 +264,7 @@ impl Server {
             let _ = task.await;
         }
         #[cfg(feature = "debug_measurement_output")]
-        if start.elapsed().as_millis() > 1
-        {
+        if start.elapsed().as_millis() > 1 {
             log::warn!(
                 "Worlds ticked in {:?}, tick count: {tick_count}",
                 start.elapsed()
