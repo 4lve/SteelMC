@@ -72,7 +72,8 @@ pub fn build(blocks: &[BlockClass]) -> String {
     let fence_registrations = generate_registrations(fence_blocks.iter(), &fence_type);
     let pillar_registrations = generate_registrations(rotated_pillar_blocks.iter(), &pillar_type);
     let iron_bar_registrations = generate_registrations(iron_bar_blocks.iter(), &iron_bar_type);
-    let copper_bar_registrations = generate_registrations(copper_bar_blocks.iter(), &copper_bar_type);
+    let copper_bar_registrations =
+        generate_registrations(copper_bar_blocks.iter(), &copper_bar_type);
 
     let output = quote! {
         //! Generated block behavior assignments.
