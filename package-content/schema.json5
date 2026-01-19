@@ -182,36 +182,8 @@
                 }
             },
             "additionalProperties": false
-        },
-        "debug": {
-            "type": "object",
-            "description": "activate and deactivate debug output for testing and make the console output cleaner",
-            "properties": {
-                "enable_tickable_chunks_warning": {
-                    "type": "boolean",
-                    "description": "activates: tickable_chunks collect slow: 299.29µs, count: 441"
-                },
-                "enable_world_ticked_in_warning": {
-                    "type": "boolean",
-                    "description": "activates: Worlds ticked in 2.088319ms, tick count: 2202"
-                },
-                "enable_chunk_tick_loop_slow_warning": {
-                    "type": "boolean",
-                    "description": "activates: chunk tick loop slow: 852.256µs, count: 441/1849"
-                },
-                "enable_tick_b_slow_warning": {
-                    "type": "boolean",
-                    "description": "activates: Tick_b slow: total 254.175µs"
-                },
-                "enable_schedule_slow_warning": {
-                    "type": "boolean",
-                    "description": "activates:"
-                }
-            },
-            "additionalProperties": false
         }
-    }
-},
+    },
     "required": [
         "server_port",
         "seed",

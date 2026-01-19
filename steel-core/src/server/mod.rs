@@ -262,14 +262,7 @@ impl Server {
         for task in tasks {
             let _ = task.await;
         }
-        if start.elapsed().as_millis() > 1
-            && STEEL_CONFIG.debug.is_some()
-            && STEEL_CONFIG
-                .debug
-                .as_ref()
-                .unwrap()
-                .enable_world_ticked_in_warning
-        {
+        if start.elapsed().as_millis() > 1 {
             log::warn!(
                 "Worlds ticked in {:?}, tick count: {tick_count}",
                 start.elapsed()
