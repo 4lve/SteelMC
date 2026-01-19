@@ -4,7 +4,6 @@ use heck::ToShoutySnakeCase;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use serde::Deserialize;
-
 #[derive(Debug, Deserialize)]
 pub struct BlockClass {
     pub name: String,
@@ -37,6 +36,8 @@ pub fn build(blocks: &[BlockClass]) -> String {
     let mut farm_blocks = Vec::new();
     let mut fence_blocks = Vec::new();
     let mut rotated_pillar_blocks = Vec::new();
+    let mut iron_bar_blocks = Vec::new();
+    let mut copper_bar_blocks = Vec::new();
 
     for block in blocks {
         let const_ident = to_const_ident(&block.name);
@@ -47,6 +48,8 @@ pub fn build(blocks: &[BlockClass]) -> String {
             "FarmBlock" => farm_blocks.push(const_ident),
             "FenceBlock" => fence_blocks.push(const_ident),
             "RotatedPillarBlock" => rotated_pillar_blocks.push(const_ident),
+            "IronBarsBlock" => iron_bar_blocks.push(const_ident),
+            "WeatheringCopperBarsBlock" => copper_bar_blocks.push(const_ident),
             _ => {}
         }
     }
@@ -57,6 +60,8 @@ pub fn build(blocks: &[BlockClass]) -> String {
     let farmland_type = Ident::new("FarmlandBlock", Span::call_site());
     let fence_type = Ident::new("FenceBlock", Span::call_site());
     let pillar_type = Ident::new("RotatedPillarBlock", Span::call_site());
+    let iron_bar_type = Ident::new("IronBarsBlock", Span::call_site());
+    let copper_bar_type = Ident::new("WeatheringCopperBarsBlock", Span::call_site());
 
     let crafting_table_registrations =
         generate_registrations(crafting_table_blocks.iter(), &crafting_table_type);
@@ -66,13 +71,22 @@ pub fn build(blocks: &[BlockClass]) -> String {
     let farm_registrations = generate_registrations(farm_blocks.iter(), &farmland_type);
     let fence_registrations = generate_registrations(fence_blocks.iter(), &fence_type);
     let pillar_registrations = generate_registrations(rotated_pillar_blocks.iter(), &pillar_type);
+    let iron_bar_registrations = generate_registrations(iron_bar_blocks.iter(), &iron_bar_type);
+    let copper_bar_registrations = generate_registrations(copper_bar_blocks.iter(), &copper_bar_type);
 
     let output = quote! {
         //! Generated block behavior assignments.
 
         use steel_registry::vanilla_blocks;
         use crate::behavior::BlockBehaviorRegistry;
-        use crate::behavior::blocks::{CraftingTableBlock, CropBlock, EndPortalFrameBlock, FarmlandBlock, FenceBlock, RotatedPillarBlock};
+        use crate::behavior::blocks::{CraftingTableBlock,
+            CropBlock,
+            EndPortalFrameBlock,
+            FarmlandBlock,
+            FenceBlock,
+            RotatedPillarBlock,
+            IronBarsBlock,
+            WeatheringCopperBarsBlock};
 
         pub fn register_block_behaviors(registry: &mut BlockBehaviorRegistry) {
             #crafting_table_registrations
@@ -81,6 +95,8 @@ pub fn build(blocks: &[BlockClass]) -> String {
             #farm_registrations
             #fence_registrations
             #pillar_registrations
+            #iron_bar_registrations
+            #copper_bar_registrations
         }
     };
 
