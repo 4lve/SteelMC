@@ -69,15 +69,6 @@ impl IronBarsBlock {
             Direction::Up => Direction::Down,
             Direction::Down => Direction::Up,
         };
-        log::warn!(
-            "Full registry: {}",
-            REGISTRY
-                .blocks
-                .tag_keys()
-                .map(|k| format!("{:?}", k))
-                .collect::<Vec<_>>()
-                .join(", ")
-        );
         neighbor_state.is_face_sturdy(opposite)
     }
 
