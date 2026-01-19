@@ -75,6 +75,20 @@ impl ServerLinks {
         Some(CServerLinks { links })
     }
 }
+/// More specific option to activate and deactivate outputs
+#[derive(Debug, Clone, Deserialize)]
+pub struct DebugOutput {
+    /// activates: tickable_chunks collect slow: 299.29µs, count: 441
+    pub enable_tickable_chunks_warning: bool,
+    /// activates: Worlds ticked in 2.088319ms, tick count: 2202
+    pub enable_world_ticked_in_warning: bool,
+    /// activates: chunk tick loop slow: 852.256µs, count: 441/1849
+    pub enable_chunk_tick_loop_slow_warning: bool,
+    /// activates: Tick_b slow: total 254.175µs
+    pub enable_tick_b_slow_warning: bool,
+    /// activates: schedule slow: 359.01µs
+    pub enable_schedule_slow_warning: bool,
+}
 
 /// The server configuration.
 #[derive(Debug, Clone, Deserialize)]
@@ -105,6 +119,8 @@ pub struct ServerConfig {
     pub compression: Option<CompressionInfo>,
     /// All settings and configurations for server links
     pub server_links: Option<ServerLinks>,
+    /// More control over the debug output
+    pub debug: Option<DebugOutput>,
 }
 
 impl ServerConfig {

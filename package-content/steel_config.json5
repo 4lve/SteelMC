@@ -59,4 +59,11 @@
             }
         ]
     },
+    debug: {
+        "enable_tickable_chunks_warning": true,
+        "enable_world_ticked_in_warning": true,
+        "enable_chunk_tick_loop_slow_warning": true,
+        "enable_tick_b_slow_warning": true,
+        "enable_schedule_slow_warning": true
+    }
 }
