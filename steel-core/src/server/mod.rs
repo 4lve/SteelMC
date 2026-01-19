@@ -258,17 +258,13 @@ impl Server {
                 world_clone.tick_b(tick_count, runs_normally);
             }));
         }
+        #[cfg(feature = "debug_measurement_output")]
         let start = Instant::now();
         for task in tasks {
             let _ = task.await;
         }
+        #[cfg(feature = "debug_measurement_output")]
         if start.elapsed().as_millis() > 1
-            && STEEL_CONFIG.debug.is_some()
-            && STEEL_CONFIG
-                .debug
-                .as_ref()
-                .unwrap()
-                .enable_world_ticked_in_warning
         {
             log::warn!(
                 "Worlds ticked in {:?}, tick count: {tick_count}",
