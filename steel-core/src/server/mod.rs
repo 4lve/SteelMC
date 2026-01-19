@@ -258,10 +258,12 @@ impl Server {
                 world_clone.tick_b(tick_count, runs_normally);
             }));
         }
+        #[cfg(feature = "debug_measurement_output")]
         let start = Instant::now();
         for task in tasks {
             let _ = task.await;
         }
+        #[cfg(feature = "debug_measurement_output")]
         if start.elapsed().as_millis() > 1 {
             log::warn!(
                 "Worlds ticked in {:?}, tick count: {tick_count}",
