@@ -105,7 +105,7 @@ impl WeatheringCopperBarsBlock {
 
 impl BlockBehaviour for WeatheringCopperBarsBlock {
     fn get_state_for_placement(&self, context: &BlockPlaceContext<'_>) -> Option<BlockStateId> {
-        log::warn!(
+        log::debug!(
             "barBlock::get_state_for_placement called for {:?} at {:?}",
             self.block.key,
             context.relative_pos
@@ -122,7 +122,6 @@ impl BlockBehaviour for WeatheringCopperBarsBlock {
         _neighbor_pos: BlockPos,
         neighbor_state: BlockStateId,
     ) -> BlockStateId {
-        log::warn!("barBlock::update_shape() called");
         // Only update for horizontal directions
         match direction {
             Direction::North => {

@@ -51,14 +51,11 @@ impl IronBarsBlock {
             return true;
         }
         let walls_tag = Identifier::vanilla_static("walls");
-        log::warn!("This is the tag: {:?}", walls_tag);
-        log::warn!("This is the tag: {:?}", neighbor_block);
         if REGISTRY.blocks.is_in_tag(neighbor_block, &walls_tag) {
             return true;
         }
         // TODO glass is not in minecraft: it is in c: so this needed to be fixed and worked on
         let glass_tag = Identifier::vanilla_static("glass_pane");
-        log::warn!("This is the tag: {:?}", glass_tag);
         if REGISTRY.blocks.is_in_tag(neighbor_block, &glass_tag) {
             return true;
         }
@@ -118,7 +115,7 @@ impl IronBarsBlock {
 
 impl BlockBehaviour for IronBarsBlock {
     fn get_state_for_placement(&self, context: &BlockPlaceContext<'_>) -> Option<BlockStateId> {
-        log::warn!(
+        log::debug!(
             "barBlock::get_state_for_placement called for {:?} at {:?}",
             self.block.key,
             context.relative_pos
