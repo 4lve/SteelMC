@@ -14,6 +14,7 @@ use steel_utils::Identifier;
 use crate::{
     banner_pattern::BannerPatternRegistry,
     biome::BiomeRegistry,
+    block_entity_type::BlockEntityTypeRegistry,
     blocks::BlockRegistry,
     cat_variant::CatVariantRegistry,
     chat_type::ChatTypeRegistry,
@@ -25,6 +26,7 @@ use crate::{
     dimension_type::DimensionTypeRegistry,
     entity_types::EntityTypeRegistry,
     frog_variant::FrogVariantRegistry,
+    game_rules::GameRuleRegistry,
     instrument::InstrumentRegistry,
     items::ItemRegistry,
     jukebox_song::JukeboxSongRegistry,
@@ -42,6 +44,7 @@ use crate::{
 };
 pub mod banner_pattern;
 pub mod biome;
+pub mod block_entity_type;
 pub mod blocks;
 pub mod cat_variant;
 pub mod chat_type;
@@ -54,6 +57,7 @@ pub mod dialog;
 pub mod dimension_type;
 pub mod entity_types;
 pub mod frog_variant;
+pub mod game_rules;
 pub mod instrument;
 pub mod item_stack;
 pub mod items;
@@ -180,6 +184,11 @@ pub mod vanilla_dialogs;
 
 #[allow(warnings)]
 #[rustfmt::skip]
+#[path = "generated/vanilla_dialog_tags.rs"]
+pub mod vanilla_dialog_tags;
+
+#[allow(warnings)]
+#[rustfmt::skip]
 #[path = "generated/vanilla_menu_types.rs"]
 pub mod vanilla_menu_types;
 
@@ -217,6 +226,16 @@ pub mod vanilla_entity_data_serializers;
 #[rustfmt::skip]
 #[path = "generated/vanilla_loot_tables.rs"]
 pub mod vanilla_loot_tables;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_block_entity_types.rs"]
+pub mod vanilla_block_entity_types;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_game_rules.rs"]
+pub mod vanilla_game_rules;
 
 #[allow(warnings)]
 #[rustfmt::skip]
@@ -280,6 +299,7 @@ pub const ZOMBIE_NAUTILUS_VARIANT_REGISTRY: Identifier =
     Identifier::vanilla_static("zombie_nautilus_variant");
 pub const TIMELINE_REGISTRY: Identifier = Identifier::vanilla_static("timeline");
 pub const LOOT_TABLE_REGISTRY: Identifier = Identifier::vanilla_static("loot_table");
+pub const BLOCK_ENTITY_TYPE_REGISTRY: Identifier = Identifier::vanilla_static("block_entity_type");
 
 pub struct Registry {
     pub blocks: BlockRegistry,
@@ -309,6 +329,8 @@ pub struct Registry {
     pub recipes: RecipeRegistry,
     pub entity_types: EntityTypeRegistry,
     pub loot_tables: LootTableRegistry,
+    pub block_entity_types: BlockEntityTypeRegistry,
+    pub game_rules: GameRuleRegistry,
 }
 
 impl Debug for Registry {
@@ -352,6 +374,7 @@ impl Registry {
         vanilla_jukebox_songs::register_jukebox_songs(&mut registry.jukebox_songs);
         vanilla_instruments::register_instruments(&mut registry.instruments);
         vanilla_dialogs::register_dialogs(&mut registry.dialogs);
+        vanilla_dialog_tags::register_dialog_tags(&mut registry.dialogs);
         vanilla_menu_types::register_menu_types(&mut registry.menu_types);
         vanilla_zombie_nautilus_variants::register_zombie_nautilus_variants(
             &mut registry.zombie_nautilus_variants,
@@ -361,6 +384,8 @@ impl Registry {
         vanilla_recipes::register_recipes(&mut registry.recipes);
         vanilla_entities::register_entity_types(&mut registry.entity_types);
         vanilla_loot_tables::register_loot_tables(&mut registry.loot_tables);
+        vanilla_block_entity_types::register_block_entity_types(&mut registry.block_entity_types);
+        vanilla_game_rules::register_game_rules(&mut registry.game_rules);
 
         registry
     }
@@ -393,6 +418,8 @@ impl Registry {
         self.recipes.freeze();
         self.entity_types.freeze();
         self.loot_tables.freeze();
+        self.block_entity_types.freeze();
+        self.game_rules.freeze();
     }
 
     #[must_use]
@@ -425,6 +452,8 @@ impl Registry {
             recipes: RecipeRegistry::new(),
             entity_types: EntityTypeRegistry::new(),
             loot_tables: LootTableRegistry::new(),
+            block_entity_types: BlockEntityTypeRegistry::new(),
+            game_rules: GameRuleRegistry::new(),
         }
     }
 }
