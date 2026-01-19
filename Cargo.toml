@@ -92,7 +92,7 @@ md5 = "0.8.0"
 base64 = "0.22.1"
 hex = "0.4.3"
 rsa-der = "0.3.0"
-text_components = { version = "0.1.1", features = ["custom", "nbt", "serde"] }
+text_components = { version = "0.1.3", features = ["custom", "nbt", "serde"] }
 
 # Compression
 flate2 = "1.1.8"

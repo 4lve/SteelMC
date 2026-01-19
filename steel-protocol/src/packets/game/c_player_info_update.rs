@@ -2,7 +2,7 @@ use steel_macros::ClientPacket;
 use steel_registry::packets::play::C_PLAYER_INFO_UPDATE;
 use steel_utils::codec::VarInt;
 use steel_utils::serial::PrefixedWrite;
-use steel_utils::text::TextComponent;
+use text_components::TextComponent;
 use uuid::Uuid;
 
 // Import RemoteChatSessionData for chat session transmission
