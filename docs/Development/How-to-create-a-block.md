@@ -210,5 +210,5 @@ if REGISTRY.blocks.is_in_tag(neighbor_block, &walls_tag) {
 
 That’s it — you now have the **basic structure** in place and can start implementing real behavior 🚀
 
-## Other useful rescources
+## Other useful resources
 Currently no available
