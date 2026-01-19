@@ -49,6 +49,9 @@ It focuses on clean code, performance, extensibility, and ease of use.
 5. Commit your changes to your fork and open a pull request.
 
 > [!NOTE]
+> More documentation about usage or development can be found [here](docs)
+
+> [!NOTE]
 > It is highly recommended to join the [Discord server](https://discord.gg/MwChEHnAbh) and reach out to [4lve](https://github.com/4lve) if you have code-related questions or encounter any ambiguities.
 
 > [!IMPORTANT]
