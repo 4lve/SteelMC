@@ -9,15 +9,21 @@ use std::{
 };
 
 use sha2::{Digest, Sha256};
-use steel_protocol::packet_traits::ClientPacket;
-use steel_protocol::packets::game::{CBlockDestruction, CPlayerChat, CSystemChat};
+use steel_protocol::packet_traits::EncodedPacket;
+use steel_protocol::packets::game::{
+    CBlockDestruction, CPlayerChat, CPlayerInfoUpdate, CSystemChat,
+};
+use steel_protocol::utils::ConnectionProtocol;
+
 use steel_registry::blocks::BlockRef;
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::Direction;
 use steel_registry::game_rules::{GameRuleRef, GameRuleValue};
 use steel_registry::vanilla_blocks;
+use steel_registry::vanilla_game_rules::RANDOM_TICK_SPEED;
 use steel_registry::{REGISTRY, dimension_type::DimensionTypeRef};
 
+use steel_registry::blocks::shapes::{AABBd, VoxelShape};
 use steel_utils::locks::SyncRwLock;
 use steel_utils::{BlockPos, BlockStateId, ChunkPos, SectionPos, types::UpdateFlags};
 use tokio::{runtime::Runtime, time::Instant};
@@ -25,7 +31,7 @@ use tokio::{runtime::Runtime, time::Instant};
 use crate::{
     ChunkMap,
     behavior::BLOCK_BEHAVIORS,
-    chunk::chunk_access::ChunkAccess,
+    config::STEEL_CONFIG,
     level_data::LevelDataManager,
     player::{LastSeen, Player},
 };
@@ -36,6 +42,10 @@ mod world_entities;
 
 pub use player_area_map::PlayerAreaMap;
 pub use player_map::PlayerMap;
+
+/// Interval in ticks between player info broadcasts (600 ticks = 30 seconds).
+/// Matches vanilla `PlayerList.SEND_PLAYER_INFO_INTERVAL`.
+const SEND_PLAYER_INFO_INTERVAL: u64 = 600;
 
 /// A struct that represents a world.
 pub struct World {
@@ -143,6 +153,52 @@ impl World {
         self.is_in_valid_bounds(pos)
     }
 
+    /// Player dimensions matching vanilla Minecraft.
+    const PLAYER_WIDTH: f64 = 0.6;
+    const PLAYER_HEIGHT: f64 = 1.8;
+
+    /// Checks if a block's collision shape at the given position is unobstructed by entities.
+    ///
+    /// This is the Rust equivalent of vanilla's `Level.isUnobstructed(BlockState, BlockPos, CollisionContext)`.
+    /// In vanilla, this checks all entities with `blocksBuilding=true` (players, mobs, boats, etc.).
+    /// Currently only checks players since other entities aren't fully implemented.
+    ///
+    /// Returns `true` if the position is clear, `false` if an entity would obstruct placement.
+    #[must_use]
+    pub fn is_unobstructed(&self, collision_shape: VoxelShape, pos: &BlockPos) -> bool {
+        if collision_shape.is_empty() {
+            return true;
+        }
+
+        // TODO: Check other entities with blocksBuilding=true (mobs, boats, minecarts, etc.)
+        let mut obstructed = false;
+        self.players.iter_players(|_uuid, player| {
+            let player_pos = player.position.lock();
+            let half_width = Self::PLAYER_WIDTH / 2.0;
+            let player_aabb = AABBd::new(
+                player_pos.x - half_width,
+                player_pos.y,
+                player_pos.z - half_width,
+                player_pos.x + half_width,
+                player_pos.y + Self::PLAYER_HEIGHT,
+                player_pos.z + half_width,
+            );
+
+            // Check if any block AABB intersects with the player
+            for block_aabb in collision_shape {
+                let world_aabb = block_aabb.at_block(pos.x(), pos.y(), pos.z());
+                if player_aabb.intersects_block_aabb(&world_aabb) {
+                    obstructed = true;
+                    return false; // stop iteration
+                }
+            }
+
+            true // continue iteration
+        });
+
+        !obstructed
+    }
+
     /// Returns whether the tick rate is running normally.
     ///
     /// When false (frozen/paused), movement validation checks should be skipped.
@@ -210,11 +266,10 @@ impl World {
             return REGISTRY.blocks.get_base_state_id(vanilla_blocks::AIR);
         }
 
-        let Some(chunk) = self.get_chunk_at(pos) else {
-            return REGISTRY.blocks.get_base_state_id(vanilla_blocks::AIR);
-        };
-
-        chunk.get_block_state(*pos)
+        let chunk_pos = Self::chunk_pos_for_block(pos);
+        self.chunk_map
+            .with_full_chunk(&chunk_pos, |chunk| chunk.get_block_state(*pos))
+            .unwrap_or_else(|| REGISTRY.blocks.get_base_state_id(vanilla_blocks::AIR))
     }
 
     /// Sets a block at the given position.
@@ -246,11 +301,14 @@ impl World {
             return false;
         }
 
-        let Some(chunk) = self.get_chunk_at(&pos) else {
-            return false;
-        };
-
-        let Some(old_state) = chunk.set_block_state(pos, block_state, flags) else {
+        let chunk_pos = Self::chunk_pos_for_block(&pos);
+        let Some(old_state) = self
+            .chunk_map
+            .with_full_chunk(&chunk_pos, |chunk| {
+                chunk.set_block_state(pos, block_state, flags)
+            })
+            .flatten()
+        else {
             return false;
         };
 
@@ -334,7 +392,7 @@ impl World {
         // if flags.contains(UpdateFlags::UPDATE_SKIP_SHAPE_UPDATE_ON_WIRE)
         //     && current_state.is_redstone_wire() { return; }
 
-        let block_behaviors = BLOCK_BEHAVIORS.get().expect("Behaviors not initialized");
+        let block_behaviors = &*BLOCK_BEHAVIORS;
         let behavior = block_behaviors.get_behavior(current_state.get_block());
         let new_state = behavior.update_shape(
             current_state,
@@ -363,24 +421,30 @@ impl World {
         }
 
         let state = self.get_block_state(&pos);
-        let block_behaviors = BLOCK_BEHAVIORS.get().expect("Behaviors not initialized");
+        let block_behaviors = &*BLOCK_BEHAVIORS;
         let behavior = block_behaviors.get_behavior(state.get_block());
         behavior.handle_neighbor_changed(state, self, pos, source_block, moved_by_piston);
     }
 
-    fn get_chunk_at(&self, pos: &BlockPos) -> Option<Arc<ChunkAccess>> {
-        let chunk_pos = ChunkPos::new(
+    fn chunk_pos_for_block(pos: &BlockPos) -> ChunkPos {
+        ChunkPos::new(
             SectionPos::block_to_section_coord(pos.0.x),
             SectionPos::block_to_section_coord(pos.0.z),
-        );
-        self.chunk_map.get_full_chunk(&chunk_pos)
+        )
     }
 
     /// Ticks the world.
-    pub fn tick_b(&self, tick_count: u64) {
-        self.chunk_map.tick_b(tick_count);
+    ///
+    /// * `tick_count` - The current tick number
+    /// * `runs_normally` - Whether game elements (random ticks, entities) should run.
+    ///   When false (frozen), only essential operations like chunk loading run.
+    pub fn tick_b(&self, tick_count: u64, runs_normally: bool) {
+        let random_tick_speed = self.get_game_rule(RANDOM_TICK_SPEED).as_int().unwrap_or(3) as u32;
 
-        // Tick players
+        self.chunk_map
+            .tick_b(tick_count, random_tick_speed, runs_normally);
+
+        // Tick players (always tick players - they can move when frozen)
         let start = Instant::now();
         self.players.iter_players(|_uuid, player| {
             player.tick();
@@ -390,6 +454,32 @@ impl World {
         let player_tick_elapsed = start.elapsed();
         if player_tick_elapsed >= Duration::from_millis(100) {
             log::warn!("Player tick slow: {player_tick_elapsed:?}");
+        }
+
+        // Broadcast player latency updates periodically
+        if tick_count.is_multiple_of(SEND_PLAYER_INFO_INTERVAL) {
+            self.broadcast_player_latency_updates();
+        }
+    }
+
+    /// Broadcasts latency updates for all players to all players.
+    /// This is called every `SEND_PLAYER_INFO_INTERVAL` ticks to update the ping display.
+    fn broadcast_player_latency_updates(&self) {
+        // Collect all player latencies
+        let mut latency_entries = Vec::new();
+        self.players.iter_players(|uuid, player| {
+            latency_entries.push((*uuid, player.connection.latency()));
+            true
+        });
+
+        // Only broadcast if there are players
+        if !latency_entries.is_empty() {
+            let packet = CPlayerInfoUpdate::update_latency(latency_entries);
+
+            self.players.iter_players(|_, player| {
+                player.connection.send_packet(packet.clone());
+                true
+            });
         }
     }
 
@@ -489,12 +579,11 @@ impl World {
         });
     }
 
-    /// Broadcasts a packet to all players tracking the given chunk.
-    /// TODO: Look into sending `EncodedPacket` instead
-    pub fn broadcast_to_nearby<P: ClientPacket + Clone>(
+    /// Broadcasts an encoded packet to all players tracking the given chunk.
+    pub fn broadcast_to_nearby(
         &self,
         chunk: ChunkPos,
-        packet: P,
+        packet: EncodedPacket,
         exclude: Option<i32>,
     ) {
         let tracking_players = self.player_area_map.get_tracking_players(chunk);
@@ -503,7 +592,7 @@ impl World {
                 continue;
             }
             if let Some(player) = self.players.get_by_entity_id(entity_id) {
-                player.connection.send_packet(packet.clone());
+                player.connection.send_encoded_packet(packet.clone());
             }
         }
     }
@@ -536,6 +625,12 @@ impl World {
             pos,
             progress: progress.clamp(-1, 9) as u8,
         };
-        self.broadcast_to_nearby(chunk, packet, Some(entity_id));
+        let Ok(encoded) =
+            EncodedPacket::from_bare(packet, STEEL_CONFIG.compression, ConnectionProtocol::Play)
+        else {
+            log::warn!("Failed to encode block destruction packet");
+            return;
+        };
+        self.broadcast_to_nearby(chunk, encoded, Some(entity_id));
     }
 }

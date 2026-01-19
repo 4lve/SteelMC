@@ -5,6 +5,7 @@ mod game_mode;
 mod game_profile;
 pub mod message_chain;
 mod message_validator;
+pub mod movement;
 /// This module contains the networking implementation for the player.
 pub mod networking;
 pub mod player_inventory;
@@ -26,13 +27,17 @@ use message_chain::SignedMessageChain;
 use message_validator::LastSeenMessagesValidator;
 use profile_key::RemoteChatSession;
 pub use signature_cache::{LastSeen, MessageCache};
+use steel_protocol::packet_traits::EncodedPacket;
 use steel_protocol::packets::game::CSetHeldSlot;
 use steel_protocol::packets::game::{
     AnimateAction, CAnimate, CPlayerPosition, PlayerAction, SAcceptTeleportation,
     SPickItemFromBlock, SPlayerAction, SSetCarriedItem, SUseItem, SUseItemOn,
 };
+use steel_protocol::utils::ConnectionProtocol;
 use steel_registry::blocks::block_state_ext::BlockStateExt;
-use steel_registry::blocks::shapes::AABBd;
+use steel_registry::game_rules::GameRuleValue;
+use steel_registry::vanilla_game_rules::{ELYTRA_MOVEMENT_CHECK, PLAYER_MOVEMENT_CHECK};
+
 use steel_utils::locks::SyncMutex;
 use steel_utils::types::GameType;
 
@@ -264,6 +269,8 @@ impl Player {
         // Create a single shared inventory container used by both the player and inventory menu
         let inventory = Arc::new(SyncMutex::new(PlayerInventory::new(player.clone())));
 
+        let pos = Vector3::new(0.0, 0.0, 0.0);
+
         Self {
             gameprofile,
             connection,
@@ -271,9 +278,9 @@ impl Player {
             world,
             entity_id,
             client_loaded: AtomicBool::new(false),
-            position: SyncMutex::new(Vector3::default()),
+            position: SyncMutex::new(pos),
             rotation: AtomicCell::new((0.0, 0.0)),
-            prev_position: SyncMutex::new(Vector3::default()),
+            prev_position: SyncMutex::new(pos),
             prev_rotation: AtomicCell::new((0.0, 0.0)),
             health: AtomicCell::new(20.0), // Default max health
             absorption_amount: AtomicCell::new(0.0),
@@ -321,6 +328,10 @@ impl Player {
 
         // Reset first_good_position to current position at start of tick (vanilla: resetPosition)
         *self.first_good_position.lock() = *self.position.lock();
+
+        // Apply gravity to delta_movement (vanilla: applyGravity in Entity.tick/LivingEntity.travel)
+        // This must happen after resetPosition so the speed check has the correct expected velocity
+        self.apply_gravity();
 
         // Sync packet counts for rate limiting (vanilla: knownMovePacketCount = receivedMovePacketCount)
         self.known_move_packet_count.store(
@@ -571,77 +582,6 @@ impl Player {
         false
     }
 
-    /// Player bounding box dimensions (standard player size).
-    const PLAYER_WIDTH: f64 = 0.6;
-    const PLAYER_HEIGHT: f64 = 1.8;
-
-    /// Small epsilon for AABB deflation (matches vanilla 1.0E-5F cast to f64).
-    const COLLISION_EPSILON: f64 = 1.0E-5;
-
-    /// Creates a player bounding box at the given position, deflated by the collision epsilon.
-    fn make_player_aabb(pos: Vector3<f64>) -> AABBd {
-        AABBd::entity_box(
-            pos.x,
-            pos.y,
-            pos.z,
-            Self::PLAYER_WIDTH / 2.0,
-            Self::PLAYER_HEIGHT,
-        )
-        .deflate(Self::COLLISION_EPSILON)
-    }
-
-    /// Checks if the player would collide with any NEW blocks when moving to the new position.
-    ///
-    /// This allows movement when already stuck in blocks (e.g., sand fell on player).
-    /// Only rejects movement if it would cause collision with blocks the player
-    /// wasn't already colliding with at the old position.
-    ///
-    /// Matches vanilla `ServerGamePacketListenerImpl.isEntityCollidingWithAnythingNew()`.
-    #[allow(clippy::cast_possible_truncation)]
-    fn is_colliding_with_new_blocks(&self, old_pos: Vector3<f64>, new_pos: Vector3<f64>) -> bool {
-        // Old and new player AABBs (slightly deflated like vanilla does)
-        let old_aabb = Self::make_player_aabb(old_pos);
-        let new_aabb = Self::make_player_aabb(new_pos);
-
-        // Calculate the block positions that the new AABB could intersect
-        let min_x = new_aabb.min_x.floor() as i32;
-        let max_x = new_aabb.max_x.ceil() as i32;
-        let min_y = new_aabb.min_y.floor() as i32;
-        let max_y = new_aabb.max_y.ceil() as i32;
-        let min_z = new_aabb.min_z.floor() as i32;
-        let max_z = new_aabb.max_z.ceil() as i32;
-
-        // Check each block position
-        for bx in min_x..max_x {
-            for by in min_y..max_y {
-                for bz in min_z..max_z {
-                    let block_pos = BlockPos::new(bx, by, bz);
-                    let block_state = self.world.get_block_state(&block_pos);
-                    let collision_shape = block_state.get_collision_shape();
-
-                    // Check each AABB in the collision shape
-                    for aabb in collision_shape {
-                        // Convert block-local AABB to world coordinates
-                        let world_aabb = aabb.at_block(bx, by, bz);
-
-                        // Check if new position collides with this shape
-                        if !new_aabb.intersects_block_aabb(&world_aabb) {
-                            continue;
-                        }
-
-                        // Check if old position also collided with this shape
-                        // If new position collides but old didn't, this is a NEW collision
-                        if !old_aabb.intersects_block_aabb(&world_aabb) {
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-
-        false
-    }
-
     /// Checks if we're awaiting a teleport confirmation and handles timeout/resend.
     ///
     /// Returns `true` if awaiting teleport (movement should be rejected),
@@ -678,41 +618,11 @@ impl Player {
         false
     }
 
-    /// Maximum movement speed threshold (meters per tick squared).
-    /// Vanilla uses 100.0 for normal movement, 300.0 for elytra flight.
-    const SPEED_THRESHOLD_NORMAL: f64 = 100.0;
-    const SPEED_THRESHOLD_FLYING: f64 = 300.0;
-
-    /// Movement error threshold - if player ends up more than this far from target, reject.
-    /// Matches vanilla's 0.0625 (1/16 of a block).
-    const MOVEMENT_ERROR_THRESHOLD: f64 = 0.0625;
-
-    /// Position clamping limits (matches vanilla).
-    const CLAMP_HORIZONTAL: f64 = 3.0E7;
-    const CLAMP_VERTICAL: f64 = 2.0E7;
-
-    /// Y-axis tolerance for movement error checks.
-    /// Vanilla ignores Y differences within this range after physics simulation.
-    const Y_TOLERANCE: f64 = 0.5;
-
-    /// Post-impulse grace period in ticks (vanilla uses ~10-20 ticks).
-    const IMPULSE_GRACE_TICKS: i32 = 20;
-
-    /// Clamps a horizontal coordinate to vanilla limits.
-    fn clamp_horizontal(value: f64) -> f64 {
-        value.clamp(-Self::CLAMP_HORIZONTAL, Self::CLAMP_HORIZONTAL)
-    }
-
-    /// Clamps a vertical coordinate to vanilla limits.
-    fn clamp_vertical(value: f64) -> f64 {
-        value.clamp(-Self::CLAMP_VERTICAL, Self::CLAMP_VERTICAL)
-    }
-
     /// Returns true if the player is in post-impulse grace period.
     fn is_in_post_impulse_grace_time(&self) -> bool {
         let current_tick = self.tick_count.load(Ordering::Relaxed);
         let last_impulse = self.last_impulse_tick.load(Ordering::Relaxed);
-        current_tick.wrapping_sub(last_impulse) < Self::IMPULSE_GRACE_TICKS
+        current_tick.wrapping_sub(last_impulse) < movement::IMPULSE_GRACE_TICKS
     }
 
     /// Marks that an impulse (knockback, etc.) was applied to the player.
@@ -721,42 +631,32 @@ impl Player {
             .store(self.tick_count.load(Ordering::Relaxed), Ordering::Relaxed);
     }
 
-    /// Checks if player is currently in old collision (already stuck in blocks).
-    /// Used by vanilla to allow movement when already stuck.
-    fn is_in_collision_at(&self, pos: Vector3<f64>) -> bool {
-        let aabb = Self::make_player_aabb(pos);
-
-        let min_x = aabb.min_x.floor() as i32;
-        let max_x = aabb.max_x.ceil() as i32;
-        let min_y = aabb.min_y.floor() as i32;
-        let max_y = aabb.max_y.ceil() as i32;
-        let min_z = aabb.min_z.floor() as i32;
-        let max_z = aabb.max_z.ceil() as i32;
-
-        for bx in min_x..max_x {
-            for by in min_y..max_y {
-                for bz in min_z..max_z {
-                    let block_pos = BlockPos::new(bx, by, bz);
-                    let block_state = self.world.get_block_state(&block_pos);
-                    let collision_shape = block_state.get_collision_shape();
-
-                    for block_aabb in collision_shape {
-                        let world_aabb = block_aabb.at_block(bx, by, bz);
-                        if aabb.intersects_block_aabb(&world_aabb) {
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-
-        false
-    }
-
     /// Returns the squared length of the player's current velocity.
     fn get_delta_movement_length_sq(&self) -> f64 {
         let dm = self.delta_movement.lock();
         dm.x * dm.x + dm.y * dm.y + dm.z * dm.z
+    }
+
+    /// Checks if movement validation should be performed for this player.
+    ///
+    /// Matches vanilla's `ServerGamePacketListenerImpl.shouldValidateMovement()`.
+    /// Uses the `playerMovementCheck` and `elytraMovementCheck` gamerules.
+    ///
+    /// Returns `true` if movement should be validated, `false` to skip validation.
+    fn should_validate_movement(&self, is_fall_flying: bool) -> bool {
+        // Check playerMovementCheck gamerule
+        let player_check = self.world.get_game_rule(PLAYER_MOVEMENT_CHECK);
+        if player_check != GameRuleValue::Bool(true) {
+            return false;
+        }
+
+        // If fall flying, also check elytraMovementCheck gamerule
+        if is_fall_flying {
+            let elytra_check = self.world.get_game_rule(ELYTRA_MOVEMENT_CHECK);
+            return elytra_check == GameRuleValue::Bool(true);
+        }
+
+        true
     }
 
     /// Handles a move player packet.
@@ -805,9 +705,9 @@ impl Player {
         if packet.has_pos {
             // Clamp position to vanilla limits
             let target_pos = Vector3::new(
-                Self::clamp_horizontal(packet.position.x),
-                Self::clamp_vertical(packet.position.y),
-                Self::clamp_horizontal(packet.position.z),
+                movement::clamp_horizontal(packet.position.x),
+                movement::clamp_vertical(packet.position.y),
+                movement::clamp_horizontal(packet.position.z),
             );
             let first_good = *self.first_good_position.lock();
             let last_good = *self.last_good_position.lock();
@@ -839,70 +739,29 @@ impl Player {
                     delta_packets = 1;
                 }
 
-                // Speed check: distance from first_good position
-                let dx = target_pos.x - first_good.x;
-                let dy = target_pos.y - first_good.y;
-                let dz = target_pos.z - first_good.z;
-                let moved_dist_sq = dx * dx + dy * dy + dz * dz;
+                // Skip checks for spectators, creative mode, tick frozen, or gamerules disabled
+                // Vanilla: shouldValidateMovement() checks playerMovementCheck and elytraMovementCheck
+                let gamerule_skip = !self.should_validate_movement(is_fall_flying);
+                let skip_checks = is_spectator || is_creative || tick_frozen || gamerule_skip;
 
-                // Skip checks for spectators, creative mode, or when tick is frozen
-                let skip_checks = is_spectator || is_creative || tick_frozen;
+                // Validate movement using physics simulation
+                let validation = movement::validate_movement(
+                    &self.world,
+                    &movement::MovementInput {
+                        target_pos,
+                        first_good_pos: first_good,
+                        last_good_pos: last_good,
+                        expected_velocity_sq: self.get_delta_movement_length_sq(),
+                        delta_packets,
+                        is_fall_flying,
+                        skip_checks,
+                        in_impulse_grace: self.is_in_post_impulse_grace_time(),
+                        is_crouching: self.shift_key_down.load(Ordering::Relaxed),
+                        on_ground: was_on_ground,
+                    },
+                );
 
-                // Speed check (configurable)
-                if !skip_checks && STEEL_CONFIG.checks.speed {
-                    let expected_dist_sq = self.get_delta_movement_length_sq();
-                    let threshold = if is_fall_flying {
-                        Self::SPEED_THRESHOLD_FLYING
-                    } else {
-                        Self::SPEED_THRESHOLD_NORMAL
-                    } * (delta_packets as f64);
-
-                    if moved_dist_sq - expected_dist_sq > threshold {
-                        // Player moved too fast - teleport back to current position
-                        let (yaw, pitch) = self.rotation.load();
-                        self.teleport(start_pos.x, start_pos.y, start_pos.z, yaw, pitch);
-                        return;
-                    }
-                }
-
-                // Calculate movement delta from last_good position
-                let move_dx = target_pos.x - last_good.x;
-                let mut move_dy = target_pos.y - last_good.y;
-                let move_dz = target_pos.z - last_good.z;
-
-                // Y-axis tolerance: ignore small Y discrepancies (vanilla behavior)
-                if move_dy > -Self::Y_TOLERANCE && move_dy < Self::Y_TOLERANCE {
-                    move_dy = 0.0;
-                }
-
-                // Movement error check (configurable)
-                // Vanilla checks if (moved_dist_sq > 0.0625) after physics simulation
-                // Since we don't have full physics, we check the squared distance directly
-                let movement_dist_sq = move_dx * move_dx + move_dy * move_dy + move_dz * move_dz;
-                let error_check_failed = STEEL_CONFIG.checks.movement_error
-                    && !self.is_in_post_impulse_grace_time()
-                    && movement_dist_sq > Self::MOVEMENT_ERROR_THRESHOLD;
-
-                // Collision check (configurable)
-                // Vanilla only runs collision check if error was detected AND player was
-                // already in collision at old position (to allow movement when stuck)
-                let collision_check_failed = STEEL_CONFIG.checks.collision
-                    && error_check_failed
-                    && self.is_in_collision_at(last_good)
-                    && self.is_colliding_with_new_blocks(last_good, target_pos);
-
-                // Also check collision without error if movement > 0 and not in old collision
-                let new_collision_without_error = STEEL_CONFIG.checks.collision
-                    && !error_check_failed
-                    && self.is_colliding_with_new_blocks(last_good, target_pos);
-
-                // Check for movement errors and collisions
-                let movement_failed = !skip_checks
-                    && ((error_check_failed && !self.is_in_collision_at(last_good))
-                        || collision_check_failed
-                        || new_collision_without_error);
-
-                if movement_failed {
+                if !validation.is_valid {
                     // Teleport back to start position
                     let (yaw, pitch) = prev_rot;
                     self.teleport(start_pos.x, start_pos.y, start_pos.z, yaw, pitch);
@@ -912,11 +771,22 @@ impl Player {
                 // Movement accepted - update last good position
                 *self.last_good_position.lock() = target_pos;
 
-                // Update velocity based on actual movement
-                *self.delta_movement.lock() = Vector3::new(move_dx, move_dy, move_dz);
+                // Update velocity based on actual movement (vanilla: handlePlayerKnownMovement)
+                {
+                    let mut dm = self.delta_movement.lock();
+                    dm.x = validation.move_delta.x;
+                    dm.y = validation.move_delta.y;
+                    dm.z = validation.move_delta.z;
+
+                    // Zero Y velocity when landing (vanilla: Block.updateEntityMovementAfterFallOn)
+                    // This prevents gravity from accumulating while on the ground
+                    if !was_on_ground && packet.on_ground {
+                        dm.y = 0.0;
+                    }
+                }
 
                 // Jump detection (vanilla: jumpFromGround)
-                let moved_upwards = move_dy > 0.0;
+                let moved_upwards = validation.move_delta.y > 0.0;
                 if was_on_ground && !packet.on_ground && moved_upwards {
                     // Player jumped - could trigger jump-related mechanics here
                     // For now, this is a placeholder for future jump handling
@@ -963,8 +833,14 @@ impl Player {
                     x_rot: to_angle_byte(pitch),
                     on_ground: packet.on_ground,
                 };
-                self.world
-                    .broadcast_to_nearby(new_chunk, move_packet, Some(self.entity_id));
+                if let Ok(encoded) = EncodedPacket::from_bare(
+                    move_packet,
+                    STEEL_CONFIG.compression,
+                    ConnectionProtocol::Play,
+                ) {
+                    self.world
+                        .broadcast_to_nearby(new_chunk, encoded, Some(self.entity_id));
+                }
             } else {
                 let rot_packet = CMoveEntityRot {
                     entity_id: self.entity_id,
@@ -972,8 +848,14 @@ impl Player {
                     x_rot: to_angle_byte(pitch),
                     on_ground: packet.on_ground,
                 };
-                self.world
-                    .broadcast_to_nearby(new_chunk, rot_packet, Some(self.entity_id));
+                if let Ok(encoded) = EncodedPacket::from_bare(
+                    rot_packet,
+                    STEEL_CONFIG.compression,
+                    ConnectionProtocol::Play,
+                ) {
+                    self.world
+                        .broadcast_to_nearby(new_chunk, encoded, Some(self.entity_id));
+                }
             }
 
             if packet.has_rot {
@@ -981,8 +863,14 @@ impl Player {
                     entity_id: self.entity_id,
                     head_y_rot: to_angle_byte(yaw),
                 };
-                self.world
-                    .broadcast_to_nearby(new_chunk, head_packet, Some(self.entity_id));
+                if let Ok(encoded) = EncodedPacket::from_bare(
+                    head_packet,
+                    STEEL_CONFIG.compression,
+                    ConnectionProtocol::Play,
+                ) {
+                    self.world
+                        .broadcast_to_nearby(new_chunk, encoded, Some(self.entity_id));
+                }
             }
 
             *self.prev_position.lock() = pos;
@@ -1448,6 +1336,43 @@ impl Player {
         *self.delta_movement.lock() = velocity;
     }
 
+    /// Returns the player's current gravity value.
+    ///
+    /// Matches vanilla `LivingEntity.getGravity()` which reads from `Attributes.GRAVITY`.
+    /// Default is 0.08 blocks/tick².
+    fn get_gravity(&self) -> f64 {
+        // TODO: Read from attribute system when implemented
+        let _ = self; // Silence unused warning until attributes are implemented
+        movement::DEFAULT_GRAVITY
+    }
+
+    /// Applies gravity to the player's velocity.
+    ///
+    /// Matches vanilla `Entity.applyGravity()` and `LivingEntity.travel()`.
+    /// Gravity is not applied when:
+    /// - Player is on the ground
+    /// - Player is in spectator mode (no physics)
+    /// - Player is in creative mode and flying
+    /// - Player is fall flying (elytra - uses different physics)
+    fn apply_gravity(&self) {
+        let on_ground = self.on_ground.load(Ordering::Relaxed);
+        let game_mode = self.game_mode.load();
+        let is_spectator = game_mode == GameType::Spectator;
+        let is_creative_flying = game_mode == GameType::Creative; // TODO: check actual flying state
+        let is_fall_flying = self.fall_flying.load(Ordering::Relaxed);
+
+        // Skip gravity when on ground, spectating, creative flying, or elytra flying
+        if on_ground || is_spectator || is_creative_flying || is_fall_flying {
+            return;
+        }
+
+        let gravity = self.get_gravity();
+        if gravity != 0.0 {
+            let mut dm = self.delta_movement.lock();
+            dm.y -= gravity;
+        }
+    }
+
     /// Returns true if we're waiting for a teleport confirmation.
     #[must_use]
     pub fn is_awaiting_teleport(&self) -> bool {
@@ -1544,7 +1469,11 @@ impl Player {
         } else {
             Some(self.entity_id)
         };
-        self.world.broadcast_to_nearby(chunk, packet, exclude);
+        if let Ok(encoded) =
+            EncodedPacket::from_bare(packet, STEEL_CONFIG.compression, ConnectionProtocol::Play)
+        {
+            self.world.broadcast_to_nearby(chunk, encoded, exclude);
+        }
     }
 
     /// Handles a player input packet (movement keys, sneaking, sprinting).
@@ -1723,7 +1652,7 @@ impl Player {
 
         // Get the block and its behavior
         let block = state.get_block();
-        let block_behaviors = BLOCK_BEHAVIORS.get().expect("Behaviors not initialized");
+        let block_behaviors = &*BLOCK_BEHAVIORS;
         let behavior = block_behaviors.get_behavior(block);
 
         // Only include data if player has infinite materials (creative mode)

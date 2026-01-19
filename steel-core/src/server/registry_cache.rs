@@ -9,13 +9,14 @@ use steel_protocol::{
     },
     utils::ConnectionProtocol,
 };
+
 use steel_registry::{
     BANNER_PATTERN_REGISTRY, BIOMES_REGISTRY, BLOCKS_REGISTRY, CAT_VARIANT_REGISTRY,
     CHAT_TYPE_REGISTRY, CHICKEN_VARIANT_REGISTRY, COW_VARIANT_REGISTRY, DAMAGE_TYPE_REGISTRY,
-    DIMENSION_TYPE_REGISTRY, FROG_VARIANT_REGISTRY, INSTRUMENT_REGISTRY, ITEMS_REGISTRY,
-    JUKEBOX_SONG_REGISTRY, PAINTING_VARIANT_REGISTRY, PIG_VARIANT_REGISTRY, REGISTRY, Registry,
-    TIMELINE_REGISTRY, TRIM_MATERIAL_REGISTRY, TRIM_PATTERN_REGISTRY, WOLF_SOUND_VARIANT_REGISTRY,
-    WOLF_VARIANT_REGISTRY, ZOMBIE_NAUTILUS_VARIANT_REGISTRY,
+    DIALOG_REGISTRY, DIMENSION_TYPE_REGISTRY, FROG_VARIANT_REGISTRY, INSTRUMENT_REGISTRY,
+    ITEMS_REGISTRY, JUKEBOX_SONG_REGISTRY, PAINTING_VARIANT_REGISTRY, PIG_VARIANT_REGISTRY,
+    REGISTRY, Registry, TIMELINE_REGISTRY, TRIM_MATERIAL_REGISTRY, TRIM_PATTERN_REGISTRY,
+    WOLF_SOUND_VARIANT_REGISTRY, WOLF_VARIANT_REGISTRY, ZOMBIE_NAUTILUS_VARIANT_REGISTRY,
 };
 use steel_utils::Identifier;
 use steel_utils::codec::VarInt;
@@ -30,14 +31,21 @@ pub struct RegistryCache {
     pub tags_packet: Arc<EncodedPacket>,
 }
 
+impl Default for RegistryCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RegistryCache {
     /// Creates a new `RegistryCache` from the given registry.
-    pub async fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         let registry_packets = Self::build_registry_packets(&REGISTRY);
         let tags_by_registry_packet = Self::build_tags_packet(&REGISTRY);
 
         let (registry_packets, tags_packet) =
-            build_compressed_packets(registry_packets, tags_by_registry_packet).await;
+            build_compressed_packets(registry_packets, tags_by_registry_packet);
 
         Self {
             registry_packets,
@@ -86,6 +94,7 @@ impl RegistryCache {
         add_registry!(JUKEBOX_SONG_REGISTRY, jukebox_songs);
         add_registry!(INSTRUMENT_REGISTRY, instruments);
         add_registry!(TIMELINE_REGISTRY, timelines);
+        add_registry!(DIALOG_REGISTRY, dialogs);
 
         packets
     }
@@ -141,45 +150,54 @@ impl RegistryCache {
 
         tags_by_registry.push((TIMELINE_REGISTRY, timeline_tags));
 
+        // Build dialog tags
+        let mut dialog_tags: Vec<(Identifier, Vec<VarInt>)> =
+            Vec::with_capacity(registry.dialogs.tag_keys().count());
+        for tag_key in registry.dialogs.tag_keys() {
+            let mut dialog_ids = Vec::with_capacity(registry.dialogs.iter_tag(tag_key).count());
+
+            for dialog in registry.dialogs.iter_tag(tag_key) {
+                let dialog_id = *registry.dialogs.get_id(dialog);
+                dialog_ids.push(VarInt::from(dialog_id as i32));
+            }
+
+            dialog_tags.push((tag_key.clone(), dialog_ids));
+        }
+
+        tags_by_registry.push((DIALOG_REGISTRY, dialog_tags));
+
         // Build and return a CUpdateTagsPacket based on the registry data
         CUpdateTags::new(tags_by_registry)
     }
 }
 
 /// Compresses a packet.
-pub async fn compress_packet<P: ClientPacket>(packet: P) -> Result<EncodedPacket, ()> {
+fn compress_packet<P: ClientPacket>(packet: P) -> Option<EncodedPacket> {
     let compression_info = STEEL_CONFIG.compression;
     let id = packet.get_id(ConnectionProtocol::Config);
 
-    let encoded_packet =
-        EncodedPacket::from_bare(packet, compression_info, ConnectionProtocol::Config)
-            .await
-            .map_err(|_| {
-                log::error!("Failed to encode packet: {id:?}");
-            })?;
-
-    Ok(encoded_packet)
+    EncodedPacket::from_bare(packet, compression_info, ConnectionProtocol::Config)
+        .map_err(|_| {
+            log::error!("Failed to encode packet: {id:?}");
+        })
+        .ok()
 }
 
 /// # Panics
 /// This function will panic if the compression fails.
-pub async fn build_compressed_packets(
+#[must_use]
+pub fn build_compressed_packets(
     registry_packets: Vec<CRegistryData>,
     tags_packet: CUpdateTags,
 ) -> (Arc<[EncodedPacket]>, EncodedPacket) {
     let mut compressed_packets = Vec::with_capacity(registry_packets.len());
 
     for packet in registry_packets {
-        compressed_packets.push(
-            compress_packet(packet)
-                .await
-                .expect("Failed to compress packet"),
-        );
+        compressed_packets.push(compress_packet(packet).expect("Failed to compress packet"));
     }
 
-    let compressed_tags_packet = compress_packet(tags_packet)
-        .await
-        .expect("Failed to compress tags packet");
+    let compressed_tags_packet =
+        compress_packet(tags_packet).expect("Failed to compress tags packet");
 
     (compressed_packets.into(), compressed_tags_packet)
 }
