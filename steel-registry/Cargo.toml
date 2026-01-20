@@ -7,6 +7,7 @@ build = "build/build.rs"
 [dependencies]
 # Internal crates
 steel-utils.workspace = true
+steel-macros.workspace = true
 
 # Serialization
 serde.workspace = true

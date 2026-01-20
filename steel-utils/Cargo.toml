@@ -30,6 +30,7 @@ log.workspace = true
 
 # Cryptography
 md5.workspace = true
+crc32c = "0.6"
 
 # Utilities
 enum_dispatch.workspace = true

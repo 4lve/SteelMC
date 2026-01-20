@@ -49,6 +49,15 @@ impl ARGBColor {
             blue,
         }
     }
+
+    /// Returns the ARGB color as a packed i32 value.
+    #[must_use]
+    pub fn to_argb(&self) -> i32 {
+        (i32::from(self.alpha) << 24)
+            | (i32::from(self.red) << 16)
+            | (i32::from(self.green) << 8)
+            | i32::from(self.blue)
+    }
 }
 
 /// Converts the ARGB color to an `NbtTag::Int` of the ARGB hex code as decimal.
@@ -197,5 +206,25 @@ impl<'de> Deserialize<'de> for Color {
 impl From<NamedColor> for Color {
     fn from(value: NamedColor) -> Self {
         Self::Named(value)
+    }
+}
+
+impl Color {
+    /// Parses a color from a string (named color, hex, or "reset").
+    #[must_use]
+    pub fn parse(s: &str) -> Option<Self> {
+        if s == "reset" {
+            Some(Color::Reset)
+        } else if let Some(hex) = s.strip_prefix('#') {
+            if hex.len() != 6 {
+                return None;
+            }
+            let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+            let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+            let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+            Some(Color::Rgb(RGBColor::new(r, g, b)))
+        } else {
+            NamedColor::try_from(s).ok().map(Color::Named)
+        }
     }
 }

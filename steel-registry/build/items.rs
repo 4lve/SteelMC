@@ -169,21 +169,27 @@ fn generate_builder_calls(item: &Item) -> Vec<TokenStream> {
                 let val = value.as_i64().unwrap() as i32;
                 if val != 64 {
                     builder_calls.push(
-                        quote! { .builder_set(vanilla_components::#component_ident, Some(#val)) },
+                        quote! { .builder_set(vanilla_components::#component_ident, Some(vanilla_components::MaxStackSize(#val))) },
                     );
                 }
             }
             "minecraft:max_damage" => {
                 let val = value.as_i64().unwrap() as i32;
                 builder_calls.push(
-                    quote! { .builder_set(vanilla_components::#component_ident, Some(#val)) },
+                    quote! { .builder_set(vanilla_components::#component_ident, Some(vanilla_components::MaxDamage(#val))) },
+                );
+            }
+            "minecraft:damage" => {
+                let val = value.as_i64().unwrap() as i32;
+                builder_calls.push(
+                    quote! { .builder_set(vanilla_components::#component_ident, Some(vanilla_components::Damage(#val))) },
                 );
             }
             "minecraft:repair_cost" => {
                 let val = value.as_i64().unwrap() as i32;
                 if val != 0 {
                     builder_calls.push(
-                        quote! { .builder_set(vanilla_components::#component_ident, Some(#val)) },
+                        quote! { .builder_set(vanilla_components::#component_ident, Some(vanilla_components::RepairCost(#val))) },
                     );
                 }
             }
