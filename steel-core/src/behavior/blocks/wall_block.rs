@@ -55,7 +55,7 @@ impl WallBlock {
         if REGISTRY.blocks.is_in_tag(neighbor_block, &walls_tag) {
             return WallSide::Low;
         }
-        if direction == Direction::Up{
+        if direction == Direction::Up {
             let walls_tag = Identifier::vanilla_static("fence");
             if REGISTRY.blocks.is_in_tag(neighbor_block, &walls_tag) {
                 return WallSide::Tall;
@@ -76,9 +76,8 @@ impl WallBlock {
             Direction::Up => Direction::Down,
             Direction::Down => Direction::Up,
         };
-        if neighbor_state.is_face_sturdy(opposite)
-        {
-            return WallSide::Low
+        if neighbor_state.is_face_sturdy(opposite) {
+            return WallSide::Low;
         }
         WallSide::None
     }
@@ -123,7 +122,10 @@ impl WallBlock {
 
 impl BlockBehaviour for WallBlock {
     fn get_state_for_placement(&self, context: &BlockPlaceContext<'_>) -> Option<BlockStateId> {
-        Some(self.get_connection_state(context.world, &context.relative_pos))
+        Some(
+            self.get_connection_state(context.world, &context.relative_pos)
+                .set_value(&Self::WATERLOGGED, context.is_water_source()),
+        )
     }
 
     fn update_shape(
