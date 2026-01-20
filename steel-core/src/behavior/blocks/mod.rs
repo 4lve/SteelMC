@@ -3,7 +3,9 @@
 //! The actual behavior registration is auto-generated from classes.json.
 //! See `src/generated/behaviors.rs` for the generated registration code.
 
+mod chain_block;
 mod copper_bars_block;
+mod copper_chain_block;
 mod crafting_table_block;
 mod crop_block;
 mod end_portal_frame_block;
@@ -13,7 +15,9 @@ mod iron_bars_block;
 mod rotated_pillar_block;
 mod wall_block;
 
+pub use chain_block::ChainBlock;
 pub use copper_bars_block::WeatheringCopperBarsBlock;
+pub use copper_chain_block::WeatheringCopperChainBlock;
 pub use crafting_table_block::CraftingTableBlock;
 pub use crop_block::CropBlock;
 pub use end_portal_frame_block::EndPortalFrameBlock;

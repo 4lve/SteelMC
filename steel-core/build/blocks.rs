@@ -39,6 +39,8 @@ pub fn build(blocks: &[BlockClass]) -> String {
     let mut iron_bar_blocks = Vec::new();
     let mut copper_bar_blocks = Vec::new();
     let mut wall_blocks = Vec::new();
+    let mut chain_blocks = Vec::new();
+    let mut copper_chain_blocks = Vec::new();
 
     for block in blocks {
         let const_ident = to_const_ident(&block.name);
@@ -52,6 +54,8 @@ pub fn build(blocks: &[BlockClass]) -> String {
             "IronBarsBlock" => iron_bar_blocks.push(const_ident),
             "WeatheringCopperBarsBlock" => copper_bar_blocks.push(const_ident),
             "WallBlock" => wall_blocks.push(const_ident),
+            "ChainBlock" => chain_blocks.push(const_ident),
+            "WeatheringCopperChainBlock" => copper_chain_blocks.push(const_ident),
             _ => {}
         }
     }
@@ -65,6 +69,8 @@ pub fn build(blocks: &[BlockClass]) -> String {
     let iron_bar_type = Ident::new("IronBarsBlock", Span::call_site());
     let copper_bar_type = Ident::new("WeatheringCopperBarsBlock", Span::call_site());
     let wall_type = Ident::new("WallBlock", Span::call_site());
+    let chain_type = Ident::new("ChainBlock", Span::call_site());
+    let copper_chain_type = Ident::new("WeatheringCopperChainBlock", Span::call_site());
 
     let crafting_table_registrations =
         generate_registrations(crafting_table_blocks.iter(), &crafting_table_type);
@@ -78,21 +84,28 @@ pub fn build(blocks: &[BlockClass]) -> String {
     let copper_bar_registrations =
         generate_registrations(copper_bar_blocks.iter(), &copper_bar_type);
     let wall_registrations = generate_registrations(wall_blocks.iter(), &wall_type);
+    let chain_registrations = generate_registrations(chain_blocks.iter(), &chain_type);
+    let copper_chain_registrations =
+        generate_registrations(copper_chain_blocks.iter(), &copper_chain_type);
 
     let output = quote! {
         //! Generated block behavior assignments.
 
         use steel_registry::vanilla_blocks;
         use crate::behavior::BlockBehaviorRegistry;
-        use crate::behavior::blocks::{CraftingTableBlock,
+        use crate::behavior::blocks::{
+            ChainBlock,
+            CraftingTableBlock,
             CropBlock,
             EndPortalFrameBlock,
             FarmlandBlock,
             FenceBlock,
-            RotatedPillarBlock,
             IronBarsBlock,
+            RotatedPillarBlock,
+            WallBlock,
             WeatheringCopperBarsBlock,
-            WallBlock};
+            WeatheringCopperChainBlock,
+        };
 
         pub fn register_block_behaviors(registry: &mut BlockBehaviorRegistry) {
             #crafting_table_registrations
@@ -104,6 +117,8 @@ pub fn build(blocks: &[BlockClass]) -> String {
             #iron_bar_registrations
             #copper_bar_registrations
             #wall_registrations
+            #chain_registrations
+            #copper_chain_registrations
         }
     };
 
