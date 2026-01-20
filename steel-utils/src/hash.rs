@@ -494,6 +494,6 @@ mod tests {
         let hash = component.compute_hash();
 
         // Expected hash from vanilla Minecraft client
-        assert_eq!(hash, -25646594, "Hash should match vanilla client");
+        assert_eq!(hash, -25_646_594, "Hash should match vanilla client");
     }
 }
