@@ -99,7 +99,7 @@ impl IronBarsBlock {
         let west_state = world.get_block_state(&west_pos);
         let connects_west = Self::connects_to(west_state, Direction::West);
         state = state.set_value(&Self::WEST, connects_west);
-        state.set_value(&Self::WATERLOGGED, true);
+        
         state
     }
 }
