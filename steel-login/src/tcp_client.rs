@@ -18,11 +18,10 @@ use steel_protocol::{
     packet_traits::{ClientPacket, CompressionInfo, EncodedPacket, ServerPacket},
     packet_writer::TCPNetworkEncoder,
     packets::{
-        common::{CDisconnect, SClientInformation, SCustomPayload},
+        common::{CDisconnect, SClientInformation, SCustomPayload, SPingRequest},
         config::SSelectKnownPacks,
         handshake::{ClientIntent, SClientIntention},
         login::{CLoginDisconnect, SHello, SKey},
-        status::SPingRequest,
     },
     utils::{ConnectionProtocol, PacketError, RawPacket},
 };
