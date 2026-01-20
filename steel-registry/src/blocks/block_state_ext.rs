@@ -53,7 +53,6 @@ impl BlockStateExt for BlockStateId {
         REGISTRY.blocks.try_get_property(*self, property)
     }
 
-
     fn set_value<T, P: Property<T>>(&self, property: &P, value: T) -> BlockStateId {
         REGISTRY.blocks.set_property(*self, property, value)
     }

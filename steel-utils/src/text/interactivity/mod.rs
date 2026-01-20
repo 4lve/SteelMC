@@ -30,6 +30,12 @@ impl Interactivity {
         }
     }
 
+    /// Returns true if this interactivity has no events set.
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.click_event.is_none() && self.hover_event.is_none()
+    }
+
     /// Sets the click event for the `Interactivity`.
     #[must_use]
     pub fn click_event(mut self, click_event: ClickEvent) -> Self {

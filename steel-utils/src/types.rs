@@ -4,7 +4,7 @@ use std::{
     borrow::Cow,
     fmt::{self, Debug, Display, Formatter},
     hash::{Hash, Hasher},
-    io::{self, Read, Write},
+    io::{self, Cursor, Write},
     mem::MaybeUninit,
     str::FromStr,
 };
@@ -15,13 +15,43 @@ use wincode::{SchemaRead, SchemaWrite, io::Reader, io::Writer};
 
 use crate::{
     codec::VarInt,
+    hash::{ComponentHasher, HashComponent},
     math::{Vector2, Vector3},
     serial::{ReadFrom, WriteTo},
 };
 
-// Useful for early development
-/// A type alias for `()`. Useful for early development.
-pub type Todo = ();
+/// A placeholder type for unimplemented component values.
+/// Unlike `()`, this is a distinct type that can have its own trait implementations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Todo;
+
+impl WriteTo for Todo {
+    fn write(&self, _writer: &mut impl Write) -> io::Result<()> {
+        // Placeholder components write nothing
+        Ok(())
+    }
+}
+
+impl ReadFrom for Todo {
+    fn read(_data: &mut Cursor<&[u8]>) -> io::Result<Self> {
+        // Placeholder components read nothing
+        Ok(Todo)
+    }
+}
+
+impl HashComponent for Todo {
+    fn hash_component(&self, hasher: &mut ComponentHasher) {
+        // Hash as empty value
+        hasher.put_empty();
+    }
+}
+
+impl HashComponent for Identifier {
+    fn hash_component(&self, hasher: &mut ComponentHasher) {
+        // Identifiers are hashed as strings in "namespace:path" format
+        hasher.put_string(&self.to_string());
+    }
+}
 
 /// A raw block state id. Using the registry this id can be derived into a block and it's current properties.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -34,7 +64,7 @@ impl WriteTo for BlockStateId {
 }
 
 impl ReadFrom for BlockStateId {
-    fn read(data: &mut impl Read) -> io::Result<Self> {
+    fn read(data: &mut Cursor<&[u8]>) -> io::Result<Self> {
         let id = VarInt::read(data)?.0;
         #[allow(clippy::cast_sign_loss)]
         Ok(Self(id as u16))
@@ -122,7 +152,7 @@ impl WriteTo for ChunkPos {
 
 #[allow(missing_docs)]
 impl ReadFrom for ChunkPos {
-    fn read(data: &mut impl Read) -> io::Result<Self> {
+    fn read(data: &mut Cursor<&[u8]>) -> io::Result<Self> {
         Ok(Self(Vector2::<i32>::read(data)?))
     }
 }
@@ -204,7 +234,7 @@ impl BlockPos {
 }
 
 impl ReadFrom for BlockPos {
-    fn read(data: &mut impl Read) -> io::Result<Self> {
+    fn read(data: &mut Cursor<&[u8]>) -> io::Result<Self> {
         let packed = <i64 as ReadFrom>::read(data)?;
         Ok(Self::from_i64(packed))
     }
@@ -346,7 +376,7 @@ impl SectionPos {
 }
 
 impl ReadFrom for SectionPos {
-    fn read(data: &mut impl Read) -> io::Result<Self> {
+    fn read(data: &mut Cursor<&[u8]>) -> io::Result<Self> {
         let packed = <i64 as ReadFrom>::read(data)?;
         Ok(Self::from_i64(packed))
     }
@@ -574,7 +604,7 @@ pub enum InteractionHand {
 }
 
 impl ReadFrom for InteractionHand {
-    fn read(data: &mut impl Read) -> io::Result<Self> {
+    fn read(data: &mut Cursor<&[u8]>) -> io::Result<Self> {
         let id = VarInt::read(data)?.0;
         match id {
             0 => Ok(InteractionHand::MainHand),

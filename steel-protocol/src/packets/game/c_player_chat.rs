@@ -109,7 +109,7 @@ impl steel_utils::serial::WriteTo for CPlayerChat {
         match &self.unsigned_content {
             Some(content) => {
                 true.write(writer)?;
-                writer.write_all(&content.encode())?;
+                content.write(writer)?;
             }
             None => false.write(writer)?,
         }

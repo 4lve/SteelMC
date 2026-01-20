@@ -2,14 +2,16 @@ use rustc_hash::FxHashMap;
 use std::{
     any::Any,
     fmt::Debug,
-    io::{Read, Result, Write},
+    io::{Cursor, Result, Write},
     marker::PhantomData,
 };
 
 use steel_utils::{
     Identifier,
     codec::VarInt,
+    hash::HashComponent,
     serial::{ReadFrom, WriteTo},
+    types::Todo,
 };
 
 use crate::{
@@ -20,13 +22,23 @@ use crate::{
     },
 };
 
+/// Type alias for a component reader function.
+/// Takes a cursor and returns a boxed `ComponentValue`.
+type ComponentReader = fn(&mut Cursor<&[u8]>) -> Result<Box<dyn ComponentValue>>;
+
 pub trait ComponentValue: Debug + Send + Sync {
     fn as_any(&self) -> &dyn Any;
     fn clone_boxed(&self) -> Box<dyn ComponentValue>;
     fn eq_value(&self, other: &dyn ComponentValue) -> bool;
+    /// Writes this component value to the network stream.
+    fn write_network(&self, writer: &mut Vec<u8>) -> Result<()>;
+    /// Computes the hash of this component value for validation.
+    fn compute_hash(&self) -> i32;
 }
 
-impl<T: 'static + Send + Sync + Debug + Clone + PartialEq> ComponentValue for T {
+impl<T: 'static + Send + Sync + Debug + Clone + PartialEq + WriteTo + ReadFrom + HashComponent>
+    ComponentValue for T
+{
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -40,6 +52,14 @@ impl<T: 'static + Send + Sync + Debug + Clone + PartialEq> ComponentValue for T 
             .as_any()
             .downcast_ref::<T>()
             .is_some_and(|o| self == o)
+    }
+
+    fn write_network(&self, writer: &mut Vec<u8>) -> Result<()> {
+        self.write(writer)
+    }
+
+    fn compute_hash(&self) -> i32 {
+        HashComponent::compute_hash(self)
     }
 }
 
@@ -60,7 +80,12 @@ impl<T> DataComponentType<T> {
 }
 
 pub struct DataComponentRegistry {
+    /// Map from component key to network ID
     components_by_key: FxHashMap<Identifier, usize>,
+    /// Ordered list of component keys (index = network ID)
+    components_by_id: Vec<Identifier>,
+    /// Ordered list of reader functions (index = network ID)
+    readers_by_id: Vec<ComponentReader>,
     allows_registering: bool,
 }
 
@@ -75,18 +100,34 @@ impl DataComponentRegistry {
     pub fn new() -> Self {
         Self {
             components_by_key: FxHashMap::default(),
+            components_by_id: Vec::new(),
+            readers_by_id: Vec::new(),
             allows_registering: true,
         }
     }
 
-    pub fn register<T: 'static>(&mut self, component: DataComponentType<T>) {
+    pub fn register<T: 'static + ComponentValue + ReadFrom>(
+        &mut self,
+        component: DataComponentType<T>,
+    ) {
         assert!(
             self.allows_registering,
             "Cannot register data components after the registry has been frozen"
         );
 
-        let id = self.components_by_key.len();
+        let id = self.components_by_id.len();
         self.components_by_key.insert(component.key.clone(), id);
+        self.components_by_id.push(component.key);
+
+        // Create a reader function that deserializes T and boxes it
+        fn read_component<T: 'static + ComponentValue + ReadFrom>(
+            data: &mut Cursor<&[u8]>,
+        ) -> Result<Box<dyn ComponentValue>> {
+            let value = T::read(data)?;
+            Ok(Box::new(value))
+        }
+
+        self.readers_by_id.push(read_component::<T>);
     }
 
     #[must_use]
@@ -97,6 +138,30 @@ impl DataComponentRegistry {
     #[must_use]
     pub fn get_id_by_key(&self, key: &Identifier) -> Option<usize> {
         self.components_by_key.get(key).copied()
+    }
+
+    /// Gets the component key by its network ID.
+    #[must_use]
+    pub fn get_key_by_id(&self, id: usize) -> Option<&Identifier> {
+        self.components_by_id.get(id)
+    }
+
+    /// Gets the reader function for a component by its network ID.
+    #[must_use]
+    pub fn get_reader_by_id(&self, id: usize) -> Option<ComponentReader> {
+        self.readers_by_id.get(id).copied()
+    }
+
+    /// Returns the number of registered components.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.components_by_id.len()
+    }
+
+    /// Returns true if no components are registered.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.components_by_id.is_empty()
     }
 }
 
@@ -132,10 +197,10 @@ impl DataComponentMap {
             MAX_STACK_SIZE.key.clone(),
             Box::new(64i32) as Box<dyn ComponentValue>,
         );
-        map.insert(LORE.key.clone(), Box::new(()) as Box<dyn ComponentValue>);
+        map.insert(LORE.key.clone(), Box::new(Todo) as Box<dyn ComponentValue>);
         map.insert(
             ENCHANTMENTS.key.clone(),
-            Box::new(()) as Box<dyn ComponentValue>,
+            Box::new(Todo) as Box<dyn ComponentValue>,
         );
         map.insert(
             REPAIR_COST.key.clone(),
@@ -143,16 +208,19 @@ impl DataComponentMap {
         );
         map.insert(
             ATTRIBUTE_MODIFIERS.key.clone(),
-            Box::new(()) as Box<dyn ComponentValue>,
+            Box::new(Todo) as Box<dyn ComponentValue>,
         );
-        map.insert(RARITY.key.clone(), Box::new(()) as Box<dyn ComponentValue>);
+        map.insert(
+            RARITY.key.clone(),
+            Box::new(Todo) as Box<dyn ComponentValue>,
+        );
         map.insert(
             BREAK_SOUND.key.clone(),
-            Box::new(()) as Box<dyn ComponentValue>,
+            Box::new(Todo) as Box<dyn ComponentValue>,
         );
         map.insert(
             TOOLTIP_DISPLAY.key.clone(),
-            Box::new(()) as Box<dyn ComponentValue>,
+            Box::new(Todo) as Box<dyn ComponentValue>,
         );
         Self { map }
     }
@@ -352,40 +420,110 @@ pub fn component_try_into<T: 'static>(
 
 impl WriteTo for DataComponentPatch {
     fn write(&self, writer: &mut impl Write) -> Result<()> {
+        use crate::REGISTRY;
+
         // Format: VarInt addedCount, VarInt removedCount, then added entries, then removed entries
-        // TODO: Implement full component serialization when needed
-        // For now, we write an empty patch. Full implementation requires:
-        // - Component type registry IDs
-        // - Per-component-type codecs for serializing values
-        VarInt(0).write(writer)?; // added count
-        VarInt(0).write(writer)?; // removed count
+        // Collect added and removed entries
+        let mut added: Vec<(&Identifier, &Box<dyn ComponentValue>)> = Vec::new();
+        let mut removed: Vec<&Identifier> = Vec::new();
+
+        for (key, entry) in &self.entries {
+            match entry {
+                ComponentPatchEntry::Set(value) => added.push((key, value)),
+                ComponentPatchEntry::Removed => removed.push(key),
+            }
+        }
+
+        VarInt(added.len() as i32).write(writer)?;
+        VarInt(removed.len() as i32).write(writer)?;
+
+        // Write added components: VarInt type_id, then component data
+        for (key, value) in added {
+            let id = REGISTRY
+                .data_components
+                .get_id_by_key(key)
+                .ok_or_else(|| std::io::Error::other(format!("Unknown component key: {key:?}")))?;
+            VarInt(id as i32).write(writer)?;
+
+            // Write the component value
+            let mut buf = Vec::new();
+            value.write_network(&mut buf)?;
+            writer.write_all(&buf)?;
+        }
+
+        // Write removed component IDs
+        for key in removed {
+            let id = REGISTRY
+                .data_components
+                .get_id_by_key(key)
+                .ok_or_else(|| std::io::Error::other(format!("Unknown component key: {key:?}")))?;
+            VarInt(id as i32).write(writer)?;
+        }
+
         Ok(())
     }
 }
 
 impl ReadFrom for DataComponentPatch {
-    fn read(data: &mut impl Read) -> Result<Self> {
+    fn read(data: &mut Cursor<&[u8]>) -> Result<Self> {
+        use crate::REGISTRY;
+
         // Format: VarInt addedCount, VarInt removedCount, then added entries, then removed entries
-        // TODO: Implement full component deserialization when needed
-        // For now, we skip the data and return an empty patch
         let added_count = VarInt::read(data)?.0 as usize;
         let removed_count = VarInt::read(data)?.0 as usize;
 
-        // Skip added components (each is: VarInt type_id, then type-specific data)
-        // Since we don't know the type-specific codec, we can't properly skip
-        // For now, we assume empty patches in practice
-        if added_count > 0 || removed_count > 0 {
-            // This is a limitation - we can't properly deserialize non-empty patches
-            // without the full component codec system
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!(
-                    "Non-empty DataComponentPatch deserialization not yet supported ({} added, {} removed)",
-                    added_count, removed_count
-                ),
-            ));
+        log::info!("Reading DataComponentPatch: added={added_count}, removed={removed_count}");
+
+        let mut patch = Self::new();
+
+        // Read added components
+        for i in 0..added_count {
+            let pos_before = data.position();
+            let type_id = VarInt::read(data)?.0 as usize;
+
+            let key = REGISTRY
+                .data_components
+                .get_key_by_id(type_id)
+                .ok_or_else(|| {
+                    std::io::Error::other(format!("Unknown component type ID: {type_id}"))
+                })?
+                .clone();
+
+            log::info!("  [{i}] Reading component {key} (id={type_id}) at pos {pos_before}");
+
+            // Try to get a reader for this component type
+            if let Some(reader) = REGISTRY.data_components.get_reader_by_id(type_id) {
+                let value = reader(data).map_err(|e| {
+                    log::error!("    Failed to read component {key}: {e}");
+                    e
+                })?;
+                let pos_after = data.position();
+                log::info!("    Read {} bytes for {key}", pos_after - pos_before);
+                patch.entries.insert(key, ComponentPatchEntry::Set(value));
+            } else {
+                // No reader registered for this component - we can't skip it properly
+                // since we don't know its size
+                return Err(std::io::Error::other(format!(
+                    "No reader registered for component: {key}"
+                )));
+            }
         }
 
-        Ok(Self::new())
+        // Read removed component IDs
+        for _ in 0..removed_count {
+            let type_id = VarInt::read(data)?.0 as usize;
+
+            let key = REGISTRY
+                .data_components
+                .get_key_by_id(type_id)
+                .ok_or_else(|| {
+                    std::io::Error::other(format!("Unknown component type ID: {type_id}"))
+                })?
+                .clone();
+
+            patch.entries.insert(key, ComponentPatchEntry::Removed);
+        }
+
+        Ok(patch)
     }
 }

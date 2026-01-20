@@ -13,6 +13,8 @@
 
 pub mod codec;
 mod front_vec;
+/// CRC32C hashing for component validation.
+pub mod hash;
 /// A module for custom locks.
 pub mod locks;
 pub mod math;
