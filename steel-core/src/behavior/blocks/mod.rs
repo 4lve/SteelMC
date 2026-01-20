@@ -11,6 +11,7 @@ mod farmland_block;
 mod fence_block;
 mod iron_bars_block;
 mod rotated_pillar_block;
+mod wall_block;
 
 pub use copper_bars_block::WeatheringCopperBarsBlock;
 pub use crafting_table_block::CraftingTableBlock;
@@ -20,3 +21,4 @@ pub use farmland_block::FarmlandBlock;
 pub use fence_block::FenceBlock;
 pub use iron_bars_block::IronBarsBlock;
 pub use rotated_pillar_block::RotatedPillarBlock;
+pub use wall_block::WallBlock;
