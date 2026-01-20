@@ -3,7 +3,7 @@
 <a href=#3 id=3 data-nosnippet>3</a>//! Dynamic item behavior has been moved to `steel-core::behavior`.
 <a href=#4 id=4 data-nosnippet>4</a>//! This file contains data structures that are needed by other crates.
 <a href=#5 id=5 data-nosnippet>5</a>
-<a href=#6 id=6 data-nosnippet>6</a></span><span class="kw">use </span>std::io::{<span class="self">self</span>, Read};
+<a href=#6 id=6 data-nosnippet>6</a></span><span class="kw">use </span>std::io::{<span class="self">self</span>, Cursor};
 <a href=#7 id=7 data-nosnippet>7</a>
 <a href=#8 id=8 data-nosnippet>8</a><span class="kw">use </span>steel_utils::BlockPos;
 <a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span>steel_utils::math::Vector3;
@@ -32,7 +32,7 @@
 <a href=#32 id=32 data-nosnippet>32</a>}
 <a href=#33 id=33 data-nosnippet>33</a>
 <a href=#34 id=34 data-nosnippet>34</a><span class="kw">impl </span>ReadFrom <span class="kw">for </span>BlockHitResult {
-<a href=#35 id=35 data-nosnippet>35</a>    <span class="kw">fn </span>read(data: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Read) -&gt; io::Result&lt;<span class="self">Self</span>&gt; {
+<a href=#35 id=35 data-nosnippet>35</a>    <span class="kw">fn </span>read(data: <span class="kw-2">&amp;mut </span>Cursor&lt;<span class="kw-2">&amp;</span>[u8]&gt;) -&gt; io::Result&lt;<span class="self">Self</span>&gt; {
 <a href=#36 id=36 data-nosnippet>36</a>        <span class="kw">let </span>block_pos = BlockPos::read(data)<span class="question-mark">?</span>;
 <a href=#37 id=37 data-nosnippet>37</a>        <span class="kw">let </span>direction = Direction::read(data)<span class="question-mark">?</span>;
 <a href=#38 id=38 data-nosnippet>38</a>        <span class="comment">// Click coordinates are relative to the block position (0.0 to 1.0 range)

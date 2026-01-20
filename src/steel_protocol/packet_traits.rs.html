@@ -2,7 +2,7 @@
 <a href=#2 id=2 data-nosnippet>2</a>//!
 <a href=#3 id=3 data-nosnippet>3</a>//! This module contains the traits for the packets.
 <a href=#4 id=4 data-nosnippet>4</a></span><span class="kw">use </span>std::{
-<a href=#5 id=5 data-nosnippet>5</a>    io::{Read, Write},
+<a href=#5 id=5 data-nosnippet>5</a>    io::{Cursor, Write},
 <a href=#6 id=6 data-nosnippet>6</a>    num::NonZeroU32,
 <a href=#7 id=7 data-nosnippet>7</a>    sync::Arc,
 <a href=#8 id=8 data-nosnippet>8</a>};
@@ -21,7 +21,7 @@
 <a href=#21 id=21 data-nosnippet>21</a></span><span class="doccomment">/// A trait for packets sent from the server to the client.
 <a href=#22 id=22 data-nosnippet>22</a></span><span class="kw">pub trait </span>ServerPacket: ReadFrom {
 <a href=#23 id=23 data-nosnippet>23</a>    <span class="doccomment">/// Reads a packet from the given data.
-<a href=#24 id=24 data-nosnippet>24</a>    </span><span class="kw">fn </span>read_packet(data: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Read) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, PacketError&gt; {
+<a href=#24 id=24 data-nosnippet>24</a>    </span><span class="kw">fn </span>read_packet(data: <span class="kw-2">&amp;mut </span>Cursor&lt;<span class="kw-2">&amp;</span>[u8]&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, PacketError&gt; {
 <a href=#25 id=25 data-nosnippet>25</a>        <span class="self">Self</span>::read(data).map_err(PacketError::from)
 <a href=#26 id=26 data-nosnippet>26</a>    }
 <a href=#27 id=27 data-nosnippet>27</a>}

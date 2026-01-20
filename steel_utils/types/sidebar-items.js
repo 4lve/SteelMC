@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["GameType","InteractionHand"],"struct":["BlockPos","BlockStateId","ChunkPos","Identifier","SectionPos","UpdateFlags"],"type":["Todo"]};
+window.SIDEBAR_ITEMS = {"enum":["GameType","InteractionHand"],"struct":["BlockPos","BlockStateId","ChunkPos","Identifier","SectionPos","Todo","UpdateFlags"]};

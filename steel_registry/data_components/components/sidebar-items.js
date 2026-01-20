@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ComponentPatchEntry"],"fn":["component_try_into"],"struct":["DataComponentMap","DataComponentPatch","DataComponentRegistry","DataComponentType"],"trait":["ComponentValue"]};
+window.SIDEBAR_ITEMS = {"enum":["EquippableSlot"],"mod":["equippable","tool"],"struct":["Equippable","Tool","ToolRule"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ComponentPatchEntry"],"fn":["component_try_into"],"struct":["DataComponentMap","DataComponentPatch","DataComponentRegistry","DataComponentType"],"trait":["ComponentValue"],"type":["ComponentReader"]};

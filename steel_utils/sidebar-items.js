@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["codec","front_vec","locks","math","random","serial","text","translations","types"],"struct":["FrontVec"]};
+window.SIDEBAR_ITEMS = {"mod":["codec","front_vec","hash","locks","math","random","serial","text","translations","types"],"struct":["FrontVec"]};
