@@ -57,6 +57,18 @@ pub struct BlockPlaceContext<'a> {
     /// The world where the block is being placed.
     pub world: &'a World,
 }
+impl BlockPlaceContext<'_> {
+    /// Returns true if the block before was a water source
+    pub fn is_water_source(&self) -> bool {
+        let state = self.world.get_block_state(&self.relative_pos);
+        if ptr::eq(state.get_block(), vanilla_blocks::WATER) {
+            let level = state.get_value(&BlockStateProperties::LEVEL);
+            log::warn!("level of water: {}", level);
+            return level == 0;
+        }
+        false
+    }
+}
 
 /// Context for using an item on a block.
 pub struct UseOnContext<'a> {

@@ -139,7 +139,10 @@ impl BlockBehaviour for FenceBlock {
             self.block.key,
             context.relative_pos
         );
-        Some(self.get_connection_state(context.world, &context.relative_pos))
+        Some(
+            self.get_connection_state(context.world, &context.relative_pos)
+                .set_value(&Self::WATERLOGGED, context.is_water_source()),
+        )
     }
 
     fn update_shape(
