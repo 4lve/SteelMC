@@ -671,6 +671,37 @@ impl PropertyEnum for NoteBlockInstrument {
     }
 }
 
+impl NoteBlockInstrument {
+    /// Returns true for mob head and custom head instruments that work from above the note block.
+    /// Base block instruments (harp, basedrum, etc.) work from below and return false.
+    #[must_use]
+    pub const fn works_above_note_block(&self) -> bool {
+        matches!(
+            self,
+            Self::Zombie
+                | Self::Skeleton
+                | Self::Creeper
+                | Self::Dragon
+                | Self::WitherSkeleton
+                | Self::Piglin
+                | Self::CustomHead
+        )
+    }
+
+    /// Returns true if this instrument can be tuned (has variable pitch).
+    /// Only base block instruments are tunable; mob head instruments play at fixed pitch.
+    #[must_use]
+    pub const fn is_tunable(&self) -> bool {
+        !self.works_above_note_block()
+    }
+
+    /// Returns true if this instrument uses a custom sound from a player head block entity.
+    #[must_use]
+    pub const fn has_custom_sound(&self) -> bool {
+        matches!(self, Self::CustomHead)
+    }
+}
+
 #[derive(Clone, Debug)]
 #[derive_const(PartialEq)]
 pub enum PistonType {

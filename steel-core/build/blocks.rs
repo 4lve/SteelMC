@@ -36,6 +36,7 @@ pub fn build(blocks: &[BlockClass]) -> String {
     let mut end_portal_frame_blocks = Vec::new();
     let mut farm_blocks = Vec::new();
     let mut fence_blocks = Vec::new();
+    let mut note_blocks = Vec::new();
     let mut rotated_pillar_blocks = Vec::new();
 
     for block in blocks {
@@ -46,6 +47,7 @@ pub fn build(blocks: &[BlockClass]) -> String {
             "EndPortalFrameBlock" => end_portal_frame_blocks.push(const_ident),
             "FarmBlock" => farm_blocks.push(const_ident),
             "FenceBlock" => fence_blocks.push(const_ident),
+            "NoteBlock" => note_blocks.push(const_ident),
             "RotatedPillarBlock" => rotated_pillar_blocks.push(const_ident),
             _ => {}
         }
@@ -56,6 +58,7 @@ pub fn build(blocks: &[BlockClass]) -> String {
     let end_portal_frame_type = Ident::new("EndPortalFrameBlock", Span::call_site());
     let farmland_type = Ident::new("FarmlandBlock", Span::call_site());
     let fence_type = Ident::new("FenceBlock", Span::call_site());
+    let note_type = Ident::new("NoteBlock", Span::call_site());
     let pillar_type = Ident::new("RotatedPillarBlock", Span::call_site());
 
     let crafting_table_registrations =
@@ -65,6 +68,7 @@ pub fn build(blocks: &[BlockClass]) -> String {
         generate_registrations(end_portal_frame_blocks.iter(), &end_portal_frame_type);
     let farm_registrations = generate_registrations(farm_blocks.iter(), &farmland_type);
     let fence_registrations = generate_registrations(fence_blocks.iter(), &fence_type);
+    let note_registrations = generate_registrations(note_blocks.iter(), &note_type);
     let pillar_registrations = generate_registrations(rotated_pillar_blocks.iter(), &pillar_type);
 
     let output = quote! {
@@ -72,7 +76,7 @@ pub fn build(blocks: &[BlockClass]) -> String {
 
         use steel_registry::vanilla_blocks;
         use crate::behavior::BlockBehaviorRegistry;
-        use crate::behavior::blocks::{CraftingTableBlock, CropBlock, EndPortalFrameBlock, FarmlandBlock, FenceBlock, RotatedPillarBlock};
+        use crate::behavior::blocks::{CraftingTableBlock, CropBlock, EndPortalFrameBlock, FarmlandBlock, FenceBlock, NoteBlock, RotatedPillarBlock};
 
         pub fn register_block_behaviors(registry: &mut BlockBehaviorRegistry) {
             #crafting_table_registrations
@@ -80,6 +84,7 @@ pub fn build(blocks: &[BlockClass]) -> String {
             #end_portal_frame_registrations
             #farm_registrations
             #fence_registrations
+            #note_registrations
             #pillar_registrations
         }
     };
