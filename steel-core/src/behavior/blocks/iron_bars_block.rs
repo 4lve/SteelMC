@@ -1,6 +1,6 @@
-//! Fence block behavior implementation.
+//! bar block behavior implementation.
 //!
-//! Fences connect to adjacent fences, fence gates, and solid blocks.
+//! bars connect to adjacent bars, bar solid blocks.
 
 use steel_registry::REGISTRY;
 use steel_registry::blocks::BlockRef;
@@ -12,18 +12,18 @@ use crate::behavior::block::BlockBehaviour;
 use crate::behavior::context::BlockPlaceContext;
 use crate::world::World;
 
-/// Behavior for fence blocks.
+/// Behavior for bar blocks.
 ///
-/// Fences have 4 boolean properties (north, east, south, west) that indicate
-/// whether the fence connects in that direction. A fence connects to:
-/// - Other fences of the same type
-/// - Fence gates facing the appropriate direction
+/// bars have 4 boolean properties (north, east, south, west) that indicate
+/// whether the bar connects in that direction. A bar connects to:
+/// - Other bars of the same type
+/// - bar gates facing the appropriate direction
 /// - Blocks with a sturdy face on the connecting side
-pub struct FenceBlock {
+pub struct IronBarsBlock {
     block: BlockRef,
 }
 
-impl FenceBlock {
+impl IronBarsBlock {
     /// North connection property.
     pub const NORTH: BoolProperty = BlockStateProperties::NORTH;
     /// East connection property.
@@ -35,57 +35,29 @@ impl FenceBlock {
     /// Waterlogged property.
     pub const WATERLOGGED: BoolProperty = BlockStateProperties::WATERLOGGED;
 
-    /// Creates a new fence block behavior for the given block.
+    /// Creates a new bar block behavior for the given block.
     #[must_use]
     pub const fn new(block: BlockRef) -> Self {
         Self { block }
     }
 
-    /// Checks if this fence should connect to the given neighbor state.
+    /// Checks if this bar should connect to the given neighbor state.
     fn connects_to(neighbor_state: BlockStateId, direction: Direction) -> bool {
         let neighbor_block = neighbor_state.get_block();
 
-        // Check if it's a fence (same tag)
-        let fences_tag = Identifier::vanilla_static("fences");
-        if REGISTRY.blocks.is_in_tag(neighbor_block, &fences_tag) {
+        // Check if it's a bar (same tag)
+        let bars_tag = Identifier::vanilla_static("bars");
+        if REGISTRY.blocks.is_in_tag(neighbor_block, &bars_tag) {
             return true;
         }
-
-        // Check if it's a fence gate facing the right direction
-        let fence_gates_tag = Identifier::vanilla_static("fence_gates");
-        if REGISTRY.blocks.is_in_tag(neighbor_block, &fence_gates_tag) {
-            // Fence gates connect perpendicular to their facing direction
-            // A gate facing north/south connects to fences to its east/west
-            // A gate facing east/west connects to fences to its north/south
-            if let Some(facing_str) = neighbor_state.get_property_str("facing") {
-                let gate_facing = match facing_str.as_str() {
-                    "north" => Some(Direction::North),
-                    "south" => Some(Direction::South),
-                    "east" => Some(Direction::East),
-                    "west" => Some(Direction::West),
-                    _ => None,
-                };
-
-                if let Some(gate_facing) = gate_facing {
-                    // Gate connects perpendicular to its facing
-                    let connects = match (gate_facing, direction) {
-                        // Gate facing N/S connects to blocks on E/W sides,
-                        // Gate facing E/W connects to blocks on N/S sides
-                        (
-                            Direction::North | Direction::South,
-                            Direction::East | Direction::West,
-                        )
-                        | (
-                            Direction::East | Direction::West,
-                            Direction::North | Direction::South,
-                        ) => true,
-                        _ => false,
-                    };
-                    if connects {
-                        return true;
-                    }
-                }
-            }
+        let walls_tag = Identifier::vanilla_static("walls");
+        if REGISTRY.blocks.is_in_tag(neighbor_block, &walls_tag) {
+            return true;
+        }
+        // TODO glass is not in minecraft: it is in c: so this needed to be fixed and worked on
+        let glass_tag = Identifier::vanilla_static("glass_pane");
+        if REGISTRY.blocks.is_in_tag(neighbor_block, &glass_tag) {
+            return true;
         }
 
         // Check if the neighbor has a sturdy face on the opposite side
@@ -132,10 +104,10 @@ impl FenceBlock {
     }
 }
 
-impl BlockBehaviour for FenceBlock {
+impl BlockBehaviour for IronBarsBlock {
     fn get_state_for_placement(&self, context: &BlockPlaceContext<'_>) -> Option<BlockStateId> {
         log::debug!(
-            "FenceBlock::get_state_for_placement called for {:?} at {:?}",
+            "barBlock::get_state_for_placement called for {:?} at {:?}",
             self.block.key,
             context.relative_pos
         );
@@ -172,7 +144,7 @@ impl BlockBehaviour for FenceBlock {
                 let connects = Self::connects_to(neighbor_state, Direction::West);
                 state.set_value(&Self::WEST, connects)
             }
-            // Vertical directions don't affect fence connections
+            // Vertical directions don't affect bar connections
             Direction::Up | Direction::Down => state,
         }
     }

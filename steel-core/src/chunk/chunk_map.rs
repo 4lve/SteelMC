@@ -17,7 +17,9 @@ use steel_protocol::packets::game::{
 };
 use steel_registry::{REGISTRY, dimension_type::DimensionTypeRef, vanilla_blocks};
 use steel_utils::{BlockPos, ChunkPos, SectionPos, locks::SyncMutex};
-use tokio::{runtime::Runtime, time::Instant};
+use tokio::runtime::Runtime;
+#[cfg(feature = "debug_measurement_output")]
+use tokio::runtime::time::Instant;
 use tokio_util::task::TaskTracker;
 
 use crate::chunk::chunk_holder::ChunkHolder;
@@ -39,7 +41,9 @@ use crate::world::World;
 const PROCESS_CHANGES_WARN_THRESHOLD: usize = 1_000;
 #[allow(dead_code)]
 const PROCESS_CHANGES_WARN_MIN_DURATION: Duration = Duration::from_micros(500);
+#[cfg(feature = "debug_measurement_output")]
 const SLOW_TASK_WARN_THRESHOLD: Duration = Duration::from_micros(250);
+#[cfg(feature = "debug_measurement_output")]
 const SLOW_TASK_WARN_THRESHOLD_BIG: Duration = Duration::from_micros(800);
 /// A map of chunks managing their state, loading, and generation.
 pub struct ChunkMap {
@@ -235,6 +239,7 @@ impl ChunkMap {
         target_status: ChunkStatus,
         pos: ChunkPos,
     ) -> Arc<ChunkGenerationTask> {
+        #[cfg(feature = "debug_measurement_output")]
         let start = Instant::now();
         let task = Arc::new(ChunkGenerationTask::new(
             pos,
@@ -242,6 +247,7 @@ impl ChunkMap {
             self.clone(),
             self.generation_pool.clone(),
         ));
+        #[cfg(feature = "debug_measurement_output")]
         if start.elapsed() >= Duration::from_millis(1) {
             log::warn!("schedule_generation_task_b took: {:?}", start.elapsed());
         }
@@ -322,16 +328,19 @@ impl ChunkMap {
     /// * `runs_normally` - Whether game elements should run (false when frozen)
     #[allow(clippy::too_many_lines)]
     pub fn tick_b(self: &Arc<Self>, tick_count: u64, random_tick_speed: u32, runs_normally: bool) {
+        #[cfg(feature = "debug_measurement_output")]
         let start = Instant::now();
 
         {
             let mut ct = self.chunk_tickets.lock();
-
+            #[cfg(feature = "debug_measurement_output")]
             let updates_start = Instant::now();
             // Only process chunks that actually changed
-            let changes: Vec<LevelChange> = ct.run_all_updates().to_vec();
-            let updates_elapsed = updates_start.elapsed();
 
+            let changes: Vec<LevelChange> = ct.run_all_updates().to_vec();
+            #[cfg(feature = "debug_measurement_output")]
+            let updates_elapsed = updates_start.elapsed();
+            #[cfg(feature = "debug_measurement_output")]
             let holder_creation_start = Instant::now();
             let holders_to_schedule: Vec<_> = changes
                 .iter()
@@ -340,8 +349,10 @@ impl ChunkMap {
                         .map(|holder| (holder, change.new_level))
                 })
                 .collect();
+            #[cfg(feature = "debug_measurement_output")]
             let holder_creation_elapsed = holder_creation_start.elapsed();
 
+            #[cfg(feature = "debug_measurement_output")]
             let schedule_start = Instant::now();
             self.tick_pool.install(|| {
                 holders_to_schedule.par_iter().for_each(|(holder, level)| {
@@ -352,43 +363,59 @@ impl ChunkMap {
                     }
                 });
             });
-            let schedule_elapsed = schedule_start.elapsed();
-
-            if updates_elapsed >= SLOW_TASK_WARN_THRESHOLD {
-                log::warn!("chunk_tickets run_updates slow: {updates_elapsed:?}");
-            }
-            if holder_creation_elapsed >= SLOW_TASK_WARN_THRESHOLD {
-                log::warn!("holder_creation slow: {holder_creation_elapsed:?}");
-            }
-            if schedule_elapsed >= SLOW_TASK_WARN_THRESHOLD {
-                log::warn!("schedule slow: {schedule_elapsed:?}");
+            #[cfg(feature = "debug_measurement_output")]
+            {
+                let schedule_elapsed = schedule_start.elapsed();
+                if updates_elapsed >= SLOW_TASK_WARN_THRESHOLD {
+                    log::warn!("chunk_tickets run_updates slow: {updates_elapsed:?}");
+                }
+                if holder_creation_elapsed >= SLOW_TASK_WARN_THRESHOLD {
+                    log::warn!("holder_creation slow: {holder_creation_elapsed:?}");
+                }
+                if schedule_elapsed >= SLOW_TASK_WARN_THRESHOLD {
+                    log::warn!("schedule slow: {schedule_elapsed:?}");
+                }
             }
         };
-
+        #[cfg(feature = "debug_measurement_output")]
         let start_gen = Instant::now();
         self.run_generation_tasks_b();
-        let gen_elapsed = start_gen.elapsed();
-        if gen_elapsed >= SLOW_TASK_WARN_THRESHOLD {
-            log::warn!("run_generation_tasks_b slow: {gen_elapsed:?}");
+        #[cfg(feature = "debug_measurement_output")]
+        {
+            let gen_elapsed = start_gen.elapsed();
+            if gen_elapsed >= SLOW_TASK_WARN_THRESHOLD {
+                log::warn!("run_generation_tasks_b slow: {gen_elapsed:?}");
+            }
         }
 
+        #[cfg(feature = "debug_measurement_output")]
         let start_broadcast = Instant::now();
         self.broadcast_changed_chunks();
-        let broadcast_elapsed = start_broadcast.elapsed();
-        if broadcast_elapsed >= SLOW_TASK_WARN_THRESHOLD {
-            log::warn!("broadcast_changed_chunks slow: {broadcast_elapsed:?}");
+        #[cfg(feature = "debug_measurement_output")]
+        {
+            let broadcast_elapsed = start_broadcast.elapsed();
+            if broadcast_elapsed >= SLOW_TASK_WARN_THRESHOLD {
+                log::warn!("broadcast_changed_chunks slow: {broadcast_elapsed:?}");
+            }
         }
 
+        #[cfg(feature = "debug_measurement_output")]
         let start_unload = Instant::now();
         self.process_unloads();
-        let unload_elapsed = start_unload.elapsed();
-        if unload_elapsed >= SLOW_TASK_WARN_THRESHOLD {
-            log::warn!("process_unloads slow: {unload_elapsed:?}");
+        #[cfg(feature = "debug_measurement_output")]
+        {
+            let unload_elapsed = start_unload.elapsed();
+            if unload_elapsed >= SLOW_TASK_WARN_THRESHOLD {
+                log::warn!("process_unloads slow: {unload_elapsed:?}");
+            }
         }
 
-        let tick_elapsed = start.elapsed();
-        if tick_elapsed >= SLOW_TASK_WARN_THRESHOLD {
-            log::warn!("Tick_b slow: total {tick_elapsed:?}");
+        #[cfg(feature = "debug_measurement_output")]
+        {
+            let tick_elapsed = start.elapsed();
+            if tick_elapsed >= SLOW_TASK_WARN_THRESHOLD {
+                log::warn!("Tick_b slow: total {tick_elapsed:?}");
+            }
         }
 
         if tick_count.is_multiple_of(100) {
@@ -404,7 +431,12 @@ impl ChunkMap {
             return;
         }
 
+        #[cfg(feature = "debug_measurement_output")]
         let start_collect = Instant::now();
+        #[cfg_attr(
+            not(feature = "debug_measurement_output"),
+            allow(unused_mut, unused_variables)
+        )]
         let mut total_chunks = 0;
         let last_len = self.last_tickable_len.load(Ordering::Relaxed);
         let mut tickable_chunks = Vec::with_capacity(last_len);
@@ -418,15 +450,19 @@ impl ChunkMap {
         });
         self.last_tickable_len
             .store(tickable_chunks.len(), Ordering::Relaxed);
-        let collect_elapsed = start_collect.elapsed();
-        if collect_elapsed >= SLOW_TASK_WARN_THRESHOLD {
-            log::warn!(
-                "tickable_chunks collect slow: {collect_elapsed:?}, count: {}",
-                tickable_chunks.len()
-            );
+        #[cfg(feature = "debug_measurement_output")]
+        {
+            let collect_elapsed = start_collect.elapsed();
+            if collect_elapsed >= SLOW_TASK_WARN_THRESHOLD {
+                log::warn!(
+                    "tickable_chunks collect slow: {collect_elapsed:?}, count: {}",
+                    tickable_chunks.len()
+                );
+            }
         }
 
         if !tickable_chunks.is_empty() {
+            #[cfg(feature = "debug_measurement_output")]
             let start_tick = Instant::now();
             // TODO: In the future we might want to tick different regions/islands in parallel
             for holder in &tickable_chunks {
@@ -434,13 +470,16 @@ impl ChunkMap {
                     chunk_guard.tick(random_tick_speed);
                 }
             }
-            let tick_elapsed = start_tick.elapsed();
-            if tick_elapsed >= SLOW_TASK_WARN_THRESHOLD_BIG {
-                log::warn!(
-                    "chunk tick loop slow: {tick_elapsed:?}, count: {}/{}",
-                    tickable_chunks.len(),
-                    total_chunks
-                );
+            #[cfg(feature = "debug_measurement_output")]
+            {
+                let tick_elapsed = start_tick.elapsed();
+                if tick_elapsed >= SLOW_TASK_WARN_THRESHOLD_BIG {
+                    log::warn!(
+                        "chunk tick loop slow: {tick_elapsed:?}, count: {}/{}",
+                        tickable_chunks.len(),
+                        total_chunks
+                    );
+                }
             }
         }
     }
