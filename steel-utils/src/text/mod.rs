@@ -2,17 +2,21 @@
 use std::{
     borrow::Cow,
     fmt::{self, Display},
-    io::{Result as IoResult, Write},
+    io::{Cursor, Error as IoError, Result as IoResult},
 };
 
 use serde::{Deserialize, Serialize};
 use simdnbt::{
     ToNbtTag,
-    owned::{NbtCompound, NbtList, NbtTag},
+    owned::{NbtCompound, NbtList, NbtTag, read_tag},
 };
 
-use crate::text::{
-    color::Color, interactivity::Interactivity, style::Style, translation::TranslatedMessage,
+use crate::{
+    hash::{ComponentHasher, HashComponent, HashEntry},
+    serial::ReadFrom,
+    text::{
+        color::Color, interactivity::Interactivity, style::Style, translation::TranslatedMessage,
+    },
 };
 
 /// A module for colors.
@@ -186,236 +190,60 @@ impl TextComponent {
         }
     }
 
-    /// Encodes the text component to NBT bytes for network transmission.
-    /// Uses network NBT format: `TAG_Compound` byte, no name, then content.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the text component fails to serialize to an NBT compound or if
-    /// writing the NBT compound to bytes fails.
+    /// Parses a `TextComponent` from an NBT tag.
     #[must_use]
-    pub fn encode(&self) -> Vec<u8> {
-        let nbt_tag = simdnbt::ToNbtTag::to_nbt_tag(self.clone());
-        log::debug!("TextComponent NBT tag: {nbt_tag:?}");
-        match nbt_tag {
-            NbtTag::Compound(compound) => {
-                let mut buffer = Vec::new();
-                // Network NBT format per NbtIo.writeAnyTag: TAG byte + content
-                buffer.push(0x0A); // TAG_Compound
-                Self::write_nbt_compound(&mut buffer, &compound)
-                    .expect("Failed to write NBT compound");
-                log::debug!(
-                    "Encoded NBT bytes (len={}): {:02X?}",
-                    buffer.len(),
-                    &buffer[..buffer.len().min(50)]
-                );
-                buffer
-            }
-            _ => panic!("TextComponent must serialize to NBT compound"),
-        }
-    }
-
-    /// Helper to write NBT compound content
-    fn write_nbt_compound(writer: &mut Vec<u8>, compound: &NbtCompound) -> IoResult<()> {
-        for (key, value) in compound.iter() {
-            // Write tag type
-            writer.write_all(&[Self::get_nbt_tag_id(value)])?;
-            // Write key as modified UTF-8 string
-            let key_bytes = key.as_bytes();
-            writer.write_all(&(key_bytes.len() as u16).to_be_bytes())?;
-            writer.write_all(key_bytes)?;
-            // Write value payload
-            Self::write_nbt_tag_payload(writer, value)?;
-        }
-        // Write TAG_End
-        writer.write_all(&[0x00])?;
-        Ok(())
-    }
-
-    fn get_nbt_tag_id(tag: &NbtTag) -> u8 {
+    pub fn from_nbt_tag(tag: &NbtTag) -> Option<Self> {
         match tag {
-            NbtTag::Byte(_) => 0x01,
-            NbtTag::Short(_) => 0x02,
-            NbtTag::Int(_) => 0x03,
-            NbtTag::Long(_) => 0x04,
-            NbtTag::Float(_) => 0x05,
-            NbtTag::Double(_) => 0x06,
-            NbtTag::ByteArray(_) => 0x07,
-            NbtTag::String(_) => 0x08,
-            NbtTag::List(_) => 0x09,
-            NbtTag::Compound(_) => 0x0A,
-            NbtTag::IntArray(_) => 0x0B,
-            NbtTag::LongArray(_) => 0x0C,
+            NbtTag::String(s) => Some(Self::new().text(s.to_string())),
+            NbtTag::Compound(compound) => Self::from_nbt_compound(compound),
+            _ => None,
         }
     }
 
-    fn write_nbt_tag_payload(writer: &mut Vec<u8>, tag: &NbtTag) -> IoResult<()> {
-        match tag {
-            NbtTag::Byte(v) => writer.write_all(&[*v as u8])?,
-            NbtTag::Short(v) => writer.write_all(&v.to_be_bytes())?,
-            NbtTag::Int(v) => writer.write_all(&v.to_be_bytes())?,
-            NbtTag::Long(v) => writer.write_all(&v.to_be_bytes())?,
-            NbtTag::Float(v) => writer.write_all(&v.to_be_bytes())?,
-            NbtTag::Double(v) => writer.write_all(&v.to_be_bytes())?,
-            NbtTag::ByteArray(v) => {
-                writer.write_all(&(v.len() as i32).to_be_bytes())?;
-                writer.write_all(v)?;
-            }
-            NbtTag::String(v) => {
-                let bytes = v.as_bytes();
-                writer.write_all(&(bytes.len() as u16).to_be_bytes())?;
-                writer.write_all(bytes)?;
-            }
-            NbtTag::List(list) => Self::write_nbt_list(writer, list)?,
-            NbtTag::Compound(compound) => Self::write_nbt_compound(writer, compound)?,
-            NbtTag::IntArray(v) => {
-                writer.write_all(&(v.len() as i32).to_be_bytes())?;
-                for int in v {
-                    writer.write_all(&int.to_be_bytes())?;
-                }
-            }
-            NbtTag::LongArray(v) => {
-                writer.write_all(&(v.len() as i32).to_be_bytes())?;
-                for long in v {
-                    writer.write_all(&long.to_be_bytes())?;
-                }
-            }
-        }
-        Ok(())
-    }
-
-    fn write_nbt_list(writer: &mut Vec<u8>, list: &NbtList) -> IoResult<()> {
-        match list {
-            NbtList::Empty => {
-                writer.write_all(&[0x00])?; // TAG_End
-                writer.write_all(&[0x00, 0x00, 0x00, 0x00])?; // Length 0
-            }
-            NbtList::Byte(v) => {
-                writer.write_all(&[0x01])?;
-                writer.write_all(&(v.len() as i32).to_be_bytes())?;
-                for b in v {
-                    writer.write_all(&[*b as u8])?;
-                }
-            }
-            NbtList::Short(v) => {
-                writer.write_all(&[0x02])?;
-                writer.write_all(&(v.len() as i32).to_be_bytes())?;
-                for s in v {
-                    writer.write_all(&s.to_be_bytes())?;
-                }
-            }
-            NbtList::Int(v) => {
-                writer.write_all(&[0x03])?;
-                writer.write_all(&(v.len() as i32).to_be_bytes())?;
-                for i in v {
-                    writer.write_all(&i.to_be_bytes())?;
-                }
-            }
-            NbtList::Long(v) => Self::write_nbt_list_long(writer, v)?,
-            NbtList::Float(v) => Self::write_nbt_list_float(writer, v)?,
-            NbtList::Double(v) => Self::write_nbt_list_double(writer, v)?,
-            NbtList::ByteArray(v) => Self::write_nbt_list_byte_array(writer, v)?,
-            NbtList::String(v) => Self::write_nbt_list_string(writer, v)?,
-            NbtList::List(v) => Self::write_nbt_list_list(writer, v)?,
-            NbtList::Compound(v) => Self::write_nbt_list_compound(writer, v)?,
-            NbtList::IntArray(v) => Self::write_nbt_list_int_array(writer, v)?,
-            NbtList::LongArray(v) => Self::write_nbt_list_long_array(writer, v)?,
-        }
-        Ok(())
-    }
-
-    fn write_nbt_list_long(writer: &mut Vec<u8>, v: &[i64]) -> IoResult<()> {
-        writer.write_all(&[0x04])?;
-        writer.write_all(&(v.len() as i32).to_be_bytes())?;
-        for l in v {
-            writer.write_all(&l.to_be_bytes())?;
-        }
-        Ok(())
-    }
-
-    fn write_nbt_list_float(writer: &mut Vec<u8>, v: &[f32]) -> IoResult<()> {
-        writer.write_all(&[0x05])?;
-        writer.write_all(&(v.len() as i32).to_be_bytes())?;
-        for f in v {
-            writer.write_all(&f.to_be_bytes())?;
-        }
-        Ok(())
-    }
-
-    fn write_nbt_list_double(writer: &mut Vec<u8>, v: &[f64]) -> IoResult<()> {
-        writer.write_all(&[0x06])?;
-        writer.write_all(&(v.len() as i32).to_be_bytes())?;
-        for d in v {
-            writer.write_all(&d.to_be_bytes())?;
-        }
-        Ok(())
-    }
-
-    fn write_nbt_list_byte_array(writer: &mut Vec<u8>, v: &[Vec<u8>]) -> IoResult<()> {
-        writer.write_all(&[0x07])?;
-        writer.write_all(&(v.len() as i32).to_be_bytes())?;
-        for arr in v {
-            writer.write_all(&(arr.len() as i32).to_be_bytes())?;
-            writer.write_all(arr)?;
-        }
-        Ok(())
-    }
-
-    fn write_nbt_list_string(writer: &mut Vec<u8>, v: &[simdnbt::Mutf8String]) -> IoResult<()> {
-        writer.write_all(&[0x08])?;
-        writer.write_all(&(v.len() as i32).to_be_bytes())?;
-        for s in v {
-            let bytes = s.as_bytes();
-            writer.write_all(&(bytes.len() as u16).to_be_bytes())?;
-            writer.write_all(bytes)?;
-        }
-        Ok(())
-    }
-
-    fn write_nbt_list_list(writer: &mut Vec<u8>, v: &[NbtList]) -> IoResult<()> {
-        writer.write_all(&[0x09])?;
-        writer.write_all(&(v.len() as i32).to_be_bytes())?;
-        for l in v {
-            Self::write_nbt_list(writer, l)?;
-        }
-        Ok(())
-    }
-
-    fn write_nbt_list_compound(writer: &mut Vec<u8>, v: &[NbtCompound]) -> IoResult<()> {
-        writer.write_all(&[0x0A])?;
-        writer.write_all(&(v.len() as i32).to_be_bytes())?;
-        for c in v {
-            Self::write_nbt_compound(writer, c)?;
-        }
-        Ok(())
-    }
-
-    fn write_nbt_list_int_array(writer: &mut Vec<u8>, v: &[Vec<i32>]) -> IoResult<()> {
-        writer.write_all(&[0x0B])?;
-        writer.write_all(&(v.len() as i32).to_be_bytes())?;
-        for arr in v {
-            writer.write_all(&(arr.len() as i32).to_be_bytes())?;
-            for i in arr {
-                writer.write_all(&i.to_be_bytes())?;
-            }
-        }
-        Ok(())
-    }
-
-    fn write_nbt_list_long_array(writer: &mut Vec<u8>, v: &[Vec<i64>]) -> IoResult<()> {
-        writer.write_all(&[0x0C])?;
-        writer.write_all(&(v.len() as i32).to_be_bytes())?;
-        for arr in v {
-            writer.write_all(&(arr.len() as i32).to_be_bytes())?;
-            for l in arr {
-                writer.write_all(&l.to_be_bytes())?;
-            }
-        }
-        Ok(())
-    }
-
-    /// Converts the text component into an NBT compound.
+    /// Parses a `TextComponent` from an NBT compound.
     #[must_use]
+    pub fn from_nbt_compound(compound: &NbtCompound) -> Option<Self> {
+        let mut component = Self::new();
+
+        // Parse content
+        if let Some(NbtTag::String(text)) = compound.get("text") {
+            component.content = TextContent::Text {
+                text: Cow::Owned(text.to_string()),
+            };
+        } else if let Some(NbtTag::String(key)) = compound.get("translate") {
+            let fallback = compound.get("fallback").and_then(|t| match t {
+                NbtTag::String(s) => Some(Cow::Owned(s.to_string())),
+                _ => None,
+            });
+            let args = compound.get("with").and_then(|t| match t {
+                NbtTag::List(NbtList::Compound(list)) => {
+                    Some(list.iter().filter_map(Self::from_nbt_compound).collect())
+                }
+                _ => None,
+            });
+            component.content = TextContent::Translate(TranslatedMessage {
+                key: Cow::Owned(key.to_string()),
+                fallback,
+                args,
+            });
+        } else if let Some(NbtTag::String(keybind)) = compound.get("keybind") {
+            component.content = TextContent::Keybind {
+                keybind: Cow::Owned(keybind.to_string()),
+            };
+        }
+
+        // Parse style
+        component.style = Style::from_nbt_compound(compound);
+
+        // Parse extra
+        if let Some(NbtTag::List(NbtList::Compound(list))) = compound.get("extra") {
+            component.extra = list.iter().filter_map(Self::from_nbt_compound).collect();
+        }
+
+        Some(component)
+    }
+
+    /// Converts this text component into an NBT compound.
     pub fn into_nbt_compound(self) -> NbtCompound {
         let mut compound = NbtCompound::new();
         match self.content {
@@ -472,5 +300,145 @@ impl Display for TextComponent {
             TextContent::Translate(message) => write!(f, "{}", message.format()),
             TextContent::Keybind { keybind } => write!(f, "{keybind}"),
         }
+    }
+}
+
+impl ReadFrom for TextComponent {
+    fn read(data: &mut Cursor<&[u8]>) -> IoResult<Self> {
+        use crate::codec::VarInt;
+
+        // Minecraft's network format: VarInt length prefix, then NBT tag data
+        let nbt_length = VarInt::read(data)?.0 as usize;
+
+        if nbt_length == 0 {
+            // Empty NBT means empty/default text component
+            return Ok(Self::new());
+        }
+
+        // Read exactly one NBT tag using simdnbt
+        let nbt_tag =
+            read_tag(data).map_err(|e| IoError::other(format!("Failed to read NBT: {e:?}")))?;
+
+        Self::from_nbt_tag(&nbt_tag)
+            .ok_or_else(|| IoError::other("Failed to parse TextComponent from NBT"))
+    }
+}
+
+impl HashComponent for TextComponent {
+    fn hash_component(&self, hasher: &mut ComponentHasher) {
+        // Minecraft's CODEC for Component uses an Either:
+        // - If the component is plain text only (no siblings, no style), encode as just a string
+        // - Otherwise, encode as a full map structure
+        //
+        // This matches ComponentSerialization.createCodec's tryCollapseToString logic
+        if self.can_collapse_to_string() {
+            // Simple text - hash as just a string
+            if let TextContent::Text { text } = &self.content {
+                hasher.put_string(text);
+            }
+        } else {
+            // Complex component - hash as a map structure
+            self.hash_as_map(hasher);
+        }
+    }
+}
+
+impl TextComponent {
+    /// Check if this component can be collapsed to a plain string.
+    /// This matches Minecraft's `tryCollapseToString` logic.
+    fn can_collapse_to_string(&self) -> bool {
+        matches!(&self.content, TextContent::Text { .. })
+            && self.extra.is_empty()
+            && self.style.is_empty()
+            && self.interactivity.is_empty()
+    }
+
+    /// Hash this component as a map structure (for non-collapsible components).
+    fn hash_as_map(&self, hasher: &mut ComponentHasher) {
+        use crate::hash::sort_map_entries;
+
+        // Collect all map entries with their key and value hashes for sorting
+        let mut entries: Vec<HashEntry> = Vec::new();
+
+        // Hash content
+        match &self.content {
+            TextContent::Text { text } => {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("text");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string(text);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            TextContent::Translate(message) => {
+                // "translate" field
+                {
+                    let mut key_hasher = ComponentHasher::new();
+                    key_hasher.put_string("translate");
+                    let mut value_hasher = ComponentHasher::new();
+                    value_hasher.put_string(&message.key);
+                    entries.push(HashEntry::new(key_hasher, value_hasher));
+                }
+                // "fallback" field (optional)
+                if let Some(fallback) = &message.fallback {
+                    let mut key_hasher = ComponentHasher::new();
+                    key_hasher.put_string("fallback");
+                    let mut value_hasher = ComponentHasher::new();
+                    value_hasher.put_string(fallback);
+                    entries.push(HashEntry::new(key_hasher, value_hasher));
+                }
+                // "with" field (optional args list)
+                if let Some(args) = &message.args
+                    && !args.is_empty()
+                {
+                    let mut key_hasher = ComponentHasher::new();
+                    key_hasher.put_string("with");
+                    let mut value_hasher = ComponentHasher::new();
+                    value_hasher.start_list();
+                    for arg in args {
+                        let mut arg_hasher = ComponentHasher::new();
+                        arg.hash_component(&mut arg_hasher);
+                        value_hasher.put_raw_bytes(arg_hasher.current_data());
+                    }
+                    value_hasher.end_list();
+                    entries.push(HashEntry::new(key_hasher, value_hasher));
+                }
+            }
+            TextContent::Keybind { keybind } => {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("keybind");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string(keybind);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+        }
+
+        // Hash style fields
+        self.style.hash_fields(&mut entries);
+
+        // Hash extra (siblings)
+        if !self.extra.is_empty() {
+            let mut key_hasher = ComponentHasher::new();
+            key_hasher.put_string("extra");
+            let mut value_hasher = ComponentHasher::new();
+            value_hasher.start_list();
+            for extra in &self.extra {
+                let mut extra_hasher = ComponentHasher::new();
+                extra.hash_component(&mut extra_hasher);
+                value_hasher.put_raw_bytes(extra_hasher.current_data());
+            }
+            value_hasher.end_list();
+            entries.push(HashEntry::new(key_hasher, value_hasher));
+        }
+
+        // Sort entries by key hash, then value hash (Minecraft's map ordering)
+        sort_map_entries(&mut entries);
+
+        // Write the sorted map
+        hasher.start_map();
+        for entry in entries {
+            hasher.put_raw_bytes(&entry.key_bytes);
+            hasher.put_raw_bytes(&entry.value_bytes);
+        }
+        hasher.end_map();
     }
 }

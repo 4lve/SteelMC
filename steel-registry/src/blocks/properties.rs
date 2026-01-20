@@ -1,6 +1,6 @@
 use std::{
     fmt::Debug,
-    io::{self, Read},
+    io::{self, Cursor},
 };
 
 pub use steel_utils::{codec::VarInt, math::Axis, serial::ReadFrom};
@@ -263,7 +263,7 @@ impl PropertyEnum for Direction {
 }
 
 impl ReadFrom for Direction {
-    fn read(data: &mut impl Read) -> io::Result<Self> {
+    fn read(data: &mut Cursor<&[u8]>) -> io::Result<Self> {
         let id = VarInt::read(data)?.0;
         match id {
             0 => Ok(Direction::Down),

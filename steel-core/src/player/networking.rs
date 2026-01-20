@@ -182,7 +182,7 @@ impl JavaConnection {
         player: Arc<Player>,
         server: Arc<Server>,
     ) -> Result<(), PacketError> {
-        let data = &mut Cursor::new(packet.payload);
+        let data = &mut Cursor::new(packet.payload.as_slice());
 
         match packet.id {
             play::S_ACCEPT_TELEPORTATION => {

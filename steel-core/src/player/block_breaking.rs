@@ -279,21 +279,46 @@ impl BlockBreakingManager {
         if changed {
             // TODO: Call block.destroy for effects
 
-            // Handle drops if player doesn't prevent them (spectator mode)
-            if player.game_mode.load() != GameType::Spectator {
-                // Check if player has correct tool for drops
-                let has_correct_tool = {
-                    let inv = player.inventory.lock();
-                    let main_hand = inv.get_item_in_hand(InteractionHand::MainHand);
-                    main_hand.is_correct_tool_for_drops(state) || !requires_correct_tool(state)
-                };
+            // Check if player has correct tool for drops
+            let has_correct_tool = {
+                let inv = player.inventory.lock();
+                let main_hand = inv.get_item_in_hand(InteractionHand::MainHand);
+                main_hand.is_correct_tool_for_drops(state) || !requires_correct_tool(state)
+            };
 
-                if has_correct_tool {
-                    // TODO: Call playerDestroy to spawn drops
-                    drop_block_loot(player, world, pos, state);
+            // Damage the tool if the block has non-zero destroy time
+            // This is done before playerDestroy, matching vanilla's Item.mineBlock
+            let block_destroy_time = REGISTRY
+                .blocks
+                .by_state_id(state)
+                .map_or(0.0, |b| b.config.destroy_time);
+
+            if block_destroy_time != 0.0 {
+                let mut inv = player.inventory.lock();
+                let damage_per_block = inv.get_selected_item().get_tool_damage_per_block();
+
+                if damage_per_block > 0 {
+                    // Use with_selected_item_mut to ensure set_changed() is called
+                    // Skip damage if player has infinite materials (creative mode)
+                    let has_infinite_materials = player.has_infinite_materials();
+                    let broke = inv.with_selected_item_mut(|main_hand| {
+                        main_hand.hurt_and_break(damage_per_block, has_infinite_materials)
+                    });
+                    if broke {
+                        // TODO: Play item break sound/particles
+                        log::debug!("Tool broke while mining block at {pos:?}");
+                    }
                 }
+            }
 
-                // TODO: Damage the tool
+            // Handle drops (skip for creative/spectator)
+            let game_mode = player.game_mode.load();
+            if game_mode != GameType::Spectator
+                && game_mode != GameType::Creative
+                && has_correct_tool
+            {
+                // TODO: Call playerDestroy to spawn drops
+                drop_block_loot(player, world, pos, state);
             }
         }
 

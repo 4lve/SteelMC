@@ -1,4 +1,4 @@
-use std::io::{Error, Read, Write};
+use std::io::{Cursor, Error, Write};
 
 use crate::serial::{ReadFrom, WriteTo};
 
@@ -36,11 +36,11 @@ impl VarUint {
         Ok(())
     }
 
-    /// Reads a `VarUint` from a reader.
+    /// Reads a `VarUint` from a cursor.
     ///
     /// # Errors
     /// - If the `VarUint` is too long.
-    pub fn read(read: &mut impl Read) -> Result<u32, Error> {
+    pub fn read(read: &mut Cursor<&[u8]>) -> Result<u32, Error> {
         let mut val = 0;
         for i in 0..Self::MAX_SIZE {
             let byte = u8::read(read)?;
