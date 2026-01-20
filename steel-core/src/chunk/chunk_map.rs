@@ -17,8 +17,9 @@ use steel_protocol::packets::game::{
 };
 use steel_registry::{REGISTRY, dimension_type::DimensionTypeRef, vanilla_blocks};
 use steel_utils::{BlockPos, ChunkPos, SectionPos, locks::SyncMutex};
-#[allow(dead_code)]
-use tokio::{runtime::Runtime, time::Instant};
+use tokio::runtime::Runtime;
+#[cfg(feature = "debug_measurement_output")]
+use tokio::runtime::time::Instant;
 use tokio_util::task::TaskTracker;
 
 use crate::chunk::chunk_holder::ChunkHolder;
