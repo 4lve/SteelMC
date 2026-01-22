@@ -1,9 +1,12 @@
+//! Status state packet handlers (server list ping).
+
+use steel_core::config::STEEL_CONFIG;
 use steel_protocol::packets::status::{
     CPongResponse, SPingRequest, {CStatusResponse, Players, Status, Version},
 };
 use steel_registry::packets::CURRENT_MC_PROTOCOL;
 
-use crate::{MC_VERSION, STEEL_CONFIG, network::JavaTcpClient};
+use crate::tcp_client::JavaTcpClient;
 
 impl JavaTcpClient {
     /// Handles a status request from the client.
@@ -17,9 +20,9 @@ impl JavaTcpClient {
                 sample: vec![],
             }),
             enforce_secure_chat: STEEL_CONFIG.enforce_secure_chat,
-            favicon: STEEL_CONFIG.load_favicon(),
+            favicon: load_favicon(),
             version: Some(Version {
-                name: MC_VERSION,
+                name: STEEL_CONFIG.mc_version,
                 protocol: CURRENT_MC_PROTOCOL,
             }),
         });
@@ -32,4 +35,28 @@ impl JavaTcpClient {
             .await;
         self.close();
     }
+}
+
+/// Loads the favicon from config.
+fn load_favicon() -> Option<String> {
+    use base64::{Engine, prelude::BASE64_STANDARD};
+    use std::fs;
+    use std::path::Path;
+
+    const ICON_PREFIX: &str = "data:image/png;base64,";
+
+    if !STEEL_CONFIG.use_favicon {
+        return None;
+    }
+
+    let path = Path::new(&STEEL_CONFIG.favicon);
+    let Ok(icon) = fs::read(path) else {
+        return None;
+    };
+
+    let cap = ICON_PREFIX.len() + icon.len().div_ceil(3) * 4;
+    let mut base64 = String::with_capacity(cap);
+    base64 += ICON_PREFIX;
+    BASE64_STANDARD.encode_string(icon, &mut base64);
+    Some(base64)
 }

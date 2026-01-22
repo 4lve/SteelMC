@@ -2,20 +2,20 @@
 //!
 //! The main library for the Steel Minecraft server.
 
-use crate::network::JavaTcpClient;
 use std::{
     net::{Ipv4Addr, SocketAddrV4},
     sync::Arc,
 };
-use steel_core::{config::STEEL_CONFIG, server::Server};
+
+use steel_core::server::Server;
+use steel_login::JavaTcpClient;
 use tokio::{net::TcpListener, runtime::Runtime, select};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
-/// The networking module.
-pub mod network;
+/// Server configuration module.
+pub mod config;
 
-/// The supported Minecraft version.
-pub const MC_VERSION: &str = "1.21.11";
+pub use config::{MC_VERSION, STEEL_CONFIG};
 
 /// The main server struct.
 pub struct SteelServer {
@@ -36,6 +36,9 @@ impl SteelServer {
     /// This function will panic if the TCP listener fails to bind to the server address.
     pub async fn new(chunk_runtime: Arc<Runtime>) -> Self {
         log::info!("Starting Steel Server");
+
+        // Initialize steel-core's config reference before any steel-core code runs
+        config::init_steel_core_config();
 
         let cancel_token = CancellationToken::new();
         let server = Server::new(chunk_runtime, cancel_token.clone()).await;

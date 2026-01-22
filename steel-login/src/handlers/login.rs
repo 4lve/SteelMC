@@ -1,7 +1,9 @@
+//! Login state packet handlers.
+
 use rsa::Pkcs1v15Encrypt;
 use sha1::Sha1;
-use sha2::{Digest, Sha256};
-use steel_core::player::GameProfile;
+use sha2::Digest;
+use steel_core::{config::STEEL_CONFIG, player::GameProfile};
 use steel_protocol::{
     packets::login::{CHello, CLoginCompression, CLoginFinished, SHello, SKey},
     utils::ConnectionProtocol,
@@ -11,23 +13,9 @@ use text_components::TextComponent;
 use uuid::Uuid;
 
 use crate::{
-    STEEL_CONFIG,
-    network::{
-        java_tcp_client::{ConnectionUpdate, JavaTcpClient},
-        mojang_authentication::{AuthError, mojang_authenticate, signed_bytes_be_to_hex},
-    },
+    AuthError, is_valid_player_name, mojang_authenticate, offline_uuid, signed_bytes_be_to_hex,
+    tcp_client::{ConnectionUpdate, JavaTcpClient},
 };
-
-/// Checks if a player name is valid.
-#[must_use]
-pub fn is_valid_player_name(name: &str) -> bool {
-    (3..=16).contains(&name.len()) && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-}
-
-/// Generates an offline mode UUID for a player.
-pub fn offline_uuid(username: &str) -> Result<Uuid, uuid::Error> {
-    Uuid::from_slice(&Sha256::digest(username)[..16])
-}
 
 impl JavaTcpClient {
     /// Handles the hello packet during the login state.
@@ -37,12 +25,13 @@ impl JavaTcpClient {
     pub async fn handle_hello(&self, packet: SHello) {
         if !is_valid_player_name(&packet.name) {
             self.kick("Invalid player name".into()).await;
+            return;
         }
 
         let id = if STEEL_CONFIG.online_mode {
             packet.profile_id
         } else {
-            offline_uuid(&packet.name).expect("This is very not safe and bad")
+            offline_uuid(&packet.name).expect("Failed to generate offline UUID")
         };
 
         {
@@ -151,6 +140,7 @@ impl JavaTcpClient {
                         e => e.to_string().into(),
                     })
                     .await;
+                    return;
                 }
             }
         }
@@ -163,7 +153,7 @@ impl JavaTcpClient {
     /// Finishes the login process and transitions to the configuration state.
     ///
     /// # Panics
-    /// This function will panic if the compression threshold cannot be converted to an i32. Should never happen.
+    /// This function will panic if the compression threshold cannot be converted to an i32.
     pub async fn finish_login(&self, profile: &GameProfile) {
         if let Some(compression) = STEEL_CONFIG.compression {
             self.send_bare_packet_now(CLoginCompression::new(
@@ -179,8 +169,6 @@ impl JavaTcpClient {
                 .send(ConnectionUpdate::EnableCompression(compression))
                 .expect("Failed to send connection update");
         }
-
-        //TODO: Here compression isn't awaited, if this becomes a problem in the future look here.
 
         self.send_bare_packet_now(CLoginFinished::new(
             profile.id,

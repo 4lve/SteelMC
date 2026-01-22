@@ -1,6 +1,6 @@
-use std::io::{Error, Write};
+use std::io::{Cursor, Error, Write};
 
-use crate::serial::WriteTo;
+use crate::serial::{ReadFrom, WriteTo};
 
 /// An enum that represents one of two possible types (Left or Right).
 /// When serialized, it writes only the inner value without any discriminant.
@@ -58,6 +58,12 @@ impl<L, R> From<L> for Or<L, R> {
 // Implement WriteTo for unit type so it can be used as a placeholder in Or<T, ()>
 impl WriteTo for () {
     fn write(&self, _writer: &mut impl Write) -> Result<(), Error> {
+        Ok(())
+    }
+}
+
+impl ReadFrom for () {
+    fn read(_data: &mut Cursor<&[u8]>) -> Result<Self, Error> {
         Ok(())
     }
 }

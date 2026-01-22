@@ -28,6 +28,7 @@ use tokio::{runtime::Runtime, task::spawn_blocking, time::sleep};
 use tokio_util::sync::CancellationToken;
 
 use crate::behavior::init_behaviors;
+use crate::block_entity::init_block_entities;
 use crate::command::CommandDispatcher;
 use crate::config::STEEL_CONFIG;
 use crate::player::Player;
@@ -73,6 +74,7 @@ impl Server {
 
         // Initialize behavior registries after the main registry is frozen
         init_behaviors();
+        init_block_entities();
         log::info!("Behavior registries initialized");
 
         let registry_cache = RegistryCache::new();
@@ -321,6 +323,7 @@ impl Server {
                     .send_packet(CTabList::new(&header, &footer, player));
                 true
             });
+            world.broadcast_to_all(packet.clone());
         }
     }
 
@@ -342,6 +345,7 @@ impl Server {
                     .send_packet(CSystemChat::new(&message, false, player));
                 true
             });
+            world.broadcast_to_all(packet.clone());
         }
     }
 
@@ -353,10 +357,7 @@ impl Server {
         drop(tick_manager);
 
         for world in &self.worlds {
-            world.players.iter_players(|_, player| {
-                player.connection.send_packet(packet.clone());
-                true
-            });
+            world.broadcast_to_all(packet.clone());
         }
     }
 
@@ -368,10 +369,7 @@ impl Server {
         drop(tick_manager);
 
         for world in &self.worlds {
-            world.players.iter_players(|_, player| {
-                player.connection.send_packet(packet.clone());
-                true
-            });
+            world.broadcast_to_all(packet.clone());
         }
     }
 

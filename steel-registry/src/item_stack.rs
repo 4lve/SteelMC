@@ -1,6 +1,6 @@
 //! Item stack implementation.
 
-use std::io::{Read, Result, Write};
+use std::io::{Cursor, Result, Write};
 
 use steel_utils::{
     Identifier,
@@ -14,8 +14,8 @@ use crate::{
         ComponentPatchEntry, ComponentValue, DataComponentMap, DataComponentPatch,
         DataComponentType,
         vanilla_components::{
-            DAMAGE, EQUIPPABLE, Equippable, EquippableSlot, MAX_DAMAGE, MAX_STACK_SIZE, TOOL, Tool,
-            UNBREAKABLE,
+            DAMAGE, Damage, EQUIPPABLE, Equippable, EquippableSlot, MAX_DAMAGE, MAX_STACK_SIZE,
+            TOOL, Tool, UNBREAKABLE,
         },
     },
     items::ItemRef,
@@ -64,6 +64,12 @@ impl ItemStack {
             count,
             patch: DataComponentPatch::new(),
         }
+    }
+
+    /// Creates a new item stack with the specified count and component patch.
+    #[must_use]
+    pub fn with_count_and_patch(item: ItemRef, count: i32, patch: DataComponentPatch) -> Self {
+        Self { item, count, patch }
     }
 
     #[must_use]
@@ -127,15 +133,74 @@ impl ItemStack {
     #[must_use]
     pub fn get_damage_value(&self) -> i32 {
         self.get(DAMAGE)
-            .copied()
+            .map(|d| d.0)
             .unwrap_or(0)
             .clamp(0, self.get_max_damage())
+    }
+
+    /// Sets the damage value of this item.
+    pub fn set_damage_value(&mut self, value: i32) {
+        let clamped = value.clamp(0, self.get_max_damage());
+        self.set(DAMAGE, Damage(clamped));
     }
 
     /// Gets the maximum damage this item can take before breaking.
     #[must_use]
     pub fn get_max_damage(&self) -> i32 {
-        self.get(MAX_DAMAGE).copied().unwrap_or(0)
+        self.get(MAX_DAMAGE).map(|d| d.0).unwrap_or(0)
+    }
+
+    /// Returns true if the item is broken (damage >= max damage).
+    #[must_use]
+    pub fn is_broken(&self) -> bool {
+        self.is_damageable_item() && self.get_damage_value() >= self.get_max_damage()
+    }
+
+    /// Damages the item and breaks it if durability reaches zero.
+    ///
+    /// Returns `true` if the item broke and should be removed/replaced.
+    ///
+    /// # Arguments
+    /// * `amount` - The amount of damage to apply
+    /// * `has_infinite_materials` - If true (creative mode), skip damage entirely
+    ///
+    /// This handles:
+    /// - Checking if the item is damageable
+    /// - Skipping damage for players with infinite materials (creative mode)
+    /// - Applying unbreaking enchantment (TODO: when enchantments are implemented)
+    /// - Breaking the item when durability reaches zero
+    pub fn hurt_and_break(&mut self, amount: i32, has_infinite_materials: bool) -> bool {
+        if !self.is_damageable_item() || amount <= 0 {
+            return false;
+        }
+
+        // Creative mode players don't consume durability
+        if has_infinite_materials {
+            return false;
+        }
+
+        // TODO: Apply unbreaking enchantment
+        // let unbreaking_level = self.get_enchantment_level_by_name("unbreaking");
+        // Vanilla formula: chance to not consume durability = unbreaking_level / (unbreaking_level + 1)
+        // For tools: 100% / (level + 1) chance to consume durability
+        let effective_amount = amount;
+
+        let new_damage = self.get_damage_value() + effective_amount;
+
+        // TODO: Trigger ITEM_DURABILITY_CHANGED advancement criteria
+
+        self.set_damage_value(new_damage);
+
+        // Check if item broke
+        if self.is_broken() {
+            // TODO: Call onEquippedItemBroken callback which:
+            // - Broadcasts entity event (byte 47 for mainhand) for break sound/particles
+            // - Stops location-based effects (removes attribute modifiers)
+            self.shrink(1);
+            return true;
+        }
+
+        false
     }
 
     /// Returns true if this item has the specified component (by type).
@@ -182,7 +247,7 @@ impl ItemStack {
     }
 
     pub fn max_stack_size(&self) -> i32 {
-        self.get(MAX_STACK_SIZE).copied().unwrap_or(64)
+        self.get(MAX_STACK_SIZE).map(|s| s.0).unwrap_or(64)
     }
 
     /// Returns the equippable component if this item has one.
@@ -244,6 +309,12 @@ impl ItemStack {
     /// The prototype value will be visible again.
     pub fn clear<T: 'static>(&mut self, component: DataComponentType<T>) {
         self.patch.clear(component);
+    }
+
+    /// Returns a reference to the component patch.
+    #[must_use]
+    pub fn patch(&self) -> &DataComponentPatch {
+        &self.patch
     }
 
     /// Gets the Tool component if present.
@@ -675,7 +746,7 @@ impl WriteTo for ItemStack {
 }
 
 impl ReadFrom for ItemStack {
-    fn read(data: &mut impl Read) -> Result<Self> {
+    fn read(data: &mut Cursor<&[u8]>) -> Result<Self> {
         let count = VarInt::read(data)?.0;
         if count <= 0 {
             return Ok(Self::empty());
@@ -688,5 +759,77 @@ impl ReadFrom for ItemStack {
         let patch = DataComponentPatch::read(data)?;
 
         Ok(Self { item, count, patch })
+    }
+}
+
+// ==================== NBT Serialization ====================
+
+use simdnbt::{FromNbtTag, ToNbtTag, borrow::NbtTag as BorrowedNbtTag, owned::NbtCompound};
+
+impl ToNbtTag for ItemStack {
+    /// Converts this item stack to an NBT tag for persistent storage.
+    ///
+    /// Format (matching vanilla Minecraft):
+    /// ```text
+    /// {
+    ///     id: "minecraft:stone",
+    ///     count: 64,
+    ///     components: { ... }  // Only present if patch is non-empty
+    /// }
+    /// ```
+    fn to_nbt_tag(self) -> simdnbt::owned::NbtTag {
+        if self.is_empty() {
+            // Empty stacks are represented as an empty compound
+            return simdnbt::owned::NbtTag::Compound(NbtCompound::new());
+        }
+
+        let mut compound = NbtCompound::new();
+
+        // id: The item identifier
+        compound.insert("id", self.item.key.to_string());
+
+        // count: The stack count (vanilla uses Int for NBT storage)
+        compound.insert("count", self.count);
+
+        // components: The component patch (only if non-empty)
+        if !self.patch.is_empty() {
+            compound.insert("components", self.patch.to_nbt_tag());
+        }
+
+        simdnbt::owned::NbtTag::Compound(compound)
+    }
+}
+
+impl FromNbtTag for ItemStack {
+    /// Parses an item stack from an NBT tag.
+    ///
+    /// Accepts the vanilla format:
+    /// ```text
+    /// {
+    ///     id: "minecraft:stone",
+    ///     count: 64,
+    ///     components: { ... }
+    /// }
+    /// ```
+    fn from_nbt_tag(tag: BorrowedNbtTag) -> Option<Self> {
+        let compound = tag.compound()?;
+
+        // Get the item ID
+        let id_str = compound.get("id")?.string()?.to_str();
+        let id = id_str.parse::<Identifier>().ok()?;
+
+        // Look up the item in the registry
+        let item = REGISTRY.items.by_key(&id)?;
+
+        // Get the count (default to 1 if not present)
+        let count = compound.get("count").and_then(|t| t.int()).unwrap_or(1);
+
+        // Parse components if present
+        let patch = compound
+            .get("components")
+            .and_then(DataComponentPatch::from_nbt_tag)
+            .unwrap_or_default();
+
+        Some(Self { item, count, patch })
     }
 }

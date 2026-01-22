@@ -15,7 +15,7 @@ use steel_protocol::packets::game::{
     SClientTickEnd, SCommandSuggestion, SContainerButtonClick, SContainerClick, SContainerClose,
     SContainerSlotStateChanged, SMovePlayerPos, SMovePlayerPosRot, SMovePlayerRot,
     SMovePlayerStatusOnly, SPickItemFromBlock, SPlayerAction, SPlayerInput, SPlayerLoad,
-    SSetCarriedItem, SSetCreativeModeSlot, SSwing, SUseItem, SUseItemOn,
+    SSetCarriedItem, SSetCreativeModeSlot, SSignUpdate, SSwing, SUseItem, SUseItemOn,
 };
 use steel_protocol::utils::{ConnectionProtocol, PacketError, RawPacket};
 use steel_registry::packets::play;
@@ -186,7 +186,7 @@ impl JavaConnection {
         player: Arc<Player>,
         server: Arc<Server>,
     ) -> Result<(), PacketError> {
-        let data = &mut Cursor::new(packet.payload);
+        let data = &mut Cursor::new(packet.payload.as_slice());
 
         match packet.id {
             play::S_ACCEPT_TELEPORTATION => {
@@ -295,6 +295,10 @@ impl JavaConnection {
             play::S_PICK_ITEM_FROM_BLOCK => {
                 let packet = SPickItemFromBlock::read_packet(data)?;
                 player.handle_pick_item_from_block(packet);
+            }
+            play::S_SIGN_UPDATE => {
+                let packet = SSignUpdate::read_packet(data)?;
+                player.handle_sign_update(packet);
             }
             id => log::info!("play packet id {id} is not known"),
         }

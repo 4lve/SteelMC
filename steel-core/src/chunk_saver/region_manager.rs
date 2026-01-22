@@ -5,20 +5,23 @@
 //! format, avoiding memory duplication.
 
 use std::{
-    io,
+    io::{self, Cursor},
     path::PathBuf,
-    sync::Weak,
+    sync::{Weak, atomic::Ordering},
     time::{SystemTime, UNIX_EPOCH},
 };
 
 use rustc_hash::FxHashMap;
+use simdnbt::borrow::read_compound as read_borrowed_compound;
+use simdnbt::owned::NbtCompound;
 use steel_registry::{REGISTRY, Registry};
-use steel_utils::{BlockStateId, ChunkPos, Identifier};
+use steel_utils::{BlockPos, BlockStateId, ChunkPos, Identifier, locks::AsyncRwLock};
 use tokio::{
     fs::{self, File, OpenOptions},
     io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
 };
 
+use crate::block_entity::{BLOCK_ENTITIES, SharedBlockEntity};
 use crate::chunk::{
     chunk_access::{ChunkAccess, ChunkStatus},
     level_chunk::LevelChunk,
@@ -27,15 +30,14 @@ use crate::chunk::{
     section::{ChunkSection, SectionHolder, Sections},
 };
 use crate::world::World;
-use steel_utils::locks::AsyncRwLock;
 
 use super::{
     bit_pack::{bits_for_palette_len, pack_indices, unpack_indices},
     format::{
         BIOMES_PER_SECTION, BLOCKS_PER_SECTION, CHUNK_TABLE_SIZE, FILE_HEADER_SIZE,
         FIRST_DATA_SECTOR, FORMAT_VERSION, MAX_CHUNK_SIZE, PersistentBiomeData,
-        PersistentBlockState, PersistentChunk, PersistentSection, REGION_MAGIC, RegionHeader,
-        RegionPos, SECTOR_SIZE,
+        PersistentBlockEntity, PersistentBlockState, PersistentChunk, PersistentSection,
+        REGION_MAGIC, RegionHeader, RegionPos, SECTOR_SIZE,
     },
 };
 
@@ -312,7 +314,14 @@ impl RegionManager {
         }
 
         let pos = chunk.pos();
-        let persistent = Self::sections_to_persistent(chunk.sections());
+
+        // Get block entities if this is a full chunk
+        let block_entities: Vec<SharedBlockEntity> = chunk
+            .as_full()
+            .map(super::super::chunk::level_chunk::LevelChunk::get_block_entities)
+            .unwrap_or_default();
+
+        let persistent = Self::to_persistent(chunk.sections(), &block_entities, pos);
 
         Some(PreparedChunkSave { pos, persistent })
     }
@@ -417,6 +426,8 @@ impl RegionManager {
     /// * `min_y` - The minimum Y coordinate of the world
     /// * `height` - The total height of the world
     /// * `level` - Weak reference to the world for `LevelChunk`
+    ///
+    /// The region must already be acquired via `acquire_chunk` before calling this.
     #[allow(clippy::missing_panics_doc)]
     pub async fn load_chunk(
         &self,
@@ -431,31 +442,15 @@ impl RegionManager {
 
         let mut regions = self.regions.write().await;
 
-        // Track if we just opened this region
-        let was_already_open = regions.contains_key(&region_pos);
-
-        // Get or open the region
-        let handle = if let Some(handle) = regions.get_mut(&region_pos) {
-            handle
-        } else {
-            // Try to open region file
-            match self.open_region(region_pos).await {
-                Ok(handle) => {
-                    regions.insert(region_pos, handle);
-                    regions.get_mut(&region_pos).expect("just inserted")
-                }
-                Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
-                Err(e) => return Err(e),
-            }
+        // Get the region (should already be open via acquire_chunk)
+        let Some(handle) = regions.get_mut(&region_pos) else {
+            log::warn!("load_chunk called without acquire_chunk for region {region_pos:?}");
+            return Ok(None);
         };
 
         // Check if chunk exists
         let entry = handle.header.entries[index];
         if !entry.exists() {
-            // Clean up if we just opened this region for nothing
-            if !was_already_open && handle.loaded_chunk_count == 0 && !handle.header_dirty {
-                regions.remove(&region_pos);
-            }
             return Ok(None);
         }
 
@@ -474,10 +469,40 @@ impl RegionManager {
         let status = entry.status;
         let chunk = Self::persistent_to_chunk(&persistent, pos, status, min_y, height, level);
 
+        Ok(Some((chunk, status)))
+    }
+
+    /// Acquires a chunk, incrementing the region's reference count.
+    ///
+    /// This opens or creates the region file. Call this before loading or
+    /// generating a chunk, and call `release_chunk` when done with the chunk.
+    ///
+    /// Returns `Ok(true)` if the chunk exists on disk, `Ok(false)` if it doesn't.
+    #[allow(clippy::missing_panics_doc)]
+    pub async fn acquire_chunk(&self, pos: ChunkPos) -> io::Result<bool> {
+        let region_pos = RegionPos::from_chunk(pos.0.x, pos.0.y);
+        let (local_x, local_z) = RegionPos::local_chunk_pos(pos.0.x, pos.0.y);
+        let index = RegionHeader::chunk_index(local_x, local_z);
+
+        let mut regions = self.regions.write().await;
+
+        // Get or open/create the region
+        let handle = if let Some(handle) = regions.get_mut(&region_pos) {
+            handle
+        } else {
+            // open_region creates the file if it doesn't exist
+            let handle = self.open_region(region_pos).await?;
+            regions.insert(region_pos, handle);
+            regions.get_mut(&region_pos).expect("just inserted")
+        };
+
+        // Check if chunk exists
+        let exists = handle.header.entries[index].exists();
+
         // Increment ref count
         handle.loaded_chunk_count += 1;
 
-        Ok(Some((chunk, status)))
+        Ok(exists)
     }
 
     /// Releases a loaded chunk, decrementing the region's reference count.
@@ -575,14 +600,41 @@ impl RegionManager {
         Ok(())
     }
 
-    /// Converts sections to persistent format.
-    fn sections_to_persistent(sections: &Sections) -> PersistentChunk {
+    /// Converts chunk data to persistent format.
+    fn to_persistent(
+        sections: &Sections,
+        block_entities: &[SharedBlockEntity],
+        chunk_pos: ChunkPos,
+    ) -> PersistentChunk {
         let mut builder = ChunkBuilder::new(&REGISTRY);
 
         let persistent_sections = sections
             .sections
             .iter()
             .map(|section| Self::section_to_persistent(section, &mut builder))
+            .collect();
+
+        // Serialize block entities
+        let persistent_block_entities: Vec<PersistentBlockEntity> = block_entities
+            .iter()
+            .map(|entity| {
+                let guard = entity.lock();
+                let pos = guard.get_block_pos();
+
+                // Serialize NBT data
+                let mut nbt = NbtCompound::new();
+                guard.save_additional(&mut nbt);
+                let mut nbt_bytes = Vec::new();
+                nbt.write(&mut nbt_bytes);
+
+                PersistentBlockEntity {
+                    x: (pos.0.x - chunk_pos.0.x * 16) as u8,
+                    y: pos.0.y as i16,
+                    z: (pos.0.z - chunk_pos.0.y * 16) as u8,
+                    entity_type: guard.get_type().key.clone(),
+                    nbt_data: nbt_bytes,
+                }
+            })
             .collect();
 
         PersistentChunk {
@@ -593,7 +645,7 @@ impl RegionManager {
             block_states: builder.block_states,
             biomes: builder.biomes,
             sections: persistent_sections,
-            block_entities: Vec::new(), // TODO: Implement block entity serialization
+            block_entities: persistent_block_entities,
         }
     }
 
@@ -718,13 +770,29 @@ impl RegionManager {
             .collect();
 
         match status {
-            ChunkStatus::Full => ChunkAccess::Full(LevelChunk::from_disk(
-                Sections::from_owned(sections.into_boxed_slice()),
-                pos,
-                min_y,
-                height,
-                level,
-            )),
+            ChunkStatus::Full => {
+                let chunk = LevelChunk::from_disk(
+                    Sections::from_owned(sections.into_boxed_slice()),
+                    pos,
+                    min_y,
+                    height,
+                    level,
+                );
+
+                // Load block entities
+                for persistent_be in &persistent.block_entities {
+                    if let Some(block_entity) =
+                        Self::persistent_to_block_entity(persistent_be, pos, &chunk)
+                    {
+                        chunk.add_and_register_block_entity(block_entity);
+                    }
+                }
+
+                // Clear dirty flag since we just loaded (add_and_register marks dirty)
+                chunk.dirty.store(false, Ordering::Release);
+
+                ChunkAccess::Full(chunk)
+            }
             _ => ChunkAccess::Proto(ProtoChunk::from_disk(
                 Sections::from_owned(sections.into_boxed_slice()),
                 pos,
@@ -732,6 +800,43 @@ impl RegionManager {
                 min_y,
                 height,
             )),
+        }
+    }
+
+    /// Converts a persistent block entity to runtime format.
+    fn persistent_to_block_entity(
+        persistent: &PersistentBlockEntity,
+        chunk_pos: ChunkPos,
+        chunk: &LevelChunk,
+    ) -> Option<SharedBlockEntity> {
+        // Calculate absolute position
+        let abs_x = chunk_pos.0.x * 16 + i32::from(persistent.x);
+        let abs_z = chunk_pos.0.y * 16 + i32::from(persistent.z);
+        let pos = BlockPos::new(abs_x, i32::from(persistent.y), abs_z);
+
+        // Get the block state at this position
+        let state = chunk.get_block_state(pos);
+
+        // Look up the block entity type
+        let block_entity_type = REGISTRY
+            .block_entity_types
+            .by_key(&persistent.entity_type)?;
+
+        // Get the world reference from the chunk
+        let level = chunk.level_weak();
+
+        // Parse and load NBT data
+        if persistent.nbt_data.is_empty() {
+            // No NBT data, just create the entity without loading
+            BLOCK_ENTITIES.create(block_entity_type, level, pos, state)
+        } else {
+            // Parse NBT from bytes as borrowed
+            let Ok(nbt) = read_borrowed_compound(&mut Cursor::new(&persistent.nbt_data)) else {
+                return BLOCK_ENTITIES.create(block_entity_type, level, pos, state);
+            };
+
+            // Create the block entity and load NBT
+            BLOCK_ENTITIES.create_and_load(block_entity_type, level, pos, state, &nbt)
         }
     }
 

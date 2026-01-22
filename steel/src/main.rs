@@ -88,17 +88,6 @@ async fn main_async(chunk_runtime: Arc<Runtime>) {
     let mut steel = SteelServer::new(chunk_runtime.clone()).await;
 
     log::info!(
-        "{:?}",
-        REGISTRY
-            .items
-            .get_tag(&Identifier::vanilla_static("swords"))
-            .expect("swords tag should exist")
-            .iter()
-            .map(|b| b.key.path.to_string())
-            .collect::<Vec<String>>()
-    );
-
-    log::info!(
         "{:p}",
         translations::DEATH_ATTACK_ANVIL_PLAYER
             .message(["4LVE", "Borrow Checker"])

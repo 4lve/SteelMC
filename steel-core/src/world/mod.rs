@@ -9,16 +9,19 @@ use std::{
 };
 
 use sha2::{Digest, Sha256};
-use steel_protocol::packet_traits::EncodedPacket;
+use steel_protocol::packet_traits::{ClientPacket, EncodedPacket};
 use steel_protocol::packets::game::{
     CBlockDestruction, CPlayerChat, CPlayerInfoUpdate, CSystemChat,
 };
 use steel_protocol::utils::ConnectionProtocol;
 
+use simdnbt::owned::NbtCompound;
+use steel_registry::block_entity_type::BlockEntityTypeRef;
 use steel_registry::blocks::BlockRef;
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::Direction;
 use steel_registry::game_rules::{GameRuleRef, GameRuleValue};
+use steel_registry::item_stack::ItemStack;
 use steel_registry::vanilla_blocks;
 use steel_registry::vanilla_game_rules::RANDOM_TICK_SPEED;
 use steel_registry::{REGISTRY, dimension_type::DimensionTypeRef};
@@ -31,6 +34,7 @@ use tokio::{runtime::Runtime, time::Instant};
 use crate::{
     ChunkMap,
     behavior::BLOCK_BEHAVIORS,
+    block_entity::SharedBlockEntity,
     config::STEEL_CONFIG,
     level_data::LevelDataManager,
     player::{LastSeen, Player},
@@ -433,6 +437,31 @@ impl World {
         )
     }
 
+    /// Gets a block entity at the given position.
+    ///
+    /// Returns `None` if the chunk is not loaded or there is no block entity at the position.
+    #[must_use]
+    pub fn get_block_entity(&self, pos: &BlockPos) -> Option<SharedBlockEntity> {
+        let chunk_pos = Self::chunk_pos_for_block(pos);
+        self.chunk_map
+            .with_full_chunk(&chunk_pos, |chunk| {
+                chunk.as_full().and_then(|lc| lc.get_block_entity(*pos))
+            })
+            .flatten()
+    }
+
+    /// Called when a block entity's data changes.
+    ///
+    /// Marks the containing chunk as unsaved so it will be persisted to disk.
+    pub fn block_entity_changed(&self, pos: BlockPos) {
+        let chunk_pos = Self::chunk_pos_for_block(&pos);
+        self.chunk_map.with_full_chunk(&chunk_pos, |chunk| {
+            if let Some(lc) = chunk.as_full() {
+                lc.dirty.store(true, Ordering::Release);
+            }
+        });
+    }
+
     /// Ticks the world.
     ///
     /// * `tick_count` - The current tick number
@@ -475,11 +504,7 @@ impl World {
         // Only broadcast if there are players
         if !latency_entries.is_empty() {
             let packet = CPlayerInfoUpdate::update_latency(latency_entries);
-
-            self.players.iter_players(|_, player| {
-                player.connection.send_packet(packet.clone());
-                true
-            });
+            self.broadcast_to_all(packet);
         }
     }
 
@@ -555,8 +580,28 @@ impl World {
 
     /// Broadcasts a system chat message to all players.
     pub fn broadcast_system_chat(&self, packet: CSystemChat) {
+        self.broadcast_to_all(packet);
+    }
+
+    /// Broadcasts a packet to all players in the world.
+    ///
+    /// This method handles encoding the packet once and sending it to all players,
+    /// avoiding repeated cloning of unencoded packets.
+    pub fn broadcast_to_all<P: ClientPacket>(&self, packet: P) {
+        let Ok(encoded) =
+            EncodedPacket::from_bare(packet, STEEL_CONFIG.compression, ConnectionProtocol::Play)
+        else {
+            return;
+        };
+        self.broadcast_to_all_encoded(encoded);
+    }
+
+    /// Broadcasts an already-encoded packet to all players in the world.
+    ///
+    /// Use this when you have a pre-encoded packet to avoid re-encoding.
+    pub fn broadcast_to_all_encoded(&self, packet: EncodedPacket) {
         self.players.iter_players(|_, player| {
-            player.connection.send_packet(packet.clone());
+            player.connection.send_encoded_packet(packet.clone());
             true
         });
     }
@@ -579,8 +624,28 @@ impl World {
         });
     }
 
-    /// Broadcasts an encoded packet to all players tracking the given chunk.
-    pub fn broadcast_to_nearby(
+    /// Broadcasts a packet to all players tracking the given chunk.
+    ///
+    /// This method handles encoding the packet internally, avoiding boilerplate at call sites.
+    /// If encoding fails, the broadcast is silently skipped.
+    pub fn broadcast_to_nearby<P: ClientPacket>(
+        &self,
+        chunk: ChunkPos,
+        packet: P,
+        exclude: Option<i32>,
+    ) {
+        let Ok(encoded) =
+            EncodedPacket::from_bare(packet, STEEL_CONFIG.compression, ConnectionProtocol::Play)
+        else {
+            return;
+        };
+        self.broadcast_to_nearby_encoded(chunk, encoded, exclude);
+    }
+
+    /// Broadcasts an already-encoded packet to all players tracking the given chunk.
+    ///
+    /// Use this when you have a pre-encoded packet to avoid re-encoding.
+    pub fn broadcast_to_nearby_encoded(
         &self,
         chunk: ChunkPos,
         packet: EncodedPacket,
@@ -625,12 +690,62 @@ impl World {
             pos,
             progress: progress.clamp(-1, 9) as u8,
         };
-        let Ok(encoded) =
-            EncodedPacket::from_bare(packet, STEEL_CONFIG.compression, ConnectionProtocol::Play)
-        else {
-            log::warn!("Failed to encode block destruction packet");
-            return;
+        self.broadcast_to_nearby(chunk, packet, Some(entity_id));
+    }
+
+    /// Broadcasts a block entity update to all players tracking the chunk.
+    ///
+    /// This is used when block entity data changes (e.g., sign text updated).
+    ///
+    /// # Arguments
+    /// * `pos` - The position of the block entity
+    /// * `block_entity_type` - The type of block entity
+    /// * `nbt` - The NBT data to send
+    pub fn broadcast_block_entity_update(
+        &self,
+        pos: BlockPos,
+        block_entity_type: BlockEntityTypeRef,
+        nbt: NbtCompound,
+    ) {
+        use steel_protocol::packets::game::CBlockEntityData;
+        use steel_utils::serial::OptionalNbt;
+
+        let chunk = ChunkPos::new(
+            SectionPos::block_to_section_coord(pos.x()),
+            SectionPos::block_to_section_coord(pos.z()),
+        );
+
+        // Get the block entity type ID from the registry
+        let type_id = *REGISTRY.block_entity_types.get_id(block_entity_type);
+
+        let packet = CBlockEntityData {
+            pos,
+            block_entity_type: type_id as i32,
+            nbt: OptionalNbt(Some(nbt)),
         };
-        self.broadcast_to_nearby(chunk, encoded, Some(entity_id));
+
+        self.broadcast_to_nearby(chunk, packet, None);
+    }
+
+    /// Drops an item stack at the given position.
+    ///
+    /// This spawns an item entity at the specified location with random velocity.
+    /// Based on Java's `Containers.dropItemStack`.
+    ///
+    /// # Arguments
+    /// * `pos` - The block position to drop the item at
+    /// * `item` - The item stack to drop
+    pub fn drop_item_stack(&self, pos: BlockPos, item: ItemStack) {
+        if item.is_empty() {
+            return;
+        }
+        // TODO: Spawn ItemEntity when entity system is implemented
+        // For now, items are lost when containers are broken
+        log::debug!(
+            "Would drop item at {:?}: {:?} x{}",
+            pos,
+            item.item().key,
+            item.count()
+        );
     }
 }

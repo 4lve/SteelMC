@@ -55,7 +55,7 @@ impl ItemBehavior for BlockItemBehavior {
         }
 
         // Get player rotation for placement context
-        let (yaw, _pitch) = context.player.rotation.load();
+        let (yaw, pitch) = context.player.rotation.load();
 
         let place_context = BlockPlaceContext {
             clicked_pos,
@@ -66,6 +66,7 @@ impl ItemBehavior for BlockItemBehavior {
             replace_clicked,
             horizontal_direction: Direction::from_yaw(yaw),
             rotation: yaw,
+            pitch,
             world: context.world,
         };
 

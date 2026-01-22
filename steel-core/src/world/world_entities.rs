@@ -18,13 +18,8 @@ impl World {
             let start = Instant::now();
 
             self.player_area_map.on_player_leave(&player);
-            let remove_entity = CRemoveEntities::single(entity_id);
-            let remove_info = CRemovePlayerInfo::single(uuid);
-            self.players.iter_players(|_, p| {
-                p.connection.send_packet(remove_entity.clone());
-                p.connection.send_packet(remove_info.clone());
-                true
-            });
+            self.broadcast_to_all(CRemoveEntities::single(entity_id));
+            self.broadcast_to_all(CRemovePlayerInfo::single(uuid));
 
             self.chunk_map.remove_player(&player);
             player.cleanup();

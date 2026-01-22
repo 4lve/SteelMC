@@ -484,8 +484,8 @@ impl ChunkMap {
     /// Processes chunks that are pending unload.
     ///
     /// Iterates over `unloading_chunks`. For each chunk with `strong_count == 1`:
-    /// - If not dirty: remove and release region handle
-    /// - If dirty: spawn save task (removal happens on next tick when clean)
+    /// - If dirty: spawn save task (keep until saved and clean)
+    /// - If not dirty: release region handle and remove
     pub fn process_unloads(self: &Arc<Self>) {
         self.unloading_chunks.retain_sync(|pos, holder| {
             if Arc::strong_count(holder) == 1 {
@@ -495,15 +495,15 @@ impl ChunkMap {
                     .is_some_and(|chunk| chunk.is_dirty());
 
                 if is_dirty {
-                    // Save the chunk, don't remove yet
+                    // Save the chunk, keep until next tick when it's clean
                     let holder_clone = holder.clone();
                     let map_clone = self.clone();
                     self.task_tracker.spawn(async move {
                         map_clone.save_chunk(&holder_clone).await;
                     });
-                    true // keep
+                    true // keep until clean
                 } else {
-                    // Clean and no refs - remove and release region handle
+                    // Clean and no refs - release region handle and remove
                     let pos = *pos;
                     let map_clone = self.clone();
                     self.task_tracker.spawn(async move {

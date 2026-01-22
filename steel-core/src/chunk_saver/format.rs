@@ -332,7 +332,8 @@ pub enum PersistentBiomeData {
 
 /// A block entity (tile entity) stored with a chunk.
 ///
-/// TODO: Implement proper block entity serialization.
+/// Block entities are serialized with their type and NBT data.
+/// The NBT data is stored as raw bytes (simdnbt binary format).
 #[derive(SchemaWrite, SchemaRead)]
 pub struct PersistentBlockEntity {
     /// Relative X position within chunk (0-15).
@@ -341,10 +342,11 @@ pub struct PersistentBlockEntity {
     pub y: i16,
     /// Relative Z position within chunk (0-15).
     pub z: u8,
-    /// Block entity type identifier.
+    /// Block entity type identifier (e.g., "minecraft:chest").
     pub entity_type: Identifier,
-    /// Serialized NBT-like data. Format TBD.
-    pub data: Vec<u8>,
+    /// Serialized NBT data (simdnbt binary format).
+    /// Contains the block entity's custom data from `save_additional`.
+    pub nbt_data: Vec<u8>,
 }
 
 /// Position of a region in region coordinates.
