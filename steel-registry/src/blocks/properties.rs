@@ -322,6 +322,28 @@ impl Direction {
         }
     }
 
+    /// Returns true if this direction is horizontal (North, South, East, West).
+    #[must_use]
+    pub const fn is_horizontal(&self) -> bool {
+        matches!(
+            self,
+            Direction::North | Direction::South | Direction::East | Direction::West
+        )
+    }
+
+    /// Returns the boolean connection property for this horizontal direction.
+    /// Returns None for vertical directions (Up, Down).
+    #[must_use]
+    pub const fn to_connection_property(&self) -> Option<BoolProperty> {
+        match self {
+            Direction::North => Some(BlockStateProperties::NORTH),
+            Direction::East => Some(BlockStateProperties::EAST),
+            Direction::South => Some(BlockStateProperties::SOUTH),
+            Direction::West => Some(BlockStateProperties::WEST),
+            Direction::Up | Direction::Down => None,
+        }
+    }
+
     /// Returns the horizontal direction from a yaw rotation.
     ///
     /// Yaw values follow Minecraft's convention:
