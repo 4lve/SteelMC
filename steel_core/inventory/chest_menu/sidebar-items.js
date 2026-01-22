@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["SLOTS_PER_ROW"],"mod":["slots"],"struct":["ChestMenu","ChestMenuProvider"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["BARREL_SLOTS","SIGN_LINES"],"mod":["barrel","sign"],"struct":["BarrelBlockEntity","SignBlockEntity","SignText"]};

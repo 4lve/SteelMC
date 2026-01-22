@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `steel-core/src/inventory/menu.rs`."><title>menu.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="steel_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0-nightly (d940e5684 2026-01-19)" data-channel="nightly" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">steel_core/inventory/</div>menu.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! A menu can be considered everything that's shown on the screen.
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `steel-core/src/inventory/menu.rs`."><title>menu.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-bbd8d786.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="steel_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0-nightly (eda76d9d1 2026-01-21)" data-channel="nightly" data-search-js="search-86d08462.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-f9617a14.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-12f88f4f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">steel_core/inventory/</div>menu.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! A menu can be considered everything that's shown on the screen.
 <a href=#2 id=2 data-nosnippet>2</a>//! It consists of slots, slots consist of a view into a single inventory and position.
 <a href=#3 id=3 data-nosnippet>3</a>//! When you have a chest open for example a chest menu is shown, consisting of the chests slots and the players inventory slots.
 <a href=#4 id=4 data-nosnippet>4</a>//!
@@ -446,7 +446,7 @@
 <a href=#446 id=446 data-nosnippet>446</a>                    &amp;&amp; ItemStack::is_same_item_same_components(item_stack, <span class="kw-2">&amp;</span>target)
 <a href=#447 id=447 data-nosnippet>447</a>                {
 <a href=#448 id=448 data-nosnippet>448</a>                    <span class="kw">let </span>total_stack = target.count + item_stack.count;
-<a href=#449 id=449 data-nosnippet>449</a>                    <span class="kw">let </span>max_stack_size = slot.get_max_stack_size_for_item(<span class="kw-2">&amp;</span>target);
+<a href=#449 id=449 data-nosnippet>449</a>                    <span class="kw">let </span>max_stack_size = slot.get_max_stack_size_for_item(guard, <span class="kw-2">&amp;</span>target);
 <a href=#450 id=450 data-nosnippet>450</a>
 <a href=#451 id=451 data-nosnippet>451</a>                    <span class="kw">if </span>total_stack &lt;= max_stack_size {
 <a href=#452 id=452 data-nosnippet>452</a>                        item_stack.set_count(<span class="number">0</span>);
@@ -485,7 +485,7 @@
 <a href=#485 id=485 data-nosnippet>485</a>                <span class="kw">let </span>target = slot.get_item(guard).clone();
 <a href=#486 id=486 data-nosnippet>486</a>
 <a href=#487 id=487 data-nosnippet>487</a>                <span class="kw">if </span>target.is_empty() &amp;&amp; slot.may_place(item_stack) {
-<a href=#488 id=488 data-nosnippet>488</a>                    <span class="kw">let </span>max_stack_size = slot.get_max_stack_size_for_item(item_stack);
+<a href=#488 id=488 data-nosnippet>488</a>                    <span class="kw">let </span>max_stack_size = slot.get_max_stack_size_for_item(guard, item_stack);
 <a href=#489 id=489 data-nosnippet>489</a>                    <span class="kw">let </span>to_place = item_stack.count.min(max_stack_size);
 <a href=#490 id=490 data-nosnippet>490</a>                    <span class="kw">let </span><span class="kw-2">mut </span>placed = item_stack.clone();
 <a href=#491 id=491 data-nosnippet>491</a>                    placed.set_count(to_place);
@@ -892,7 +892,7 @@
 <a href=#892 id=892 data-nosnippet>892</a>                        };
 <a href=#893 id=893 data-nosnippet>893</a>                        <span class="kw">let </span>max_size = source
 <a href=#894 id=894 data-nosnippet>894</a>                            .max_stack_size()
-<a href=#895 id=895 data-nosnippet>895</a>                            .min(slot.get_max_stack_size_for_item(<span class="kw-2">&amp;</span>source));
+<a href=#895 id=895 data-nosnippet>895</a>                            .min(slot.get_max_stack_size_for_item(<span class="kw-2">&amp;</span>guard, <span class="kw-2">&amp;</span>source));
 <a href=#896 id=896 data-nosnippet>896</a>                        <span class="kw">let </span>place_count = get_quickcraft_place_count(
 <a href=#897 id=897 data-nosnippet>897</a>                            quickcraft_slots.len(),
 <a href=#898 id=898 data-nosnippet>898</a>                            <span class="self">self</span>.quickcraft_type,
@@ -956,7 +956,7 @@
 <a href=#956 id=956 data-nosnippet>956</a>        <span class="kw">if </span>slot_item.is_empty() {
 <a href=#957 id=957 data-nosnippet>957</a>            <span class="comment">// Slot is empty - place carried items (if allowed)
 <a href=#958 id=958 data-nosnippet>958</a>            </span><span class="kw">if </span>!carried.is_empty() &amp;&amp; slot.may_place(<span class="kw-2">&amp;</span>carried) {
-<a href=#959 id=959 data-nosnippet>959</a>                <span class="kw">let </span>max_for_slot = slot.get_max_stack_size_for_item(<span class="kw-2">&amp;</span>carried);
+<a href=#959 id=959 data-nosnippet>959</a>                <span class="kw">let </span>max_for_slot = slot.get_max_stack_size_for_item(<span class="kw-2">&amp;</span>guard, <span class="kw-2">&amp;</span>carried);
 <a href=#960 id=960 data-nosnippet>960</a>                <span class="kw">let </span>requested = <span class="kw">if </span>button == <span class="number">0 </span>{ carried.count } <span class="kw">else </span>{ <span class="number">1 </span>};
 <a href=#961 id=961 data-nosnippet>961</a>                <span class="kw">let </span>amount = requested.min(max_for_slot);
 <a href=#962 id=962 data-nosnippet>962</a>
@@ -999,7 +999,7 @@
 <a href=#999 id=999 data-nosnippet>999</a>            </span><span class="kw">if </span>slot.may_place(<span class="kw-2">&amp;</span>carried) {
 <a href=#1000 id=1000 data-nosnippet>1000</a>                <span class="kw">if </span>button == <span class="number">0 </span>{
 <a href=#1001 id=1001 data-nosnippet>1001</a>                    <span class="comment">// Left click - add as many as possible to slot
-<a href=#1002 id=1002 data-nosnippet>1002</a>                    </span><span class="kw">let </span>max = slot.get_max_stack_size_for_item(<span class="kw-2">&amp;</span>carried);
+<a href=#1002 id=1002 data-nosnippet>1002</a>                    </span><span class="kw">let </span>max = slot.get_max_stack_size_for_item(<span class="kw-2">&amp;</span>guard, <span class="kw-2">&amp;</span>carried);
 <a href=#1003 id=1003 data-nosnippet>1003</a>                    <span class="kw">let </span>space = max - slot_item.count;
 <a href=#1004 id=1004 data-nosnippet>1004</a>                    <span class="kw">let </span>to_add = space.min(carried.count);
 <a href=#1005 id=1005 data-nosnippet>1005</a>
@@ -1017,7 +1017,7 @@
 <a href=#1017 id=1017 data-nosnippet>1017</a>                    }
 <a href=#1018 id=1018 data-nosnippet>1018</a>                } <span class="kw">else </span>{
 <a href=#1019 id=1019 data-nosnippet>1019</a>                    <span class="comment">// Right click - add one to slot
-<a href=#1020 id=1020 data-nosnippet>1020</a>                    </span><span class="kw">let </span>max = slot.get_max_stack_size_for_item(<span class="kw-2">&amp;</span>carried);
+<a href=#1020 id=1020 data-nosnippet>1020</a>                    </span><span class="kw">let </span>max = slot.get_max_stack_size_for_item(<span class="kw-2">&amp;</span>guard, <span class="kw-2">&amp;</span>carried);
 <a href=#1021 id=1021 data-nosnippet>1021</a>                    <span class="kw">if </span>slot_item.count &lt; max {
 <a href=#1022 id=1022 data-nosnippet>1022</a>                        slot.get_item_mut(<span class="kw-2">&amp;mut </span>guard).set_count(slot_item.count + <span class="number">1</span>);
 <a href=#1023 id=1023 data-nosnippet>1023</a>                        <span class="kw">let </span>remaining = carried.count - <span class="number">1</span>;
@@ -1056,7 +1056,7 @@
 <a href=#1056 id=1056 data-nosnippet>1056</a>        } <span class="kw">else </span>{
 <a href=#1057 id=1057 data-nosnippet>1057</a>            <span class="comment">// Different items - swap (if both operations are allowed)
 <a href=#1058 id=1058 data-nosnippet>1058</a>            </span><span class="kw">if </span>slot.may_pickup() &amp;&amp; slot.may_place(<span class="kw-2">&amp;</span>carried) {
-<a href=#1059 id=1059 data-nosnippet>1059</a>                <span class="kw">if </span>carried.count &lt;= slot.get_max_stack_size_for_item(<span class="kw-2">&amp;</span>carried) {
+<a href=#1059 id=1059 data-nosnippet>1059</a>                <span class="kw">if </span>carried.count &lt;= slot.get_max_stack_size_for_item(<span class="kw-2">&amp;</span>guard, <span class="kw-2">&amp;</span>carried) {
 <a href=#1060 id=1060 data-nosnippet>1060</a>                    slot.set_by_player(<span class="kw-2">&amp;mut </span>guard, carried, <span class="kw-2">&amp;</span>slot_item);
 <a href=#1061 id=1061 data-nosnippet>1061</a>                    <span class="self">self</span>.carried = slot_item;
 <a href=#1062 id=1062 data-nosnippet>1062</a>                } <span class="kw">else </span>{
@@ -1338,7 +1338,7 @@
 <a href=#1338 id=1338 data-nosnippet>1338</a>        } <span class="kw">else if </span>target_item.is_empty() {
 <a href=#1339 id=1339 data-nosnippet>1339</a>            <span class="comment">// Move from inventory to target
 <a href=#1340 id=1340 data-nosnippet>1340</a>            </span><span class="kw">if </span>target_slot.may_place(<span class="kw-2">&amp;</span>source_item) {
-<a href=#1341 id=1341 data-nosnippet>1341</a>                <span class="kw">let </span>max_size = target_slot.get_max_stack_size_for_item(<span class="kw-2">&amp;</span>source_item);
+<a href=#1341 id=1341 data-nosnippet>1341</a>                <span class="kw">let </span>max_size = target_slot.get_max_stack_size_for_item(<span class="kw-2">&amp;</span>guard, <span class="kw-2">&amp;</span>source_item);
 <a href=#1342 id=1342 data-nosnippet>1342</a>                <span class="kw">if </span>source_item.count &gt; max_size {
 <a href=#1343 id=1343 data-nosnippet>1343</a>                    <span class="comment">// Split the stack
 <a href=#1344 id=1344 data-nosnippet>1344</a>                    </span><span class="kw">let </span><span class="kw-2">mut </span>to_place = source_item.clone();
@@ -1358,7 +1358,7 @@
 <a href=#1358 id=1358 data-nosnippet>1358</a>        } <span class="kw">else </span>{
 <a href=#1359 id=1359 data-nosnippet>1359</a>            <span class="comment">// Swap items between target and inventory
 <a href=#1360 id=1360 data-nosnippet>1360</a>            </span><span class="kw">if </span>target_slot.may_pickup() &amp;&amp; target_slot.may_place(<span class="kw-2">&amp;</span>source_item) {
-<a href=#1361 id=1361 data-nosnippet>1361</a>                <span class="kw">let </span>max_size = target_slot.get_max_stack_size_for_item(<span class="kw-2">&amp;</span>source_item);
+<a href=#1361 id=1361 data-nosnippet>1361</a>                <span class="kw">let </span>max_size = target_slot.get_max_stack_size_for_item(<span class="kw-2">&amp;</span>guard, <span class="kw-2">&amp;</span>source_item);
 <a href=#1362 id=1362 data-nosnippet>1362</a>                <span class="kw">if </span>source_item.count &gt; max_size {
 <a href=#1363 id=1363 data-nosnippet>1363</a>                    <span class="comment">// Source is too big - place partial and add target to inventory
 <a href=#1364 id=1364 data-nosnippet>1364</a>                    </span><span class="kw">let </span><span class="kw-2">mut </span>to_place = source_item.clone();

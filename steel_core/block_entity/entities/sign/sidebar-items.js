@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_EDIT_DISTANCE","SIGN_LINES"],"fn":["dye_color_from_str","dye_color_to_str"],"struct":["SignBlockEntity","SignText"]};

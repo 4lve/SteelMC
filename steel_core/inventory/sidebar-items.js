@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["container","crafting","crafting_menu","equipment","inventory_menu","lock","menu","menu_provider","recipe_manager","slot"]};
+window.SIDEBAR_ITEMS = {"mod":["chest_menu","container","crafting","crafting_menu","equipment","inventory_menu","lock","menu","menu_provider","recipe_manager","slot"]};

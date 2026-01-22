@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["can_attach_to","can_place_hanging_sign","can_survive_standing","can_wall_hanging_sign_place","get_nearest_looking_directions"],"struct":["HangingSignItemBehavior","SignItemBehavior"]};

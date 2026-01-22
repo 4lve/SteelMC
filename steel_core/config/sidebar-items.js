@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["DEFAULT_CONFIG","DEFAULT_FAVICON","ICON_PREFIX"],"enum":["ConfigLabel"],"static":["STEEL_CONFIG"],"struct":["ConfigLink","ServerConfig","ServerLinks"]};
+window.SIDEBAR_ITEMS = {"enum":["ConfigLabel"],"static":["CONFIG","STEEL_CONFIG"],"struct":["ConfigLink","ServerConfig","ServerConfigRef","ServerLinks"]};

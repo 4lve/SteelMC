@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `steel-core/src/behavior/items/block_item.rs`."><title>block_item.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="steel_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0-nightly (d940e5684 2026-01-19)" data-channel="nightly" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../../static.files/src-script-813739b1.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">steel_core/behavior/items/</div>block_item.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Block item behavior implementation.
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `steel-core/src/behavior/items/block_item.rs`."><title>block_item.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-bbd8d786.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="steel_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0-nightly (eda76d9d1 2026-01-21)" data-channel="nightly" data-search-js="search-86d08462.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../../static.files/storage-f9617a14.js"></script><script defer src="../../../../static.files/src-script-813739b1.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-12f88f4f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">steel_core/behavior/items/</div>block_item.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Block item behavior implementation.
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a></span><span class="kw">use </span>steel_registry::REGISTRY;
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span>steel_registry::blocks::BlockRef;
@@ -55,7 +55,7 @@
 <a href=#55 id=55 data-nosnippet>55</a>        }
 <a href=#56 id=56 data-nosnippet>56</a>
 <a href=#57 id=57 data-nosnippet>57</a>        <span class="comment">// Get player rotation for placement context
-<a href=#58 id=58 data-nosnippet>58</a>        </span><span class="kw">let </span>(yaw, _pitch) = context.player.rotation.load();
+<a href=#58 id=58 data-nosnippet>58</a>        </span><span class="kw">let </span>(yaw, pitch) = context.player.rotation.load();
 <a href=#59 id=59 data-nosnippet>59</a>
 <a href=#60 id=60 data-nosnippet>60</a>        <span class="kw">let </span>place_context = BlockPlaceContext {
 <a href=#61 id=61 data-nosnippet>61</a>            clicked_pos,
@@ -66,37 +66,38 @@
 <a href=#66 id=66 data-nosnippet>66</a>            replace_clicked,
 <a href=#67 id=67 data-nosnippet>67</a>            horizontal_direction: Direction::from_yaw(yaw),
 <a href=#68 id=68 data-nosnippet>68</a>            rotation: yaw,
-<a href=#69 id=69 data-nosnippet>69</a>            world: context.world,
-<a href=#70 id=70 data-nosnippet>70</a>        };
-<a href=#71 id=71 data-nosnippet>71</a>
-<a href=#72 id=72 data-nosnippet>72</a>        <span class="comment">// Get block state for placement from the block behavior
-<a href=#73 id=73 data-nosnippet>73</a>        </span><span class="kw">let </span>block_behaviors = <span class="kw-2">&amp;*</span>BLOCK_BEHAVIORS;
-<a href=#74 id=74 data-nosnippet>74</a>        <span class="kw">let </span>behavior = block_behaviors.get_behavior(<span class="self">self</span>.block);
-<a href=#75 id=75 data-nosnippet>75</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(new_state) = behavior.get_state_for_placement(<span class="kw-2">&amp;</span>place_context) <span class="kw">else </span>{
-<a href=#76 id=76 data-nosnippet>76</a>            <span class="kw">return </span>InteractionResult::Fail;
-<a href=#77 id=77 data-nosnippet>77</a>        };
-<a href=#78 id=78 data-nosnippet>78</a>
-<a href=#79 id=79 data-nosnippet>79</a>        <span class="comment">// Check if the block placement would intersect with any entity (vanilla: Level.isUnobstructed)
-<a href=#80 id=80 data-nosnippet>80</a>        </span><span class="kw">let </span>collision_shape = new_state.get_collision_shape();
-<a href=#81 id=81 data-nosnippet>81</a>        <span class="kw">if </span>!context.world.is_unobstructed(collision_shape, <span class="kw-2">&amp;</span>place_pos) {
-<a href=#82 id=82 data-nosnippet>82</a>            <span class="kw">return </span>InteractionResult::Fail;
-<a href=#83 id=83 data-nosnippet>83</a>        }
-<a href=#84 id=84 data-nosnippet>84</a>
-<a href=#85 id=85 data-nosnippet>85</a>        <span class="comment">// Place the block
-<a href=#86 id=86 data-nosnippet>86</a>        </span><span class="kw">if </span>!context
-<a href=#87 id=87 data-nosnippet>87</a>            .world
-<a href=#88 id=88 data-nosnippet>88</a>            .set_block(place_pos, new_state, UpdateFlags::UPDATE_ALL_IMMEDIATE)
-<a href=#89 id=89 data-nosnippet>89</a>        {
-<a href=#90 id=90 data-nosnippet>90</a>            <span class="kw">return </span>InteractionResult::Fail;
-<a href=#91 id=91 data-nosnippet>91</a>        }
-<a href=#92 id=92 data-nosnippet>92</a>
-<a href=#93 id=93 data-nosnippet>93</a>        <span class="comment">// Consume one item from the stack
-<a href=#94 id=94 data-nosnippet>94</a>        </span>context.item_stack.shrink(<span class="number">1</span>);
-<a href=#95 id=95 data-nosnippet>95</a>
-<a href=#96 id=96 data-nosnippet>96</a>        <span class="comment">// TODO: Play place sound
-<a href=#97 id=97 data-nosnippet>97</a>        // TODO: Call behavior.on_place()
-<a href=#98 id=98 data-nosnippet>98</a>
-<a href=#99 id=99 data-nosnippet>99</a>        </span>InteractionResult::Success
-<a href=#100 id=100 data-nosnippet>100</a>    }
-<a href=#101 id=101 data-nosnippet>101</a>}
+<a href=#69 id=69 data-nosnippet>69</a>            pitch,
+<a href=#70 id=70 data-nosnippet>70</a>            world: context.world,
+<a href=#71 id=71 data-nosnippet>71</a>        };
+<a href=#72 id=72 data-nosnippet>72</a>
+<a href=#73 id=73 data-nosnippet>73</a>        <span class="comment">// Get block state for placement from the block behavior
+<a href=#74 id=74 data-nosnippet>74</a>        </span><span class="kw">let </span>block_behaviors = <span class="kw-2">&amp;*</span>BLOCK_BEHAVIORS;
+<a href=#75 id=75 data-nosnippet>75</a>        <span class="kw">let </span>behavior = block_behaviors.get_behavior(<span class="self">self</span>.block);
+<a href=#76 id=76 data-nosnippet>76</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(new_state) = behavior.get_state_for_placement(<span class="kw-2">&amp;</span>place_context) <span class="kw">else </span>{
+<a href=#77 id=77 data-nosnippet>77</a>            <span class="kw">return </span>InteractionResult::Fail;
+<a href=#78 id=78 data-nosnippet>78</a>        };
+<a href=#79 id=79 data-nosnippet>79</a>
+<a href=#80 id=80 data-nosnippet>80</a>        <span class="comment">// Check if the block placement would intersect with any entity (vanilla: Level.isUnobstructed)
+<a href=#81 id=81 data-nosnippet>81</a>        </span><span class="kw">let </span>collision_shape = new_state.get_collision_shape();
+<a href=#82 id=82 data-nosnippet>82</a>        <span class="kw">if </span>!context.world.is_unobstructed(collision_shape, <span class="kw-2">&amp;</span>place_pos) {
+<a href=#83 id=83 data-nosnippet>83</a>            <span class="kw">return </span>InteractionResult::Fail;
+<a href=#84 id=84 data-nosnippet>84</a>        }
+<a href=#85 id=85 data-nosnippet>85</a>
+<a href=#86 id=86 data-nosnippet>86</a>        <span class="comment">// Place the block
+<a href=#87 id=87 data-nosnippet>87</a>        </span><span class="kw">if </span>!context
+<a href=#88 id=88 data-nosnippet>88</a>            .world
+<a href=#89 id=89 data-nosnippet>89</a>            .set_block(place_pos, new_state, UpdateFlags::UPDATE_ALL_IMMEDIATE)
+<a href=#90 id=90 data-nosnippet>90</a>        {
+<a href=#91 id=91 data-nosnippet>91</a>            <span class="kw">return </span>InteractionResult::Fail;
+<a href=#92 id=92 data-nosnippet>92</a>        }
+<a href=#93 id=93 data-nosnippet>93</a>
+<a href=#94 id=94 data-nosnippet>94</a>        <span class="comment">// Consume one item from the stack
+<a href=#95 id=95 data-nosnippet>95</a>        </span>context.item_stack.shrink(<span class="number">1</span>);
+<a href=#96 id=96 data-nosnippet>96</a>
+<a href=#97 id=97 data-nosnippet>97</a>        <span class="comment">// TODO: Play place sound
+<a href=#98 id=98 data-nosnippet>98</a>        // TODO: Call behavior.on_place()
+<a href=#99 id=99 data-nosnippet>99</a>
+<a href=#100 id=100 data-nosnippet>100</a>        </span>InteractionResult::Success
+<a href=#101 id=101 data-nosnippet>101</a>    }
+<a href=#102 id=102 data-nosnippet>102</a>}
 </code></pre></div></section></main></body></html>

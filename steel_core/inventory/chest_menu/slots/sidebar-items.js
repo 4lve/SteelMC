@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["container_slot_count","hotbar_slot_end","hotbar_slot_start","inv_slot_end","inv_slot_start","total_slots"]};

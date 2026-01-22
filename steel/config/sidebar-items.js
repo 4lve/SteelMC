@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_CONFIG","DEFAULT_FAVICON","ICON_PREFIX","MC_VERSION"],"enum":["ConfigLabel"],"fn":["init_steel_core_config","load_favicon","load_or_create","validate"],"static":["STEEL_CONFIG"],"struct":["ConfigLink","ServerConfig","ServerConfigRef","ServerLinks"]};
