@@ -55,7 +55,7 @@ impl IronBarsBlock {
             return true;
         }
         // TODO glass is not in minecraft: it is in c: so this needed to be fixed and worked on
-        let glass_tag = Identifier::vanilla_static("glass_pane");
+        let glass_tag = Identifier::vanilla_static("glass");
         if REGISTRY.blocks.is_in_tag(neighbor_block, &glass_tag) {
             return true;
         }
