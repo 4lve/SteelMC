@@ -27,11 +27,11 @@ use message_chain::SignedMessageChain;
 use message_validator::LastSeenMessagesValidator;
 use profile_key::RemoteChatSession;
 pub use signature_cache::{LastSeen, MessageCache};
-use steel_protocol::packets::game::CSetHeldSlot;
 use steel_protocol::packets::game::{
     AnimateAction, CAnimate, COpenSignEditor, CPlayerPosition, PlayerAction, SAcceptTeleportation,
     SPickItemFromBlock, SPlayerAction, SSetCarriedItem, SUseItem, SUseItemOn,
 };
+use steel_protocol::packets::game::{CEntityPositionSync, CSetHeldSlot};
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::game_rules::GameRuleValue;
 use steel_registry::vanilla_game_rules::{ELYTRA_MOVEMENT_CHECK, PLAYER_MOVEMENT_CHECK};
@@ -745,7 +745,7 @@ impl Player {
                 let skip_checks = is_spectator || is_creative || tick_frozen || gamerule_skip;
 
                 // Validate movement using physics simulation
-                let validation = movement::validate_movement(
+                let mut validation = movement::validate_movement(
                     &self.world,
                     &movement::MovementInput {
                         target_pos,
@@ -771,19 +771,13 @@ impl Player {
                 // Movement accepted - update last good position
                 *self.last_good_position.lock() = target_pos;
 
-                // Update velocity based on actual movement (vanilla: handlePlayerKnownMovement)
-                {
-                    let mut dm = self.delta_movement.lock();
-                    dm.x = validation.move_delta.x;
-                    dm.y = validation.move_delta.y;
-                    dm.z = validation.move_delta.z;
-
-                    // Zero Y velocity when landing (vanilla: Block.updateEntityMovementAfterFallOn)
-                    // This prevents gravity from accumulating while on the ground
-                    if !was_on_ground && packet.on_ground {
-                        dm.y = 0.0;
-                    }
+                // Zero Y velocity when landing (vanilla: Block.updateEntityMovementAfterFallOn)
+                // This prevents gravity from accumulating while on the ground
+                if !was_on_ground && packet.on_ground {
+                    validation.move_delta.y = 0.0;
                 }
+                // Update velocity based on actual movement (vanilla: handlePlayerKnownMovement)
+                self.set_delta_movement(validation.move_delta);
 
                 // Jump detection (vanilla: jumpFromGround)
                 let moved_upwards = validation.move_delta.y > 0.0;
@@ -824,17 +818,39 @@ impl Player {
             // which is called every tick and computes view diffs efficiently
 
             if packet.has_pos {
-                let move_packet = CMoveEntityPosRot {
-                    entity_id: self.entity_id,
-                    dx: calc_delta(pos.x, prev_pos.x),
-                    dy: calc_delta(pos.y, prev_pos.y),
-                    dz: calc_delta(pos.z, prev_pos.z),
-                    y_rot: to_angle_byte(yaw),
-                    x_rot: to_angle_byte(pitch),
-                    on_ground: packet.on_ground,
-                };
-                self.world
-                    .broadcast_to_nearby(new_chunk, move_packet, Some(self.entity_id));
+                let dx = calc_delta(pos.x, prev_pos.x);
+                let dy = calc_delta(pos.y, prev_pos.y);
+                let dz = calc_delta(pos.z, prev_pos.z);
+
+                if let (Some(dx), Some(dy), Some(dz)) = (dx, dy, dz) {
+                    let move_packet = CMoveEntityPosRot {
+                        entity_id: self.entity_id,
+                        dx,
+                        dy,
+                        dz,
+                        y_rot: to_angle_byte(yaw),
+                        x_rot: to_angle_byte(pitch),
+                        on_ground: packet.on_ground,
+                    };
+                    self.world
+                        .broadcast_to_nearby(new_chunk, move_packet, Some(self.entity_id));
+                } else {
+                    let delta = self.get_delta_movement();
+                    let sync_packet = CEntityPositionSync {
+                        entity_id: self.entity_id,
+                        x: pos.x,
+                        y: pos.y,
+                        z: pos.z,
+                        velocity_x: delta.x,
+                        velocity_y: delta.y,
+                        velocity_z: delta.z,
+                        yaw,
+                        pitch,
+                        on_ground: packet.on_ground,
+                    };
+                    self.world
+                        .broadcast_to_nearby(new_chunk, sync_packet, Some(self.entity_id));
+                }
             } else {
                 let rot_packet = CMoveEntityRot {
                     entity_id: self.entity_id,
