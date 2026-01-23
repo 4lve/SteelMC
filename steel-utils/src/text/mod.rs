@@ -11,6 +11,7 @@ use text_components::{
     content::{Content, NbtSource, Object, Resolvable},
     custom::CustomData,
     format::Format,
+    interactivity::{ClickEvent, HoverEvent},
     resolving::TextResolutor,
 };
 
@@ -78,7 +79,6 @@ impl HashComponent for TextComponent {
 }
 
 /// Hash this component as a map structure (for non-collapsible components).
-#[allow(clippy::too_many_lines)]
 fn hash_component_as_map(component: &TextComponent, hasher: &mut ComponentHasher) {
     // Collect all map entries with their key and value hashes for sorting
     let mut entries: Vec<HashEntry> = Vec::new();
@@ -88,6 +88,30 @@ fn hash_component_as_map(component: &TextComponent, hasher: &mut ComponentHasher
 
     // Hash style fields
     hash_format_fields(&component.format, &mut entries);
+
+    if let Some(insertion) = &component.interactions.insertion {
+        let mut key_hasher = ComponentHasher::new();
+        key_hasher.put_string("insertion");
+        let mut value_hasher = ComponentHasher::new();
+        value_hasher.put_string(insertion);
+        entries.push(HashEntry::new(key_hasher, value_hasher));
+    }
+
+    if let Some(hover_event) = &component.interactions.hover {
+        let mut key_hasher = ComponentHasher::new();
+        key_hasher.put_string("hover_event");
+        let mut value_hasher = ComponentHasher::new();
+        hash_hover_fields(hover_event, &mut value_hasher);
+        entries.push(HashEntry::new(key_hasher, value_hasher));
+    }
+
+    if let Some(click_event) = &component.interactions.click {
+        let mut key_hasher = ComponentHasher::new();
+        key_hasher.put_string("click_event");
+        let mut value_hasher = ComponentHasher::new();
+        hash_click_fields(click_event, &mut value_hasher);
+        entries.push(HashEntry::new(key_hasher, value_hasher));
+    }
 
     // Hash extra (siblings)
     if !component.children.is_empty() {
@@ -471,4 +495,233 @@ fn hash_format_fields(format: &Format, entries: &mut Vec<HashEntry>) {
         value_hasher.put_string(font);
         entries.push(HashEntry::new(key_hasher, value_hasher));
     }
+}
+
+fn hash_hover_fields(event: &HoverEvent, hasher: &mut ComponentHasher) {
+    let mut entries: Vec<HashEntry> = Vec::new();
+
+    match event {
+        HoverEvent::ShowText { value } => {
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("action");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string("show_text");
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("value");
+                let mut value_hasher = ComponentHasher::new();
+                hash_component_as_map(value, &mut value_hasher);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+        }
+        HoverEvent::ShowItem {
+            id,
+            count,
+            components,
+        } => {
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("action");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string("show_item");
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("id");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string(id);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            if let Some(count) = count {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("count");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_int(*count);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            if let Some(components) = components {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("components");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string(components);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+        }
+        HoverEvent::ShowEntity { name, id, uuid } => {
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("action");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string("show_entity");
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("id");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string(id);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("uuid");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string(&uuid.to_string());
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            if let Some(name) = name {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("name");
+                let mut value_hasher = ComponentHasher::new();
+                hash_component_as_map(name, &mut value_hasher);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+        }
+    }
+
+    // Sort entries by key hash, then value hash (Minecraft's map ordering)
+    sort_map_entries(&mut entries);
+
+    // Write the sorted map
+    hasher.start_map();
+    for entry in entries {
+        hasher.put_raw_bytes(&entry.key_bytes);
+        hasher.put_raw_bytes(&entry.value_bytes);
+    }
+    hasher.end_map();
+}
+
+#[allow(clippy::too_many_lines)]
+fn hash_click_fields(event: &ClickEvent, hasher: &mut ComponentHasher) {
+    let mut entries: Vec<HashEntry> = Vec::new();
+
+    match event {
+        ClickEvent::OpenUrl { url } => {
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("action");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string("open_url");
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("url");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string(url);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+        }
+        ClickEvent::RunCommand { command } => {
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("action");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string("run_command");
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("command");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string(command);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+        }
+        ClickEvent::SuggestCommand { command } => {
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("action");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string("suggest_command");
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("command");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string(command);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+        }
+        ClickEvent::ChangePage { page } => {
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("action");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string("change_page");
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("page");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_int(*page);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+        }
+        ClickEvent::CopyToClipboard { value } => {
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("action");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string("copy_to_clipboard");
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("value");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string(value);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+        }
+        ClickEvent::ShowDialog { dialog } => {
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("action");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string("show_dialog");
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("dialog");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string(dialog);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+        }
+        ClickEvent::Custom(custom_data) => {
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("action");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string("custom");
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("id");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string(&custom_data.id);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+        }
+    }
+
+    // Sort entries by key hash, then value hash (Minecraft's map ordering)
+    sort_map_entries(&mut entries);
+
+    // Write the sorted map
+    hasher.start_map();
+    for entry in entries {
+        hasher.put_raw_bytes(&entry.key_bytes);
+        hasher.put_raw_bytes(&entry.value_bytes);
+    }
+    hasher.end_map();
 }
