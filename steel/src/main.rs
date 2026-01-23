@@ -5,8 +5,7 @@ use std::sync::Arc;
 use log::LevelFilter;
 use simplelog::{ColorChoice, Config, TermLogger, TerminalMode};
 use steel::SteelServer;
-use steel_registry::REGISTRY;
-use steel_utils::{Identifier, text::DisplayResolutor, translations};
+use steel_utils::{text::DisplayResolutor, translations};
 use text_components::fmt::set_display_resolutor;
 use tokio::{
     runtime::{Builder, Runtime},

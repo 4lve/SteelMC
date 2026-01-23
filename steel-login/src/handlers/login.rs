@@ -10,7 +10,6 @@ use steel_protocol::{
 };
 use steel_utils::translations;
 use text_components::TextComponent;
-use uuid::Uuid;
 
 use crate::{
     AuthError, is_valid_player_name, mojang_authenticate, offline_uuid, signed_bytes_be_to_hex,

@@ -27,16 +27,15 @@ use message_chain::SignedMessageChain;
 use message_validator::LastSeenMessagesValidator;
 use profile_key::RemoteChatSession;
 pub use signature_cache::{LastSeen, MessageCache};
-use steel_protocol::packet_traits::EncodedPacket;
 use steel_protocol::packets::game::{
-    AnimateAction, CAnimate, COpenSignEditor, CPlayerPosition, CSetHeldSlot, CSystemChatMessage, PlayerAction, SAcceptTeleportation,
-    SPickItemFromBlock, SPlayerAction, SSetCarriedItem, SUseItem, SUseItemOn,
+    AnimateAction, CAnimate, COpenSignEditor, CPlayerPosition, CSetHeldSlot, CSystemChatMessage,
+    PlayerAction, SAcceptTeleportation, SPickItemFromBlock, SPlayerAction, SSetCarriedItem,
+    SUseItem, SUseItemOn,
 };
-use steel_protocol::utils::ConnectionProtocol;
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::game_rules::GameRuleValue;
 use steel_registry::vanilla_game_rules::{ELYTRA_MOVEMENT_CHECK, PLAYER_MOVEMENT_CHECK};
-use steel_registry::{REGISTRY, blocks::block_state_ext::BlockStateExt, vanilla_chat_types};
+use steel_registry::{REGISTRY, vanilla_chat_types};
 
 use steel_utils::locks::SyncMutex;
 use steel_utils::types::GameType;
@@ -1749,7 +1748,7 @@ impl Player {
                 // Create a plain text component from the line
                 // Strip formatting codes (like vanilla does with ChatFormatting.stripFormatting)
                 let stripped = strip_formatting_codes(line);
-                text.set_message(i, TextComponent::new().text(stripped));
+                text.set_message(i, TextComponent::plain(stripped));
             }
         }
 

@@ -1,9 +1,16 @@
 //! This module contains everything related to text components.
-use crate::translations_registry::TRANSLATIONS;
+use crate::{
+    hash::{ComponentHasher, HashComponent, HashEntry, sort_map_entries},
+    serial::ReadFrom,
+    translations_registry::TRANSLATIONS,
+};
+use simdnbt::owned::read_tag;
+use std::io::{self, Cursor};
 use text_components::{
     TextComponent,
-    content::{Content, Resolvable},
+    content::{Content, NbtSource, Object, Resolvable},
     custom::CustomData,
+    format::Format,
     resolving::TextResolutor,
 };
 
@@ -27,7 +34,7 @@ impl TextResolutor for DisplayResolutor {
 }
 
 impl ReadFrom for TextComponent {
-    fn read(data: &mut Cursor<&[u8]>) -> IoResult<Self> {
+    fn read(data: &mut Cursor<&[u8]>) -> io::Result<Self> {
         use crate::codec::VarInt;
 
         // Minecraft's network format: VarInt length prefix, then NBT tag data
@@ -40,10 +47,10 @@ impl ReadFrom for TextComponent {
 
         // Read exactly one NBT tag using simdnbt
         let nbt_tag =
-            read_tag(data).map_err(|e| IoError::other(format!("Failed to read NBT: {e:?}")))?;
+            read_tag(data).map_err(|e| io::Error::other(format!("Failed to read NBT: {e:?}")))?;
 
-        Self::from_nbt_tag(&nbt_tag)
-            .ok_or_else(|| IoError::other("Failed to parse TextComponent from NBT"))
+        Self::from_nbt(&nbt_tag)
+            .ok_or_else(|| io::Error::other("Failed to parse TextComponent from NBT"))
     }
 }
 
@@ -54,114 +61,414 @@ impl HashComponent for TextComponent {
         // - Otherwise, encode as a full map structure
         //
         // This matches ComponentSerialization.createCodec's tryCollapseToString logic
-        if self.can_collapse_to_string() {
+        if matches!(&self.content, Content::Text { .. })
+            && self.children.is_empty()
+            && self.format.is_none()
+            && self.interactions.is_none()
+        {
             // Simple text - hash as just a string
-            if let TextContent::Text { text } = &self.content {
+            if let Content::Text { text } = &self.content {
                 hasher.put_string(text);
             }
         } else {
             // Complex component - hash as a map structure
-            self.hash_as_map(hasher);
+            hash_component_as_map(self, hasher);
         }
     }
 }
 
-impl TextComponent {
-    /// Check if this component can be collapsed to a plain string.
-    /// This matches Minecraft's `tryCollapseToString` logic.
-    fn can_collapse_to_string(&self) -> bool {
-        matches!(&self.content, TextContent::Text { .. })
-            && self.extra.is_empty()
-            && self.style.is_empty()
-            && self.interactivity.is_empty()
+/// Hash this component as a map structure (for non-collapsible components).
+#[allow(clippy::too_many_lines)]
+fn hash_component_as_map(component: &TextComponent, hasher: &mut ComponentHasher) {
+    // Collect all map entries with their key and value hashes for sorting
+    let mut entries: Vec<HashEntry> = Vec::new();
+
+    // Hash content
+    hash_content_fields(&component.content, &mut entries);
+
+    // Hash style fields
+    hash_format_fields(&component.format, &mut entries);
+
+    // Hash extra (siblings)
+    if !component.children.is_empty() {
+        let mut key_hasher = ComponentHasher::new();
+        key_hasher.put_string("extra");
+        let mut value_hasher = ComponentHasher::new();
+        value_hasher.start_list();
+        for extra in &component.children {
+            let mut extra_hasher = ComponentHasher::new();
+            extra.hash_component(&mut extra_hasher);
+            value_hasher.put_raw_bytes(extra_hasher.current_data());
+        }
+        value_hasher.end_list();
+        entries.push(HashEntry::new(key_hasher, value_hasher));
     }
 
-    /// Hash this component as a map structure (for non-collapsible components).
-    fn hash_as_map(&self, hasher: &mut ComponentHasher) {
-        use crate::hash::sort_map_entries;
+    // Sort entries by key hash, then value hash (Minecraft's map ordering)
+    sort_map_entries(&mut entries);
 
-        // Collect all map entries with their key and value hashes for sorting
-        let mut entries: Vec<HashEntry> = Vec::new();
+    // Write the sorted map
+    hasher.start_map();
+    for entry in entries {
+        hasher.put_raw_bytes(&entry.key_bytes);
+        hasher.put_raw_bytes(&entry.value_bytes);
+    }
+    hasher.end_map();
+}
 
-        // Hash content
-        match &self.content {
-            TextContent::Text { text } => {
-                let mut key_hasher = ComponentHasher::new();
-                key_hasher.put_string("text");
-                let mut value_hasher = ComponentHasher::new();
-                value_hasher.put_string(text);
-                entries.push(HashEntry::new(key_hasher, value_hasher));
-            }
-            TextContent::Translate(message) => {
-                // "translate" field
-                {
-                    let mut key_hasher = ComponentHasher::new();
-                    key_hasher.put_string("translate");
-                    let mut value_hasher = ComponentHasher::new();
-                    value_hasher.put_string(&message.key);
-                    entries.push(HashEntry::new(key_hasher, value_hasher));
-                }
-                // "fallback" field (optional)
-                if let Some(fallback) = &message.fallback {
-                    let mut key_hasher = ComponentHasher::new();
-                    key_hasher.put_string("fallback");
-                    let mut value_hasher = ComponentHasher::new();
-                    value_hasher.put_string(fallback);
-                    entries.push(HashEntry::new(key_hasher, value_hasher));
-                }
-                // "with" field (optional args list)
-                if let Some(args) = &message.args
-                    && !args.is_empty()
-                {
-                    let mut key_hasher = ComponentHasher::new();
-                    key_hasher.put_string("with");
-                    let mut value_hasher = ComponentHasher::new();
-                    value_hasher.start_list();
-                    for arg in args {
-                        let mut arg_hasher = ComponentHasher::new();
-                        arg.hash_component(&mut arg_hasher);
-                        value_hasher.put_raw_bytes(arg_hasher.current_data());
-                    }
-                    value_hasher.end_list();
-                    entries.push(HashEntry::new(key_hasher, value_hasher));
-                }
-            }
-            TextContent::Keybind { keybind } => {
-                let mut key_hasher = ComponentHasher::new();
-                key_hasher.put_string("keybind");
-                let mut value_hasher = ComponentHasher::new();
-                value_hasher.put_string(keybind);
-                entries.push(HashEntry::new(key_hasher, value_hasher));
-            }
-        }
-
-        // Hash style fields
-        self.style.hash_fields(&mut entries);
-
-        // Hash extra (siblings)
-        if !self.extra.is_empty() {
+#[allow(clippy::too_many_lines)]
+fn hash_content_fields(content: &Content, entries: &mut Vec<HashEntry>) {
+    match content {
+        Content::Text { text } => {
             let mut key_hasher = ComponentHasher::new();
-            key_hasher.put_string("extra");
+            key_hasher.put_string("text");
             let mut value_hasher = ComponentHasher::new();
-            value_hasher.start_list();
-            for extra in &self.extra {
-                let mut extra_hasher = ComponentHasher::new();
-                extra.hash_component(&mut extra_hasher);
-                value_hasher.put_raw_bytes(extra_hasher.current_data());
-            }
-            value_hasher.end_list();
+            value_hasher.put_string(text);
             entries.push(HashEntry::new(key_hasher, value_hasher));
         }
-
-        // Sort entries by key hash, then value hash (Minecraft's map ordering)
-        sort_map_entries(&mut entries);
-
-        // Write the sorted map
-        hasher.start_map();
-        for entry in entries {
-            hasher.put_raw_bytes(&entry.key_bytes);
-            hasher.put_raw_bytes(&entry.value_bytes);
+        Content::Translate(message) => {
+            // "translate" field
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("translate");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string(&message.key);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            // "fallback" field (optional)
+            if let Some(fallback) = &message.fallback {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("fallback");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string(fallback);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            // "with" field (optional args list)
+            if let Some(args) = &message.args
+                && !args.is_empty()
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("with");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.start_list();
+                for arg in args {
+                    let mut arg_hasher = ComponentHasher::new();
+                    arg.hash_component(&mut arg_hasher);
+                    value_hasher.put_raw_bytes(arg_hasher.current_data());
+                }
+                value_hasher.end_list();
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
         }
-        hasher.end_map();
+        Content::Keybind { keybind } => {
+            let mut key_hasher = ComponentHasher::new();
+            key_hasher.put_string("keybind");
+            let mut value_hasher = ComponentHasher::new();
+            value_hasher.put_string(keybind);
+            entries.push(HashEntry::new(key_hasher, value_hasher));
+        }
+        Content::Object(Object::Atlas { atlas, sprite }) => {
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("sprite");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string(sprite);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            if let Some(atlas) = atlas {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("atlas");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string(atlas);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+        }
+        Content::Object(Object::Player { player, hat }) => {
+            {
+                let mut inner_entries: Vec<HashEntry> = Vec::new();
+                if let Some(id) = &player.id {
+                    let mut key_hasher = ComponentHasher::new();
+                    key_hasher.put_string("id");
+                    let mut value_hasher = ComponentHasher::new();
+                    value_hasher.put_int_array(id);
+                    inner_entries.push(HashEntry::new(key_hasher, value_hasher));
+                }
+                if let Some(name) = &player.name {
+                    let mut key_hasher = ComponentHasher::new();
+                    key_hasher.put_string("name");
+                    let mut value_hasher = ComponentHasher::new();
+                    value_hasher.put_string(name);
+                    inner_entries.push(HashEntry::new(key_hasher, value_hasher));
+                }
+                if let Some(texture) = &player.texture {
+                    let mut key_hasher = ComponentHasher::new();
+                    key_hasher.put_string("texture");
+                    let mut value_hasher = ComponentHasher::new();
+                    value_hasher.put_string(texture);
+                    inner_entries.push(HashEntry::new(key_hasher, value_hasher));
+                }
+                if !player.properties.is_empty() {
+                    let mut key_hasher = ComponentHasher::new();
+                    key_hasher.put_string("properties");
+                    let mut value_hasher = ComponentHasher::new();
+                    value_hasher.start_list();
+                    for property in &player.properties {
+                        let mut entries: Vec<HashEntry> = Vec::new();
+                        {
+                            let mut key_hasher = ComponentHasher::new();
+                            key_hasher.put_string("name");
+                            let mut value_hasher = ComponentHasher::new();
+                            value_hasher.put_string(&property.name);
+                            entries.push(HashEntry::new(key_hasher, value_hasher));
+                        }
+                        {
+                            let mut key_hasher = ComponentHasher::new();
+                            key_hasher.put_string("value");
+                            let mut value_hasher = ComponentHasher::new();
+                            value_hasher.put_string(&property.value);
+                            entries.push(HashEntry::new(key_hasher, value_hasher));
+                        }
+                        if let Some(signature) = &property.signature {
+                            let mut key_hasher = ComponentHasher::new();
+                            key_hasher.put_string("signature");
+                            let mut value_hasher = ComponentHasher::new();
+                            value_hasher.put_string(signature);
+                            entries.push(HashEntry::new(key_hasher, value_hasher));
+                        }
+
+                        // Sort entries by key hash, then value hash (Minecraft's map ordering)
+                        sort_map_entries(&mut entries);
+                        let mut hasher = ComponentHasher::new();
+                        hasher.start_map();
+                        for entry in entries {
+                            hasher.put_raw_bytes(&entry.key_bytes);
+                            hasher.put_raw_bytes(&entry.value_bytes);
+                        }
+                        hasher.end_map();
+                        value_hasher.put_raw_bytes(hasher.current_data());
+                    }
+                    value_hasher.end_list();
+                    inner_entries.push(HashEntry::new(key_hasher, value_hasher));
+                }
+                // Sort entries by key hash, then value hash (Minecraft's map ordering)
+                sort_map_entries(&mut inner_entries);
+
+                // Write the sorted map
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("player");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.start_map();
+                for entry in inner_entries {
+                    value_hasher.put_raw_bytes(&entry.key_bytes);
+                    value_hasher.put_raw_bytes(&entry.value_bytes);
+                }
+                value_hasher.end_map();
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("hat");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_bool(*hat);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+        }
+        Content::Resolvable(Resolvable::Entity {
+            selector,
+            separator,
+        }) => {
+            // "selector" field
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("selector");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string(selector);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            // "separator" field
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("separator");
+                let mut value_hasher = ComponentHasher::new();
+                separator.hash_component(&mut value_hasher);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+        }
+        Content::Resolvable(Resolvable::Scoreboard {
+            selector,
+            objective,
+        }) => {
+            // "score" object with "name" and "objective" fields
+            let mut inner_entries: Vec<HashEntry> = Vec::new();
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("name");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string(selector);
+                inner_entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("objective");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string(objective);
+                inner_entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            // Sort entries by key hash, then value hash (Minecraft's map ordering)
+            sort_map_entries(&mut inner_entries);
+
+            // Write the sorted map under "score" key
+            let mut key_hasher = ComponentHasher::new();
+            key_hasher.put_string("score");
+            let mut value_hasher = ComponentHasher::new();
+            value_hasher.start_map();
+            for entry in inner_entries {
+                value_hasher.put_raw_bytes(&entry.key_bytes);
+                value_hasher.put_raw_bytes(&entry.value_bytes);
+            }
+            value_hasher.end_map();
+            entries.push(HashEntry::new(key_hasher, value_hasher));
+        }
+        Content::Resolvable(Resolvable::NBT {
+            path,
+            interpret,
+            separator,
+            source,
+        }) => {
+            // "nbt" field
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("nbt");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_string(path);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            // "interpret" field (optional)
+            if let Some(interpret) = interpret {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("interpret");
+                let mut value_hasher = ComponentHasher::new();
+                value_hasher.put_bool(*interpret);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            // "separator" field
+            {
+                let mut key_hasher = ComponentHasher::new();
+                key_hasher.put_string("separator");
+                let mut value_hasher = ComponentHasher::new();
+                separator.hash_component(&mut value_hasher);
+                entries.push(HashEntry::new(key_hasher, value_hasher));
+            }
+            // Source field (entity, block, or storage)
+            match source {
+                NbtSource::Entity(selector) => {
+                    let mut key_hasher = ComponentHasher::new();
+                    key_hasher.put_string("entity");
+                    let mut value_hasher = ComponentHasher::new();
+                    value_hasher.put_string(selector);
+                    entries.push(HashEntry::new(key_hasher, value_hasher));
+                }
+                NbtSource::Block(pos) => {
+                    let mut key_hasher = ComponentHasher::new();
+                    key_hasher.put_string("block");
+                    let mut value_hasher = ComponentHasher::new();
+                    value_hasher.put_string(pos);
+                    entries.push(HashEntry::new(key_hasher, value_hasher));
+                }
+                NbtSource::Storage(id) => {
+                    let mut key_hasher = ComponentHasher::new();
+                    key_hasher.put_string("storage");
+                    let mut value_hasher = ComponentHasher::new();
+                    value_hasher.put_string(id);
+                    entries.push(HashEntry::new(key_hasher, value_hasher));
+                }
+            }
+        }
+        Content::Custom(_custom_data) => {
+            // Custom data components are resolved at runtime and should not appear
+            // in hashing for network protocol. If they do appear, we treat them
+            // as an empty text component.
+            let mut key_hasher = ComponentHasher::new();
+            key_hasher.put_string("text");
+            let mut value_hasher = ComponentHasher::new();
+            value_hasher.put_string("");
+            entries.push(HashEntry::new(key_hasher, value_hasher));
+        }
+    }
+}
+
+/// Hash the style fields into the provided entries list for map hashing.
+/// Field names match Minecraft's `Style.Serializer.MAP_CODEC`.
+fn hash_format_fields(format: &Format, entries: &mut Vec<HashEntry>) {
+    // color
+    if let Some(color) = &format.color {
+        let mut key_hasher = ComponentHasher::new();
+        key_hasher.put_string("color");
+        let mut value_hasher = ComponentHasher::new();
+        value_hasher.put_string(&color.to_string());
+        entries.push(HashEntry::new(key_hasher, value_hasher));
+    }
+
+    // shadow_color
+    if let Some(shadow_color) = &format.shadow_color {
+        let mut key_hasher = ComponentHasher::new();
+        key_hasher.put_string("shadow_color");
+        let mut value_hasher = ComponentHasher::new();
+        value_hasher.put_long(*shadow_color);
+        entries.push(HashEntry::new(key_hasher, value_hasher));
+    }
+
+    // bold
+    if let Some(bold) = format.bold {
+        let mut key_hasher = ComponentHasher::new();
+        key_hasher.put_string("bold");
+        let mut value_hasher = ComponentHasher::new();
+        value_hasher.put_bool(bold);
+        entries.push(HashEntry::new(key_hasher, value_hasher));
+    }
+
+    // italic
+    if let Some(italic) = format.italic {
+        let mut key_hasher = ComponentHasher::new();
+        key_hasher.put_string("italic");
+        let mut value_hasher = ComponentHasher::new();
+        value_hasher.put_bool(italic);
+        entries.push(HashEntry::new(key_hasher, value_hasher));
+    }
+
+    // underlined
+    if let Some(underlined) = format.underlined {
+        let mut key_hasher = ComponentHasher::new();
+        key_hasher.put_string("underlined");
+        let mut value_hasher = ComponentHasher::new();
+        value_hasher.put_bool(underlined);
+        entries.push(HashEntry::new(key_hasher, value_hasher));
+    }
+
+    // strikethrough
+    if let Some(strikethrough) = format.strikethrough {
+        let mut key_hasher = ComponentHasher::new();
+        key_hasher.put_string("strikethrough");
+        let mut value_hasher = ComponentHasher::new();
+        value_hasher.put_bool(strikethrough);
+        entries.push(HashEntry::new(key_hasher, value_hasher));
+    }
+
+    // obfuscated
+    if let Some(obfuscated) = format.obfuscated {
+        let mut key_hasher = ComponentHasher::new();
+        key_hasher.put_string("obfuscated");
+        let mut value_hasher = ComponentHasher::new();
+        value_hasher.put_bool(obfuscated);
+        entries.push(HashEntry::new(key_hasher, value_hasher));
+    }
+
+    // font (encoded as a string identifier)
+    if let Some(font) = &format.font {
+        let mut key_hasher = ComponentHasher::new();
+        key_hasher.put_string("font");
+        let mut value_hasher = ComponentHasher::new();
+        value_hasher.put_string(font);
+        entries.push(HashEntry::new(key_hasher, value_hasher));
     }
 }

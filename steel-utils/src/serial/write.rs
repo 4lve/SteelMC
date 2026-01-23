@@ -7,13 +7,9 @@ use std::{
 
 use simdnbt::{
     ToNbtTag,
-    owned::{Nbt, NbtCompound, NbtTag},
+    owned::{NbtCompound, NbtTag},
 };
-use text_components::{
-    TextComponent,
-    nbt::NbtBuilder,
-    resolving::{BuildTarget, NoResolutor},
-};
+use text_components::TextComponent;
 use uuid::Uuid;
 
 use crate::{
@@ -142,13 +138,7 @@ impl WriteTo for BlockPos {
 
 impl WriteTo for TextComponent {
     fn write(&self, writer: &mut impl Write) -> Result<()> {
-        WriteTo::write(
-            &match NbtBuilder.build_component(&NoResolutor, self) {
-                Nbt::Some(base_nbt) => base_nbt.as_compound().to_nbt_tag(),
-                Nbt::None => panic!("A Text Component always should have something inside"),
-            },
-            writer,
-        )?;
+        WriteTo::write(&self.clone().to_nbt_tag(), writer)?;
         Ok(())
     }
 }

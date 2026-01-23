@@ -2425,6 +2425,7 @@ dependencies = [
  "steel-protocol",
  "steel-registry",
  "steel-utils",
+ "text_components",
  "thiserror 2.0.17",
  "tokio",
  "tokio-util",
@@ -2568,9 +2569,9 @@ dependencies = [
 
 [[package]]
 name = "text_components"
-version = "0.1.3"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd324c2261af7a1d9dadbeeeff4ea955b61342f3ef3d1bd821c4f0c4ac16bc5d"
+checksum = "6773709d3cf18aaa0852b03186f9e39579daf7e453c2bf6aa213260d90d46ee8"
 dependencies = [
  "colored",
  "heck",

@@ -487,7 +487,7 @@ mod tests {
 
     #[test]
     fn test_text_component_steel() {
-        use crate::text::TextComponent;
+        use text_components::TextComponent;
 
         // A simple text component with just "Steel" should collapse to a string
         let component = TextComponent::from("Steel");

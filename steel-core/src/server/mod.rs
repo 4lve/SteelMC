@@ -317,13 +317,7 @@ impl Server {
 
         // Broadcast to all players in all worlds
         for world in &self.worlds {
-            world.players.iter_players(|_, player| {
-                player
-                    .connection
-                    .send_packet(CTabList::new(&header, &footer, player));
-                true
-            });
-            world.broadcast_to_all(packet.clone());
+            world.broadcast_to_all_with(|player| CTabList::new(&header, &footer, player));
         }
     }
 
@@ -339,13 +333,7 @@ impl Server {
             .into();
 
         for world in &self.worlds {
-            world.players.iter_players(|_, player| {
-                player
-                    .connection
-                    .send_packet(CSystemChat::new(&message, false, player));
-                true
-            });
-            world.broadcast_to_all(packet.clone());
+            world.broadcast_to_all_with(|player| CSystemChat::new(&message, false, player));
         }
     }
 

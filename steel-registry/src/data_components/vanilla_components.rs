@@ -1,4 +1,5 @@
-use steel_utils::{Identifier, text::TextComponent, types::Todo};
+use steel_utils::{Identifier, types::Todo};
+use text_components::TextComponent;
 
 use crate::data_components::{DataComponentRegistry, DataComponentType};
 
