@@ -2,8 +2,6 @@
 //!
 //! This module defines all vanilla Minecraft data components and provides
 //! the registration function to add them to the registry.
-use steel_utils::{Identifier, types::Todo};
-use text_components::TextComponent;
 use steel_utils::Identifier;
 
 use super::component_data::ComponentData;
