@@ -627,6 +627,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dotenvy"
+version = "0.15.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
+
+[[package]]
 name = "dunce"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -692,6 +698,26 @@ checksum = "b375d6465b98090a5f25b1c7703f3859783755aa9a80433b36e0379a3ec2f369"
 dependencies = [
  "crc32fast",
  "miniz_oxide",
+]
+
+[[package]]
+name = "flint-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "flint-steel"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "dotenvy",
+ "flint-core",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -2393,6 +2419,20 @@ dependencies = [
  "serde_json",
  "steel-utils",
  "thiserror 2.0.17",
+]
+
+[[package]]
+name = "steel-flint"
+version = "0.0.0"
+dependencies = [
+ "flint-core",
+ "flint-steel",
+ "log",
+ "serde_json",
+ "steel-core",
+ "steel-registry",
+ "steel-utils",
+ "tokio",
 ]
 
 [[package]]

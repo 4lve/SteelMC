@@ -34,6 +34,7 @@ use tokio::{runtime::Runtime, time::Instant};
 use crate::{
     ChunkMap,
     behavior::BLOCK_BEHAVIORS,
+    chunk_saver::{ChunkStorage, RamOnlyStorage, RegionManager},
     block_entity::SharedBlockEntity,
     config::STEEL_CONFIG,
     level_data::LevelDataManager,
@@ -50,6 +51,29 @@ pub use player_map::PlayerMap;
 /// Interval in ticks between player info broadcasts (600 ticks = 30 seconds).
 /// Matches vanilla `PlayerList.SEND_PLAYER_INFO_INTERVAL`.
 const SEND_PLAYER_INFO_INTERVAL: u64 = 600;
+
+/// Configuration for world storage.
+#[derive(Clone)]
+pub enum WorldStorageConfig {
+    /// Standard disk persistence using region files.
+    Disk {
+        /// Path to the world directory (e.g., "world/overworld").
+        path: String,
+    },
+    /// RAM-only storage with empty chunks created on demand.
+    /// No data is persisted - useful for testing and minigames.
+    RamOnlyEmpty,
+}
+
+/// Configuration for creating a new world.
+#[derive(Clone)]
+pub struct WorldConfig {
+    /// Storage configuration for chunk persistence.
+    pub storage: WorldStorageConfig,
+    /// Whether to skip loading level data from disk.
+    /// When true, creates fresh level data instead of loading.
+    pub skip_level_data: bool,
+}
 
 /// A struct that represents a world.
 pub struct World {
@@ -69,7 +93,7 @@ pub struct World {
 }
 
 impl World {
-    /// Creates a new world.
+    /// Creates a new world with disk storage.
     ///
     /// Uses `Arc::new_cyclic` to create a cyclic reference between
     /// the World and its `ChunkMap`'s `WorldGenContext`.
@@ -79,11 +103,64 @@ impl World {
         dimension: DimensionTypeRef,
         seed: i64,
     ) -> io::Result<Arc<Self>> {
-        let level_data =
-            LevelDataManager::new(format!("world/{}", dimension.key.path), seed).await?;
+        let config = WorldConfig {
+            storage: WorldStorageConfig::Disk {
+                path: format!("world/{}", dimension.key.path),
+            },
+            skip_level_data: false,
+        };
+        Self::new_with_config(chunk_runtime, dimension, seed, config).await
+    }
+
+    /// Creates a new world with custom configuration.
+    ///
+    /// This allows specifying storage backend (disk or RAM-only) and other options.
+    /// Uses `Arc::new_cyclic` to create a cyclic reference between
+    /// the World and its `ChunkMap`'s `WorldGenContext`.
+    ///
+    /// # Arguments
+    /// * `chunk_runtime` - The Tokio runtime for chunk operations
+    /// * `dimension` - The dimension type (overworld, nether, end)
+    /// * `seed` - The world seed
+    /// * `config` - World configuration including storage options
+    pub async fn new_with_config(
+        chunk_runtime: Arc<Runtime>,
+        dimension: DimensionTypeRef,
+        seed: i64,
+        config: WorldConfig,
+    ) -> io::Result<Arc<Self>> {
+        // Create storage backend based on config
+        let storage: Arc<ChunkStorage> = match &config.storage {
+            WorldStorageConfig::Disk { path } => {
+                Arc::new(ChunkStorage::Disk(RegionManager::new(path.clone())))
+            }
+            WorldStorageConfig::RamOnlyEmpty => {
+                Arc::new(ChunkStorage::RamOnly(RamOnlyStorage::empty_world()))
+            }
+        };
+
+        // Create or skip level data based on config
+        let level_data = if config.skip_level_data {
+            LevelDataManager::new_empty(seed)
+        } else {
+            let path = match &config.storage {
+                WorldStorageConfig::Disk { path } => path.clone(),
+                WorldStorageConfig::RamOnlyEmpty => String::new(),
+            };
+            if path.is_empty() {
+                LevelDataManager::new_empty(seed)
+            } else {
+                LevelDataManager::new(path, seed).await?
+            }
+        };
 
         Ok(Arc::new_cyclic(|weak_self: &Weak<World>| Self {
-            chunk_map: Arc::new(ChunkMap::new(chunk_runtime, weak_self.clone(), &dimension)),
+            chunk_map: Arc::new(ChunkMap::new_with_storage(
+                chunk_runtime,
+                weak_self.clone(),
+                &dimension,
+                storage,
+            )),
             players: PlayerMap::new(),
             player_area_map: PlayerAreaMap::new(),
             dimension,

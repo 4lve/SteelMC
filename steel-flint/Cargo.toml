@@ -1,0 +1,27 @@
+[package]
+name = "steel-flint"
+version.workspace = true
+edition.workspace = true
+description = "Flint testing framework integration for SteelMC"
+
+[dependencies]
+# Internal crates
+steel-core = { workspace = true }
+steel-registry = { workspace = true }
+steel-utils = { workspace = true }
+
+# Flint testing framework
+flint-steel = { path = "../../../flint/flint-steel/flint-steel" }
+flint-core = { path = "../../../flint/flint-core" }
+
+# Async
+tokio = { workspace = true }
+
+# Logging
+log = { workspace = true }
+
+# Serialization (for flint-core compatibility)
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

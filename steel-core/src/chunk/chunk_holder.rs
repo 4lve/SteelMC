@@ -313,19 +313,19 @@ impl ChunkHolder {
         // This is one of the `crate::chunk::chunk_status_tasks` functions.
         let task = step.task;
         let self_clone = self.clone();
-        let region_manager = chunk_map.region_manager.clone();
+        let storage = chunk_map.storage.clone();
 
         let future = chunk_map.task_tracker.spawn(async move {
             if target_status == ChunkStatus::Empty {
                 // Acquire the region first (creates if needed, increments ref count)
-                let chunk_exists = region_manager
+                let chunk_exists = storage
                     .acquire_chunk(self_clone.pos)
                     .await
                     .unwrap_or(false);
 
                 if chunk_exists {
                     // Try to load the chunk from disk
-                    if let Ok(Some((chunk, status))) = region_manager
+                    if let Ok(Some((chunk, status))) = storage
                         .load_chunk(
                             self_clone.pos,
                             self_clone.min_y(),

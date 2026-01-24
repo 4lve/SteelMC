@@ -10,6 +10,7 @@ members = [
     "steel-utils",
     "steel-core",
     "steel-crypto",
+    "steel-flint",
 ]
 
 [workspace.package]
@@ -127,7 +128,8 @@ debug = true
 debug = true
 
 [profile.dev]
-debug = 0
+# debug = 0
+debug = true
 #codegen-backend = "cranelift"
 
 [workspace.lints.rust]
