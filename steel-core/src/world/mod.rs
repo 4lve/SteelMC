@@ -37,6 +37,7 @@ use crate::{
     ChunkMap,
     behavior::BLOCK_BEHAVIORS,
     block_entity::SharedBlockEntity,
+    chunk::{chunk_access::ChunkAccess, heightmap::HeightmapType},
     config::STEEL_CONFIG,
     level_data::LevelDataManager,
     player::{LastSeen, Player},
@@ -188,6 +189,35 @@ impl World {
     #[must_use]
     pub fn max_build_height(&self) -> i32 {
         self.get_min_y() + self.get_height()
+    }
+
+    /// Returns a safe spawn Y coordinate at the given X,Z position.
+    ///
+    /// If the chunk at the spawn position is loaded, uses the heightmap to find
+    /// the surface. Otherwise, returns a safe default height (100).
+    #[must_use]
+    pub fn get_spawn_height(&self, x: i32, z: i32) -> i32 {
+        let chunk_pos = ChunkPos::new(
+            SectionPos::block_to_section_coord(x),
+            SectionPos::block_to_section_coord(z),
+        );
+
+        // Try to get the surface height from the heightmap if the chunk is loaded
+        self.chunk_map
+            .with_full_chunk(&chunk_pos, |chunk| {
+                if let ChunkAccess::Full(level_chunk) = chunk {
+                    let local_x = (x & 0xF) as usize;
+                    let local_z = (z & 0xF) as usize;
+                    let heightmaps = level_chunk.heightmaps.read();
+                    heightmaps
+                        .get(HeightmapType::MotionBlocking)
+                        .get_first_available(local_x, local_z)
+                } else {
+                    // Chunk not at Full status, use default
+                    100
+                }
+            })
+            .unwrap_or(100) // Chunk not loaded, use a safe default
     }
 
     /// Checks if a player may interact with the world at the given position.
