@@ -42,10 +42,10 @@ pub mod item_behaviours;
 
 pub use block::{BlockBehaviorRegistry, BlockBehaviour, DefaultBlockBehaviour};
 use block_behaviours::register_block_behaviors;
-pub use context::{BlockHitResult, BlockPlaceContext, InteractionResult, UseOnContext};
+pub use context::{BlockHitResult, BlockPlaceContext, InteractionResult, UseItemContext, UseOnContext};
 pub use item::{ItemBehavior, ItemBehaviorRegistry};
 use item_behaviours::register_item_behaviors;
-pub use items::{BlockItemBehavior, DefaultItemBehavior, EnderEyeBehavior, FilledBucketBehavior};
+pub use items::{BlockItemBehavior, DefaultItemBehavior, EnderEyeBehavior, FilledBucketBehavior, EmptyBucketBehavior};
 use std::ops::Deref;
 use std::sync::OnceLock;
 use steel_registry::{vanilla_blocks, vanilla_items};
@@ -102,6 +102,10 @@ pub fn init_behaviors() {
     register_item_behaviors(&mut item_behaviors);
 
     // Register bucket behaviors (not auto-generated since they're not block items)
+    item_behaviors.set_behavior(
+        &vanilla_items::ITEMS.bucket,
+        Box::new(EmptyBucketBehavior::new()),
+    );
     item_behaviors.set_behavior(
         &vanilla_items::ITEMS.water_bucket,
         Box::new(FilledBucketBehavior::new(

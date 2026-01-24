@@ -124,5 +124,18 @@ pub struct UseOnContext<'a> {
     /// The world where the interaction is happening.
     pub world: &'a World,
     /// The item stack being used (mutable for consumption).
+    /// The item stack being used (mutable for consumption).
+    pub item_stack: &'a mut ItemStack,
+}
+
+/// Context for using an item (general usage).
+pub struct UseItemContext<'a> {
+    /// The player using the item.
+    pub player: &'a Player,
+    /// Which hand the item is in.
+    pub hand: InteractionHand,
+    /// The world where the interaction is happening.
+    pub world: &'a World,
+    /// The item stack being used (mutable for consumption).
     pub item_stack: &'a mut ItemStack,
 }

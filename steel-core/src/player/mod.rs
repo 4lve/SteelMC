@@ -1418,6 +1418,8 @@ impl Player {
     }
 
     /// Sends block update packets for a position and its neighbor.
+    /// Optionally also sends an update for an additional placement position
+    /// (useful for items like buckets that place blocks at different positions).
     fn send_block_updates(&self, pos: &BlockPos, direction: Direction) {
         let state = self.world.get_block_state(pos);
         self.connection.send_packet(CBlockUpdate {
@@ -1431,6 +1433,39 @@ impl Player {
             pos: neighbor_pos,
             block_state: neighbor_state,
         });
+    }
+
+    /// Sends block update packets for a position, its neighbor, and an additional placement position.
+    /// This is used when an item places a block at a position different from clicked_pos or neighbor_pos.
+    fn send_block_updates_with_placement(
+        &self,
+        clicked_pos: &BlockPos,
+        direction: Direction,
+        place_pos: &BlockPos,
+    ) {
+        // Send update for clicked position
+        let clicked_state = self.world.get_block_state(clicked_pos);
+        self.connection.send_packet(CBlockUpdate {
+            pos: *clicked_pos,
+            block_state: clicked_state,
+        });
+
+        // Send update for neighbor position
+        let neighbor_pos = direction.relative(clicked_pos);
+        let neighbor_state = self.world.get_block_state(&neighbor_pos);
+        self.connection.send_packet(CBlockUpdate {
+            pos: neighbor_pos,
+            block_state: neighbor_state,
+        });
+
+        // Send update for placement position if it's different from both clicked and neighbor
+        if place_pos != clicked_pos && place_pos != &neighbor_pos {
+            let placed_state = self.world.get_block_state(place_pos);
+            self.connection.send_packet(CBlockUpdate {
+                pos: *place_pos,
+                block_state: placed_state,
+            });
+        }
     }
 
     /// Triggers arm swing animation and broadcasts it to nearby players.
@@ -1604,7 +1639,17 @@ impl Player {
             packet.y_rot,
             packet.x_rot
         );
-        // TODO: Implement use item handler
+        // Call use_item
+        let result = game_mode::use_item(self, &self.world, packet.hand);
+
+        // Handle result
+        if let InteractionResult::Success = result {
+            // Trigger arm swing animation
+            self.swing(packet.hand, true);
+        }
+
+        // Broadcast inventory changes as item might have changed
+        self.broadcast_inventory_changes();
     }
 
     /// Handles the pick block action (middle click on a block).
@@ -1975,6 +2020,20 @@ impl LivingEntity for Player {
 
     fn get_position(&self) -> Vector3<f64> {
         *self.position.lock()
+    }
+
+    fn eye_position(&self) -> Vector3<f64> {
+        let eye_height = if self.shift_key_down.load(Ordering::Relaxed) {
+            1.27
+        } else {
+            1.62
+        };
+        let pos = self.get_position();
+        Vector3::new(pos.x, pos.y + eye_height, pos.z)
+    }
+
+    fn rotation(&self) -> (f32, f32) {
+        self.rotation.load()
     }
 
     fn get_absorption_amount(&self) -> f32 {
