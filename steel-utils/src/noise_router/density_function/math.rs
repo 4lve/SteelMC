@@ -1,0 +1,490 @@
+//! Math-based density function components.
+//!
+//! This module contains density functions for mathematical operations like
+//! constants, linear transformations, binary operations, unary operations, and clamping.
+
+use crate::noise_router::{BinaryData, BinaryOperation, ClampData, LinearData, UnaryData};
+
+use super::{
+    IndexToNoisePos, NoiseFunctionComponentRange, NoisePos,
+    StaticIndependentChunkNoiseFunctionComponentImpl,
+};
+use crate::noise_router::chunk_density_function::ChunkNoiseFunctionSampleOptions;
+use crate::noise_router::chunk_noise_router::{
+    ChunkNoiseFunctionComponent, StaticChunkNoiseFunctionComponentImpl,
+};
+
+/// A constant density function that always returns the same value.
+#[derive(Clone)]
+pub struct Constant {
+    value: f64,
+}
+
+impl Constant {
+    #[must_use]
+    pub fn new(value: f64) -> Self {
+        Self { value }
+    }
+
+    /// Get the constant value directly.
+    #[inline]
+    #[must_use]
+    pub fn value(&self) -> f64 {
+        self.value
+    }
+}
+
+impl NoiseFunctionComponentRange for Constant {
+    #[inline]
+    fn min(&self) -> f64 {
+        self.value
+    }
+
+    #[inline]
+    fn max(&self) -> f64 {
+        self.value
+    }
+}
+
+impl StaticIndependentChunkNoiseFunctionComponentImpl for Constant {
+    fn sample(&self, _pos: &impl NoisePos) -> f64 {
+        self.value
+    }
+
+    fn fill(&self, array: &mut [f64], _mapper: &impl IndexToNoisePos) {
+        array.fill(self.value);
+    }
+}
+
+/// A linear transformation density function (add or multiply by a constant).
+#[derive(Clone)]
+pub struct Linear {
+    pub input_index: usize,
+    min_value: f64,
+    max_value: f64,
+    data: &'static LinearData,
+}
+
+impl NoiseFunctionComponentRange for Linear {
+    #[inline]
+    fn min(&self) -> f64 {
+        self.min_value
+    }
+
+    #[inline]
+    fn max(&self) -> f64 {
+        self.max_value
+    }
+}
+
+impl StaticChunkNoiseFunctionComponentImpl for Linear {
+    fn sample(
+        &self,
+        component_stack: &mut [ChunkNoiseFunctionComponent],
+        pos: &impl NoisePos,
+        sample_options: &ChunkNoiseFunctionSampleOptions,
+    ) -> f64 {
+        let input_density = ChunkNoiseFunctionComponent::sample_from_stack(
+            &mut component_stack[..=self.input_index],
+            pos,
+            sample_options,
+        );
+        self.data.apply_density(input_density)
+    }
+}
+
+impl Linear {
+    #[must_use]
+    pub fn new(
+        input_index: usize,
+        min_value: f64,
+        max_value: f64,
+        data: &'static LinearData,
+    ) -> Self {
+        Self {
+            input_index,
+            min_value,
+            max_value,
+            data,
+        }
+    }
+
+    /// Apply the linear transformation to an input density.
+    #[inline]
+    #[must_use]
+    pub fn apply(&self, input_density: f64) -> f64 {
+        self.data.apply_density(input_density)
+    }
+
+    /// Get the data for this linear operation.
+    #[inline]
+    #[must_use]
+    pub fn data(&self) -> &'static LinearData {
+        self.data
+    }
+}
+
+/// A binary operation density function (add, mul, min, max).
+#[derive(Clone)]
+pub struct Binary {
+    pub input1_index: usize,
+    pub input2_index: usize,
+    min_value: f64,
+    max_value: f64,
+    data: &'static BinaryData,
+}
+
+impl NoiseFunctionComponentRange for Binary {
+    #[inline]
+    fn min(&self) -> f64 {
+        self.min_value
+    }
+
+    #[inline]
+    fn max(&self) -> f64 {
+        self.max_value
+    }
+}
+
+impl StaticChunkNoiseFunctionComponentImpl for Binary {
+    fn sample(
+        &self,
+        component_stack: &mut [ChunkNoiseFunctionComponent],
+        pos: &impl NoisePos,
+        sample_options: &ChunkNoiseFunctionSampleOptions,
+    ) -> f64 {
+        let input1_density = ChunkNoiseFunctionComponent::sample_from_stack(
+            &mut component_stack[..=self.input1_index],
+            pos,
+            sample_options,
+        );
+
+        match self.data.operation {
+            BinaryOperation::Add => {
+                let input2_density = ChunkNoiseFunctionComponent::sample_from_stack(
+                    &mut component_stack[..=self.input2_index],
+                    pos,
+                    sample_options,
+                );
+                input1_density + input2_density
+            }
+            BinaryOperation::Mul => {
+                if input1_density == 0.0 {
+                    0.0
+                } else {
+                    let input2_density = ChunkNoiseFunctionComponent::sample_from_stack(
+                        &mut component_stack[..=self.input2_index],
+                        pos,
+                        sample_options,
+                    );
+                    input1_density * input2_density
+                }
+            }
+            BinaryOperation::Min => {
+                let input2_min = component_stack[self.input2_index].min();
+
+                if input1_density < input2_min {
+                    input1_density
+                } else {
+                    let input2_density = ChunkNoiseFunctionComponent::sample_from_stack(
+                        &mut component_stack[..=self.input2_index],
+                        pos,
+                        sample_options,
+                    );
+
+                    input1_density.min(input2_density)
+                }
+            }
+            BinaryOperation::Max => {
+                let input2_max = component_stack[self.input2_index].max();
+
+                if input1_density > input2_max {
+                    input1_density
+                } else {
+                    let input2_density = ChunkNoiseFunctionComponent::sample_from_stack(
+                        &mut component_stack[..=self.input2_index],
+                        pos,
+                        sample_options,
+                    );
+
+                    input1_density.max(input2_density)
+                }
+            }
+        }
+    }
+
+    fn fill(
+        &self,
+        component_stack: &mut [ChunkNoiseFunctionComponent],
+        array: &mut [f64],
+        mapper: &impl IndexToNoisePos,
+        sample_options: &mut ChunkNoiseFunctionSampleOptions,
+    ) {
+        ChunkNoiseFunctionComponent::fill_from_stack(
+            &mut component_stack[..=self.input1_index],
+            array,
+            mapper,
+            sample_options,
+        );
+
+        match self.data.operation {
+            BinaryOperation::Add => {
+                array.iter_mut().enumerate().for_each(|(index, value)| {
+                    let pos = mapper.at(index, Some(sample_options));
+                    let density2 = ChunkNoiseFunctionComponent::sample_from_stack(
+                        &mut component_stack[..=self.input2_index],
+                        &pos,
+                        sample_options,
+                    );
+                    *value += density2;
+                });
+            }
+            BinaryOperation::Mul => {
+                array.iter_mut().enumerate().for_each(|(index, value)| {
+                    if *value != 0.0 {
+                        let pos = mapper.at(index, Some(sample_options));
+                        let density2 = ChunkNoiseFunctionComponent::sample_from_stack(
+                            &mut component_stack[..=self.input2_index],
+                            &pos,
+                            sample_options,
+                        );
+                        *value *= density2;
+                    }
+                });
+            }
+            BinaryOperation::Min => {
+                let input2_min = component_stack[self.input2_index].min();
+                array.iter_mut().enumerate().for_each(|(index, value)| {
+                    if *value > input2_min {
+                        let pos = mapper.at(index, Some(sample_options));
+                        let density2 = ChunkNoiseFunctionComponent::sample_from_stack(
+                            &mut component_stack[..=self.input2_index],
+                            &pos,
+                            sample_options,
+                        );
+                        *value = value.min(density2);
+                    }
+                });
+            }
+            BinaryOperation::Max => {
+                let input2_max = component_stack[self.input2_index].max();
+                array.iter_mut().enumerate().for_each(|(index, value)| {
+                    if *value < input2_max {
+                        let pos = mapper.at(index, Some(sample_options));
+                        let density2 = ChunkNoiseFunctionComponent::sample_from_stack(
+                            &mut component_stack[..=self.input2_index],
+                            &pos,
+                            sample_options,
+                        );
+                        *value = value.max(density2);
+                    }
+                });
+            }
+        }
+    }
+}
+
+impl Binary {
+    #[must_use]
+    pub fn new(
+        input1_index: usize,
+        input2_index: usize,
+        min_value: f64,
+        max_value: f64,
+        data: &'static BinaryData,
+    ) -> Self {
+        Self {
+            input1_index,
+            input2_index,
+            min_value,
+            max_value,
+            data,
+        }
+    }
+
+    /// Apply the binary operation to two input densities.
+    #[inline]
+    #[must_use]
+    pub fn apply(&self, input1: f64, input2: f64) -> f64 {
+        match self.data.operation {
+            BinaryOperation::Add => input1 + input2,
+            BinaryOperation::Mul => input1 * input2,
+            BinaryOperation::Min => input1.min(input2),
+            BinaryOperation::Max => input1.max(input2),
+        }
+    }
+
+    /// Get the operation type.
+    #[inline]
+    #[must_use]
+    pub fn operation(&self) -> BinaryOperation {
+        self.data.operation
+    }
+
+    /// Get the data for this binary operation.
+    #[inline]
+    #[must_use]
+    pub fn data(&self) -> &'static BinaryData {
+        self.data
+    }
+}
+
+/// A unary operation density function (abs, square, cube, etc.).
+#[derive(Clone)]
+pub struct Unary {
+    pub input_index: usize,
+    min_value: f64,
+    max_value: f64,
+    data: &'static UnaryData,
+}
+
+impl NoiseFunctionComponentRange for Unary {
+    #[inline]
+    fn min(&self) -> f64 {
+        self.min_value
+    }
+
+    #[inline]
+    fn max(&self) -> f64 {
+        self.max_value
+    }
+}
+
+impl StaticChunkNoiseFunctionComponentImpl for Unary {
+    fn sample(
+        &self,
+        component_stack: &mut [ChunkNoiseFunctionComponent],
+        pos: &impl NoisePos,
+        sample_options: &ChunkNoiseFunctionSampleOptions,
+    ) -> f64 {
+        let input_density = ChunkNoiseFunctionComponent::sample_from_stack(
+            &mut component_stack[..=self.input_index],
+            pos,
+            sample_options,
+        );
+        self.data.apply_density(input_density)
+    }
+
+    fn fill(
+        &self,
+        component_stack: &mut [ChunkNoiseFunctionComponent],
+        array: &mut [f64],
+        mapper: &impl IndexToNoisePos,
+        sample_options: &mut ChunkNoiseFunctionSampleOptions,
+    ) {
+        ChunkNoiseFunctionComponent::fill_from_stack(
+            &mut component_stack[..=self.input_index],
+            array,
+            mapper,
+            sample_options,
+        );
+        for value in array {
+            *value = self.data.apply_density(*value);
+        }
+    }
+}
+
+impl Unary {
+    #[must_use]
+    pub fn new(
+        input_index: usize,
+        min_value: f64,
+        max_value: f64,
+        data: &'static UnaryData,
+    ) -> Self {
+        Self {
+            input_index,
+            min_value,
+            max_value,
+            data,
+        }
+    }
+
+    /// Apply the unary operation to an input density.
+    #[inline]
+    #[must_use]
+    pub fn apply(&self, input_density: f64) -> f64 {
+        self.data.apply_density(input_density)
+    }
+
+    /// Get the data for this unary operation.
+    #[inline]
+    #[must_use]
+    pub fn data(&self) -> &'static UnaryData {
+        self.data
+    }
+}
+
+/// A clamp density function that restricts values to a range.
+#[derive(Clone)]
+pub struct Clamp {
+    pub input_index: usize,
+    data: &'static ClampData,
+}
+
+impl Clamp {
+    #[must_use]
+    pub fn new(input_index: usize, data: &'static ClampData) -> Self {
+        Self { input_index, data }
+    }
+
+    /// Apply the clamp operation to an input density.
+    #[inline]
+    #[must_use]
+    pub fn apply(&self, input_density: f64) -> f64 {
+        self.data.apply_density(input_density)
+    }
+
+    /// Get the data for this clamp operation.
+    #[inline]
+    #[must_use]
+    pub fn data(&self) -> &'static ClampData {
+        self.data
+    }
+}
+
+impl NoiseFunctionComponentRange for Clamp {
+    #[inline]
+    fn min(&self) -> f64 {
+        self.data.min_value
+    }
+
+    #[inline]
+    fn max(&self) -> f64 {
+        self.data.max_value
+    }
+}
+
+impl StaticChunkNoiseFunctionComponentImpl for Clamp {
+    fn sample(
+        &self,
+        component_stack: &mut [ChunkNoiseFunctionComponent],
+        pos: &impl NoisePos,
+        sample_options: &ChunkNoiseFunctionSampleOptions,
+    ) -> f64 {
+        let input_density = ChunkNoiseFunctionComponent::sample_from_stack(
+            &mut component_stack[..=self.input_index],
+            pos,
+            sample_options,
+        );
+        self.data.apply_density(input_density)
+    }
+
+    fn fill(
+        &self,
+        component_stack: &mut [ChunkNoiseFunctionComponent],
+        array: &mut [f64],
+        mapper: &impl IndexToNoisePos,
+        sample_options: &mut ChunkNoiseFunctionSampleOptions,
+    ) {
+        ChunkNoiseFunctionComponent::fill_from_stack(
+            &mut component_stack[..=self.input_index],
+            array,
+            mapper,
+            sample_options,
+        );
+        for value in array {
+            *value = self.data.apply_density(*value);
+        }
+    }
+}

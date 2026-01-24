@@ -29,10 +29,10 @@ use tokio_util::sync::CancellationToken;
 
 use crate::behavior::init_behaviors;
 use crate::command::CommandDispatcher;
-use crate::config::STEEL_CONFIG;
+use crate::config::{ConfigWorldType, STEEL_CONFIG};
 use crate::player::Player;
 use crate::server::registry_cache::RegistryCache;
-use crate::world::World;
+use crate::world::{World, WorldType};
 
 /// Interval in ticks between tab list updates (20 ticks = 1 second).
 const TAB_LIST_UPDATE_INTERVAL: u64 = 20;
@@ -89,7 +89,14 @@ impl Server {
             })
         };
 
-        let overworld = World::new(chunk_runtime, OVERWORLD, seed)
+        let world_type = match STEEL_CONFIG.world_type {
+            ConfigWorldType::Flat => WorldType::Flat,
+            ConfigWorldType::Normal => WorldType::Normal,
+        };
+
+        log::info!("Creating world with generator: {world_type:?}, seed: {seed}");
+
+        let overworld = World::with_world_type(chunk_runtime, OVERWORLD, seed, world_type)
             .await
             .expect("Failed to create overworld");
 

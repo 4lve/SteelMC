@@ -76,6 +76,17 @@ impl ServerLinks {
     }
 }
 
+/// The type of world generation to use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ConfigWorldType {
+    /// Flat world with configurable layers.
+    #[default]
+    Flat,
+    /// Vanilla-accurate noise-based terrain generation.
+    Normal,
+}
+
 /// The server configuration.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ServerConfig {
@@ -83,6 +94,9 @@ pub struct ServerConfig {
     pub server_port: u16,
     /// The seed for the world generator.
     pub seed: String,
+    /// The type of world generation (flat or normal).
+    #[serde(default)]
+    pub world_type: ConfigWorldType,
     /// The maximum number of players that can be on the server at once.
     pub max_players: u32,
     /// The view distance of the server.

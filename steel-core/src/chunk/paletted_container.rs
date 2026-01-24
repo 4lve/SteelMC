@@ -178,9 +178,10 @@ impl<V: Hash + Eq + Copy + Default + Debug, const DIM: usize> PalettedContainer<
     {
         match self {
             Self::Homogeneous(value) => {
+                // Single-value palette: bits=0, value, no data array
                 0u8.write(writer)?;
                 VarInt(value.to_global_id() as i32).write(writer)?;
-                VarInt(0).write(writer)?;
+                // No data array for single-value palettes (0 longs)
             }
             Self::Heterogeneous(data) => {
                 let (bits, mode) = Self::calculate_strategy(data.palette.len());
@@ -216,7 +217,7 @@ impl<V: Hash + Eq + Copy + Default + Debug, const DIM: usize> PalettedContainer<
 
                 let packed = pack_bits(&indices, bits as usize);
 
-                // Write data
+                // Write data array directly (no length prefix - client calculates from bits per entry)
                 for long in packed {
                     long.write(writer)?;
                 }

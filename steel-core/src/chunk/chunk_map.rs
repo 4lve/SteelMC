@@ -29,7 +29,8 @@ use crate::chunk::world_gen_context::ChunkGeneratorType;
 use crate::chunk::{chunk_access::ChunkAccess, chunk_ticket_manager::is_ticked};
 use crate::chunk::{
     chunk_access::ChunkStatus, chunk_generation_task::ChunkGenerationTask,
-    flat_chunk_generator::FlatChunkGenerator, world_gen_context::WorldGenContext,
+    flat_chunk_generator::FlatChunkGenerator, pumpkin_noise_generator::PumpkinNoiseGenerator,
+    world_gen_context::WorldGenContext,
 };
 use crate::chunk_saver::RegionManager;
 use crate::player::Player;
@@ -70,7 +71,7 @@ pub struct ChunkMap {
 }
 
 impl ChunkMap {
-    /// Creates a new chunk map.
+    /// Creates a new chunk map with a flat world generator.
     #[must_use]
     #[allow(clippy::missing_panics_doc, clippy::unwrap_used)]
     pub fn new(
@@ -88,6 +89,42 @@ impl ChunkMap {
                 .get_default_state_id(vanilla_blocks::GRASS_BLOCK), // Grass Block
         )));
 
+        Self::with_generator(chunk_runtime, world, dimension, generator)
+    }
+
+    /// Creates a new chunk map with vanilla noise-based terrain generation.
+    #[must_use]
+    #[allow(clippy::missing_panics_doc, clippy::unwrap_used)]
+    pub fn new_with_noise(
+        chunk_runtime: Arc<Runtime>,
+        world: Weak<World>,
+        dimension: &DimensionTypeRef,
+        seed: u64,
+    ) -> Self {
+        let generator = Arc::new(ChunkGeneratorType::Pumpkin(PumpkinNoiseGenerator::new(
+            seed,
+            REGISTRY.blocks.get_default_state_id(vanilla_blocks::STONE),
+            REGISTRY.blocks.get_default_state_id(vanilla_blocks::WATER),
+            REGISTRY
+                .blocks
+                .get_default_state_id(vanilla_blocks::BEDROCK),
+            REGISTRY
+                .blocks
+                .get_default_state_id(vanilla_blocks::DEEPSLATE),
+        )));
+
+        Self::with_generator(chunk_runtime, world, dimension, generator)
+    }
+
+    /// Creates a new chunk map with a custom generator.
+    #[must_use]
+    #[allow(clippy::missing_panics_doc, clippy::unwrap_used)]
+    pub fn with_generator(
+        chunk_runtime: Arc<Runtime>,
+        world: Weak<World>,
+        dimension: &DimensionTypeRef,
+        generator: Arc<ChunkGeneratorType>,
+    ) -> Self {
         Self {
             chunks: scc::HashMap::default(),
             unloading_chunks: scc::HashMap::default(),

@@ -55,7 +55,7 @@ impl Default for SpawnPoint {
     fn default() -> Self {
         Self {
             x: 0,
-            y: 64,
+            y: 150,
             z: 0,
             angle: 0.0,
         }

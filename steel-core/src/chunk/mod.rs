@@ -17,8 +17,12 @@ pub mod player_chunk_view;
 /// Generates flat worlds with configurable layers.
 pub mod flat_chunk_generator;
 pub mod level_chunk;
+/// Noise-based terrain generation for vanilla-accurate world gen.
+pub mod noise_chunk_generator;
 pub mod paletted_container;
 pub mod proto_chunk;
+/// Pumpkin-style noise generator using data-driven noise router.
+pub mod pumpkin_noise_generator;
 pub mod section;
 
 pub mod world_gen_context;

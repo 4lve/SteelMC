@@ -38,6 +38,16 @@ use crate::{
     player::{LastSeen, Player},
 };
 
+/// The type of world generation to use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum WorldType {
+    /// Flat world with configurable layers.
+    #[default]
+    Flat,
+    /// Vanilla-accurate noise-based terrain generation.
+    Normal,
+}
+
 mod player_area_map;
 mod player_map;
 mod world_entities;
@@ -67,7 +77,7 @@ pub struct World {
 }
 
 impl World {
-    /// Creates a new world.
+    /// Creates a new world with the default (flat) generator.
     ///
     /// Uses `Arc::new_cyclic` to create a cyclic reference between
     /// the World and its `ChunkMap`'s `WorldGenContext`.
@@ -77,16 +87,44 @@ impl World {
         dimension: DimensionTypeRef,
         seed: i64,
     ) -> io::Result<Arc<Self>> {
+        Self::with_world_type(chunk_runtime, dimension, seed, WorldType::default()).await
+    }
+
+    /// Creates a new world with the specified world type.
+    ///
+    /// Uses `Arc::new_cyclic` to create a cyclic reference between
+    /// the World and its `ChunkMap`'s `WorldGenContext`.
+    #[allow(clippy::new_without_default)]
+    pub async fn with_world_type(
+        chunk_runtime: Arc<Runtime>,
+        dimension: DimensionTypeRef,
+        seed: i64,
+        world_type: WorldType,
+    ) -> io::Result<Arc<Self>> {
         let level_data =
             LevelDataManager::new(format!("world/{}", dimension.key.path), seed).await?;
 
-        Ok(Arc::new_cyclic(|weak_self: &Weak<World>| Self {
-            chunk_map: Arc::new(ChunkMap::new(chunk_runtime, weak_self.clone(), &dimension)),
-            players: PlayerMap::new(),
-            player_area_map: PlayerAreaMap::new(),
-            dimension,
-            level_data: SyncRwLock::new(level_data),
-            tick_runs_normally: AtomicBool::new(true),
+        Ok(Arc::new_cyclic(|weak_self: &Weak<World>| {
+            let chunk_map = match world_type {
+                WorldType::Flat => {
+                    Arc::new(ChunkMap::new(chunk_runtime, weak_self.clone(), &dimension))
+                }
+                WorldType::Normal => Arc::new(ChunkMap::new_with_noise(
+                    chunk_runtime,
+                    weak_self.clone(),
+                    &dimension,
+                    seed as u64,
+                )),
+            };
+
+            Self {
+                chunk_map,
+                players: PlayerMap::new(),
+                player_area_map: PlayerAreaMap::new(),
+                dimension,
+                level_data: SyncRwLock::new(level_data),
+                tick_runs_normally: AtomicBool::new(true),
+            }
         }))
     }
 
