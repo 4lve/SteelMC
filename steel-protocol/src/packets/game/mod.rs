@@ -3,6 +3,7 @@ mod c_animate;
 mod c_block_changed_ack;
 mod c_block_destruction;
 mod c_block_event;
+mod c_block_entity_data;
 mod c_block_update;
 mod c_chunk_batch_finished;
 mod c_chunk_batch_start;
@@ -20,6 +21,7 @@ mod c_level_event;
 mod c_login;
 mod c_move_entity;
 mod c_open_screen;
+mod c_open_sign_editor;
 mod c_player_chat;
 mod c_player_info_update;
 mod c_player_position;
@@ -59,6 +61,7 @@ mod s_player_load;
 mod s_set_carried_item;
 mod s_set_creative_mode_slot;
 mod s_set_held_item;
+mod s_sign_update;
 mod s_swing;
 mod s_use_item;
 mod s_use_item_on;
@@ -68,6 +71,7 @@ pub use c_animate::{AnimateAction, CAnimate};
 pub use c_block_changed_ack::CBlockChangedAck;
 pub use c_block_destruction::CBlockDestruction;
 pub use c_block_event::CBlockEvent;
+pub use c_block_entity_data::CBlockEntityData;
 pub use c_block_update::CBlockUpdate;
 pub use c_chunk_batch_finished::CChunkBatchFinished;
 pub use c_chunk_batch_start::CChunkBatchStart;
@@ -92,6 +96,7 @@ pub use c_move_entity::{
     CMoveEntityPos, CMoveEntityPosRot, CMoveEntityRot, calc_delta, to_angle_byte,
 };
 pub use c_open_screen::COpenScreen;
+pub use c_open_sign_editor::COpenSignEditor;
 pub use c_player_chat::{CPlayerChat, ChatTypeBound, FilterType, PreviousMessage};
 pub use c_player_info_update::{
     CPlayerInfoUpdate, PLAYER_INFO_INIT_ACTIONS, PlayerInfoAction, PlayerInfoEntry,
@@ -135,6 +140,7 @@ pub use s_player_load::SPlayerLoad;
 pub use s_set_carried_item::SSetCarriedItem;
 pub use s_set_creative_mode_slot::SSetCreativeModeSlot;
 pub use s_set_held_item::SSetHeldItem;
+pub use s_sign_update::SSignUpdate;
 pub use s_swing::SSwing;
 pub use s_use_item::SUseItem;
 pub use s_use_item_on::SUseItemOn;

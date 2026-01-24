@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 # Internal crates
 steel-core.workspace = true
+steel-login.workspace = true
 steel-protocol.workspace = true
 steel-registry.workspace = true
 steel-utils.workspace = true
@@ -17,6 +18,8 @@ tokio-util.workspace = true
 # Serialization
 serde.workspace = true
 serde_json.workspace = true
+serde_json5.workspace = true
+base64.workspace = true
 
 # Error handling
 thiserror.workspace = true
@@ -57,6 +60,7 @@ workspace = true
 
 [features]
 default = ["mimalloc"]
+stand-alone = []
 deadlock_detection = ["dep:parking_lot"]
 dhat-heap = ["dhat"]
 mimalloc = ["dep:mimalloc"]

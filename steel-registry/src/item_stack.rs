@@ -66,6 +66,12 @@ impl ItemStack {
         }
     }
 
+    /// Creates a new item stack with the specified count and component patch.
+    #[must_use]
+    pub fn with_count_and_patch(item: ItemRef, count: i32, patch: DataComponentPatch) -> Self {
+        Self { item, count, patch }
+    }
+
     #[must_use]
     fn prototype(&self) -> &'static DataComponentMap {
         &self.item.components
@@ -753,5 +759,77 @@ impl ReadFrom for ItemStack {
         let patch = DataComponentPatch::read(data)?;
 
         Ok(Self { item, count, patch })
+    }
+}
+
+// ==================== NBT Serialization ====================
+
+use simdnbt::{FromNbtTag, ToNbtTag, borrow::NbtTag as BorrowedNbtTag, owned::NbtCompound};
+
+impl ToNbtTag for ItemStack {
+    /// Converts this item stack to an NBT tag for persistent storage.
+    ///
+    /// Format (matching vanilla Minecraft):
+    /// ```text
+    /// {
+    ///     id: "minecraft:stone",
+    ///     count: 64,
+    ///     components: { ... }  // Only present if patch is non-empty
+    /// }
+    /// ```
+    fn to_nbt_tag(self) -> simdnbt::owned::NbtTag {
+        if self.is_empty() {
+            // Empty stacks are represented as an empty compound
+            return simdnbt::owned::NbtTag::Compound(NbtCompound::new());
+        }
+
+        let mut compound = NbtCompound::new();
+
+        // id: The item identifier
+        compound.insert("id", self.item.key.to_string());
+
+        // count: The stack count (vanilla uses Int for NBT storage)
+        compound.insert("count", self.count);
+
+        // components: The component patch (only if non-empty)
+        if !self.patch.is_empty() {
+            compound.insert("components", self.patch.to_nbt_tag());
+        }
+
+        simdnbt::owned::NbtTag::Compound(compound)
+    }
+}
+
+impl FromNbtTag for ItemStack {
+    /// Parses an item stack from an NBT tag.
+    ///
+    /// Accepts the vanilla format:
+    /// ```text
+    /// {
+    ///     id: "minecraft:stone",
+    ///     count: 64,
+    ///     components: { ... }
+    /// }
+    /// ```
+    fn from_nbt_tag(tag: BorrowedNbtTag) -> Option<Self> {
+        let compound = tag.compound()?;
+
+        // Get the item ID
+        let id_str = compound.get("id")?.string()?.to_str();
+        let id = id_str.parse::<Identifier>().ok()?;
+
+        // Look up the item in the registry
+        let item = REGISTRY.items.by_key(&id)?;
+
+        // Get the count (default to 1 if not present)
+        let count = compound.get("count").and_then(|t| t.int()).unwrap_or(1);
+
+        // Parse components if present
+        let patch = compound
+            .get("components")
+            .and_then(DataComponentPatch::from_nbt_tag)
+            .unwrap_or_default();
+
+        Some(Self { item, count, patch })
     }
 }

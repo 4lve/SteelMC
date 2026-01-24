@@ -1,3 +1,7 @@
+//! Mojang authentication implementation.
+//!
+//! Handles authentication with Mojang's session servers for online mode.
+
 use reqwest::StatusCode;
 use steel_core::player::GameProfile;
 use thiserror::Error;
@@ -83,7 +87,7 @@ pub async fn mojang_authenticate(
         }
     }
 
-    log::warn!("Plauer {username} auth failed");
+    log::warn!("Player {username} auth failed");
 
     Err(last_error)
 }

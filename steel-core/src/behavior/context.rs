@@ -52,8 +52,65 @@ pub struct BlockPlaceContext<'a> {
     pub horizontal_direction: Direction,
     /// The player's rotation (yaw).
     pub rotation: f32,
+    /// The player's pitch (vertical look angle).
+    pub pitch: f32,
     /// The world where the block is being placed.
     pub world: &'a World,
+}
+
+impl BlockPlaceContext<'_> {
+    /// Returns the direction the player is looking at most directly.
+    ///
+    /// This considers both yaw and pitch to determine the nearest direction
+    /// among all 6 directions (UP, DOWN, NORTH, SOUTH, EAST, WEST).
+    ///
+    /// Based on Java's `Direction.orderedByNearest(Entity)[0]`.
+    #[must_use]
+    pub fn get_nearest_looking_direction(&self) -> Direction {
+        let pitch_rad = self.pitch.to_radians();
+        let yaw_rad = (-self.rotation).to_radians();
+
+        let pitch_sin = pitch_rad.sin();
+        let pitch_cos = pitch_rad.cos();
+        let yaw_sin = yaw_rad.sin();
+        let yaw_cos = yaw_rad.cos();
+
+        let x_pos = yaw_sin > 0.0;
+        let y_pos = pitch_sin < 0.0;
+        let z_pos = yaw_cos > 0.0;
+
+        let x_yaw = if x_pos { yaw_sin } else { -yaw_sin };
+        let y_mag = if y_pos { -pitch_sin } else { pitch_sin };
+        let z_yaw = if z_pos { yaw_cos } else { -yaw_cos };
+
+        let x_mag = x_yaw * pitch_cos;
+        let z_mag = z_yaw * pitch_cos;
+
+        let axis_x = if x_pos {
+            Direction::East
+        } else {
+            Direction::West
+        };
+        let axis_y = if y_pos {
+            Direction::Up
+        } else {
+            Direction::Down
+        };
+        let axis_z = if z_pos {
+            Direction::South
+        } else {
+            Direction::North
+        };
+
+        // Return the direction with the largest magnitude
+        if x_yaw > z_yaw {
+            if y_mag > x_mag { axis_y } else { axis_x }
+        } else if y_mag > z_mag {
+            axis_y
+        } else {
+            axis_z
+        }
+    }
 }
 
 /// Context for using an item on a block.

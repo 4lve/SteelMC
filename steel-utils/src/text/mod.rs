@@ -293,6 +293,15 @@ impl ToNbtTag for TextComponent {
 }
 
 #[allow(missing_docs)]
+impl simdnbt::FromNbtTag for TextComponent {
+    fn from_nbt_tag(tag: simdnbt::borrow::NbtTag) -> Option<Self> {
+        // Convert borrowed tag to owned for parsing
+        let owned = tag.to_owned();
+        Self::from_nbt_tag(&owned)
+    }
+}
+
+#[allow(missing_docs)]
 impl Display for TextComponent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.content {

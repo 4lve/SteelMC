@@ -1,28 +1,27 @@
+//! Configuration state packet handlers.
+
 use std::sync::Arc;
-use steel_core::config::ServerLinks;
+
+use steel_core::config::{STEEL_CONFIG, ServerLinks};
+use steel_core::player::networking::JavaConnection;
+use steel_core::player::{ClientInformation, Player};
 use steel_protocol::packets::common::CCustomPayload;
 use steel_protocol::packets::common::{SClientInformation, SCustomPayload};
 use steel_protocol::packets::config::CFinishConfiguration;
-
 use steel_protocol::packets::config::CSelectKnownPacks;
 use steel_protocol::packets::config::SSelectKnownPacks;
 use steel_protocol::packets::shared_implementation::KnownPack;
 use steel_protocol::utils::ConnectionProtocol;
-
-use steel_core::player::networking::JavaConnection;
-use steel_core::player::{ClientInformation, Player};
 use steel_utils::Identifier;
 
-use crate::MC_VERSION;
-use crate::network::JavaTcpClient;
-use crate::network::java_tcp_client::ConnectionUpdate;
+use crate::tcp_client::{ConnectionUpdate, JavaTcpClient};
 
 const BRAND_PAYLOAD: [u8; 5] = *b"Steel";
 
 impl JavaTcpClient {
     /// Handles a custom payload packet during the configuration state.
     pub fn handle_config_custom_payload(&self, packet: SCustomPayload) {
-        println!("Custom payload packet: {packet:?}");
+        log::debug!("Custom payload packet: {packet:?}");
     }
 
     /// Handles the client information packet during the configuration state.
@@ -61,14 +60,14 @@ impl JavaTcpClient {
         self.send_bare_packet_now(CSelectKnownPacks::new(vec![KnownPack::new(
             "minecraft".to_string(),
             "core".to_string(),
-            MC_VERSION.to_string(),
+            STEEL_CONFIG.mc_version.to_string(),
         )]))
         .await;
     }
 
     /// Handles the select known packs packet during the configuration state.
     pub async fn handle_select_known_packs(&self, packet: SSelectKnownPacks) {
-        println!("Select known packs packet: {packet:?}");
+        log::debug!("Select known packs packet: {packet:?}");
 
         let registry_cache = self.server.registry_cache.registry_packets.clone();
         for encoded_packet in registry_cache.iter() {

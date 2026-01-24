@@ -22,18 +22,16 @@ use std::{
 
 use block_breaking::BlockBreakingManager;
 use crossbeam::atomic::AtomicCell;
-pub use game_profile::GameProfile;
+pub use game_profile::{GameProfile, GameProfileAction};
 use message_chain::SignedMessageChain;
 use message_validator::LastSeenMessagesValidator;
 use profile_key::RemoteChatSession;
 pub use signature_cache::{LastSeen, MessageCache};
-use steel_protocol::packet_traits::EncodedPacket;
 use steel_protocol::packets::game::CSetHeldSlot;
 use steel_protocol::packets::game::{
-    AnimateAction, CAnimate, CPlayerPosition, PlayerAction, SAcceptTeleportation,
+    AnimateAction, CAnimate, COpenSignEditor, CPlayerPosition, PlayerAction, SAcceptTeleportation,
     SPickItemFromBlock, SPlayerAction, SSetCarriedItem, SUseItem, SUseItemOn,
 };
-use steel_protocol::utils::ConnectionProtocol;
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::game_rules::GameRuleValue;
 use steel_registry::vanilla_game_rules::{ELYTRA_MOVEMENT_CHECK, PLAYER_MOVEMENT_CHECK};
@@ -53,13 +51,15 @@ use steel_protocol::packets::{
         CMoveEntityRot, COpenScreen, CPlayerChat, CPlayerInfoUpdate, CRotateHead,
         CSetChunkCacheRadius, ChatTypeBound, FilterType, GameEventType, PreviousMessage, SChat,
         SChatAck, SChatSessionUpdate, SContainerButtonClick, SContainerClick, SContainerClose,
-        SContainerSlotStateChanged, SMovePlayer, SPlayerInput, SSetCreativeModeSlot, calc_delta,
-        to_angle_byte,
+        SContainerSlotStateChanged, SMovePlayer, SPlayerInput, SSetCreativeModeSlot, SSignUpdate,
+        calc_delta, to_angle_byte,
     },
 };
 use steel_registry::{blocks::properties::Direction, item_stack::ItemStack};
 
 use crate::behavior::{BLOCK_BEHAVIORS, InteractionResult};
+use crate::block_entity::BlockEntity;
+use crate::block_entity::entities::SignBlockEntity;
 use steel_utils::BlockPos;
 
 use steel_utils::types::InteractionHand;
@@ -833,14 +833,8 @@ impl Player {
                     x_rot: to_angle_byte(pitch),
                     on_ground: packet.on_ground,
                 };
-                if let Ok(encoded) = EncodedPacket::from_bare(
-                    move_packet,
-                    STEEL_CONFIG.compression,
-                    ConnectionProtocol::Play,
-                ) {
-                    self.world
-                        .broadcast_to_nearby(new_chunk, encoded, Some(self.entity_id));
-                }
+                self.world
+                    .broadcast_to_nearby(new_chunk, move_packet, Some(self.entity_id));
             } else {
                 let rot_packet = CMoveEntityRot {
                     entity_id: self.entity_id,
@@ -848,14 +842,8 @@ impl Player {
                     x_rot: to_angle_byte(pitch),
                     on_ground: packet.on_ground,
                 };
-                if let Ok(encoded) = EncodedPacket::from_bare(
-                    rot_packet,
-                    STEEL_CONFIG.compression,
-                    ConnectionProtocol::Play,
-                ) {
-                    self.world
-                        .broadcast_to_nearby(new_chunk, encoded, Some(self.entity_id));
-                }
+                self.world
+                    .broadcast_to_nearby(new_chunk, rot_packet, Some(self.entity_id));
             }
 
             if packet.has_rot {
@@ -863,14 +851,8 @@ impl Player {
                     entity_id: self.entity_id,
                     head_y_rot: to_angle_byte(yaw),
                 };
-                if let Ok(encoded) = EncodedPacket::from_bare(
-                    head_packet,
-                    STEEL_CONFIG.compression,
-                    ConnectionProtocol::Play,
-                ) {
-                    self.world
-                        .broadcast_to_nearby(new_chunk, encoded, Some(self.entity_id));
-                }
+                self.world
+                    .broadcast_to_nearby(new_chunk, head_packet, Some(self.entity_id));
             }
 
             *self.prev_position.lock() = pos;
@@ -912,11 +894,7 @@ impl Player {
         // Broadcast the chat session to all players so they can verify this player's signatures
         let update_packet =
             CPlayerInfoUpdate::update_chat_session(self.gameprofile.id, protocol_data);
-
-        self.world.players.iter_players(|_, player| {
-            player.connection.send_packet(update_packet.clone());
-            true
-        });
+        self.world.broadcast_to_all(update_packet);
     }
 
     /// Gets a reference to the player's chat session if present
@@ -1469,11 +1447,7 @@ impl Player {
         } else {
             Some(self.entity_id)
         };
-        if let Ok(encoded) =
-            EncodedPacket::from_bare(packet, STEEL_CONFIG.compression, ConnectionProtocol::Play)
-        {
-            self.world.broadcast_to_nearby(chunk, encoded, exclude);
-        }
+        self.world.broadcast_to_nearby(chunk, packet, exclude);
     }
 
     /// Handles a player input packet (movement keys, sneaking, sprinting).
@@ -1711,6 +1685,97 @@ impl Player {
         self.inventory.lock().set_selected_slot(packet.slot as u8);
     }
 
+    /// Handles a sign update packet from the client.
+    pub fn handle_sign_update(&self, packet: SSignUpdate) {
+        // Check if player is within interaction range
+        if !self.is_within_block_interaction_range(&packet.pos) {
+            return;
+        }
+
+        // Get the block entity at the position
+        let Some(block_entity) = self.world.get_block_entity(&packet.pos) else {
+            return;
+        };
+
+        // Lock and downcast to SignBlockEntity
+        let mut guard = block_entity.lock();
+        let Some(sign) = guard.as_any_mut().downcast_mut::<SignBlockEntity>() else {
+            return;
+        };
+
+        // Check if sign is waxed (cannot be edited)
+        if sign.is_waxed {
+            return;
+        }
+
+        // Check if this player is allowed to edit the sign
+        // Vanilla: player.getUUID().equals(sign.getPlayerWhoMayEdit())
+        if sign.get_player_who_may_edit() != Some(self.gameprofile.id) {
+            log::warn!(
+                "Player {} tried to edit sign they're not allowed to edit",
+                self.gameprofile.name
+            );
+            return;
+        }
+
+        // Update the sign text
+        let text = sign.get_text_mut(packet.is_front_text);
+        for (i, line) in packet.lines.iter().enumerate() {
+            if i < 4 {
+                // Create a plain text component from the line
+                // Strip formatting codes (like vanilla does with ChatFormatting.stripFormatting)
+                let stripped = strip_formatting_codes(line);
+                text.set_message(i, TextComponent::new().text(stripped));
+            }
+        }
+
+        // Clear the edit lock now that we're done editing
+        sign.set_player_who_may_edit(None);
+
+        // Mark as changed (for persistence)
+        sign.set_changed();
+
+        // Get the update tag for broadcasting
+        let update_tag = sign.get_update_tag();
+        let block_entity_type = sign.get_type();
+        let pos = packet.pos;
+
+        // Release the lock before broadcasting
+        drop(guard);
+
+        // Broadcast block entity update to nearby players
+        if let Some(nbt) = update_tag {
+            self.world
+                .broadcast_block_entity_update(pos, block_entity_type, nbt);
+        }
+    }
+
+    /// Opens the sign editor for the player.
+    ///
+    /// # Arguments
+    /// * `pos` - Position of the sign block
+    /// * `is_front_text` - Whether to edit front (true) or back (false) text
+    pub fn open_sign_editor(&self, pos: BlockPos, is_front_text: bool) {
+        // Set this player as the one who may edit the sign
+        if let Some(block_entity) = self.world.get_block_entity(&pos) {
+            let mut guard = block_entity.lock();
+            if let Some(sign) = guard.as_any_mut().downcast_mut::<SignBlockEntity>() {
+                sign.set_player_who_may_edit(Some(self.gameprofile.id));
+            }
+        }
+
+        // Send the block update first to ensure client has latest state
+        let state = self.world.get_block_state(&pos);
+        self.connection.send_packet(CBlockUpdate {
+            pos,
+            block_state: state,
+        });
+
+        // Then open the sign editor
+        self.connection
+            .send_packet(COpenSignEditor { pos, is_front_text });
+    }
+
     /// Sends all inventory slots to the client (full sync).
     /// This should be called when the player first joins.
     pub fn send_inventory_to_remote(&self) {
@@ -1943,4 +2008,23 @@ impl LivingEntity for Player {
     fn set_speed(&mut self, speed: f32) {
         self.speed.store(speed);
     }
+}
+
+/// Strips Minecraft formatting codes (§ followed by a character) from a string.
+///
+/// This is equivalent to vanilla's `ChatFormatting.stripFormatting()`.
+fn strip_formatting_codes(text: &str) -> String {
+    let mut result = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '§' {
+            // Skip the formatting code character if present
+            chars.next();
+        } else {
+            result.push(c);
+        }
+    }
+
+    result
 }

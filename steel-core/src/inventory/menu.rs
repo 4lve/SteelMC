@@ -446,7 +446,7 @@ impl MenuBehavior {
                     && ItemStack::is_same_item_same_components(item_stack, &target)
                 {
                     let total_stack = target.count + item_stack.count;
-                    let max_stack_size = slot.get_max_stack_size_for_item(&target);
+                    let max_stack_size = slot.get_max_stack_size_for_item(guard, &target);
 
                     if total_stack <= max_stack_size {
                         item_stack.set_count(0);
@@ -485,7 +485,7 @@ impl MenuBehavior {
                 let target = slot.get_item(guard).clone();
 
                 if target.is_empty() && slot.may_place(item_stack) {
-                    let max_stack_size = slot.get_max_stack_size_for_item(item_stack);
+                    let max_stack_size = slot.get_max_stack_size_for_item(guard, item_stack);
                     let to_place = item_stack.count.min(max_stack_size);
                     let mut placed = item_stack.clone();
                     placed.set_count(to_place);
@@ -892,7 +892,7 @@ impl MenuBehavior {
                         };
                         let max_size = source
                             .max_stack_size()
-                            .min(slot.get_max_stack_size_for_item(&source));
+                            .min(slot.get_max_stack_size_for_item(&guard, &source));
                         let place_count = get_quickcraft_place_count(
                             quickcraft_slots.len(),
                             self.quickcraft_type,
@@ -956,7 +956,7 @@ impl MenuBehavior {
         if slot_item.is_empty() {
             // Slot is empty - place carried items (if allowed)
             if !carried.is_empty() && slot.may_place(&carried) {
-                let max_for_slot = slot.get_max_stack_size_for_item(&carried);
+                let max_for_slot = slot.get_max_stack_size_for_item(&guard, &carried);
                 let requested = if button == 0 { carried.count } else { 1 };
                 let amount = requested.min(max_for_slot);
 
@@ -999,7 +999,7 @@ impl MenuBehavior {
             if slot.may_place(&carried) {
                 if button == 0 {
                     // Left click - add as many as possible to slot
-                    let max = slot.get_max_stack_size_for_item(&carried);
+                    let max = slot.get_max_stack_size_for_item(&guard, &carried);
                     let space = max - slot_item.count;
                     let to_add = space.min(carried.count);
 
@@ -1017,7 +1017,7 @@ impl MenuBehavior {
                     }
                 } else {
                     // Right click - add one to slot
-                    let max = slot.get_max_stack_size_for_item(&carried);
+                    let max = slot.get_max_stack_size_for_item(&guard, &carried);
                     if slot_item.count < max {
                         slot.get_item_mut(&mut guard).set_count(slot_item.count + 1);
                         let remaining = carried.count - 1;
@@ -1056,7 +1056,7 @@ impl MenuBehavior {
         } else {
             // Different items - swap (if both operations are allowed)
             if slot.may_pickup() && slot.may_place(&carried) {
-                if carried.count <= slot.get_max_stack_size_for_item(&carried) {
+                if carried.count <= slot.get_max_stack_size_for_item(&guard, &carried) {
                     slot.set_by_player(&mut guard, carried, &slot_item);
                     self.carried = slot_item;
                 } else {
@@ -1338,7 +1338,7 @@ pub trait Menu {
         } else if target_item.is_empty() {
             // Move from inventory to target
             if target_slot.may_place(&source_item) {
-                let max_size = target_slot.get_max_stack_size_for_item(&source_item);
+                let max_size = target_slot.get_max_stack_size_for_item(&guard, &source_item);
                 if source_item.count > max_size {
                     // Split the stack
                     let mut to_place = source_item.clone();
@@ -1358,7 +1358,7 @@ pub trait Menu {
         } else {
             // Swap items between target and inventory
             if target_slot.may_pickup() && target_slot.may_place(&source_item) {
-                let max_size = target_slot.get_max_stack_size_for_item(&source_item);
+                let max_size = target_slot.get_max_stack_size_for_item(&guard, &source_item);
                 if source_item.count > max_size {
                     // Source is too big - place partial and add target to inventory
                     let mut to_place = source_item.clone();

@@ -254,15 +254,31 @@ pub(crate) fn build() -> TokenStream {
 
         if let Some(block_name) = &item.block_item {
             let block_ident = Ident::new(&block_name.to_shouty_snake_case(), Span::call_site());
+            let builder_calls = generate_builder_calls(item);
 
-            if block_name != &item.name {
-                item_construction.extend(quote! {
-                    #item_ident: Item::from_block_custom_name(vanilla_blocks::#block_ident, #item_name_str),
-                });
+            if builder_calls.is_empty() {
+                if block_name != &item.name {
+                    item_construction.extend(quote! {
+                        #item_ident: Item::from_block_custom_name(vanilla_blocks::#block_ident, #item_name_str),
+                    });
+                } else {
+                    item_construction.extend(quote! {
+                        #item_ident: Item::from_block(vanilla_blocks::#block_ident),
+                    });
+                }
             } else {
-                item_construction.extend(quote! {
-                    #item_ident: Item::from_block(vanilla_blocks::#block_ident),
-                });
+                // Block item with custom components
+                if block_name != &item.name {
+                    item_construction.extend(quote! {
+                        #item_ident: Item::from_block_custom_name(vanilla_blocks::#block_ident, #item_name_str)
+                            #(#builder_calls)*,
+                    });
+                } else {
+                    item_construction.extend(quote! {
+                        #item_ident: Item::from_block(vanilla_blocks::#block_ident)
+                            #(#builder_calls)*,
+                    });
+                }
             }
         } else {
             let builder_calls = generate_builder_calls(item);

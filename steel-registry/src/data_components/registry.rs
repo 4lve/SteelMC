@@ -1,4 +1,7 @@
 use rustc_hash::FxHashMap;
+use simdnbt::{
+    FromNbtTag, ToNbtTag, borrow::NbtTag as BorrowedNbtTag, owned::NbtTag as OwnedNbtTag,
+};
 use std::{
     any::Any,
     fmt::Debug,
@@ -22,9 +25,13 @@ use crate::{
     },
 };
 
-/// Type alias for a component reader function.
+/// Type alias for a component reader function (network format).
 /// Takes a cursor and returns a boxed `ComponentValue`.
 type ComponentReader = fn(&mut Cursor<&[u8]>) -> Result<Box<dyn ComponentValue>>;
+
+/// Type alias for a component NBT reader function (persistent storage).
+/// Takes a borrowed NBT tag and returns a boxed `ComponentValue`.
+type ComponentNbtReader = fn(BorrowedNbtTag) -> Option<Box<dyn ComponentValue>>;
 
 pub trait ComponentValue: Debug + Send + Sync {
     fn as_any(&self) -> &dyn Any;
@@ -34,10 +41,23 @@ pub trait ComponentValue: Debug + Send + Sync {
     fn write_network(&self, writer: &mut Vec<u8>) -> Result<()>;
     /// Computes the hash of this component value for validation.
     fn compute_hash(&self) -> i32;
+    /// Converts this component value to an NBT tag for persistent storage.
+    fn to_nbt(&self) -> OwnedNbtTag;
 }
 
-impl<T: 'static + Send + Sync + Debug + Clone + PartialEq + WriteTo + ReadFrom + HashComponent>
-    ComponentValue for T
+impl<
+    T: 'static
+        + Send
+        + Sync
+        + Debug
+        + Clone
+        + PartialEq
+        + WriteTo
+        + ReadFrom
+        + HashComponent
+        + ToNbtTag
+        + FromNbtTag,
+> ComponentValue for T
 {
     fn as_any(&self) -> &dyn Any {
         self
@@ -60,6 +80,16 @@ impl<T: 'static + Send + Sync + Debug + Clone + PartialEq + WriteTo + ReadFrom +
 
     fn compute_hash(&self) -> i32 {
         HashComponent::compute_hash(self)
+    }
+
+    fn to_nbt(&self) -> OwnedNbtTag {
+        self.clone().to_nbt_tag()
+    }
+}
+
+impl ToNbtTag for Box<dyn ComponentValue> {
+    fn to_nbt_tag(self) -> OwnedNbtTag {
+        self.to_nbt()
     }
 }
 
@@ -84,8 +114,10 @@ pub struct DataComponentRegistry {
     components_by_key: FxHashMap<Identifier, usize>,
     /// Ordered list of component keys (index = network ID)
     components_by_id: Vec<Identifier>,
-    /// Ordered list of reader functions (index = network ID)
+    /// Ordered list of network reader functions (index = network ID)
     readers_by_id: Vec<ComponentReader>,
+    /// Ordered list of NBT reader functions (index = network ID)
+    nbt_readers_by_id: Vec<ComponentNbtReader>,
     allows_registering: bool,
 }
 
@@ -102,11 +134,12 @@ impl DataComponentRegistry {
             components_by_key: FxHashMap::default(),
             components_by_id: Vec::new(),
             readers_by_id: Vec::new(),
+            nbt_readers_by_id: Vec::new(),
             allows_registering: true,
         }
     }
 
-    pub fn register<T: 'static + ComponentValue + ReadFrom>(
+    pub fn register<T: 'static + ComponentValue + ReadFrom + FromNbtTag>(
         &mut self,
         component: DataComponentType<T>,
     ) {
@@ -119,7 +152,7 @@ impl DataComponentRegistry {
         self.components_by_key.insert(component.key.clone(), id);
         self.components_by_id.push(component.key);
 
-        // Create a reader function that deserializes T and boxes it
+        // Create a reader function that deserializes T from network format
         fn read_component<T: 'static + ComponentValue + ReadFrom>(
             data: &mut Cursor<&[u8]>,
         ) -> Result<Box<dyn ComponentValue>> {
@@ -127,7 +160,16 @@ impl DataComponentRegistry {
             Ok(Box::new(value))
         }
 
+        // Create a reader function that deserializes T from NBT format
+        fn read_nbt_component<T: 'static + ComponentValue + FromNbtTag>(
+            tag: BorrowedNbtTag,
+        ) -> Option<Box<dyn ComponentValue>> {
+            let value = T::from_nbt_tag(tag)?;
+            Some(Box::new(value))
+        }
+
         self.readers_by_id.push(read_component::<T>);
+        self.nbt_readers_by_id.push(read_nbt_component::<T>);
     }
 
     #[must_use]
@@ -146,10 +188,23 @@ impl DataComponentRegistry {
         self.components_by_id.get(id)
     }
 
-    /// Gets the reader function for a component by its network ID.
+    /// Gets the network reader function for a component by its network ID.
     #[must_use]
     pub fn get_reader_by_id(&self, id: usize) -> Option<ComponentReader> {
         self.readers_by_id.get(id).copied()
+    }
+
+    /// Gets the NBT reader function for a component by its network ID.
+    #[must_use]
+    pub fn get_nbt_reader_by_id(&self, id: usize) -> Option<ComponentNbtReader> {
+        self.nbt_readers_by_id.get(id).copied()
+    }
+
+    /// Gets the NBT reader function for a component by its key.
+    #[must_use]
+    pub fn get_nbt_reader_by_key(&self, key: &Identifier) -> Option<ComponentNbtReader> {
+        let id = self.get_id_by_key(key)?;
+        self.get_nbt_reader_by_id(id)
     }
 
     /// Returns the number of registered components.
@@ -525,5 +580,79 @@ impl ReadFrom for DataComponentPatch {
         }
 
         Ok(patch)
+    }
+}
+
+// ==================== NBT Serialization ====================
+
+use simdnbt::owned::NbtCompound;
+
+impl ToNbtTag for DataComponentPatch {
+    /// Converts this component patch to an NBT tag for persistent storage.
+    ///
+    /// Format (matching vanilla Minecraft):
+    /// ```text
+    /// {
+    ///     "minecraft:damage": 10,
+    ///     "!minecraft:unbreakable": {}  // "!" prefix means removed
+    /// }
+    /// ```
+    fn to_nbt_tag(self) -> OwnedNbtTag {
+        let mut compound = NbtCompound::new();
+
+        for (key, entry) in self.entries {
+            match entry {
+                ComponentPatchEntry::Set(value) => {
+                    compound.insert(key.to_string(), value.to_nbt());
+                }
+                ComponentPatchEntry::Removed => {
+                    // Removed components use "!" prefix and empty compound as value
+                    compound.insert(format!("!{key}"), NbtCompound::new());
+                }
+            }
+        }
+
+        OwnedNbtTag::Compound(compound)
+    }
+}
+
+impl FromNbtTag for DataComponentPatch {
+    /// Parses a component patch from an NBT tag.
+    ///
+    /// Format:
+    /// ```text
+    /// {
+    ///     "minecraft:damage": 10,
+    ///     "!minecraft:unbreakable": {}  // "!" prefix means removed
+    /// }
+    /// ```
+    fn from_nbt_tag(tag: BorrowedNbtTag) -> Option<Self> {
+        use crate::REGISTRY;
+
+        let compound = tag.compound()?;
+        let mut patch = Self::new();
+
+        for (key, value) in compound.iter() {
+            let key_str = key.to_str();
+
+            if let Some(stripped) = key_str.strip_prefix('!') {
+                // Removed component
+                if let Ok(id) = stripped.parse::<Identifier>() {
+                    patch.entries.insert(id, ComponentPatchEntry::Removed);
+                }
+            } else {
+                // Set component - use registry to deserialize
+                if let Ok(id) = key_str.parse::<Identifier>()
+                    && let Some(reader) = REGISTRY.data_components.get_nbt_reader_by_key(&id)
+                    && let Some(component_value) = reader(value)
+                {
+                    patch
+                        .entries
+                        .insert(id, ComponentPatchEntry::Set(component_value));
+                }
+            }
+        }
+
+        Some(patch)
     }
 }

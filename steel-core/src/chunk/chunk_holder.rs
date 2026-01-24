@@ -317,25 +317,42 @@ impl ChunkHolder {
 
         let future = chunk_map.task_tracker.spawn(async move {
             if target_status == ChunkStatus::Empty {
-                if let Ok(Some((chunk, status))) = region_manager
-                    .load_chunk(
-                        self_clone.pos,
-                        self_clone.min_y(),
-                        self_clone.height(),
-                        context.weak_world(),
-                    )
+                // Acquire the region first (creates if needed, increments ref count)
+                let chunk_exists = region_manager
+                    .acquire_chunk(self_clone.pos)
                     .await
-                {
-                    self_clone.insert_chunk(chunk, status);
+                    .unwrap_or(false);
+
+                if chunk_exists {
+                    // Try to load the chunk from disk
+                    if let Ok(Some((chunk, status))) = region_manager
+                        .load_chunk(
+                            self_clone.pos,
+                            self_clone.min_y(),
+                            self_clone.height(),
+                            context.weak_world(),
+                        )
+                        .await
+                    {
+                        self_clone.insert_chunk(chunk, status);
+                    } else {
+                        // Chunk existed but failed to load - generate fresh
+                        let holder_for_notify = self_clone.clone();
+                        rayon_spawn(&thread_pool, move || {
+                            task(context, step, &cache, self_clone)
+                        })
+                        .await
+                        .expect("Should never fail creating an empty chunk");
+                        holder_for_notify.notify_status(target_status);
+                    }
                 } else {
-                    // Clone holder before moving into rayon closure
+                    // Chunk doesn't exist - generate fresh
                     let holder_for_notify = self_clone.clone();
                     rayon_spawn(&thread_pool, move || {
                         task(context, step, &cache, self_clone)
                     })
                     .await
                     .expect("Should never fail creating an empty chunk");
-                    // Notify after rayon completes - this runs on tokio, not rayon
                     holder_for_notify.notify_status(target_status);
                 }
                 Some(())

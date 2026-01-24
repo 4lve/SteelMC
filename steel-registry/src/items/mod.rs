@@ -43,6 +43,17 @@ impl Item {
         }
     }
 
+    /// Builder method to set a component on this item. Used during static initialization.
+    #[must_use]
+    pub fn builder_set<T: 'static + crate::data_components::ComponentValue>(
+        mut self,
+        component: crate::data_components::DataComponentType<T>,
+        value: Option<T>,
+    ) -> Self {
+        self.components.set(component, value);
+        self
+    }
+
     /// Returns the item stack that remains after this item is used in crafting.
     /// For example, milk_bucket returns an empty bucket.
     #[must_use]

@@ -1,3 +1,8 @@
+//! Pre-play TCP client connection handler.
+//!
+//! Handles the connection lifecycle from handshake through login and configuration,
+//! until the connection is upgraded to play state.
+
 use std::{
     fmt::{self, Debug, Formatter},
     io::Cursor,
@@ -7,6 +12,7 @@ use std::{
 
 use crossbeam::atomic::AtomicCell;
 use steel_core::player::{ClientInformation, GameProfile, networking::JavaConnection};
+use steel_core::server::Server;
 use steel_protocol::{
     packet_reader::TCPNetworkDecoder,
     packet_traits::{ClientPacket, CompressionInfo, EncodedPacket, ServerPacket},
@@ -20,7 +26,7 @@ use steel_protocol::{
     },
     utils::{ConnectionProtocol, PacketError, RawPacket},
 };
-use steel_registry::packets::{config, handshake, login, status};
+use steel_registry::packets::{config, handshake, login as login_packets, status};
 use steel_utils::locks::AsyncMutex;
 use steel_utils::text::TextComponent;
 use tokio::{
@@ -37,8 +43,6 @@ use tokio::{
     },
 };
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
-
-use steel_core::server::Server;
 
 /// Represents updates to the connection state.
 #[derive(Clone)]
@@ -63,8 +67,9 @@ impl Debug for ConnectionUpdate {
     }
 }
 
-/// Connection for pre play packets
-/// Gets dropped by `incoming_packet_task` if closed or upgradet to play connection
+/// Connection for pre-play packets.
+///
+/// Gets dropped by `incoming_packet_task` if closed or upgraded to play connection.
 pub struct JavaTcpClient {
     /// The unique ID of the client.
     pub id: u64,
@@ -76,22 +81,25 @@ pub struct JavaTcpClient {
     pub protocol: Arc<AtomicCell<ConnectionProtocol>>,
     /// The client's IP address.
     pub address: SocketAddr,
-    /// A token to cancel the client's operations. Called when the connection is closed. Or client is removed.
+    /// A token to cancel the client's operations. Called when the connection is closed.
     pub cancel_token: CancellationToken,
 
-    /// A queue of encoded packets to send to the network
+    /// A queue of encoded packets to send to the network.
     pub outgoing_queue: UnboundedSender<EncodedPacket>,
     /// The packet encoder for outgoing packets.
     pub network_writer: Arc<AsyncMutex<TCPNetworkEncoder<BufWriter<OwnedWriteHalf>>>>,
-    pub(crate) compression: Arc<AtomicCell<Option<CompressionInfo>>>,
+    /// Current compression settings.
+    pub compression: Arc<AtomicCell<Option<CompressionInfo>>>,
 
     /// The shared server state.
     pub server: Arc<Server>,
     /// The challenge sent to the client during login.
     pub challenge: AtomicCell<[u8; 4]>,
 
-    pub(crate) connection_updates: Sender<ConnectionUpdate>,
-    pub(crate) connection_updated: Arc<Notify>,
+    /// Channel for broadcasting connection state updates.
+    pub connection_updates: Sender<ConnectionUpdate>,
+    /// Notification for when connection updates are processed.
+    pub connection_updated: Arc<Notify>,
 
     task_tracker: TaskTracker,
 }
@@ -223,9 +231,6 @@ impl JavaTcpClient {
                                 cancel_token.cancel();
                             }
                         } else {
-                            //log::warn!(
-                            //    "Internal packet_sender_recv channel closed for client {id}",
-                            //);
                             cancel_token.cancel();
                         }
                     }
@@ -289,7 +294,6 @@ impl JavaTcpClient {
                     packet = reader.get_raw_packet() => {
                         match packet {
                             Ok(packet) => {
-                                //log::info!("Received packet: {:?}, protocol: {:?}", packet.id, connection_protocol.load());
                                 if let Err(err) = self_clone.process_packet(packet).await {
                                     log::warn!(
                                         "Failed to get packet from client {id}: {err}",
@@ -395,9 +399,9 @@ impl JavaTcpClient {
         let data = &mut Cursor::new(packet.payload.as_slice());
 
         match packet.id {
-            login::S_HELLO => self.handle_hello(SHello::read_packet(data)?).await,
-            login::S_KEY => self.handle_key(SKey::read_packet(data)?).await,
-            login::S_LOGIN_ACKNOWLEDGED => {
+            login_packets::S_HELLO => self.handle_hello(SHello::read_packet(data)?).await,
+            login_packets::S_KEY => self.handle_key(SKey::read_packet(data)?).await,
+            login_packets::S_LOGIN_ACKNOWLEDGED => {
                 self.handle_login_acknowledged().await;
             }
             _ => return Err(PacketError::InvalidProtocol("Login".to_string())),
@@ -428,9 +432,7 @@ impl JavaTcpClient {
         }
         Ok(())
     }
-}
 
-impl JavaTcpClient {
     /// Kicks the client with a given reason.
     pub async fn kick(&self, reason: TextComponent) {
         log::info!("Kicking client {}: {:?}", self.id, reason);

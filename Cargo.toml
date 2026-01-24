@@ -3,6 +3,7 @@ cargo-features = ["codegen-backend"]
 resolver = "2"
 members = [
     "steel",
+    "steel-login",
     "steel-macros",
     "steel-protocol",
     "steel-registry",
@@ -19,6 +20,7 @@ edition = "2024"
 # Internal crates
 steel-core = { path = "steel-core" }
 steel-crypto = { path = "steel-crypto" }
+steel-login = { path = "steel-login" }
 steel-macros = { path = "steel-macros" }
 steel-protocol = { path = "steel-protocol" }
 steel-registry = { path = "steel-registry" }

@@ -20,6 +20,8 @@ rustc-hash.workspace = true
 log.workspace = true
 # Utils
 rand.workspace = true
+# NBT
+simdnbt.workspace = true
 
 [build-dependencies]
 # Internal crates

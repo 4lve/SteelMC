@@ -380,6 +380,25 @@ impl BlockShapes {
 
 use super::properties::Direction;
 
+/// Checks if a shape is a full block (covers the entire 0-1 cube).
+///
+/// This matches vanilla's `Block.isShapeFullBlock()` used by `isSolid()`.
+#[must_use]
+pub fn is_shape_full_block(shape: VoxelShape) -> bool {
+    // A full block shape must have exactly one AABB that covers 0-1 on all axes
+    if shape.len() != 1 {
+        return false;
+    }
+
+    let aabb = &shape[0];
+    aabb.min_x <= 0.0
+        && aabb.max_x >= 1.0
+        && aabb.min_y <= 0.0
+        && aabb.max_y >= 1.0
+        && aabb.min_z <= 0.0
+        && aabb.max_z >= 1.0
+}
+
 /// Support type for `is_face_sturdy` checks.
 ///
 /// Determines what kind of support a block face provides for other blocks.

@@ -11,6 +11,7 @@ use std::{
 
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize, de::Error as _};
+use simdnbt::owned::{NbtCompound, NbtTag};
 use wincode::{SchemaRead, SchemaWrite, io::Reader, io::Writer};
 
 use crate::{
@@ -46,10 +47,37 @@ impl HashComponent for Todo {
     }
 }
 
+impl simdnbt::ToNbtTag for Todo {
+    fn to_nbt_tag(self) -> NbtTag {
+        // Placeholder components serialize as empty compound
+        NbtTag::Compound(NbtCompound::new())
+    }
+}
+
+impl simdnbt::FromNbtTag for Todo {
+    fn from_nbt_tag(_tag: simdnbt::borrow::NbtTag) -> Option<Self> {
+        // Placeholder components always deserialize successfully
+        Some(Todo)
+    }
+}
+
 impl HashComponent for Identifier {
     fn hash_component(&self, hasher: &mut ComponentHasher) {
         // Identifiers are hashed as strings in "namespace:path" format
         hasher.put_string(&self.to_string());
+    }
+}
+
+impl simdnbt::ToNbtTag for Identifier {
+    fn to_nbt_tag(self) -> NbtTag {
+        NbtTag::String(self.to_string().into())
+    }
+}
+
+impl simdnbt::FromNbtTag for Identifier {
+    fn from_nbt_tag(tag: simdnbt::borrow::NbtTag) -> Option<Self> {
+        let s = tag.string()?.to_str();
+        s.parse().ok()
     }
 }
 
