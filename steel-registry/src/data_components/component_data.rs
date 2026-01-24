@@ -3,8 +3,8 @@
 //! This module provides the core types for storing component values in an ABI-stable way.
 //! Vanilla components get dedicated enum variants for zero-cost access, while plugin
 //! components use the `Other` variant with opaque bytes.
-
 use super::components::{Equippable, Tool};
+use text_components::TextComponent;
 
 /// Discriminant for [`ComponentData`] variants.
 ///
@@ -18,6 +18,7 @@ pub enum ComponentDataDiscriminant {
     Float,
     Tool,
     Equippable,
+    TextComponent,
     Todo,
     Other,
 }
@@ -68,6 +69,8 @@ pub enum ComponentData {
     Tool(Tool),
     /// minecraft:equippable
     Equippable(Equippable),
+    /// TextComponent component (e.g., CustomName, ItemName)
+    TextComponent(Box<TextComponent>),
 
     // ==================== Not yet implemented ====================
     /// Placeholder for components that aren't implemented yet.
@@ -106,6 +109,7 @@ impl ComponentData {
             Self::Float(_) => ComponentDataDiscriminant::Float,
             Self::Tool(_) => ComponentDataDiscriminant::Tool,
             Self::Equippable(_) => ComponentDataDiscriminant::Equippable,
+            Self::TextComponent(_) => ComponentDataDiscriminant::TextComponent,
             Self::Todo => ComponentDataDiscriminant::Todo,
             Self::Other(_) => ComponentDataDiscriminant::Other,
         }
@@ -130,6 +134,7 @@ impl ComponentData {
             // Complex types
             Self::Tool(v) => v.hash_component(&mut hasher),
             Self::Equippable(v) => v.hash_component(&mut hasher),
+            Self::TextComponent(v) => v.hash_component(&mut hasher),
 
             // Stub/plugin types - hash as empty map for now
             // TODO: Implement proper hashing when these types are implemented
@@ -295,6 +300,26 @@ impl Component for Equippable {
     fn from_data_ref(data: &ComponentData) -> Option<&Self> {
         match data {
             ComponentData::Equippable(v) => Some(v),
+            _ => None,
+        }
+    }
+}
+
+impl Component for TextComponent {
+    fn into_data(self) -> ComponentData {
+        ComponentData::TextComponent(Box::new(self))
+    }
+
+    fn from_data(data: ComponentData) -> Option<Self> {
+        match data {
+            ComponentData::TextComponent(v) => Some(*v),
+            _ => None,
+        }
+    }
+
+    fn from_data_ref(data: &ComponentData) -> Option<&Self> {
+        match data {
+            ComponentData::TextComponent(v) => Some(v),
             _ => None,
         }
     }

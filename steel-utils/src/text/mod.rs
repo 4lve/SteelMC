@@ -62,19 +62,16 @@ impl HashComponent for TextComponent {
         // - Otherwise, encode as a full map structure
         //
         // This matches ComponentSerialization.createCodec's tryCollapseToString logic
-        if matches!(&self.content, Content::Text { .. })
-            && self.children.is_empty()
+        if let Content::Text { text } = &self.content
             && self.format.is_none()
             && self.interactions.is_none()
+            && self.children.is_empty()
         {
-            // Simple text - hash as just a string
-            if let Content::Text { text } = &self.content {
-                hasher.put_string(text);
-            }
-        } else {
-            // Complex component - hash as a map structure
-            hash_component_as_map(self, hasher);
+            hasher.put_string(text);
+            return;
         }
+        // Complex component - hash as a map structure
+        hash_component_as_map(self, hasher);
     }
 }
 
@@ -119,10 +116,10 @@ fn hash_component_as_map(component: &TextComponent, hasher: &mut ComponentHasher
         key_hasher.put_string("extra");
         let mut value_hasher = ComponentHasher::new();
         value_hasher.start_list();
-        for extra in &component.children {
-            let mut extra_hasher = ComponentHasher::new();
-            extra.hash_component(&mut extra_hasher);
-            value_hasher.put_raw_bytes(extra_hasher.current_data());
+        for child in &component.children {
+            // Each child is hashed as a complete component, then we write the 4-byte hash
+            let child_hash = child.compute_hash();
+            value_hasher.put_raw_bytes(&child_hash.to_le_bytes());
         }
         value_hasher.end_list();
         entries.push(HashEntry::new(key_hasher, value_hasher));
@@ -132,6 +129,7 @@ fn hash_component_as_map(component: &TextComponent, hasher: &mut ComponentHasher
     sort_map_entries(&mut entries);
 
     // Write the sorted map
+    // Important: Vanilla writes the 4-byte hash values, NOT the original encoded bytes!
     hasher.start_map();
     for entry in entries {
         hasher.put_raw_bytes(&entry.key_bytes);
@@ -176,9 +174,9 @@ fn hash_content_fields(content: &Content, entries: &mut Vec<HashEntry>) {
                 let mut value_hasher = ComponentHasher::new();
                 value_hasher.start_list();
                 for arg in args {
-                    let mut arg_hasher = ComponentHasher::new();
-                    arg.hash_component(&mut arg_hasher);
-                    value_hasher.put_raw_bytes(arg_hasher.current_data());
+                    // Each argument is hashed as a complete component, then we write the 4-byte hash
+                    let arg_hash = arg.compute_hash();
+                    value_hasher.put_raw_bytes(&arg_hash.to_le_bytes());
                 }
                 value_hasher.end_list();
                 entries.push(HashEntry::new(key_hasher, value_hasher));
@@ -269,7 +267,9 @@ fn hash_content_fields(content: &Content, entries: &mut Vec<HashEntry>) {
                             hasher.put_raw_bytes(&entry.value_bytes);
                         }
                         hasher.end_map();
-                        value_hasher.put_raw_bytes(hasher.current_data());
+                        // List elements are hashes, not full encoded bytes
+                        let property_hash = hasher.finish();
+                        value_hasher.put_raw_bytes(&property_hash.to_le_bytes());
                     }
                     value_hasher.end_list();
                     inner_entries.push(HashEntry::new(key_hasher, value_hasher));
