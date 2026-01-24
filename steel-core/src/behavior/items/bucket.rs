@@ -159,7 +159,9 @@ impl ItemBehavior for EmptyBucketBehavior {
                  return InteractionResult::Fail;
             };
 
+
             // Remove the fluid block (replace with air)
+            //TODO add waterlogged if else when implemented
             let air_state = REGISTRY.blocks.get_default_state_id(vanilla_blocks::AIR);
             if !context
                 .world
