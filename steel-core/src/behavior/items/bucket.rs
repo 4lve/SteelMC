@@ -159,11 +159,12 @@ impl ItemBehavior for EmptyBucketBehavior {
                  return InteractionResult::Fail;
             };
 
-            // Remove the fluid block
-            let air_key = steel_utils::Identifier::new("minecraft", "air");
-            let air_block = REGISTRY.blocks.by_key(&air_key).expect("AIR block not found");
-            let air_state = REGISTRY.blocks.get_default_state_id(air_block);
-            if !context.world.set_block(hit_pos, air_state, UpdateFlags::UPDATE_ALL_IMMEDIATE) {
+            // Remove the fluid block (replace with air)
+            let air_state = REGISTRY.blocks.get_default_state_id(vanilla_blocks::AIR);
+            if !context
+                .world
+                .set_block(hit_pos, air_state, UpdateFlags::UPDATE_ALL_IMMEDIATE)
+            {
                 return InteractionResult::Fail;
             }
 
