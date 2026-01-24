@@ -406,7 +406,7 @@ impl Player {
         &self,
         packet: &SChat,
     ) -> Result<(message_chain::SignedMessageLink, LastSeen), String> {
-        const MESSAGE_EXPIRES_AFTER: Duration = Duration::from_secs(5 * 60);
+        const MESSAGE_EXPIRES_AFTER: Duration = Duration::from_mins(5);
 
         let session = self.chat_session.lock().clone().ok_or("No chat session")?;
         let signature = packet.signature.as_ref().ok_or("No signature present")?;
@@ -1397,8 +1397,7 @@ impl Player {
             .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| {
                 Some(if id == i32::MAX { 0 } else { id + 1 })
             })
-            .map(|old| if old == i32::MAX { 0 } else { old + 1 })
-            .unwrap_or(1);
+            .map_or(1, |old| if old == i32::MAX { 0 } else { old + 1 });
 
         // Update player position (vanilla: player.teleportSetPosition)
         *self.position.lock() = Vector3::new(x, y, z);
