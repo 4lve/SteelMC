@@ -113,7 +113,7 @@ impl SignText {
         let compounds: Vec<NbtCompound> = self
             .messages
             .iter()
-            .map(|msg| msg.clone().to_nbt_tag().into_compound().unwrap_or_default())
+            .map(|msg| msg.to_nbt_tag().into_compound().unwrap_or_default())
             .collect();
         nbt.insert("messages", NbtList::Compound(compounds));
 

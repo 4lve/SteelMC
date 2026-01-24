@@ -138,7 +138,7 @@ impl WriteTo for BlockPos {
 
 impl WriteTo for TextComponent {
     fn write(&self, writer: &mut impl Write) -> Result<()> {
-        WriteTo::write(&self.clone().to_nbt_tag(), writer)?;
+        WriteTo::write(&self.to_nbt_tag(), writer)?;
         Ok(())
     }
 }
