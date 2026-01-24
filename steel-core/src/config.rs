@@ -109,9 +109,9 @@ impl ServerLinks {
 #[serde(rename_all = "lowercase")]
 pub enum ConfigWorldType {
     /// Flat world with configurable layers.
-    #[default]
     Flat,
     /// Vanilla-accurate noise-based terrain generation.
+    #[default]
     Normal,
 }
 
