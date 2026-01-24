@@ -421,9 +421,8 @@ impl<'a> ChunkNoiseRouter<'a> {
         for cell_cache_index in indices {
             let (component_stack, component) = components.split_at_mut(*cell_cache_index);
 
-            let ChunkNoiseFunctionComponent::Chunk(chunk) = component
-                .first_mut()
-                .expect("split index is valid")
+            let ChunkNoiseFunctionComponent::Chunk(chunk) =
+                component.first_mut().expect("split index is valid")
             else {
                 unreachable!();
             };
@@ -457,9 +456,8 @@ impl<'a> ChunkNoiseRouter<'a> {
         for interpolator_index in indices {
             let (component_stack, component) = components.split_at_mut(*interpolator_index);
 
-            let ChunkNoiseFunctionComponent::Chunk(chunk) = component
-                .first_mut()
-                .expect("split index is valid")
+            let ChunkNoiseFunctionComponent::Chunk(chunk) =
+                component.first_mut().expect("split index is valid")
             else {
                 unreachable!();
             };

@@ -4,7 +4,11 @@
 //! for accurate terrain generation with proper cell-based interpolation.
 
 // Uses coordinate variables (cell_x, cell_y, cell_z, start_cell_z, etc.)
-#![allow(clippy::similar_names, clippy::too_many_lines, clippy::too_many_arguments)]
+#![allow(
+    clippy::similar_names,
+    clippy::too_many_lines,
+    clippy::too_many_arguments
+)]
 
 use steel_utils::{
     BlockStateId,

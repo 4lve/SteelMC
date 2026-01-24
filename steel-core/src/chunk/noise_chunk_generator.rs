@@ -6,7 +6,11 @@
 //! Key feature: Cell-based interpolation matching vanilla's 4x8x4 cell system.
 
 // Uses coordinate variables (cell_x, cell_y, cell_z)
-#![allow(clippy::similar_names, clippy::too_many_lines, clippy::too_many_arguments)]
+#![allow(
+    clippy::similar_names,
+    clippy::too_many_lines,
+    clippy::too_many_arguments
+)]
 
 use steel_utils::{
     BlockStateId,
