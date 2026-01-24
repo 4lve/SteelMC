@@ -23,6 +23,18 @@ pub mod chunk_noise_router;
 #[allow(missing_docs)]
 pub mod proto_noise_router;
 
+// Terrain generation modules
+#[allow(missing_docs)]
+pub mod aquifer_sampler;
+#[allow(missing_docs)]
+pub mod block_sampler;
+#[allow(missing_docs)]
+pub mod fluid_level;
+#[allow(missing_docs)]
+pub mod ore_sampler;
+#[allow(missing_docs)]
+pub mod surface_height_sampler;
+
 pub use data::*;
 pub use evaluator::{NoisePos, NoiseRouterRuntime};
 pub use noise_params::*;
@@ -48,6 +60,18 @@ pub use density_function::{
     IndexToNoisePos, NoiseFunctionComponentRange, PassThrough,
     StaticIndependentChunkNoiseFunctionComponentImpl, UnblendedNoisePos, Wrapper,
 };
+
+// Re-export terrain generation types
+pub use aquifer_sampler::{
+    AquiferBlocks, AquiferSampler, AquiferSamplerImpl, SeaLevelAquiferSampler, WorldAquiferSampler,
+};
+pub use block_sampler::{BlockStateSampler, ChainedBlockStateSampler};
+pub use fluid_level::{
+    FluidLevel, FluidLevelSampler, FluidLevelSamplerImpl, StandardChunkFluidLevelSampler,
+    StaticFluidLevelSampler,
+};
+pub use ore_sampler::{OreBlocks, OreVeinSampler};
+pub use surface_height_sampler::{SurfaceHeightEstimateSampler, SurfaceHeightSamplerBuilderOptions};
 
 #[cfg(test)]
 mod tests {

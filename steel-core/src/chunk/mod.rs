@@ -14,6 +14,8 @@ pub mod heightmap;
 /// Tracks the chunks that are visible to a player.
 pub mod player_chunk_view;
 
+/// Chunk noise generator wrapper for terrain generation.
+pub mod chunk_noise_generator;
 /// Generates flat worlds with configurable layers.
 pub mod flat_chunk_generator;
 pub mod level_chunk;
@@ -21,8 +23,10 @@ pub mod level_chunk;
 pub mod noise_chunk_generator;
 pub mod paletted_container;
 pub mod proto_chunk;
-/// Pumpkin-style noise generator using data-driven noise router.
-pub mod pumpkin_noise_generator;
+/// Random configuration for world generation.
+pub mod random_config;
+/// Vanilla-accurate noise generator using data-driven noise router.
+pub mod vanilla_noise_generator;
 pub mod section;
 
 pub mod world_gen_context;

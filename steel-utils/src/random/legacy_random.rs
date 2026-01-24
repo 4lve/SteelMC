@@ -12,6 +12,7 @@ pub struct LegacyRandom {
 
 /// A positional random number generator factory for the legacy Minecraft LCG algorithm.
 /// This can create random sources based on position, hash, or seed.
+#[derive(Clone, Copy)]
 pub struct LegacyRandomSplitter {
     seed: i64,
 }

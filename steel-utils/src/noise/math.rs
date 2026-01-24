@@ -106,6 +106,48 @@ pub fn clamp(value: f64, min: f64, max: f64) -> f64 {
     }
 }
 
+/// Floor division matching vanilla Minecraft.
+///
+/// Returns the largest integer less than or equal to the quotient.
+#[inline]
+#[must_use]
+pub fn floor_div(a: i32, b: i32) -> i32 {
+    let q = a / b;
+    let r = a % b;
+    if r != 0 && (a < 0) != (b < 0) {
+        q - 1
+    } else {
+        q
+    }
+}
+
+/// Floor modulo matching vanilla Minecraft.
+#[inline]
+#[must_use]
+pub fn floor_mod(a: i32, b: i32) -> i32 {
+    let r = a % b;
+    if r != 0 && (a < 0) != (b < 0) {
+        r + b
+    } else {
+        r
+    }
+}
+
+/// Floor modulo for usize values.
+#[inline]
+#[must_use]
+pub fn floor_mod_usize(a: usize, b: usize) -> usize {
+    ((a % b) + b) % b
+}
+
+/// Maps a value from one range to another without clamping.
+#[inline]
+#[must_use]
+pub fn map(value: f64, old_start: f64, old_end: f64, new_start: f64, new_end: f64) -> f64 {
+    let t = (value - old_start) / (old_end - old_start);
+    lerp(t, new_start, new_end)
+}
+
 /// Maps a value from one range to another, clamping to the output range.
 ///
 /// If value is outside `[old_start, old_end]`, the result is clamped to `[new_start, new_end]`.
