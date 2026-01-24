@@ -1,6 +1,6 @@
-//! Test player implementation for SteelMC.
+//! Test player implementation for `SteelMC`.
 
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::sync::Arc;
 
 use flint_core::test_spec::{BlockFace, PlayerSlot};
@@ -13,7 +13,7 @@ pub struct SteelTestPlayer {
     #[allow(dead_code)]
     world: Arc<World>,
     /// Inventory storage
-    inventory: HashMap<PlayerSlot, Item>,
+    inventory: FxHashMap<PlayerSlot, Item>,
     /// Selected hotbar slot (1-9)
     selected_hotbar: u8,
 }
@@ -23,7 +23,7 @@ impl SteelTestPlayer {
     pub fn new(world: Arc<World>) -> Self {
         Self {
             world,
-            inventory: HashMap::new(),
+            inventory: FxHashMap::default(),
             selected_hotbar: 1,
         }
     }
@@ -60,7 +60,7 @@ impl FlintPlayer for SteelTestPlayer {
     }
 
     fn use_item_on(&mut self, pos: BlockPos, face: &BlockFace) {
-        log::warn!("Stub: use_item_on({:?}, {:?}) - Requires decoupling Player from Networking in steel-core", pos, face);
+        log::warn!("Stub: use_item_on({pos:?}, {face:?}) - Requires decoupling Player from Networking in steel-core");
         
         // Note: Real implementation needs to call block behaviors.
         // But behaviors require &Player, which requires connection.

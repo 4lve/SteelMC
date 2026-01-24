@@ -1,7 +1,7 @@
-//! Flint testing framework integration for SteelMC.
+//! Flint testing framework integration for `SteelMC`.
 //!
 //! This crate provides implementations of the Flint traits (`FlintAdapter`, `FlintWorld`,
-//! `FlintPlayer`) that allow running automated tests against the SteelMC server.
+//! `FlintPlayer`) that allow running automated tests against the `SteelMC` server.
 //!
 //! # Architecture
 //!
@@ -52,7 +52,7 @@ use tokio::runtime::Runtime;
 /// Global runtime for flint tests.
 static FLINT_RUNTIME: OnceLock<Arc<Runtime>> = OnceLock::new();
 
-/// Initialize the SteelMC registry and behaviors for testing.
+/// Initialize the `SteelMC` registry and behaviors for testing.
 ///
 /// This must be called before creating any test worlds or adapters.
 /// It's safe to call multiple times - subsequent calls are no-ops.
@@ -98,7 +98,7 @@ fn init_config() {
     });
 }
 
-/// Initialize the SteelMC registry.
+/// Initialize the `SteelMC` registry.
 fn init_registry() {
     use std::sync::Once;
     static INIT: Once = Once::new();

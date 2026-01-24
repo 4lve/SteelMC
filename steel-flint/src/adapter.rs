@@ -1,10 +1,10 @@
-//! Flint adapter implementation for SteelMC.
+//! Flint adapter implementation for `SteelMC`.
 
 use flint_steel::{FlintAdapter, FlintWorld, ServerInfo};
 
 use crate::world::SteelTestWorld;
 
-/// Adapter for running Flint tests against SteelMC.
+/// Adapter for running Flint tests against `SteelMC`.
 ///
 /// This adapter creates test worlds that use the real steel-core World
 /// with RAM-only storage for instant chunk creation.

@@ -2428,6 +2428,7 @@ dependencies = [
  "flint-core",
  "flint-steel",
  "log",
+ "rustc-hash 2.1.1",
  "serde_json",
  "steel-core",
  "steel-registry",

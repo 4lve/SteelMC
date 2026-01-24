@@ -20,6 +20,9 @@ tokio = { workspace = true }
 # Logging
 log = { workspace = true }
 
+# Hash maps
+rustc-hash = { workspace = true }
+
 # Serialization (for flint-core compatibility)
 serde_json = { workspace = true }
 

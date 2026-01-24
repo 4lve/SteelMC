@@ -1,4 +1,4 @@
-//! Conversion utilities between Flint types and SteelMC types.
+//! Conversion utilities between Flint types and `SteelMC` types.
 
 use flint_core::test_spec::{Block as FlintBlock, BlockFace};
 use flint_steel::traits::BlockData;
@@ -6,7 +6,7 @@ use steel_registry::REGISTRY;
 use steel_registry::blocks::properties::Direction;
 use steel_utils::{BlockPos as SteelBlockPos, BlockStateId, Identifier};
 
-/// Convert a Flint block specification to a SteelMC BlockStateId.
+/// Convert a Flint block specification to a `SteelMC` `BlockStateId`.
 ///
 /// Returns `None` if the block ID is unknown or if any property is invalid.
 pub fn flint_block_to_state_id(block: &FlintBlock) -> Option<BlockStateId> {
@@ -57,7 +57,7 @@ pub fn flint_block_to_state_id(block: &FlintBlock) -> Option<BlockStateId> {
         .state_id_from_properties(&identifier, &props_refs)
 }
 
-/// Convert a SteelMC BlockStateId to Flint BlockData.
+/// Convert a `SteelMC` `BlockStateId` to Flint `BlockData`.
 pub fn state_id_to_block_data(state_id: BlockStateId) -> BlockData {
     let Some(block) = REGISTRY.blocks.by_state_id(state_id) else {
         return BlockData::new("minecraft:air");
@@ -77,19 +77,19 @@ pub fn state_id_to_block_data(state_id: BlockStateId) -> BlockData {
     BlockData::with_properties(id, properties)
 }
 
-/// Convert Flint BlockPos to SteelMC BlockPos.
+/// Convert Flint `BlockPos` to `SteelMC` `BlockPos`.
 #[allow(dead_code)]
 pub fn flint_pos_to_steel(pos: flint_steel::BlockPos) -> SteelBlockPos {
     SteelBlockPos::new(pos[0], pos[1], pos[2])
 }
 
-/// Convert SteelMC BlockPos to Flint BlockPos.
+/// Convert `SteelMC` `BlockPos` to Flint `BlockPos`.
 #[allow(dead_code)]
 pub fn steel_pos_to_flint(pos: &SteelBlockPos) -> flint_steel::BlockPos {
     [pos.x(), pos.y(), pos.z()]
 }
 
-/// Convert Flint BlockFace to SteelMC Direction.
+/// Convert Flint `BlockFace` to `SteelMC` Direction.
 #[allow(dead_code)]
 pub fn flint_face_to_direction(face: BlockFace) -> Direction {
     match face {
@@ -102,7 +102,7 @@ pub fn flint_face_to_direction(face: BlockFace) -> Direction {
     }
 }
 
-/// Convert SteelMC Direction to Flint BlockFace.
+/// Convert `SteelMC` Direction to Flint `BlockFace`.
 #[allow(dead_code)]
 pub fn direction_to_flint_face(dir: Direction) -> BlockFace {
     match dir {
