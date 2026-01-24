@@ -640,8 +640,7 @@ impl RegionManager {
         PersistentChunk {
             last_modified: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .map(|d| d.as_secs() as u32)
-                .unwrap_or(0),
+                .map_or(0, |d| d.as_secs() as u32),
             block_states: builder.block_states,
             biomes: builder.biomes,
             sections: persistent_sections,
