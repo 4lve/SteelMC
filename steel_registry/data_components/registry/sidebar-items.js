@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ComponentPatchEntry"],"fn":["component_try_into"],"struct":["DataComponentMap","DataComponentPatch","DataComponentRegistry","DataComponentType"],"trait":["ComponentValue"],"type":["ComponentNbtReader","ComponentReader"]};
+window.SIDEBAR_ITEMS = {"enum":["ComponentPatchEntry"],"fn":["component_try_into"],"struct":["ComponentEntry","DataComponentMap","DataComponentPatch","DataComponentRegistry","DataComponentType"],"type":["NbtReader","NbtWriter","NetworkReader","NetworkWriter"]};
