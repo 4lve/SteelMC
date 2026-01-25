@@ -293,6 +293,51 @@ impl PerlinNoise {
         d
     }
 
+    /// Sample noise for blended noise (InterpolatedNoiseSampler).
+    ///
+    /// This uses a fractions-based weighting approach like vanilla Minecraft's BlendedNoise,
+    /// where each octave is sampled with coordinates scaled by a fraction, and the result
+    /// is divided by that fraction (amplifying low-frequency octaves).
+    #[inline]
+    #[must_use]
+    pub fn get_value_for_blended_noise(
+        &self,
+        x: f64,
+        y: f64,
+        z: f64,
+        y_scale: f64,
+        y_max: f64,
+    ) -> f64 {
+        let mut result = 0.0;
+        let mut fraction = 1.0;
+
+        // Iterate in reverse order (from highest index to lowest)
+        // to match vanilla's behavior of pairing fractions [1.0, 0.5, 0.25, ...]
+        // with octaves from high to low
+        for i in (0..self.noise_levels.len()).rev() {
+            if let Some(ref noise) = self.noise_levels[i] {
+                // Scale coordinates by fraction
+                let mapped_x = wrap(x * fraction);
+                let mapped_y = wrap(y * fraction);
+                let mapped_z = wrap(z * fraction);
+
+                // Sample with y-params and divide by fraction (amplifying low-freq octaves)
+                let sample = noise.noise_with_y_params(
+                    mapped_x,
+                    mapped_y,
+                    mapped_z,
+                    y_scale * fraction,
+                    y_max * fraction,
+                );
+                result += sample / fraction;
+            }
+
+            fraction /= 2.0;
+        }
+
+        result
+    }
+
     /// Get the noise sampler for a specific octave.
     #[must_use]
     pub fn get_octave_noise(&self, octave: i32) -> Option<&ImprovedNoise> {

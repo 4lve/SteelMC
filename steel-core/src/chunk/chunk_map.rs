@@ -20,7 +20,7 @@ use steel_utils::{BlockPos, ChunkPos, SectionPos, locks::SyncMutex};
 use tokio::{runtime::Runtime, time::Instant};
 use tokio_util::task::TaskTracker;
 
-use crate::chunk::chunk_holder::ChunkHolder;
+use crate::chunk::{chunk_holder::ChunkHolder, vanilla_noise_generator::VanillaNoiseGenerator};
 use crate::chunk::chunk_ticket_manager::{
     ChunkTicketManager, LevelChange, MAX_VIEW_DISTANCE, is_full,
 };
@@ -30,7 +30,7 @@ use crate::chunk::{chunk_access::ChunkAccess, chunk_ticket_manager::is_ticked};
 use crate::chunk::{
     chunk_access::ChunkStatus, chunk_generation_task::ChunkGenerationTask,
     chunk_noise_generator::TerrainBlocks, flat_chunk_generator::FlatChunkGenerator,
-    vanilla_noise_generator::VanillaNoiseGenerator, world_gen_context::WorldGenContext,
+    world_gen_context::WorldGenContext,
 };
 use crate::chunk_saver::RegionManager;
 use crate::player::Player;
@@ -118,7 +118,10 @@ impl ChunkMap {
             tuff: REGISTRY.blocks.get_default_state_id(vanilla_blocks::TUFF),
         };
 
-        let generator = Arc::new(ChunkGeneratorType::Vanilla(VanillaNoiseGenerator::new(seed, blocks)));
+        let generator = Arc::new(ChunkGeneratorType::Vanilla(VanillaNoiseGenerator::new(
+            seed,
+            blocks,
+        )));
 
         Self::with_generator(chunk_runtime, world, dimension, generator)
     }

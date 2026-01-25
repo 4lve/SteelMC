@@ -221,8 +221,29 @@ impl<'a> ChunkNoiseGenerator<'a> {
             i32::from(generation_shape.min_y) + i32::from(generation_shape.height),
             i32::from(v_cell),
         );
-        let height_estimator =
+        let mut height_estimator =
             SurfaceHeightEstimateSampler::generate(surface_estimator_base, &height_options);
+
+        // Compute max surface Y for aquifer skip sampling optimization
+        // Sample in a grid with 4-block steps (quart pos) like vanilla
+        let min_x = start_block_x;
+        let min_z = start_block_z;
+        let max_x = start_block_x + (horizontal_cell_count as i32 - 1) * h_cell as i32 + 9;
+        let max_z = start_block_z + (horizontal_cell_count as i32 - 1) * h_cell as i32 + 9;
+
+        let mut max_surface_y = i32::MIN;
+        let mut block_z = min_z;
+        while block_z <= max_z {
+            let mut block_x = min_x;
+            while block_x <= max_x {
+                let surface_y = height_estimator.estimate_height(block_x, block_z);
+                if surface_y > max_surface_y {
+                    max_surface_y = surface_y;
+                }
+                block_x += 4;
+            }
+            block_z += 4;
+        }
 
         // Build aquifer sampler
         let aquifer_sampler = if enable_aquifers {
@@ -231,11 +252,12 @@ impl<'a> ChunkNoiseGenerator<'a> {
             AquiferSampler::World(WorldAquiferSampler::new(
                 section_x,
                 section_z,
-                &random_config.aquifer_deriver,
+                random_config.aquifer_deriver.clone(),
                 generation_shape.min_y,
                 generation_shape.height,
                 fluid_level_sampler,
                 blocks.to_aquifer_blocks(),
+                max_surface_y,
             ))
         } else {
             AquiferSampler::SeaLevel(SeaLevelAquiferSampler::new(
@@ -461,6 +483,7 @@ impl<'a> ChunkNoiseGenerator<'a> {
     pub fn start_cell_pos_z(&self) -> i32 {
         self.start_cell_pos_z
     }
+
 }
 
 /// Maps indices to noise positions for interpolation buffer filling.

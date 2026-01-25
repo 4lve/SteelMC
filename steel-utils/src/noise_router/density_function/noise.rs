@@ -8,7 +8,7 @@
 
 use crate::noise::{DoublePerlinNoise, PerlinNoise, clamped_lerp};
 use crate::noise_router::{InterpolatedNoiseSamplerData, NoiseData, ShiftedNoiseData};
-use crate::random::{Random, RandomSource};
+use crate::random::RandomSource;
 
 use super::{
     NoiseFunctionComponentRange, NoisePos, StaticIndependentChunkNoiseFunctionComponentImpl,
@@ -249,32 +249,14 @@ pub struct InterpolatedNoiseSampler {
 
 impl InterpolatedNoiseSampler {
     pub fn new(data: &'static InterpolatedNoiseSamplerData, random: &mut RandomSource) -> Self {
-        let big_start = -15;
-        let big_amplitudes = [1.0; 16];
+        // Use legacy initialization (sequential random consumption, no splitter)
+        // This matches vanilla Minecraft's BlendedNoise initialization
+        let big_octaves: Vec<i32> = (-15..=0).collect();
+        let little_octaves: Vec<i32> = (-7..=0).collect();
 
-        let little_start = -7;
-        let little_amplitudes = [1.0; 8];
-
-        let mut splitter = random.next_positional();
-
-        let lower_noise = PerlinNoise::create_from_random_source(
-            &mut splitter,
-            "low",
-            big_start,
-            &big_amplitudes,
-        );
-        let upper_noise = PerlinNoise::create_from_random_source(
-            &mut splitter,
-            "high",
-            big_start,
-            &big_amplitudes,
-        );
-        let noise = PerlinNoise::create_from_random_source(
-            &mut splitter,
-            "selector",
-            little_start,
-            &little_amplitudes,
-        );
+        let lower_noise = PerlinNoise::create_legacy_for_blended_noise(random, &big_octaves);
+        let upper_noise = PerlinNoise::create_legacy_for_blended_noise(random, &big_octaves);
+        let noise = PerlinNoise::create_legacy_for_blended_noise(random, &little_octaves);
 
         let max_value = lower_noise.max_broken_value(data.scaled_y_scale + 2.0);
 
@@ -319,8 +301,8 @@ impl StaticIndependentChunkNoiseFunctionComponentImpl for InterpolatedNoiseSampl
         let j = self.data.scaled_y_scale * self.data.smear_scale_multiplier;
         let k = j / self.data.y_factor;
 
-        // Sample the selector noise
-        let n: f64 = self.noise.get_value_with_y_params(g, h, i, k, h, false);
+        // Sample the selector noise using blended noise method
+        let n: f64 = self.noise.get_value_for_blended_noise(g, h, i, k, h);
 
         let q = f64::midpoint(n / 10f64, 1f64);
         let bl2 = q >= 1f64;
@@ -329,15 +311,13 @@ impl StaticIndependentChunkNoiseFunctionComponentImpl for InterpolatedNoiseSampl
         let l = if bl2 {
             0.0
         } else {
-            self.lower_noise
-                .get_value_with_y_params(d, e, f, j, e, false)
+            self.lower_noise.get_value_for_blended_noise(d, e, f, j, e)
         };
 
         let m = if bl3 {
             0.0
         } else {
-            self.upper_noise
-                .get_value_with_y_params(d, e, f, j, e, false)
+            self.upper_noise.get_value_for_blended_noise(d, e, f, j, e)
         };
 
         clamped_lerp(l / 512f64, m / 512f64, q) / 128f64

@@ -3,7 +3,6 @@
 //! This module contains the aquifer sampling system that determines where
 //! water and lava appear in caves and underground areas.
 
-// Uses coordinate variables (cell_x, cell_y, cell_z, etc.)
 #![allow(clippy::similar_names, clippy::too_many_lines)]
 
 use enum_dispatch::enum_dispatch;
@@ -18,25 +17,68 @@ use super::density_function::{NoisePos, UnblendedNoisePos};
 use super::fluid_level::{FluidLevel, FluidLevelSampler, FluidLevelSamplerImpl};
 use super::surface_height_sampler::SurfaceHeightEstimateSampler;
 
-/// Minimum height cell value used as sentinel for "no aquifer".
-const MIN_HEIGHT_CELL: i32 = i32::MIN;
+/// Minimum Y value marker (way below min Y).
+const WAY_BELOW_MIN_Y: i32 = i32::MIN + 1;
 
-/// Chunk position offsets for 13-chunk sampling pattern.
-const CHUNK_POS_OFFSETS: [(i8, i8); 13] = [
-    (0, 0),   // center
+/// 13 chunk position offsets for surface height sampling.
+/// Order matches vanilla - (0,0) is at index 7.
+const SURFACE_SAMPLING_OFFSETS_IN_CHUNKS: [(i8, i8); 13] = [
     (-2, -1),
     (-1, -1),
     (0, -1),
-    (1, -1), // left section
+    (1, -1),
     (-3, 0),
     (-2, 0),
     (-1, 0),
-    (1, 0), // center section
+    (0, 0),  // index 7 - the "start" position
+    (1, 0),
     (-2, 1),
     (-1, 1),
     (0, 1),
-    (1, 1), // right section
+    (1, 1),
 ];
+
+/// Converts section coordinate to block coordinate.
+#[inline]
+fn section_to_block(section: i32) -> i32 {
+    section << 4
+}
+
+/// Converts block coordinate to grid X coordinate (16-block spacing).
+#[inline]
+fn grid_x(block_coord: i32) -> i32 {
+    block_coord >> 4
+}
+
+/// Converts grid X coordinate back to block coordinate with offset.
+#[inline]
+fn from_grid_x(grid_coord: i32, offset: i32) -> i32 {
+    (grid_coord << 4) + offset
+}
+
+/// Converts block coordinate to grid Y coordinate (12-block spacing).
+#[inline]
+fn grid_y(block_coord: i32) -> i32 {
+    floor_div(block_coord, 12)
+}
+
+/// Converts grid Y coordinate back to block coordinate with offset.
+#[inline]
+fn from_grid_y(grid_coord: i32, offset: i32) -> i32 {
+    grid_coord * 12 + offset
+}
+
+/// Converts block coordinate to grid Z coordinate (16-block spacing).
+#[inline]
+fn grid_z(block_coord: i32) -> i32 {
+    block_coord >> 4
+}
+
+/// Converts grid Z coordinate back to block coordinate with offset.
+#[inline]
+fn from_grid_z(grid_coord: i32, offset: i32) -> i32 {
+    (grid_coord << 4) + offset
+}
 
 /// Trait for aquifer sampler implementations.
 #[enum_dispatch]
@@ -109,333 +151,344 @@ impl AquiferSamplerImpl for SeaLevelAquiferSampler {
     }
 }
 
-/// Converts block coordinate to 16-block cell coordinate.
-#[inline]
-fn local_xz(xz: i32) -> i32 {
-    floor_div(xz, 16)
-}
-
-/// Converts block coordinate to 12-block cell coordinate.
-#[inline]
-fn local_y(y: i32) -> i32 {
-    floor_div(y, 12)
-}
-
-/// Calculates index into packed positions array.
-#[inline]
-fn packed_position_index(x: usize, y: usize, z: usize, dim_y: usize, dim_z: usize) -> usize {
-    (x * dim_z + z) * dim_y + y
-}
-
 /// Full world aquifer sampler with underground water/lava pockets.
+///
+/// This implementation matches vanilla Minecraft's NoiseBasedAquifer.
 pub struct WorldAquiferSampler {
     /// Fluid level sampler for default levels.
     fluid_level_sampler: FluidLevelSampler,
     /// Block states for water/lava/air.
     blocks: AquiferBlocks,
-    /// Starting X coordinate in 16-block cells.
-    start_x: i32,
-    /// Starting Y coordinate in 12-block cells.
-    start_y: i32,
-    /// Starting Z coordinate in 16-block cells.
-    start_z: i32,
-    /// Y dimension size.
-    size_y: usize,
-    /// Z dimension size.
-    size_z: usize,
-    /// Cached fluid levels (lazily computed).
-    levels: Box<[Option<FluidLevel>]>,
-    /// Pre-computed random positions packed as i64.
-    packed_positions: Box<[i64]>,
+    /// Random deriver for position-based random.
+    random_deriver: RandomSplitter,
+    /// Minimum grid X coordinate.
+    min_grid_x: i32,
+    /// Minimum grid Y coordinate.
+    min_grid_y: i32,
+    /// Minimum grid Z coordinate.
+    min_grid_z: i32,
+    /// Grid size in X dimension.
+    grid_size_x: usize,
+    /// Grid size in Z dimension.
+    grid_size_z: usize,
+    /// Cached aquifer fluid levels (lazily computed).
+    aquifer_cache: Box<[Option<FluidLevel>]>,
+    /// Cached random positions (lazily computed, Long.MAX_VALUE = not computed).
+    aquifer_location_cache: Box<[i64]>,
+    /// Y level above which we skip aquifer sampling and use global fluid.
+    skip_sampling_above_y: i32,
 }
 
 impl WorldAquiferSampler {
     /// Creates a new world aquifer sampler.
+    ///
+    /// `max_surface_y` is the maximum preliminary surface level in the chunk area,
+    /// used to calculate the Y level above which we skip aquifer sampling.
     #[must_use]
     pub fn new(
         chunk_x: i32,
         chunk_z: i32,
-        random_deriver: &RandomSplitter,
+        random_deriver: RandomSplitter,
         minimum_y: i8,
         height: u16,
         fluid_level_sampler: FluidLevelSampler,
         blocks: AquiferBlocks,
+        max_surface_y: i32,
     ) -> Self {
-        // Convert chunk coords to 16-block cells
-        let start_x = local_xz(chunk_x * 16) - 1;
-        let start_z = local_xz(chunk_z * 16) - 1;
+        let chunk_min_x = chunk_x * 16;
+        let chunk_max_x = chunk_min_x + 15;
+        let chunk_min_z = chunk_z * 16;
+        let chunk_max_z = chunk_min_z + 15;
 
-        let max_y = i32::from(minimum_y) + i32::from(height);
-        let start_y = local_y(i32::from(minimum_y)) - 1;
-        let end_y = local_y(max_y) + 1;
+        // Calculate grid bounds with SAMPLE_OFFSET_X = -5, SAMPLE_OFFSET_Z = -5
+        let min_grid_x = grid_x(chunk_min_x - 5);
+        let max_grid_x = grid_x(chunk_max_x - 5) + 1;
+        let grid_size_x = (max_grid_x - min_grid_x + 1) as usize;
 
-        let size_x = local_xz(16) + 3; // 4
-        let size_y = (end_y - start_y + 1) as usize;
-        let size_z = local_xz(16) + 3; // 4
+        // SAMPLE_OFFSET_Y = 1, MIN_CELL_SAMPLE_Y = -1, MAX_CELL_SAMPLE_Y = 1
+        let min_grid_y = grid_y(i32::from(minimum_y) + 1) - 1;
+        let max_grid_y = grid_y(i32::from(minimum_y) + i32::from(height) + 1) + 1;
+        let grid_size_y = (max_grid_y - min_grid_y + 1) as usize;
 
-        let total_size = size_x as usize * size_y * size_z as usize;
+        let min_grid_z = grid_z(chunk_min_z - 5);
+        let max_grid_z = grid_z(chunk_max_z - 5) + 1;
+        let grid_size_z = (max_grid_z - min_grid_z + 1) as usize;
 
-        // Initialize packed positions with random offsets
-        let mut packed_positions = Vec::with_capacity(total_size);
+        let cache_size = grid_size_x * grid_size_y * grid_size_z;
 
-        for x_cell in 0..size_x {
-            let abs_x = start_x + x_cell;
-            for z_cell in 0..size_z as i32 {
-                let abs_z = start_z + z_cell;
-                for y_cell in 0..size_y as i32 {
-                    let abs_y = start_y + y_cell;
-
-                    let mut random = random_deriver.at(abs_x, abs_y, abs_z);
-
-                    // Random offset within cell
-                    let rand_x = abs_x * 16 + random.next_i32_bounded(10);
-                    let rand_y = abs_y * 12 + random.next_i32_bounded(9);
-                    let rand_z = abs_z * 16 + random.next_i32_bounded(10);
-
-                    // Pack as i64 (BlockPos format)
-                    let packed = pack_block_pos(rand_x, rand_y, rand_z);
-                    packed_positions.push(packed);
-                }
-            }
-        }
+        // Calculate skip_sampling_above_y (vanilla formula)
+        // adjustSurfaceLevel adds 8 to preliminary surface level
+        let max_adjusted_surface_level = max_surface_y + 8;
+        let skip_sampling_above_grid_y = grid_y(max_adjusted_surface_level + 12) + 1;
+        let skip_sampling_above_y = from_grid_y(skip_sampling_above_grid_y, 11) - 1;
 
         Self {
             fluid_level_sampler,
             blocks,
-            start_x,
-            start_y,
-            start_z,
-            size_y,
-            size_z: size_z as usize,
-            levels: vec![None; total_size].into_boxed_slice(),
-            packed_positions: packed_positions.into_boxed_slice(),
+            random_deriver,
+            min_grid_x,
+            min_grid_y,
+            min_grid_z,
+            grid_size_x,
+            grid_size_z,
+            aquifer_cache: vec![None; cache_size].into_boxed_slice(),
+            aquifer_location_cache: vec![i64::MAX; cache_size].into_boxed_slice(),
+            skip_sampling_above_y,
         }
     }
 
-    /// Gets random positions for a given cell position.
-    fn random_positions_for_pos(&self, x: i32, y: i32, z: i32) -> impl Iterator<Item = i64> + '_ {
-        CHUNK_POS_OFFSETS.iter().filter_map(move |&(dx, dz)| {
-            let cell_x = (x - self.start_x + i32::from(dx)) as usize;
-            let cell_z = (z - self.start_z + i32::from(dz)) as usize;
-
-            // Skip out of bounds
-            if cell_x >= 4 || cell_z >= self.size_z {
-                return None;
-            }
-
-            for dy in -1..=1 {
-                let cell_y = (y - self.start_y + dy) as usize;
-                if cell_y < self.size_y {
-                    let index = packed_position_index(cell_x, cell_y, cell_z, self.size_y, self.size_z);
-                    return Some(self.packed_positions[index]);
-                }
-            }
-            None
-        })
+    /// Calculates cache index for grid coordinates.
+    /// Formula: (y * gridSizeZ + z) * gridSizeX + x (vanilla order)
+    #[inline]
+    fn get_index(&self, grid_x: i32, grid_y: i32, grid_z: i32) -> usize {
+        let x = (grid_x - self.min_grid_x) as usize;
+        let y = (grid_y - self.min_grid_y) as usize;
+        let z = (grid_z - self.min_grid_z) as usize;
+        (y * self.grid_size_z + z) * self.grid_size_x + x
     }
 
-    /// Gets or computes the water level at a position.
-    fn get_water_level(
+    /// Computes similarity between two squared distances.
+    /// Returns 1.0 - (dist2 - dist1) / 25.0
+    #[inline]
+    fn similarity(dist_sq_1: i32, dist_sq_2: i32) -> f64 {
+        1.0 - f64::from(dist_sq_2 - dist_sq_1) / 25.0
+    }
+
+    /// Gets the aquifer status (fluid level) at a cache index.
+    fn get_aquifer_status(
         &mut self,
-        packed_pos: i64,
+        index: usize,
         router: &mut ChunkNoiseRouter,
-        sample_options: &ChunkNoiseFunctionSampleOptions,
         height_estimator: &mut SurfaceHeightEstimateSampler,
+        sample_options: &ChunkNoiseFunctionSampleOptions,
     ) -> FluidLevel {
-        let x = unpack_x(packed_pos);
-        let y = unpack_y(packed_pos);
-        let z = unpack_z(packed_pos);
-
-        let cell_x = (local_xz(x) - self.start_x) as usize;
-        let cell_y = (local_y(y) - self.start_y) as usize;
-        let cell_z = (local_xz(z) - self.start_z) as usize;
-
-        if cell_x >= 4 || cell_z >= self.size_z || cell_y >= self.size_y {
-            return self.get_fluid_level(x, y, z, router, sample_options, height_estimator);
-        }
-
-        let index = packed_position_index(cell_x, cell_y, cell_z, self.size_y, self.size_z);
-
-        if let Some(ref level) = self.levels[index] {
+        if let Some(ref level) = self.aquifer_cache[index] {
             return level.clone();
         }
 
-        let level = self.get_fluid_level(x, y, z, router, sample_options, height_estimator);
-        self.levels[index] = Some(level.clone());
+        let location = self.aquifer_location_cache[index];
+        let x = unpack_x(location);
+        let y = unpack_y(location);
+        let z = unpack_z(location);
+
+        let level = self.compute_fluid(x, y, z, router, height_estimator, sample_options);
+        self.aquifer_cache[index] = Some(level.clone());
         level
     }
 
-    /// Computes the fluid level at a position.
-    fn get_fluid_level(
+    /// Computes the fluid level at a position using 13-point surface height sampling.
+    fn compute_fluid(
         &self,
         x: i32,
         y: i32,
         z: i32,
         router: &mut ChunkNoiseRouter,
-        sample_options: &ChunkNoiseFunctionSampleOptions,
         height_estimator: &mut SurfaceHeightEstimateSampler,
+        _sample_options: &ChunkNoiseFunctionSampleOptions,
     ) -> FluidLevel {
-        let default_level = self.fluid_level_sampler.get_fluid_level(x, y, z);
-        let level_y = self.get_fluid_block_y(x, y, z, &default_level, router, sample_options, height_estimator);
+        // Use skip_cell_caches for all internal aquifer sampling since we're
+        // sampling at the aquifer's grid positions, not the block being generated.
+        let aquifer_options = ChunkNoiseFunctionSampleOptions::skip_cell_caches();
+        let global_fluid = self.fluid_level_sampler.get_fluid_level(x, y, z);
+        let mut lowest_preliminary_surface = i32::MAX;
+        let top_of_aquifer_cell = y + 12;
+        let bottom_of_aquifer_cell = y - 12;
+        let mut surface_at_center_is_under_global_fluid_level = false;
 
-        if level_y == MIN_HEIGHT_CELL {
-            return default_level;
+        for (offset_x, offset_z) in SURFACE_SAMPLING_OFFSETS_IN_CHUNKS {
+            let sample_x = x + section_to_block(i32::from(offset_x));
+            let sample_z = z + section_to_block(i32::from(offset_z));
+
+            let preliminary_surface_level = height_estimator.estimate_height(sample_x, sample_z);
+            let adjusted_surface_level = preliminary_surface_level + 8;
+            let is_start = offset_x == 0 && offset_z == 0;
+
+            if is_start && bottom_of_aquifer_cell > adjusted_surface_level {
+                return global_fluid;
+            }
+
+            let top_pokes_above_surface = top_of_aquifer_cell > adjusted_surface_level;
+            if top_pokes_above_surface || is_start {
+                let global_fluid_at_surface = self.fluid_level_sampler.get_fluid_level(sample_x, adjusted_surface_level, sample_z);
+                if global_fluid_at_surface.get_block(adjusted_surface_level, self.blocks.air) != self.blocks.air {
+                    if is_start {
+                        surface_at_center_is_under_global_fluid_level = true;
+                    }
+                    if top_pokes_above_surface {
+                        return global_fluid_at_surface;
+                    }
+                }
+            }
+
+            lowest_preliminary_surface = lowest_preliminary_surface.min(preliminary_surface_level);
         }
 
-        let block = self.get_fluid_block_state(x, y, z, &default_level, level_y, router, sample_options);
-        FluidLevel::new(level_y, block)
+        let fluid_surface_level = self.compute_surface_level(
+            x, y, z,
+            &global_fluid,
+            lowest_preliminary_surface,
+            surface_at_center_is_under_global_fluid_level,
+            router,
+            &aquifer_options,
+        );
+
+        FluidLevel::new(
+            fluid_surface_level,
+            self.compute_fluid_type(x, y, z, &global_fluid, fluid_surface_level, router, &aquifer_options),
+        )
     }
 
-    /// Determines the Y level for fluid at a position.
-    fn get_fluid_block_y(
+    /// Computes the surface level for fluid at a position.
+    fn compute_surface_level(
         &self,
         x: i32,
         y: i32,
         z: i32,
-        default_level: &FluidLevel,
+        global_fluid: &FluidLevel,
+        lowest_preliminary_surface: i32,
+        surface_at_center_is_under_global_fluid_level: bool,
         router: &mut ChunkNoiseRouter,
         sample_options: &ChunkNoiseFunctionSampleOptions,
-        height_estimator: &mut SurfaceHeightEstimateSampler,
     ) -> i32 {
-        let surface_height = height_estimator.estimate_height(x, z);
         let pos = UnblendedNoisePos::new(x, y, z);
 
-        // Check for deep dark (no fluid there)
+        // Check for deep dark region (no aquifers there)
         let erosion = router.erosion(&pos, sample_options);
         let depth = router.depth(&pos, sample_options);
         let is_deep_dark = erosion < -0.225 && depth > 0.9;
 
-        let (d, e) = if is_deep_dark {
+        let (partially_flooded, fully_flooded) = if is_deep_dark {
             (-1.0, -1.0)
         } else {
-            let top_y = surface_height + 8 - y;
-            let f = clamped_map(f64::from(top_y), 0.0, 64.0, 1.0, 0.0);
+            let distance_below_surface = lowest_preliminary_surface + 8 - y;
+            let floodedness_factor = if surface_at_center_is_under_global_fluid_level {
+                clamped_map(f64::from(distance_below_surface), 0.0, 64.0, 1.0, 0.0)
+            } else {
+                0.0
+            };
 
-            let g = router.fluid_level_floodedness_noise(&pos, sample_options).clamp(-1.0, 1.0);
-            let h = map(f, 1.0, 0.0, -0.3, 0.8);
-            let k = map(f, 1.0, 0.0, -0.8, 0.4);
+            let floodedness_noise = router.fluid_level_floodedness_noise(&pos, sample_options).clamp(-1.0, 1.0);
+            let fully_flooded_threshold = map(floodedness_factor, 1.0, 0.0, -0.3, 0.8);
+            let partially_flooded_threshold = map(floodedness_factor, 1.0, 0.0, -0.8, 0.4);
 
-            (g - k, g - h)
+            (floodedness_noise - partially_flooded_threshold, floodedness_noise - fully_flooded_threshold)
         };
 
-        if e > 0.0 {
-            default_level.max_y_exclusive()
-        } else if d > 0.0 {
-            self.get_noise_based_fluid_level(x, y, z, surface_height, router, sample_options)
+        if fully_flooded > 0.0 {
+            global_fluid.max_y_exclusive()
+        } else if partially_flooded > 0.0 {
+            self.compute_randomized_fluid_surface_level(x, y, z, lowest_preliminary_surface, router, sample_options)
         } else {
-            MIN_HEIGHT_CELL
+            WAY_BELOW_MIN_Y
         }
     }
 
-    /// Gets a noise-based fluid level.
-    fn get_noise_based_fluid_level(
+    /// Computes a randomized fluid surface level.
+    fn compute_randomized_fluid_surface_level(
         &self,
         x: i32,
         y: i32,
         z: i32,
-        surface_height: i32,
+        lowest_preliminary_surface: i32,
         router: &mut ChunkNoiseRouter,
         sample_options: &ChunkNoiseFunctionSampleOptions,
     ) -> i32 {
-        let grid_x = floor_div(x, 16);
-        let grid_y = floor_div(y, 40);
-        let grid_z = floor_div(z, 16);
+        let fluid_level_cell_x = floor_div(x, 16);
+        let fluid_level_cell_y = floor_div(y, 40);
+        let fluid_level_cell_z = floor_div(z, 16);
 
-        let local_y = grid_y * 40 + 20;
+        let fluid_cell_middle_y = fluid_level_cell_y * 40 + 20;
 
-        let pos = UnblendedNoisePos::new(grid_x, grid_y, grid_z);
-        let sample = router.fluid_level_spread_noise(&pos, sample_options) * 10.0;
+        let pos = UnblendedNoisePos::new(fluid_level_cell_x, fluid_level_cell_y, fluid_level_cell_z);
+        let fluid_level_spread = router.fluid_level_spread_noise(&pos, sample_options) * 10.0;
+        let fluid_level_spread_quantized = ((fluid_level_spread / 3.0).floor() as i32) * 3;
+        let target_fluid_surface_level = fluid_cell_middle_y + fluid_level_spread_quantized;
 
-        // Quantize to nearest multiple of 3
-        let quantized = ((sample / 3.0).floor() as i32) * 3;
-        let local_height = quantized + local_y;
-
-        surface_height.min(local_height)
+        lowest_preliminary_surface.min(target_fluid_surface_level)
     }
 
-    /// Determines if the fluid should be water or lava.
-    fn get_fluid_block_state(
+    /// Determines the fluid type (water or lava) at a position.
+    fn compute_fluid_type(
         &self,
         x: i32,
         y: i32,
         z: i32,
-        default_level: &FluidLevel,
-        level: i32,
+        global_fluid: &FluidLevel,
+        fluid_surface_level: i32,
         router: &mut ChunkNoiseRouter,
         sample_options: &ChunkNoiseFunctionSampleOptions,
     ) -> BlockStateId {
-        // Deep aquifers (level <= -10) might be lava
-        if level <= -10 && level != MIN_HEIGHT_CELL && default_level.block() != self.blocks.lava {
-            let grid_x = floor_div(x, 64);
-            let grid_y = floor_div(y, 40);
-            let grid_z = floor_div(z, 64);
+        if fluid_surface_level <= -10 && fluid_surface_level != WAY_BELOW_MIN_Y && global_fluid.block() != self.blocks.lava {
+            let fluid_type_cell_x = floor_div(x, 64);
+            let fluid_type_cell_y = floor_div(y, 40);
+            let fluid_type_cell_z = floor_div(z, 64);
 
-            let pos = UnblendedNoisePos::new(grid_x, grid_y, grid_z);
-            let sample = router.lava_noise(&pos, sample_options);
+            let pos = UnblendedNoisePos::new(fluid_type_cell_x, fluid_type_cell_y, fluid_type_cell_z);
+            let lava_noise = router.lava_noise(&pos, sample_options);
 
-            if sample.abs() > 0.3 {
+            if lava_noise.abs() > 0.3 {
                 return self.blocks.lava;
             }
         }
 
-        default_level.block()
+        global_fluid.block()
     }
 
-    /// Calculates the max distance weight: 1 - distance/25.
-    #[inline]
-    fn max_distance(dist1_sq: i32, dist2_sq: i32) -> f64 {
-        let dist = (dist1_sq.max(dist2_sq) as f64).sqrt();
-        1.0 - dist / 25.0
-    }
-
-    /// Calculates the density contribution between two fluid levels.
-    fn calculate_density(
-        barrier_sample: &mut Option<f64>,
+    /// Calculates the pressure/density contribution between two fluid levels.
+    fn calculate_pressure(
+        &self,
         pos: &impl NoisePos,
+        barrier_noise_value: &mut Option<f64>,
         router: &mut ChunkNoiseRouter,
         sample_options: &ChunkNoiseFunctionSampleOptions,
-        level_1: &FluidLevel,
-        level_2: &FluidLevel,
-        water: BlockStateId,
-        lava: BlockStateId,
-        air: BlockStateId,
+        status1: &FluidLevel,
+        status2: &FluidLevel,
     ) -> f64 {
         let y = pos.y();
-        let block_state1 = level_1.get_block(y, air);
-        let block_state2 = level_2.get_block(y, air);
+        let type1 = status1.get_block(y, self.blocks.air);
+        let type2 = status2.get_block(y, self.blocks.air);
 
-        // If mixing water and lava, create barrier
-        if (block_state1 == lava && block_state2 == water)
-            || (block_state1 == water && block_state2 == lava)
+        // Water/lava mixing creates barrier
+        if (type1 == self.blocks.lava && type2 == self.blocks.water)
+            || (type1 == self.blocks.water && type2 == self.blocks.lava)
         {
             return 2.0;
         }
 
-        let level_diff = (level_1.max_y_exclusive() - level_2.max_y_exclusive()).abs();
-        if level_diff == 0 {
+        let fluid_y_diff = (status1.max_y_exclusive() - status2.max_y_exclusive()).abs();
+        if fluid_y_diff == 0 {
             return 0.0;
         }
 
-        let avg_level = 0.5 * (level_1.max_y_exclusive() + level_2.max_y_exclusive()) as f64;
-        let scaled_level = y as f64 + 0.5 - avg_level;
-        let halved_diff = level_diff as f64 / 2.0;
+        let average_fluid_y = 0.5 * f64::from(status1.max_y_exclusive() + status2.max_y_exclusive());
+        let how_far_above_average = f64::from(y) + 0.5 - average_fluid_y;
+        let base_value = f64::from(fluid_y_diff) / 2.0;
 
-        let o = halved_diff - scaled_level.abs();
-        let q = if scaled_level > 0.0 {
-            if o > 0.0 { o / 1.5 } else { o / 2.5 }
+        let distance_from_barrier_edge = base_value - how_far_above_average.abs();
+
+        let gradient = if how_far_above_average > 0.0 {
+            let center_point = distance_from_barrier_edge;
+            if center_point > 0.0 {
+                center_point / 1.5
+            } else {
+                center_point / 2.5
+            }
         } else {
-            let p = 3.0 + o;
-            if p > 0.0 { p / 3.0 } else { p / 10.0 }
+            let center_point = 3.0 + distance_from_barrier_edge;
+            if center_point > 0.0 {
+                center_point / 3.0
+            } else {
+                center_point / 10.0
+            }
         };
 
-        // Sample barrier noise if in interpolation range
-        let r = if (-2.0..=2.0).contains(&q) {
-            *barrier_sample.get_or_insert_with(|| router.barrier_noise(pos, sample_options))
-        } else {
+        let noise_value = if !(-2.0..=2.0).contains(&gradient) {
             0.0
+        } else {
+            *barrier_noise_value.get_or_insert_with(|| router.barrier_noise(pos, sample_options))
         };
 
-        2.0 * (r + q)
+        2.0 * (noise_value + gradient)
     }
 }
 
@@ -452,122 +505,152 @@ impl AquiferSamplerImpl for WorldAquiferSampler {
             return None; // Solid block
         }
 
-        let sample_x = pos.x();
-        let sample_y = pos.y();
-        let sample_z = pos.z();
+        let pos_x = pos.x();
+        let pos_y = pos.y();
+        let pos_z = pos.z();
 
-        // Find cell coordinates
-        let scaled_x = local_xz(sample_x - 5);
-        let scaled_y = local_y(sample_y + 1);
-        let scaled_z = local_xz(sample_z - 5);
+        // Check global fluid first
+        let global_fluid = self.fluid_level_sampler.get_fluid_level(pos_x, pos_y, pos_z);
 
-        // Find 3 nearest aquifer sample points
-        let mut nearest: [(i64, i32); 3] = [(0, i32::MAX), (0, i32::MAX), (0, i32::MAX)];
+        // Skip aquifer calculations above surface - just use global fluid
+        if pos_y > self.skip_sampling_above_y {
+            return Some(global_fluid.get_block(pos_y, self.blocks.air));
+        }
 
-        for packed_random in self.random_positions_for_pos(scaled_x, scaled_y, scaled_z) {
-            let unpacked_x = unpack_x(packed_random);
-            let unpacked_y = unpack_y(packed_random);
-            let unpacked_z = unpack_z(packed_random);
+        if global_fluid.get_block(pos_y, self.blocks.air) == self.blocks.lava {
+            return Some(self.blocks.lava);
+        }
 
-            let dx = unpacked_x - sample_x;
-            let dy = unpacked_y - sample_y;
-            let dz = unpacked_z - sample_z;
-            let dist_sq = dx * dx + dy * dy + dz * dz;
+        // Compute anchor grid coordinates with sample offsets
+        let x_anchor = grid_x(pos_x - 5);
+        let y_anchor = grid_y(pos_y + 1);
+        let z_anchor = grid_z(pos_z - 5);
 
-            // Insert into sorted array of 3 nearest
-            if dist_sq < nearest[2].1 {
-                if dist_sq < nearest[1].1 {
-                    if dist_sq < nearest[0].1 {
-                        nearest[2] = nearest[1];
-                        nearest[1] = nearest[0];
-                        nearest[0] = (packed_random, dist_sq);
+        // Track 4 closest aquifer points
+        let mut dist_sq_1 = i32::MAX;
+        let mut dist_sq_2 = i32::MAX;
+        let mut dist_sq_3 = i32::MAX;
+        let mut closest_index_1 = 0usize;
+        let mut closest_index_2 = 0usize;
+        let mut closest_index_3 = 0usize;
+
+        // Iterate over 2x3x2 grid of cells
+        for x1 in 0..=1 {
+            for y1 in -1..=1 {
+                for z1 in 0..=1 {
+                    let spaced_grid_x = x_anchor + x1;
+                    let spaced_grid_y = y_anchor + y1;
+                    let spaced_grid_z = z_anchor + z1;
+
+                    let index = self.get_index(spaced_grid_x, spaced_grid_y, spaced_grid_z);
+
+                    // Get or compute random position for this cell
+                    let location = if self.aquifer_location_cache[index] != i64::MAX {
+                        self.aquifer_location_cache[index]
                     } else {
-                        nearest[2] = nearest[1];
-                        nearest[1] = (packed_random, dist_sq);
+                        let mut random = self.random_deriver.at(spaced_grid_x, spaced_grid_y, spaced_grid_z);
+                        let loc = pack_block_pos(
+                            from_grid_x(spaced_grid_x, random.next_i32_bounded(10)),
+                            from_grid_y(spaced_grid_y, random.next_i32_bounded(9)),
+                            from_grid_z(spaced_grid_z, random.next_i32_bounded(10)),
+                        );
+                        self.aquifer_location_cache[index] = loc;
+                        loc
+                    };
+
+                    let dx = unpack_x(location) - pos_x;
+                    let dy = unpack_y(location) - pos_y;
+                    let dz = unpack_z(location) - pos_z;
+                    let new_dist = dx * dx + dy * dy + dz * dz;
+
+                    // Insertion sort into 3 closest
+                    if dist_sq_1 >= new_dist {
+                        closest_index_3 = closest_index_2;
+                        closest_index_2 = closest_index_1;
+                        closest_index_1 = index;
+                        dist_sq_3 = dist_sq_2;
+                        dist_sq_2 = dist_sq_1;
+                        dist_sq_1 = new_dist;
+                    } else if dist_sq_2 >= new_dist {
+                        closest_index_3 = closest_index_2;
+                        closest_index_2 = index;
+                        dist_sq_3 = dist_sq_2;
+                        dist_sq_2 = new_dist;
+                    } else if dist_sq_3 >= new_dist {
+                        closest_index_3 = index;
+                        dist_sq_3 = new_dist;
                     }
-                } else {
-                    nearest[2] = (packed_random, dist_sq);
                 }
             }
         }
 
-        // Get fluid levels for nearest 3 points
-        let level1 = self.get_water_level(nearest[0].0, router, sample_options, height_estimator);
-        let level2 = self.get_water_level(nearest[1].0, router, sample_options, height_estimator);
-        let level3 = self.get_water_level(nearest[2].0, router, sample_options, height_estimator);
+        // Get fluid status for closest point
+        let status1 = self.get_aquifer_status(closest_index_1, router, height_estimator, sample_options);
+        let similarity_12 = Self::similarity(dist_sq_1, dist_sq_2);
+        let fluid_state = status1.get_block(pos_y, self.blocks.air);
 
-        let dist1_sq = nearest[0].1;
-        let dist2_sq = nearest[1].1;
-        let dist3_sq = nearest[2].1;
-
-        // Compute max_distance weight
-        let d = Self::max_distance(dist1_sq, dist2_sq);
-
-        // Determine block state from nearest level
-        let block_state = level1.get_block(sample_y, self.blocks.air);
-
-        // Check if completely submerged in one aquifer
-        if d <= 0.0 {
-            return Some(block_state);
+        if similarity_12 <= 0.0 {
+            return Some(fluid_state);
         }
 
-        // Calculate blended density between first two aquifers
-        let mut barrier_sample = None;
-        let e = d * Self::calculate_density(
-            &mut barrier_sample,
+        // Water above lava transition
+        if fluid_state == self.blocks.water
+            && self.fluid_level_sampler
+                .get_fluid_level(pos_x, pos_y - 1, pos_z)
+                .get_block(pos_y - 1, self.blocks.air) == self.blocks.lava
+        {
+            return Some(fluid_state);
+        }
+
+        // Calculate barrier between first two aquifers
+        let mut barrier_noise_value = None;
+        let status2 = self.get_aquifer_status(closest_index_2, router, height_estimator, sample_options);
+        let barrier_12 = similarity_12 * self.calculate_pressure(
             pos,
+            &mut barrier_noise_value,
             router,
             sample_options,
-            &level1,
-            &level2,
-            self.blocks.water,
-            self.blocks.lava,
-            self.blocks.air,
+            &status1,
+            &status2,
         );
 
-        if density + e > 0.0 {
+        if density + barrier_12 > 0.0 {
             return None; // Still solid
         }
 
-        // Calculate blended density between first and third aquifers
-        let f = Self::max_distance(dist1_sq, dist3_sq);
-        if f > 0.0 {
-            let g = d * f * Self::calculate_density(
-                &mut barrier_sample,
+        // Check third aquifer
+        let status3 = self.get_aquifer_status(closest_index_3, router, height_estimator, sample_options);
+        let similarity_13 = Self::similarity(dist_sq_1, dist_sq_3);
+        if similarity_13 > 0.0 {
+            let barrier_13 = similarity_12 * similarity_13 * self.calculate_pressure(
                 pos,
+                &mut barrier_noise_value,
                 router,
                 sample_options,
-                &level1,
-                &level3,
-                self.blocks.water,
-                self.blocks.lava,
-                self.blocks.air,
+                &status1,
+                &status3,
             );
-            if density + g > 0.0 {
+            if density + barrier_13 > 0.0 {
                 return None;
             }
         }
 
-        // Calculate blended density between second and third aquifers
-        let g = Self::max_distance(dist2_sq, dist3_sq);
-        if g > 0.0 {
-            let h = d * g * Self::calculate_density(
-                &mut barrier_sample,
+        let similarity_23 = Self::similarity(dist_sq_2, dist_sq_3);
+        if similarity_23 > 0.0 {
+            let barrier_23 = similarity_12 * similarity_23 * self.calculate_pressure(
                 pos,
+                &mut barrier_noise_value,
                 router,
                 sample_options,
-                &level2,
-                &level3,
-                self.blocks.water,
-                self.blocks.lava,
-                self.blocks.air,
+                &status2,
+                &status3,
             );
-            if density + h > 0.0 {
+            if density + barrier_23 > 0.0 {
                 return None;
             }
         }
 
-        Some(block_state)
+        Some(fluid_state)
     }
 }
 

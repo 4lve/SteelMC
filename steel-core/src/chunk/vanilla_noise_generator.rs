@@ -111,12 +111,12 @@ impl ChunkGenerator for VanillaNoiseGenerator {
         // Create fluid level sampler
         let fluid_level_sampler = self.create_fluid_level_sampler();
 
-        // Create chunk noise generator with aquifers and ore veins enabled
+        // Create chunk noise generator with aquifers and ore veins
         let mut generator = ChunkNoiseGenerator::new(
             &self.proto_routers.noise,
             &self.proto_routers.surface_estimator,
             &self.random_config,
-            (horizontal_cells + 1) as usize,
+            horizontal_cells as usize,
             base_x,
             base_z,
             &self.shape,

@@ -166,6 +166,21 @@ impl ChunkNoiseFunctionSampleOptions {
             fill_index,
         }
     }
+
+    /// Creates sample options that skip cell caches.
+    ///
+    /// Used when sampling at positions that don't correspond to the current cell
+    /// being generated (e.g., aquifer internal calculations).
+    #[must_use]
+    pub const fn skip_cell_caches() -> Self {
+        Self {
+            populating_caches: false,
+            action: SampleAction::SkipCellCaches,
+            cache_result_unique_id: 0,
+            cache_fill_unique_id: 0,
+            fill_index: 0,
+        }
+    }
 }
 
 pub struct ChunkNoiseFunctionBuilderOptions {
@@ -221,7 +236,7 @@ pub struct DensityInterpolator {
     first_pass: [f64; 8],
     second_pass: [f64; 4],
     third_pass: [f64; 2],
-    result: f64,
+    pub(crate) result: f64,
 
     pub(crate) vertical_cell_count: usize,
     min_value: f64,

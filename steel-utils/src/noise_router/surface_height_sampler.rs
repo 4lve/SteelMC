@@ -168,21 +168,30 @@ impl<'a> SurfaceHeightEstimateSampler<'a> {
 
     /// Estimates the surface height at the given block coordinates.
     ///
-    /// Uses binary search to find the Y level where density crosses the surface threshold.
+    /// Coordinates are quantized to 4-block boundaries (quart pos) for caching,
+    /// matching vanilla's behavior.
     pub fn estimate_height(&mut self, x: i32, z: i32) -> i32 {
+        // Quantize to 4-block (quart pos) boundaries like vanilla
+        let quantized_x = (x >> 2) << 2;
+        let quantized_z = (z >> 2) << 2;
+
         // Pack coordinates for cache key
-        let packed = pack_xz(x, z);
+        let packed = pack_xz(quantized_x, quantized_z);
 
         if let Some(&height) = self.cache.get(&packed) {
             return height;
         }
 
-        let height = self.compute_height(x, z);
+        let height = self.compute_height(quantized_x, quantized_z);
         self.cache.insert(packed, height);
         height
     }
 
-    /// Computes the surface height using binary search.
+    /// Computes the surface height using top-down linear search.
+    ///
+    /// This matches vanilla's `FindTopSurface` algorithm: search from top down,
+    /// stepping by cellHeight (y_level_step_count), returning the highest Y
+    /// where density > threshold.
     fn compute_height(&mut self, x: i32, z: i32) -> i32 {
         let sample_options = ChunkNoiseFunctionSampleOptions::new(
             false,
@@ -192,15 +201,18 @@ impl<'a> SurfaceHeightEstimateSampler<'a> {
             0,
         );
 
-        let mut low = self.minimum_y;
-        let mut high = self.maximum_y;
+        // Align maximum_y to cell boundary (step size)
+        let top_y = (self.maximum_y / self.y_level_step_count) * self.y_level_step_count;
 
-        // Binary search for the surface
-        while low < high {
-            let mid = low + (high - low) / 2;
-            let y = mid + (mid % self.y_level_step_count);
+        if top_y <= self.minimum_y {
+            return self.minimum_y;
+        }
 
-            let pos = UnblendedNoisePos::new(x, y, z);
+        // Linear search from top down, stepping by cell height
+        // Returns the HIGHEST Y where density > threshold (solid terrain)
+        let mut block_y = top_y;
+        while block_y >= self.minimum_y {
+            let pos = UnblendedNoisePos::new(x, block_y, z);
             let density = ChunkNoiseFunctionComponent::sample_from_stack(
                 &mut self.component_stack,
                 &pos,
@@ -208,13 +220,13 @@ impl<'a> SurfaceHeightEstimateSampler<'a> {
             );
 
             if density > SURFACE_DENSITY_CUTOFF {
-                low = mid + 1;
-            } else {
-                high = mid;
+                return block_y;
             }
+
+            block_y -= self.y_level_step_count;
         }
 
-        low
+        self.minimum_y
     }
 }
 
