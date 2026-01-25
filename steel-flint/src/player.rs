@@ -33,10 +33,13 @@ impl FlintPlayer for SteelTestPlayer {
     fn set_slot(&mut self, slot: PlayerSlot, item: Option<&Item>) {
         if let Some(item) = item {
             // Clone the item to store it
-            self.inventory.insert(slot, Item {
-                id: item.id.clone(),
-                count: item.count,
-            });
+            self.inventory.insert(
+                slot,
+                Item {
+                    id: item.id.clone(),
+                    count: item.count,
+                },
+            );
         } else {
             self.inventory.remove(&slot);
         }
@@ -60,8 +63,10 @@ impl FlintPlayer for SteelTestPlayer {
     }
 
     fn use_item_on(&mut self, pos: BlockPos, face: &BlockFace) {
-        log::warn!("Stub: use_item_on({pos:?}, {face:?}) - Requires decoupling Player from Networking in steel-core");
-        
+        log::warn!(
+            "Stub: use_item_on({pos:?}, {face:?}) - Requires decoupling Player from Networking in steel-core"
+        );
+
         // Note: Real implementation needs to call block behaviors.
         // But behaviors require &Player, which requires connection.
     }
@@ -82,7 +87,7 @@ mod tests {
 
         let item = Item::new("minecraft:stone");
         player.set_slot(PlayerSlot::Hotbar1, Some(&item));
-        
+
         let retrieved = player.get_slot(PlayerSlot::Hotbar1).unwrap();
         assert_eq!(retrieved.id, "minecraft:stone");
     }

@@ -82,7 +82,10 @@ impl ChunkMap {
         world: Weak<World>,
         dimension: &DimensionTypeRef,
     ) -> Self {
-        let storage = Arc::new(ChunkStorage::Disk(RegionManager::new(format!("world/{}", dimension.key.path))));
+        let storage = Arc::new(ChunkStorage::Disk(RegionManager::new(format!(
+            "world/{}",
+            dimension.key.path
+        ))));
         Self::new_with_storage(chunk_runtime, world, dimension, storage)
     }
 
@@ -164,8 +167,9 @@ impl ChunkMap {
 
         // Block on async storage load
         let storage = &self.storage;
-        let result =
-            futures::executor::block_on(async { storage.load_chunk(*pos, min_y, height, level).await });
+        let result = futures::executor::block_on(async {
+            storage.load_chunk(*pos, min_y, height, level).await
+        });
 
         match result {
             Ok(Some((chunk, _status))) => {

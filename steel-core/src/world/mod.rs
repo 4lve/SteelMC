@@ -34,8 +34,8 @@ use tokio::{runtime::Runtime, time::Instant};
 use crate::{
     ChunkMap,
     behavior::BLOCK_BEHAVIORS,
-    chunk_saver::{ChunkStorage, RamOnlyStorage, RegionManager},
     block_entity::SharedBlockEntity,
+    chunk_saver::{ChunkStorage, RamOnlyStorage, RegionManager},
     config::STEEL_CONFIG,
     level_data::LevelDataManager,
     player::{LastSeen, Player},

@@ -318,10 +318,7 @@ impl ChunkHolder {
         let future = chunk_map.task_tracker.spawn(async move {
             if target_status == ChunkStatus::Empty {
                 // Acquire the region first (creates if needed, increments ref count)
-                let chunk_exists = storage
-                    .acquire_chunk(self_clone.pos)
-                    .await
-                    .unwrap_or(false);
+                let chunk_exists = storage.acquire_chunk(self_clone.pos).await.unwrap_or(false);
 
                 if chunk_exists {
                     // Try to load the chunk from disk

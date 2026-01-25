@@ -38,7 +38,7 @@ impl SteelTestWorld {
     ///
     /// The world uses the overworld dimension type and starts with seed 0.
     /// All chunks are created empty on-demand.
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         let rt = runtime();
 

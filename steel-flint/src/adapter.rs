@@ -55,7 +55,8 @@ mod tests {
         init_test_registries();
 
         // Load the fence test
-        let test_path = PathBuf::from("../../../flint/FlintBenchmark/tests/fences/fence_row_connections.json");
+        let test_path =
+            PathBuf::from("../../../flint/FlintBenchmark/tests/fences/fence_row_connections.json");
         let spec = flint_core::test_spec::TestSpec::from_file(&test_path)
             .expect("Failed to load fence test");
 
@@ -67,12 +68,18 @@ mod tests {
         let result = runner.run_test(&spec);
 
         // Check result
-        println!("Test '{}': success={}, ticks={}, time={}ms",
-            result.test_name, result.success, result.total_ticks, result.execution_time_ms);
+        println!(
+            "Test '{}': success={}, ticks={}, time={}ms",
+            result.test_name, result.success, result.total_ticks, result.execution_time_ms
+        );
 
         for assertion in &result.assertions {
             if !assertion.success {
-                println!("  FAILED at tick {}: {}", assertion.tick, assertion.error_message.as_deref().unwrap_or(""));
+                println!(
+                    "  FAILED at tick {}: {}",
+                    assertion.tick,
+                    assertion.error_message.as_deref().unwrap_or("")
+                );
             }
         }
 
@@ -89,9 +96,9 @@ mod tests {
             return;
         }
 
-        let loader = TestLoader::new(&test_dir, true)
-            .expect("Failed to create test loader");
-        let paths = loader.collect_all_test_files()
+        let loader = TestLoader::new(&test_dir, true).expect("Failed to create test loader");
+        let paths = loader
+            .collect_all_test_files()
             .expect("Failed to collect test files");
 
         if paths.is_empty() {
@@ -114,22 +121,35 @@ mod tests {
         let summary = runner.run_tests(&specs);
 
         println!("\n=== Flint Benchmark Results ===");
-        println!("Total: {}, Passed: {}, Failed: {}",
-            summary.total_tests, summary.passed_tests, summary.failed_tests);
+        println!(
+            "Total: {}, Passed: {}, Failed: {}",
+            summary.total_tests, summary.passed_tests, summary.failed_tests
+        );
 
         for result in &summary.results {
             let status = if result.success { "PASS" } else { "FAIL" };
-            println!("  [{}] {} ({}ms)", status, result.test_name, result.execution_time_ms);
+            println!(
+                "  [{}] {} ({}ms)",
+                status, result.test_name, result.execution_time_ms
+            );
 
             if !result.success {
                 for assertion in &result.assertions {
                     if !assertion.success {
-                        println!("    -> tick {}: {}", assertion.tick, assertion.error_message.as_deref().unwrap_or(""));
+                        println!(
+                            "    -> tick {}: {}",
+                            assertion.tick,
+                            assertion.error_message.as_deref().unwrap_or("")
+                        );
                     }
                 }
             }
         }
 
-        assert_eq!(summary.failed_tests, 0, "{} tests failed", summary.failed_tests);
+        assert_eq!(
+            summary.failed_tests, 0,
+            "{} tests failed",
+            summary.failed_tests
+        );
     }
 }
