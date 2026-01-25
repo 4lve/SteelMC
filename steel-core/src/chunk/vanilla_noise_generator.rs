@@ -71,18 +71,6 @@ impl VanillaNoiseGenerator {
     }
 }
 
-/// Simple position-based hash for bedrock variation.
-fn position_hash(x: i32, y: i32, z: i32) -> u32 {
-    let mut h = x.wrapping_mul(3_129_871) as u32;
-    h ^= z.wrapping_mul(116_129_781) as u32;
-    h ^= y as u32;
-    h = h
-        .wrapping_mul(h)
-        .wrapping_mul(42_317_861)
-        .wrapping_add(h.wrapping_mul(11));
-    h >> 16
-}
-
 impl ChunkGenerator for VanillaNoiseGenerator {
     fn create_structures(&self, _chunk: &ChunkAccess) {
         // TODO: Structure generation
@@ -174,42 +162,17 @@ impl ChunkGenerator for VanillaNoiseGenerator {
                                 );
 
                                 // Determine final block
-                                let world_y = block_y;
+                                // Bedrock and deepslate are placed later by surface rules
                                 let local_y_idx = (block_y - min_y) as usize;
                                 let local_x_idx = (block_x - base_x) as usize;
                                 let local_z_idx = (block_z - base_z) as usize;
 
-                                let bedrock_top = min_y + 5;
-
-                                let block = if world_y == min_y {
-                                    // Bottom bedrock layer
-                                    self.blocks.bedrock
-                                } else if world_y < bedrock_top {
-                                    // Bedrock variation zone
-                                    let hash = position_hash(block_x, world_y, block_z);
-                                    let bedrock_chance = (bedrock_top - world_y) as u32;
-                                    if hash % 5 < bedrock_chance {
-                                        self.blocks.bedrock
-                                    } else if let Some(block) = sampled_block {
-                                        block
-                                    } else {
-                                        // Solid block from sampler returning None
-                                        if world_y < 0 {
-                                            self.blocks.deepslate
-                                        } else {
-                                            self.blocks.stone
-                                        }
-                                    }
-                                } else if let Some(block) = sampled_block {
+                                let block = if let Some(block) = sampled_block {
                                     // Use sampled block (water, lava, ore, etc.)
                                     block
                                 } else {
                                     // Solid block (sampler returned None)
-                                    if world_y < 0 {
-                                        self.blocks.deepslate
-                                    } else {
-                                        self.blocks.stone
-                                    }
+                                    self.blocks.stone
                                 };
 
                                 // Skip air blocks

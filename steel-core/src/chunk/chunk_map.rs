@@ -103,7 +103,6 @@ impl ChunkMap {
     ) -> Self {
         let blocks = TerrainBlocks {
             stone: REGISTRY.blocks.get_default_state_id(vanilla_blocks::STONE),
-            deepslate: REGISTRY.blocks.get_default_state_id(vanilla_blocks::DEEPSLATE),
             water: REGISTRY.blocks.get_default_state_id(vanilla_blocks::WATER),
             lava: REGISTRY.blocks.get_default_state_id(vanilla_blocks::LAVA),
             air: REGISTRY.blocks.get_default_state_id(vanilla_blocks::AIR),

@@ -177,15 +177,10 @@ pub struct WorldAquiferSampler {
     aquifer_cache: Box<[Option<FluidLevel>]>,
     /// Cached random positions (lazily computed, Long.MAX_VALUE = not computed).
     aquifer_location_cache: Box<[i64]>,
-    /// Y level above which we skip aquifer sampling and use global fluid.
-    skip_sampling_above_y: i32,
 }
 
 impl WorldAquiferSampler {
     /// Creates a new world aquifer sampler.
-    ///
-    /// `max_surface_y` is the maximum preliminary surface level in the chunk area,
-    /// used to calculate the Y level above which we skip aquifer sampling.
     #[must_use]
     pub fn new(
         chunk_x: i32,
@@ -195,7 +190,6 @@ impl WorldAquiferSampler {
         height: u16,
         fluid_level_sampler: FluidLevelSampler,
         blocks: AquiferBlocks,
-        max_surface_y: i32,
     ) -> Self {
         let chunk_min_x = chunk_x * 16;
         let chunk_max_x = chunk_min_x + 15;
@@ -218,12 +212,6 @@ impl WorldAquiferSampler {
 
         let cache_size = grid_size_x * grid_size_y * grid_size_z;
 
-        // Calculate skip_sampling_above_y (vanilla formula)
-        // adjustSurfaceLevel adds 8 to preliminary surface level
-        let max_adjusted_surface_level = max_surface_y + 8;
-        let skip_sampling_above_grid_y = grid_y(max_adjusted_surface_level + 12) + 1;
-        let skip_sampling_above_y = from_grid_y(skip_sampling_above_grid_y, 11) - 1;
-
         Self {
             fluid_level_sampler,
             blocks,
@@ -235,7 +223,6 @@ impl WorldAquiferSampler {
             grid_size_z,
             aquifer_cache: vec![None; cache_size].into_boxed_slice(),
             aquifer_location_cache: vec![i64::MAX; cache_size].into_boxed_slice(),
-            skip_sampling_above_y,
         }
     }
 
