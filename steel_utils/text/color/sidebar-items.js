@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Color","NamedColor"],"struct":["ARGBColor","RGBColor"]};

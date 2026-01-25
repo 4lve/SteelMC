@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":["LivingEntity"]};
+window.SIDEBAR_ITEMS = {"trait":["Entity","LivingEntity"]};

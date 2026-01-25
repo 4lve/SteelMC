@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `steel-core/src/chunk_saver/region_manager.rs`."><title>region_manager.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-bbd8d786.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="steel_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0-nightly (d222ddc4d 2026-01-23)" data-channel="nightly" data-search-js="search-86d08462.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-f9617a14.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-12f88f4f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">steel_core/chunk_saver/</div>region_manager.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Region file manager with seek-based chunk access.
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `steel-core/src/chunk_saver/region_manager.rs`."><title>region_manager.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-0bd2dfd4.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="steel_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0-nightly (f134bbc78 2026-01-24)" data-channel="nightly" data-search-js="search-86d08462.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-f9617a14.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-12f88f4f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">steel_core/chunk_saver/</div>region_manager.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Region file manager with seek-based chunk access.
 <a href=#2 id=2 data-nosnippet>2</a>//!
 <a href=#3 id=3 data-nosnippet>3</a>//! Uses a sector-based format where only the header (8KB) is kept in memory.
 <a href=#4 id=4 data-nosnippet>4</a>//! Chunk data is read on-demand from disk and converted directly to runtime
@@ -640,320 +640,319 @@
 <a href=#640 id=640 data-nosnippet>640</a>        PersistentChunk {
 <a href=#641 id=641 data-nosnippet>641</a>            last_modified: SystemTime::now()
 <a href=#642 id=642 data-nosnippet>642</a>                .duration_since(UNIX_EPOCH)
-<a href=#643 id=643 data-nosnippet>643</a>                .map(|d| d.as_secs() <span class="kw">as </span>u32)
-<a href=#644 id=644 data-nosnippet>644</a>                .unwrap_or(<span class="number">0</span>),
-<a href=#645 id=645 data-nosnippet>645</a>            block_states: builder.block_states,
-<a href=#646 id=646 data-nosnippet>646</a>            biomes: builder.biomes,
-<a href=#647 id=647 data-nosnippet>647</a>            sections: persistent_sections,
-<a href=#648 id=648 data-nosnippet>648</a>            block_entities: persistent_block_entities,
-<a href=#649 id=649 data-nosnippet>649</a>        }
-<a href=#650 id=650 data-nosnippet>650</a>    }
-<a href=#651 id=651 data-nosnippet>651</a>
-<a href=#652 id=652 data-nosnippet>652</a>    <span class="doccomment">/// Converts a runtime section to persistent format.
-<a href=#653 id=653 data-nosnippet>653</a>    </span><span class="kw">fn </span>section_to_persistent(
-<a href=#654 id=654 data-nosnippet>654</a>        section: <span class="kw-2">&amp;</span>SectionHolder,
-<a href=#655 id=655 data-nosnippet>655</a>        builder: <span class="kw-2">&amp;mut </span>ChunkBuilder,
-<a href=#656 id=656 data-nosnippet>656</a>    ) -&gt; PersistentSection {
-<a href=#657 id=657 data-nosnippet>657</a>        <span class="kw">let </span>section = section.read();
-<a href=#658 id=658 data-nosnippet>658</a>        <span class="kw">let </span>biomes = <span class="self">Self</span>::biomes_to_persistent(<span class="kw-2">&amp;</span>section.biomes, builder);
-<a href=#659 id=659 data-nosnippet>659</a>
-<a href=#660 id=660 data-nosnippet>660</a>        <span class="kw">match </span><span class="kw-2">&amp;</span>section.states {
-<a href=#661 id=661 data-nosnippet>661</a>            PalettedContainer::Homogeneous(block_id) =&gt; {
-<a href=#662 id=662 data-nosnippet>662</a>                <span class="kw">let </span>block_idx = builder.ensure_block_state(<span class="kw-2">*</span>block_id);
-<a href=#663 id=663 data-nosnippet>663</a>                PersistentSection::Homogeneous {
-<a href=#664 id=664 data-nosnippet>664</a>                    block_state: block_idx,
-<a href=#665 id=665 data-nosnippet>665</a>                    biomes,
-<a href=#666 id=666 data-nosnippet>666</a>                }
-<a href=#667 id=667 data-nosnippet>667</a>            }
-<a href=#668 id=668 data-nosnippet>668</a>            PalettedContainer::Heterogeneous(data) =&gt; {
-<a href=#669 id=669 data-nosnippet>669</a>                <span class="comment">// Build section-local palette (indices into chunk's block_states)
-<a href=#670 id=670 data-nosnippet>670</a>                </span><span class="kw">let </span>palette: Vec&lt;u16&gt; = data
-<a href=#671 id=671 data-nosnippet>671</a>                    .palette
-<a href=#672 id=672 data-nosnippet>672</a>                    .iter()
-<a href=#673 id=673 data-nosnippet>673</a>                    .map(|(block_id, <span class="kw">_</span>)| builder.ensure_block_state(<span class="kw-2">*</span>block_id))
-<a href=#674 id=674 data-nosnippet>674</a>                    .collect();
-<a href=#675 id=675 data-nosnippet>675</a>
-<a href=#676 id=676 data-nosnippet>676</a>                <span class="comment">// Pack block indices (indices into section-local palette)
-<a href=#677 id=677 data-nosnippet>677</a>                </span><span class="kw">let </span>bits = bits_for_palette_len(palette.len())
-<a href=#678 id=678 data-nosnippet>678</a>                    .expect(<span class="string">"Heterogeneous section should have palette length &gt;= 2"</span>);
-<a href=#679 id=679 data-nosnippet>679</a>                <span class="kw">let </span>indices: Vec&lt;u32&gt; = data
-<a href=#680 id=680 data-nosnippet>680</a>                    .cube
-<a href=#681 id=681 data-nosnippet>681</a>                    .iter()
+<a href=#643 id=643 data-nosnippet>643</a>                .map_or(<span class="number">0</span>, |d| d.as_secs() <span class="kw">as </span>u32),
+<a href=#644 id=644 data-nosnippet>644</a>            block_states: builder.block_states,
+<a href=#645 id=645 data-nosnippet>645</a>            biomes: builder.biomes,
+<a href=#646 id=646 data-nosnippet>646</a>            sections: persistent_sections,
+<a href=#647 id=647 data-nosnippet>647</a>            block_entities: persistent_block_entities,
+<a href=#648 id=648 data-nosnippet>648</a>        }
+<a href=#649 id=649 data-nosnippet>649</a>    }
+<a href=#650 id=650 data-nosnippet>650</a>
+<a href=#651 id=651 data-nosnippet>651</a>    <span class="doccomment">/// Converts a runtime section to persistent format.
+<a href=#652 id=652 data-nosnippet>652</a>    </span><span class="kw">fn </span>section_to_persistent(
+<a href=#653 id=653 data-nosnippet>653</a>        section: <span class="kw-2">&amp;</span>SectionHolder,
+<a href=#654 id=654 data-nosnippet>654</a>        builder: <span class="kw-2">&amp;mut </span>ChunkBuilder,
+<a href=#655 id=655 data-nosnippet>655</a>    ) -&gt; PersistentSection {
+<a href=#656 id=656 data-nosnippet>656</a>        <span class="kw">let </span>section = section.read();
+<a href=#657 id=657 data-nosnippet>657</a>        <span class="kw">let </span>biomes = <span class="self">Self</span>::biomes_to_persistent(<span class="kw-2">&amp;</span>section.biomes, builder);
+<a href=#658 id=658 data-nosnippet>658</a>
+<a href=#659 id=659 data-nosnippet>659</a>        <span class="kw">match </span><span class="kw-2">&amp;</span>section.states {
+<a href=#660 id=660 data-nosnippet>660</a>            PalettedContainer::Homogeneous(block_id) =&gt; {
+<a href=#661 id=661 data-nosnippet>661</a>                <span class="kw">let </span>block_idx = builder.ensure_block_state(<span class="kw-2">*</span>block_id);
+<a href=#662 id=662 data-nosnippet>662</a>                PersistentSection::Homogeneous {
+<a href=#663 id=663 data-nosnippet>663</a>                    block_state: block_idx,
+<a href=#664 id=664 data-nosnippet>664</a>                    biomes,
+<a href=#665 id=665 data-nosnippet>665</a>                }
+<a href=#666 id=666 data-nosnippet>666</a>            }
+<a href=#667 id=667 data-nosnippet>667</a>            PalettedContainer::Heterogeneous(data) =&gt; {
+<a href=#668 id=668 data-nosnippet>668</a>                <span class="comment">// Build section-local palette (indices into chunk's block_states)
+<a href=#669 id=669 data-nosnippet>669</a>                </span><span class="kw">let </span>palette: Vec&lt;u16&gt; = data
+<a href=#670 id=670 data-nosnippet>670</a>                    .palette
+<a href=#671 id=671 data-nosnippet>671</a>                    .iter()
+<a href=#672 id=672 data-nosnippet>672</a>                    .map(|(block_id, <span class="kw">_</span>)| builder.ensure_block_state(<span class="kw-2">*</span>block_id))
+<a href=#673 id=673 data-nosnippet>673</a>                    .collect();
+<a href=#674 id=674 data-nosnippet>674</a>
+<a href=#675 id=675 data-nosnippet>675</a>                <span class="comment">// Pack block indices (indices into section-local palette)
+<a href=#676 id=676 data-nosnippet>676</a>                </span><span class="kw">let </span>bits = bits_for_palette_len(palette.len())
+<a href=#677 id=677 data-nosnippet>677</a>                    .expect(<span class="string">"Heterogeneous section should have palette length &gt;= 2"</span>);
+<a href=#678 id=678 data-nosnippet>678</a>                <span class="kw">let </span>indices: Vec&lt;u32&gt; = data
+<a href=#679 id=679 data-nosnippet>679</a>                    .cube
+<a href=#680 id=680 data-nosnippet>680</a>                    .iter()
+<a href=#681 id=681 data-nosnippet>681</a>                    .flatten()
 <a href=#682 id=682 data-nosnippet>682</a>                    .flatten()
-<a href=#683 id=683 data-nosnippet>683</a>                    .flatten()
-<a href=#684 id=684 data-nosnippet>684</a>                    .map(|block_id| {
-<a href=#685 id=685 data-nosnippet>685</a>                        data.palette
-<a href=#686 id=686 data-nosnippet>686</a>                            .iter()
-<a href=#687 id=687 data-nosnippet>687</a>                            .position(|(v, <span class="kw">_</span>)| v == block_id)
-<a href=#688 id=688 data-nosnippet>688</a>                            .unwrap_or(<span class="number">0</span>) <span class="kw">as </span>u32
-<a href=#689 id=689 data-nosnippet>689</a>                    })
-<a href=#690 id=690 data-nosnippet>690</a>                    .collect();
-<a href=#691 id=691 data-nosnippet>691</a>
-<a href=#692 id=692 data-nosnippet>692</a>                <span class="kw">let </span>block_data = pack_indices(<span class="kw-2">&amp;</span>indices, bits);
-<a href=#693 id=693 data-nosnippet>693</a>
-<a href=#694 id=694 data-nosnippet>694</a>                PersistentSection::Heterogeneous {
-<a href=#695 id=695 data-nosnippet>695</a>                    palette,
-<a href=#696 id=696 data-nosnippet>696</a>                    bits_per_entry: bits,
-<a href=#697 id=697 data-nosnippet>697</a>                    block_data,
-<a href=#698 id=698 data-nosnippet>698</a>                    biomes,
-<a href=#699 id=699 data-nosnippet>699</a>                }
-<a href=#700 id=700 data-nosnippet>700</a>            }
-<a href=#701 id=701 data-nosnippet>701</a>        }
-<a href=#702 id=702 data-nosnippet>702</a>    }
-<a href=#703 id=703 data-nosnippet>703</a>
-<a href=#704 id=704 data-nosnippet>704</a>    <span class="doccomment">/// Converts runtime biome data to persistent format.
-<a href=#705 id=705 data-nosnippet>705</a>    </span><span class="kw">fn </span>biomes_to_persistent(
-<a href=#706 id=706 data-nosnippet>706</a>        biomes: <span class="kw-2">&amp;</span>PalettedContainer&lt;u8, <span class="number">4</span>&gt;,
-<a href=#707 id=707 data-nosnippet>707</a>        builder: <span class="kw-2">&amp;mut </span>ChunkBuilder,
-<a href=#708 id=708 data-nosnippet>708</a>    ) -&gt; PersistentBiomeData {
-<a href=#709 id=709 data-nosnippet>709</a>        <span class="kw">match </span>biomes {
-<a href=#710 id=710 data-nosnippet>710</a>            PalettedContainer::Homogeneous(biome_id) =&gt; {
-<a href=#711 id=711 data-nosnippet>711</a>                <span class="kw">let </span>biome_idx = builder.ensure_biome(<span class="kw-2">*</span>biome_id);
-<a href=#712 id=712 data-nosnippet>712</a>                PersistentBiomeData::Homogeneous { biome: biome_idx }
-<a href=#713 id=713 data-nosnippet>713</a>            }
-<a href=#714 id=714 data-nosnippet>714</a>            PalettedContainer::Heterogeneous(data) =&gt; {
-<a href=#715 id=715 data-nosnippet>715</a>                <span class="comment">// Build section-local palette (indices into chunk's biomes)
-<a href=#716 id=716 data-nosnippet>716</a>                </span><span class="kw">let </span>palette: Vec&lt;u16&gt; = data
-<a href=#717 id=717 data-nosnippet>717</a>                    .palette
-<a href=#718 id=718 data-nosnippet>718</a>                    .iter()
-<a href=#719 id=719 data-nosnippet>719</a>                    .map(|(biome_id, <span class="kw">_</span>)| builder.ensure_biome(<span class="kw-2">*</span>biome_id))
-<a href=#720 id=720 data-nosnippet>720</a>                    .collect();
-<a href=#721 id=721 data-nosnippet>721</a>
-<a href=#722 id=722 data-nosnippet>722</a>                <span class="kw">let </span>bits = bits_for_palette_len(palette.len())
-<a href=#723 id=723 data-nosnippet>723</a>                    .expect(<span class="string">"Heterogeneous biome data should have palette length &gt;= 2"</span>);
-<a href=#724 id=724 data-nosnippet>724</a>                <span class="kw">let </span>indices: Vec&lt;u32&gt; = data
-<a href=#725 id=725 data-nosnippet>725</a>                    .cube
-<a href=#726 id=726 data-nosnippet>726</a>                    .iter()
+<a href=#683 id=683 data-nosnippet>683</a>                    .map(|block_id| {
+<a href=#684 id=684 data-nosnippet>684</a>                        data.palette
+<a href=#685 id=685 data-nosnippet>685</a>                            .iter()
+<a href=#686 id=686 data-nosnippet>686</a>                            .position(|(v, <span class="kw">_</span>)| v == block_id)
+<a href=#687 id=687 data-nosnippet>687</a>                            .unwrap_or(<span class="number">0</span>) <span class="kw">as </span>u32
+<a href=#688 id=688 data-nosnippet>688</a>                    })
+<a href=#689 id=689 data-nosnippet>689</a>                    .collect();
+<a href=#690 id=690 data-nosnippet>690</a>
+<a href=#691 id=691 data-nosnippet>691</a>                <span class="kw">let </span>block_data = pack_indices(<span class="kw-2">&amp;</span>indices, bits);
+<a href=#692 id=692 data-nosnippet>692</a>
+<a href=#693 id=693 data-nosnippet>693</a>                PersistentSection::Heterogeneous {
+<a href=#694 id=694 data-nosnippet>694</a>                    palette,
+<a href=#695 id=695 data-nosnippet>695</a>                    bits_per_entry: bits,
+<a href=#696 id=696 data-nosnippet>696</a>                    block_data,
+<a href=#697 id=697 data-nosnippet>697</a>                    biomes,
+<a href=#698 id=698 data-nosnippet>698</a>                }
+<a href=#699 id=699 data-nosnippet>699</a>            }
+<a href=#700 id=700 data-nosnippet>700</a>        }
+<a href=#701 id=701 data-nosnippet>701</a>    }
+<a href=#702 id=702 data-nosnippet>702</a>
+<a href=#703 id=703 data-nosnippet>703</a>    <span class="doccomment">/// Converts runtime biome data to persistent format.
+<a href=#704 id=704 data-nosnippet>704</a>    </span><span class="kw">fn </span>biomes_to_persistent(
+<a href=#705 id=705 data-nosnippet>705</a>        biomes: <span class="kw-2">&amp;</span>PalettedContainer&lt;u8, <span class="number">4</span>&gt;,
+<a href=#706 id=706 data-nosnippet>706</a>        builder: <span class="kw-2">&amp;mut </span>ChunkBuilder,
+<a href=#707 id=707 data-nosnippet>707</a>    ) -&gt; PersistentBiomeData {
+<a href=#708 id=708 data-nosnippet>708</a>        <span class="kw">match </span>biomes {
+<a href=#709 id=709 data-nosnippet>709</a>            PalettedContainer::Homogeneous(biome_id) =&gt; {
+<a href=#710 id=710 data-nosnippet>710</a>                <span class="kw">let </span>biome_idx = builder.ensure_biome(<span class="kw-2">*</span>biome_id);
+<a href=#711 id=711 data-nosnippet>711</a>                PersistentBiomeData::Homogeneous { biome: biome_idx }
+<a href=#712 id=712 data-nosnippet>712</a>            }
+<a href=#713 id=713 data-nosnippet>713</a>            PalettedContainer::Heterogeneous(data) =&gt; {
+<a href=#714 id=714 data-nosnippet>714</a>                <span class="comment">// Build section-local palette (indices into chunk's biomes)
+<a href=#715 id=715 data-nosnippet>715</a>                </span><span class="kw">let </span>palette: Vec&lt;u16&gt; = data
+<a href=#716 id=716 data-nosnippet>716</a>                    .palette
+<a href=#717 id=717 data-nosnippet>717</a>                    .iter()
+<a href=#718 id=718 data-nosnippet>718</a>                    .map(|(biome_id, <span class="kw">_</span>)| builder.ensure_biome(<span class="kw-2">*</span>biome_id))
+<a href=#719 id=719 data-nosnippet>719</a>                    .collect();
+<a href=#720 id=720 data-nosnippet>720</a>
+<a href=#721 id=721 data-nosnippet>721</a>                <span class="kw">let </span>bits = bits_for_palette_len(palette.len())
+<a href=#722 id=722 data-nosnippet>722</a>                    .expect(<span class="string">"Heterogeneous biome data should have palette length &gt;= 2"</span>);
+<a href=#723 id=723 data-nosnippet>723</a>                <span class="kw">let </span>indices: Vec&lt;u32&gt; = data
+<a href=#724 id=724 data-nosnippet>724</a>                    .cube
+<a href=#725 id=725 data-nosnippet>725</a>                    .iter()
+<a href=#726 id=726 data-nosnippet>726</a>                    .flatten()
 <a href=#727 id=727 data-nosnippet>727</a>                    .flatten()
-<a href=#728 id=728 data-nosnippet>728</a>                    .flatten()
-<a href=#729 id=729 data-nosnippet>729</a>                    .map(|biome_id| {
-<a href=#730 id=730 data-nosnippet>730</a>                        data.palette
-<a href=#731 id=731 data-nosnippet>731</a>                            .iter()
-<a href=#732 id=732 data-nosnippet>732</a>                            .position(|(v, <span class="kw">_</span>)| v == biome_id)
-<a href=#733 id=733 data-nosnippet>733</a>                            .unwrap_or(<span class="number">0</span>) <span class="kw">as </span>u32
-<a href=#734 id=734 data-nosnippet>734</a>                    })
-<a href=#735 id=735 data-nosnippet>735</a>                    .collect();
-<a href=#736 id=736 data-nosnippet>736</a>
-<a href=#737 id=737 data-nosnippet>737</a>                <span class="kw">let </span>biome_data = pack_indices(<span class="kw-2">&amp;</span>indices, bits);
-<a href=#738 id=738 data-nosnippet>738</a>
-<a href=#739 id=739 data-nosnippet>739</a>                PersistentBiomeData::Heterogeneous {
-<a href=#740 id=740 data-nosnippet>740</a>                    palette,
-<a href=#741 id=741 data-nosnippet>741</a>                    bits_per_entry: bits,
-<a href=#742 id=742 data-nosnippet>742</a>                    biome_data,
-<a href=#743 id=743 data-nosnippet>743</a>                }
-<a href=#744 id=744 data-nosnippet>744</a>            }
-<a href=#745 id=745 data-nosnippet>745</a>        }
-<a href=#746 id=746 data-nosnippet>746</a>    }
-<a href=#747 id=747 data-nosnippet>747</a>
-<a href=#748 id=748 data-nosnippet>748</a>    <span class="doccomment">/// Converts a persistent chunk to runtime format.
-<a href=#749 id=749 data-nosnippet>749</a>    /// The returned chunk is not dirty (freshly loaded from disk).
-<a href=#750 id=750 data-nosnippet>750</a>    ///
-<a href=#751 id=751 data-nosnippet>751</a>    /// # Arguments
-<a href=#752 id=752 data-nosnippet>752</a>    /// * `persistent` - The persistent chunk data
-<a href=#753 id=753 data-nosnippet>753</a>    /// * `pos` - The chunk position
-<a href=#754 id=754 data-nosnippet>754</a>    /// * `status` - The chunk status
-<a href=#755 id=755 data-nosnippet>755</a>    /// * `min_y` - The minimum Y coordinate of the world
-<a href=#756 id=756 data-nosnippet>756</a>    /// * `height` - The total height of the world
-<a href=#757 id=757 data-nosnippet>757</a>    /// * `level` - Weak reference to the world for `LevelChunk`
-<a href=#758 id=758 data-nosnippet>758</a>    </span><span class="kw">fn </span>persistent_to_chunk(
-<a href=#759 id=759 data-nosnippet>759</a>        persistent: <span class="kw-2">&amp;</span>PersistentChunk,
-<a href=#760 id=760 data-nosnippet>760</a>        pos: ChunkPos,
-<a href=#761 id=761 data-nosnippet>761</a>        status: ChunkStatus,
-<a href=#762 id=762 data-nosnippet>762</a>        min_y: i32,
-<a href=#763 id=763 data-nosnippet>763</a>        height: i32,
-<a href=#764 id=764 data-nosnippet>764</a>        level: Weak&lt;World&gt;,
-<a href=#765 id=765 data-nosnippet>765</a>    ) -&gt; ChunkAccess {
-<a href=#766 id=766 data-nosnippet>766</a>        <span class="kw">let </span>sections: Vec&lt;ChunkSection&gt; = persistent
-<a href=#767 id=767 data-nosnippet>767</a>            .sections
-<a href=#768 id=768 data-nosnippet>768</a>            .iter()
-<a href=#769 id=769 data-nosnippet>769</a>            .map(|section| <span class="self">Self</span>::persistent_to_section(section, persistent))
-<a href=#770 id=770 data-nosnippet>770</a>            .collect();
-<a href=#771 id=771 data-nosnippet>771</a>
-<a href=#772 id=772 data-nosnippet>772</a>        <span class="kw">match </span>status {
-<a href=#773 id=773 data-nosnippet>773</a>            ChunkStatus::Full =&gt; {
-<a href=#774 id=774 data-nosnippet>774</a>                <span class="kw">let </span>chunk = LevelChunk::from_disk(
-<a href=#775 id=775 data-nosnippet>775</a>                    Sections::from_owned(sections.into_boxed_slice()),
-<a href=#776 id=776 data-nosnippet>776</a>                    pos,
-<a href=#777 id=777 data-nosnippet>777</a>                    min_y,
-<a href=#778 id=778 data-nosnippet>778</a>                    height,
-<a href=#779 id=779 data-nosnippet>779</a>                    level,
-<a href=#780 id=780 data-nosnippet>780</a>                );
-<a href=#781 id=781 data-nosnippet>781</a>
-<a href=#782 id=782 data-nosnippet>782</a>                <span class="comment">// Load block entities
-<a href=#783 id=783 data-nosnippet>783</a>                </span><span class="kw">for </span>persistent_be <span class="kw">in </span><span class="kw-2">&amp;</span>persistent.block_entities {
-<a href=#784 id=784 data-nosnippet>784</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(block_entity) =
-<a href=#785 id=785 data-nosnippet>785</a>                        <span class="self">Self</span>::persistent_to_block_entity(persistent_be, pos, <span class="kw-2">&amp;</span>chunk)
-<a href=#786 id=786 data-nosnippet>786</a>                    {
-<a href=#787 id=787 data-nosnippet>787</a>                        chunk.add_and_register_block_entity(block_entity);
-<a href=#788 id=788 data-nosnippet>788</a>                    }
-<a href=#789 id=789 data-nosnippet>789</a>                }
-<a href=#790 id=790 data-nosnippet>790</a>
-<a href=#791 id=791 data-nosnippet>791</a>                <span class="comment">// Clear dirty flag since we just loaded (add_and_register marks dirty)
-<a href=#792 id=792 data-nosnippet>792</a>                </span>chunk.dirty.store(<span class="bool-val">false</span>, Ordering::Release);
-<a href=#793 id=793 data-nosnippet>793</a>
-<a href=#794 id=794 data-nosnippet>794</a>                ChunkAccess::Full(chunk)
-<a href=#795 id=795 data-nosnippet>795</a>            }
-<a href=#796 id=796 data-nosnippet>796</a>            <span class="kw">_ </span>=&gt; ChunkAccess::Proto(ProtoChunk::from_disk(
-<a href=#797 id=797 data-nosnippet>797</a>                Sections::from_owned(sections.into_boxed_slice()),
-<a href=#798 id=798 data-nosnippet>798</a>                pos,
-<a href=#799 id=799 data-nosnippet>799</a>                status,
-<a href=#800 id=800 data-nosnippet>800</a>                min_y,
-<a href=#801 id=801 data-nosnippet>801</a>                height,
-<a href=#802 id=802 data-nosnippet>802</a>            )),
-<a href=#803 id=803 data-nosnippet>803</a>        }
-<a href=#804 id=804 data-nosnippet>804</a>    }
-<a href=#805 id=805 data-nosnippet>805</a>
-<a href=#806 id=806 data-nosnippet>806</a>    <span class="doccomment">/// Converts a persistent block entity to runtime format.
-<a href=#807 id=807 data-nosnippet>807</a>    </span><span class="kw">fn </span>persistent_to_block_entity(
-<a href=#808 id=808 data-nosnippet>808</a>        persistent: <span class="kw-2">&amp;</span>PersistentBlockEntity,
-<a href=#809 id=809 data-nosnippet>809</a>        chunk_pos: ChunkPos,
-<a href=#810 id=810 data-nosnippet>810</a>        chunk: <span class="kw-2">&amp;</span>LevelChunk,
-<a href=#811 id=811 data-nosnippet>811</a>    ) -&gt; <span class="prelude-ty">Option</span>&lt;SharedBlockEntity&gt; {
-<a href=#812 id=812 data-nosnippet>812</a>        <span class="comment">// Calculate absolute position
-<a href=#813 id=813 data-nosnippet>813</a>        </span><span class="kw">let </span>abs_x = chunk_pos.<span class="number">0</span>.x * <span class="number">16 </span>+ i32::from(persistent.x);
-<a href=#814 id=814 data-nosnippet>814</a>        <span class="kw">let </span>abs_z = chunk_pos.<span class="number">0</span>.y * <span class="number">16 </span>+ i32::from(persistent.z);
-<a href=#815 id=815 data-nosnippet>815</a>        <span class="kw">let </span>pos = BlockPos::new(abs_x, i32::from(persistent.y), abs_z);
-<a href=#816 id=816 data-nosnippet>816</a>
-<a href=#817 id=817 data-nosnippet>817</a>        <span class="comment">// Get the block state at this position
-<a href=#818 id=818 data-nosnippet>818</a>        </span><span class="kw">let </span>state = chunk.get_block_state(pos);
-<a href=#819 id=819 data-nosnippet>819</a>
-<a href=#820 id=820 data-nosnippet>820</a>        <span class="comment">// Look up the block entity type
-<a href=#821 id=821 data-nosnippet>821</a>        </span><span class="kw">let </span>block_entity_type = REGISTRY
-<a href=#822 id=822 data-nosnippet>822</a>            .block_entity_types
-<a href=#823 id=823 data-nosnippet>823</a>            .by_key(<span class="kw-2">&amp;</span>persistent.entity_type)<span class="question-mark">?</span>;
-<a href=#824 id=824 data-nosnippet>824</a>
-<a href=#825 id=825 data-nosnippet>825</a>        <span class="comment">// Get the world reference from the chunk
-<a href=#826 id=826 data-nosnippet>826</a>        </span><span class="kw">let </span>level = chunk.level_weak();
-<a href=#827 id=827 data-nosnippet>827</a>
-<a href=#828 id=828 data-nosnippet>828</a>        <span class="comment">// Parse and load NBT data
-<a href=#829 id=829 data-nosnippet>829</a>        </span><span class="kw">if </span>persistent.nbt_data.is_empty() {
-<a href=#830 id=830 data-nosnippet>830</a>            <span class="comment">// No NBT data, just create the entity without loading
-<a href=#831 id=831 data-nosnippet>831</a>            </span>BLOCK_ENTITIES.create(block_entity_type, level, pos, state)
-<a href=#832 id=832 data-nosnippet>832</a>        } <span class="kw">else </span>{
-<a href=#833 id=833 data-nosnippet>833</a>            <span class="comment">// Parse NBT from bytes as borrowed
-<a href=#834 id=834 data-nosnippet>834</a>            </span><span class="kw">let </span><span class="prelude-val">Ok</span>(nbt) = read_borrowed_compound(<span class="kw-2">&amp;mut </span>Cursor::new(<span class="kw-2">&amp;</span>persistent.nbt_data)) <span class="kw">else </span>{
-<a href=#835 id=835 data-nosnippet>835</a>                <span class="kw">return </span>BLOCK_ENTITIES.create(block_entity_type, level, pos, state);
-<a href=#836 id=836 data-nosnippet>836</a>            };
-<a href=#837 id=837 data-nosnippet>837</a>
-<a href=#838 id=838 data-nosnippet>838</a>            <span class="comment">// Create the block entity and load NBT
-<a href=#839 id=839 data-nosnippet>839</a>            </span>BLOCK_ENTITIES.create_and_load(block_entity_type, level, pos, state, <span class="kw-2">&amp;</span>nbt)
-<a href=#840 id=840 data-nosnippet>840</a>        }
-<a href=#841 id=841 data-nosnippet>841</a>    }
-<a href=#842 id=842 data-nosnippet>842</a>
-<a href=#843 id=843 data-nosnippet>843</a>    <span class="doccomment">/// Converts a persistent section to runtime format.
-<a href=#844 id=844 data-nosnippet>844</a>    </span><span class="kw">fn </span>persistent_to_section(
-<a href=#845 id=845 data-nosnippet>845</a>        persistent: <span class="kw-2">&amp;</span>PersistentSection,
-<a href=#846 id=846 data-nosnippet>846</a>        chunk: <span class="kw-2">&amp;</span>PersistentChunk,
-<a href=#847 id=847 data-nosnippet>847</a>    ) -&gt; ChunkSection {
-<a href=#848 id=848 data-nosnippet>848</a>        <span class="kw">match </span>persistent {
-<a href=#849 id=849 data-nosnippet>849</a>            PersistentSection::Homogeneous {
-<a href=#850 id=850 data-nosnippet>850</a>                block_state,
-<a href=#851 id=851 data-nosnippet>851</a>                biomes,
-<a href=#852 id=852 data-nosnippet>852</a>            } =&gt; {
-<a href=#853 id=853 data-nosnippet>853</a>                <span class="kw">let </span>block_id = <span class="self">Self</span>::resolve_block_state(chunk, <span class="kw-2">*</span>block_state);
-<a href=#854 id=854 data-nosnippet>854</a>                <span class="kw">let </span>biome_data = <span class="self">Self</span>::persistent_to_biomes(biomes, chunk);
-<a href=#855 id=855 data-nosnippet>855</a>
-<a href=#856 id=856 data-nosnippet>856</a>                ChunkSection::new_with_biomes(PalettedContainer::Homogeneous(block_id), biome_data)
-<a href=#857 id=857 data-nosnippet>857</a>            }
-<a href=#858 id=858 data-nosnippet>858</a>            PersistentSection::Heterogeneous {
-<a href=#859 id=859 data-nosnippet>859</a>                palette,
-<a href=#860 id=860 data-nosnippet>860</a>                bits_per_entry,
-<a href=#861 id=861 data-nosnippet>861</a>                block_data,
-<a href=#862 id=862 data-nosnippet>862</a>                biomes,
-<a href=#863 id=863 data-nosnippet>863</a>            } =&gt; {
-<a href=#864 id=864 data-nosnippet>864</a>                <span class="comment">// Unpack indices (into section-local palette)
-<a href=#865 id=865 data-nosnippet>865</a>                </span><span class="kw">let </span>indices = unpack_indices(block_data, <span class="kw-2">*</span>bits_per_entry, BLOCKS_PER_SECTION);
-<a href=#866 id=866 data-nosnippet>866</a>
-<a href=#867 id=867 data-nosnippet>867</a>                <span class="comment">// Build runtime palette by resolving section-local -&gt; chunk -&gt; runtime
-<a href=#868 id=868 data-nosnippet>868</a>                </span><span class="kw">let </span>runtime_palette: Vec&lt;BlockStateId&gt; = palette
-<a href=#869 id=869 data-nosnippet>869</a>                    .iter()
-<a href=#870 id=870 data-nosnippet>870</a>                    .map(|<span class="kw-2">&amp;</span>idx| <span class="self">Self</span>::resolve_block_state(chunk, idx))
-<a href=#871 id=871 data-nosnippet>871</a>                    .collect();
-<a href=#872 id=872 data-nosnippet>872</a>
-<a href=#873 id=873 data-nosnippet>873</a>                <span class="comment">// Build cube
-<a href=#874 id=874 data-nosnippet>874</a>                </span><span class="kw">let </span><span class="kw-2">mut </span>cube = Box::new([[[BlockStateId(<span class="number">0</span>); <span class="number">16</span>]; <span class="number">16</span>]; <span class="number">16</span>]);
-<a href=#875 id=875 data-nosnippet>875</a>                <span class="kw">for </span>(i, <span class="kw-2">&amp;</span>idx) <span class="kw">in </span>indices.iter().enumerate() {
-<a href=#876 id=876 data-nosnippet>876</a>                    <span class="kw">let </span>y = i / <span class="number">256</span>;
-<a href=#877 id=877 data-nosnippet>877</a>                    <span class="kw">let </span>z = (i / <span class="number">16</span>) % <span class="number">16</span>;
-<a href=#878 id=878 data-nosnippet>878</a>                    <span class="kw">let </span>x = i % <span class="number">16</span>;
-<a href=#879 id=879 data-nosnippet>879</a>                    cube[y][z][x] = runtime_palette
-<a href=#880 id=880 data-nosnippet>880</a>                        .get(idx <span class="kw">as </span>usize)
-<a href=#881 id=881 data-nosnippet>881</a>                        .copied()
-<a href=#882 id=882 data-nosnippet>882</a>                        .unwrap_or(BlockStateId(<span class="number">0</span>));
-<a href=#883 id=883 data-nosnippet>883</a>                }
-<a href=#884 id=884 data-nosnippet>884</a>
-<a href=#885 id=885 data-nosnippet>885</a>                <span class="kw">let </span>states = PalettedContainer::from_cube(cube);
-<a href=#886 id=886 data-nosnippet>886</a>                <span class="kw">let </span>biome_data = <span class="self">Self</span>::persistent_to_biomes(biomes, chunk);
-<a href=#887 id=887 data-nosnippet>887</a>
-<a href=#888 id=888 data-nosnippet>888</a>                ChunkSection::new_with_biomes(states, biome_data)
-<a href=#889 id=889 data-nosnippet>889</a>            }
-<a href=#890 id=890 data-nosnippet>890</a>        }
-<a href=#891 id=891 data-nosnippet>891</a>    }
-<a href=#892 id=892 data-nosnippet>892</a>
-<a href=#893 id=893 data-nosnippet>893</a>    <span class="doccomment">/// Converts persistent biome data to runtime format.
-<a href=#894 id=894 data-nosnippet>894</a>    </span><span class="kw">fn </span>persistent_to_biomes(
-<a href=#895 id=895 data-nosnippet>895</a>        persistent: <span class="kw-2">&amp;</span>PersistentBiomeData,
-<a href=#896 id=896 data-nosnippet>896</a>        chunk: <span class="kw-2">&amp;</span>PersistentChunk,
-<a href=#897 id=897 data-nosnippet>897</a>    ) -&gt; PalettedContainer&lt;u8, <span class="number">4</span>&gt; {
-<a href=#898 id=898 data-nosnippet>898</a>        <span class="kw">match </span>persistent {
-<a href=#899 id=899 data-nosnippet>899</a>            PersistentBiomeData::Homogeneous { biome } =&gt; {
-<a href=#900 id=900 data-nosnippet>900</a>                <span class="kw">let </span>biome_id = <span class="self">Self</span>::resolve_biome(chunk, <span class="kw-2">*</span>biome);
-<a href=#901 id=901 data-nosnippet>901</a>                PalettedContainer::Homogeneous(biome_id)
-<a href=#902 id=902 data-nosnippet>902</a>            }
-<a href=#903 id=903 data-nosnippet>903</a>            PersistentBiomeData::Heterogeneous {
-<a href=#904 id=904 data-nosnippet>904</a>                palette,
-<a href=#905 id=905 data-nosnippet>905</a>                bits_per_entry,
-<a href=#906 id=906 data-nosnippet>906</a>                biome_data,
-<a href=#907 id=907 data-nosnippet>907</a>            } =&gt; {
-<a href=#908 id=908 data-nosnippet>908</a>                <span class="kw">let </span>indices = unpack_indices(biome_data, <span class="kw-2">*</span>bits_per_entry, BIOMES_PER_SECTION);
-<a href=#909 id=909 data-nosnippet>909</a>
-<a href=#910 id=910 data-nosnippet>910</a>                <span class="comment">// Resolve section-local palette -&gt; chunk palette -&gt; runtime
-<a href=#911 id=911 data-nosnippet>911</a>                </span><span class="kw">let </span>runtime_palette: Vec&lt;u8&gt; = palette
-<a href=#912 id=912 data-nosnippet>912</a>                    .iter()
-<a href=#913 id=913 data-nosnippet>913</a>                    .map(|<span class="kw-2">&amp;</span>idx| <span class="self">Self</span>::resolve_biome(chunk, idx))
-<a href=#914 id=914 data-nosnippet>914</a>                    .collect();
-<a href=#915 id=915 data-nosnippet>915</a>
-<a href=#916 id=916 data-nosnippet>916</a>                <span class="kw">let </span><span class="kw-2">mut </span>cube = Box::new([[[<span class="number">0u8</span>; <span class="number">4</span>]; <span class="number">4</span>]; <span class="number">4</span>]);
-<a href=#917 id=917 data-nosnippet>917</a>                <span class="kw">for </span>(i, <span class="kw-2">&amp;</span>idx) <span class="kw">in </span>indices.iter().enumerate() {
-<a href=#918 id=918 data-nosnippet>918</a>                    <span class="kw">let </span>y = i / <span class="number">16</span>;
-<a href=#919 id=919 data-nosnippet>919</a>                    <span class="kw">let </span>z = (i / <span class="number">4</span>) % <span class="number">4</span>;
-<a href=#920 id=920 data-nosnippet>920</a>                    <span class="kw">let </span>x = i % <span class="number">4</span>;
-<a href=#921 id=921 data-nosnippet>921</a>                    cube[y][z][x] = runtime_palette.get(idx <span class="kw">as </span>usize).copied().unwrap_or(<span class="number">0</span>);
-<a href=#922 id=922 data-nosnippet>922</a>                }
-<a href=#923 id=923 data-nosnippet>923</a>
-<a href=#924 id=924 data-nosnippet>924</a>                PalettedContainer::from_cube(cube)
-<a href=#925 id=925 data-nosnippet>925</a>            }
-<a href=#926 id=926 data-nosnippet>926</a>        }
-<a href=#927 id=927 data-nosnippet>927</a>    }
-<a href=#928 id=928 data-nosnippet>928</a>
-<a href=#929 id=929 data-nosnippet>929</a>    <span class="doccomment">/// Resolves a chunk palette index to a runtime `BlockStateId`.
-<a href=#930 id=930 data-nosnippet>930</a>    </span><span class="kw">fn </span>resolve_block_state(chunk: <span class="kw-2">&amp;</span>PersistentChunk, index: u16) -&gt; BlockStateId {
-<a href=#931 id=931 data-nosnippet>931</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(state) = chunk.block_states.get(index <span class="kw">as </span>usize) {
-<a href=#932 id=932 data-nosnippet>932</a>            <span class="comment">// Convert properties to the format expected by the registry
-<a href=#933 id=933 data-nosnippet>933</a>            </span><span class="kw">let </span>properties: Vec&lt;(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str)&gt; = state
-<a href=#934 id=934 data-nosnippet>934</a>                .properties
-<a href=#935 id=935 data-nosnippet>935</a>                .iter()
-<a href=#936 id=936 data-nosnippet>936</a>                .map(|(k, v)| (k.as_str(), v.as_str()))
-<a href=#937 id=937 data-nosnippet>937</a>                .collect();
-<a href=#938 id=938 data-nosnippet>938</a>
-<a href=#939 id=939 data-nosnippet>939</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(state_id) = REGISTRY
-<a href=#940 id=940 data-nosnippet>940</a>                .blocks
-<a href=#941 id=941 data-nosnippet>941</a>                .state_id_from_properties(<span class="kw-2">&amp;</span>state.name, <span class="kw-2">&amp;</span>properties)
-<a href=#942 id=942 data-nosnippet>942</a>            {
-<a href=#943 id=943 data-nosnippet>943</a>                <span class="kw">return </span>state_id;
-<a href=#944 id=944 data-nosnippet>944</a>            }
-<a href=#945 id=945 data-nosnippet>945</a>        }
-<a href=#946 id=946 data-nosnippet>946</a>        BlockStateId(<span class="number">0</span>) <span class="comment">// Air fallback
-<a href=#947 id=947 data-nosnippet>947</a>    </span>}
-<a href=#948 id=948 data-nosnippet>948</a>
-<a href=#949 id=949 data-nosnippet>949</a>    <span class="doccomment">/// Resolves a chunk palette index to a runtime biome ID.
-<a href=#950 id=950 data-nosnippet>950</a>    </span><span class="kw">fn </span>resolve_biome(chunk: <span class="kw-2">&amp;</span>PersistentChunk, index: u16) -&gt; u8 {
-<a href=#951 id=951 data-nosnippet>951</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(biome_key) = chunk.biomes.get(index <span class="kw">as </span>usize)
-<a href=#952 id=952 data-nosnippet>952</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(id) = REGISTRY.biomes.id_from_key(biome_key)
-<a href=#953 id=953 data-nosnippet>953</a>        {
-<a href=#954 id=954 data-nosnippet>954</a>            <span class="kw">return </span>id <span class="kw">as </span>u8;
-<a href=#955 id=955 data-nosnippet>955</a>        }
-<a href=#956 id=956 data-nosnippet>956</a>        <span class="number">0 </span><span class="comment">// Plains fallback
-<a href=#957 id=957 data-nosnippet>957</a>    </span>}
-<a href=#958 id=958 data-nosnippet>958</a>}
+<a href=#728 id=728 data-nosnippet>728</a>                    .map(|biome_id| {
+<a href=#729 id=729 data-nosnippet>729</a>                        data.palette
+<a href=#730 id=730 data-nosnippet>730</a>                            .iter()
+<a href=#731 id=731 data-nosnippet>731</a>                            .position(|(v, <span class="kw">_</span>)| v == biome_id)
+<a href=#732 id=732 data-nosnippet>732</a>                            .unwrap_or(<span class="number">0</span>) <span class="kw">as </span>u32
+<a href=#733 id=733 data-nosnippet>733</a>                    })
+<a href=#734 id=734 data-nosnippet>734</a>                    .collect();
+<a href=#735 id=735 data-nosnippet>735</a>
+<a href=#736 id=736 data-nosnippet>736</a>                <span class="kw">let </span>biome_data = pack_indices(<span class="kw-2">&amp;</span>indices, bits);
+<a href=#737 id=737 data-nosnippet>737</a>
+<a href=#738 id=738 data-nosnippet>738</a>                PersistentBiomeData::Heterogeneous {
+<a href=#739 id=739 data-nosnippet>739</a>                    palette,
+<a href=#740 id=740 data-nosnippet>740</a>                    bits_per_entry: bits,
+<a href=#741 id=741 data-nosnippet>741</a>                    biome_data,
+<a href=#742 id=742 data-nosnippet>742</a>                }
+<a href=#743 id=743 data-nosnippet>743</a>            }
+<a href=#744 id=744 data-nosnippet>744</a>        }
+<a href=#745 id=745 data-nosnippet>745</a>    }
+<a href=#746 id=746 data-nosnippet>746</a>
+<a href=#747 id=747 data-nosnippet>747</a>    <span class="doccomment">/// Converts a persistent chunk to runtime format.
+<a href=#748 id=748 data-nosnippet>748</a>    /// The returned chunk is not dirty (freshly loaded from disk).
+<a href=#749 id=749 data-nosnippet>749</a>    ///
+<a href=#750 id=750 data-nosnippet>750</a>    /// # Arguments
+<a href=#751 id=751 data-nosnippet>751</a>    /// * `persistent` - The persistent chunk data
+<a href=#752 id=752 data-nosnippet>752</a>    /// * `pos` - The chunk position
+<a href=#753 id=753 data-nosnippet>753</a>    /// * `status` - The chunk status
+<a href=#754 id=754 data-nosnippet>754</a>    /// * `min_y` - The minimum Y coordinate of the world
+<a href=#755 id=755 data-nosnippet>755</a>    /// * `height` - The total height of the world
+<a href=#756 id=756 data-nosnippet>756</a>    /// * `level` - Weak reference to the world for `LevelChunk`
+<a href=#757 id=757 data-nosnippet>757</a>    </span><span class="kw">fn </span>persistent_to_chunk(
+<a href=#758 id=758 data-nosnippet>758</a>        persistent: <span class="kw-2">&amp;</span>PersistentChunk,
+<a href=#759 id=759 data-nosnippet>759</a>        pos: ChunkPos,
+<a href=#760 id=760 data-nosnippet>760</a>        status: ChunkStatus,
+<a href=#761 id=761 data-nosnippet>761</a>        min_y: i32,
+<a href=#762 id=762 data-nosnippet>762</a>        height: i32,
+<a href=#763 id=763 data-nosnippet>763</a>        level: Weak&lt;World&gt;,
+<a href=#764 id=764 data-nosnippet>764</a>    ) -&gt; ChunkAccess {
+<a href=#765 id=765 data-nosnippet>765</a>        <span class="kw">let </span>sections: Vec&lt;ChunkSection&gt; = persistent
+<a href=#766 id=766 data-nosnippet>766</a>            .sections
+<a href=#767 id=767 data-nosnippet>767</a>            .iter()
+<a href=#768 id=768 data-nosnippet>768</a>            .map(|section| <span class="self">Self</span>::persistent_to_section(section, persistent))
+<a href=#769 id=769 data-nosnippet>769</a>            .collect();
+<a href=#770 id=770 data-nosnippet>770</a>
+<a href=#771 id=771 data-nosnippet>771</a>        <span class="kw">match </span>status {
+<a href=#772 id=772 data-nosnippet>772</a>            ChunkStatus::Full =&gt; {
+<a href=#773 id=773 data-nosnippet>773</a>                <span class="kw">let </span>chunk = LevelChunk::from_disk(
+<a href=#774 id=774 data-nosnippet>774</a>                    Sections::from_owned(sections.into_boxed_slice()),
+<a href=#775 id=775 data-nosnippet>775</a>                    pos,
+<a href=#776 id=776 data-nosnippet>776</a>                    min_y,
+<a href=#777 id=777 data-nosnippet>777</a>                    height,
+<a href=#778 id=778 data-nosnippet>778</a>                    level,
+<a href=#779 id=779 data-nosnippet>779</a>                );
+<a href=#780 id=780 data-nosnippet>780</a>
+<a href=#781 id=781 data-nosnippet>781</a>                <span class="comment">// Load block entities
+<a href=#782 id=782 data-nosnippet>782</a>                </span><span class="kw">for </span>persistent_be <span class="kw">in </span><span class="kw-2">&amp;</span>persistent.block_entities {
+<a href=#783 id=783 data-nosnippet>783</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(block_entity) =
+<a href=#784 id=784 data-nosnippet>784</a>                        <span class="self">Self</span>::persistent_to_block_entity(persistent_be, pos, <span class="kw-2">&amp;</span>chunk)
+<a href=#785 id=785 data-nosnippet>785</a>                    {
+<a href=#786 id=786 data-nosnippet>786</a>                        chunk.add_and_register_block_entity(block_entity);
+<a href=#787 id=787 data-nosnippet>787</a>                    }
+<a href=#788 id=788 data-nosnippet>788</a>                }
+<a href=#789 id=789 data-nosnippet>789</a>
+<a href=#790 id=790 data-nosnippet>790</a>                <span class="comment">// Clear dirty flag since we just loaded (add_and_register marks dirty)
+<a href=#791 id=791 data-nosnippet>791</a>                </span>chunk.dirty.store(<span class="bool-val">false</span>, Ordering::Release);
+<a href=#792 id=792 data-nosnippet>792</a>
+<a href=#793 id=793 data-nosnippet>793</a>                ChunkAccess::Full(chunk)
+<a href=#794 id=794 data-nosnippet>794</a>            }
+<a href=#795 id=795 data-nosnippet>795</a>            <span class="kw">_ </span>=&gt; ChunkAccess::Proto(ProtoChunk::from_disk(
+<a href=#796 id=796 data-nosnippet>796</a>                Sections::from_owned(sections.into_boxed_slice()),
+<a href=#797 id=797 data-nosnippet>797</a>                pos,
+<a href=#798 id=798 data-nosnippet>798</a>                status,
+<a href=#799 id=799 data-nosnippet>799</a>                min_y,
+<a href=#800 id=800 data-nosnippet>800</a>                height,
+<a href=#801 id=801 data-nosnippet>801</a>            )),
+<a href=#802 id=802 data-nosnippet>802</a>        }
+<a href=#803 id=803 data-nosnippet>803</a>    }
+<a href=#804 id=804 data-nosnippet>804</a>
+<a href=#805 id=805 data-nosnippet>805</a>    <span class="doccomment">/// Converts a persistent block entity to runtime format.
+<a href=#806 id=806 data-nosnippet>806</a>    </span><span class="kw">fn </span>persistent_to_block_entity(
+<a href=#807 id=807 data-nosnippet>807</a>        persistent: <span class="kw-2">&amp;</span>PersistentBlockEntity,
+<a href=#808 id=808 data-nosnippet>808</a>        chunk_pos: ChunkPos,
+<a href=#809 id=809 data-nosnippet>809</a>        chunk: <span class="kw-2">&amp;</span>LevelChunk,
+<a href=#810 id=810 data-nosnippet>810</a>    ) -&gt; <span class="prelude-ty">Option</span>&lt;SharedBlockEntity&gt; {
+<a href=#811 id=811 data-nosnippet>811</a>        <span class="comment">// Calculate absolute position
+<a href=#812 id=812 data-nosnippet>812</a>        </span><span class="kw">let </span>abs_x = chunk_pos.<span class="number">0</span>.x * <span class="number">16 </span>+ i32::from(persistent.x);
+<a href=#813 id=813 data-nosnippet>813</a>        <span class="kw">let </span>abs_z = chunk_pos.<span class="number">0</span>.y * <span class="number">16 </span>+ i32::from(persistent.z);
+<a href=#814 id=814 data-nosnippet>814</a>        <span class="kw">let </span>pos = BlockPos::new(abs_x, i32::from(persistent.y), abs_z);
+<a href=#815 id=815 data-nosnippet>815</a>
+<a href=#816 id=816 data-nosnippet>816</a>        <span class="comment">// Get the block state at this position
+<a href=#817 id=817 data-nosnippet>817</a>        </span><span class="kw">let </span>state = chunk.get_block_state(pos);
+<a href=#818 id=818 data-nosnippet>818</a>
+<a href=#819 id=819 data-nosnippet>819</a>        <span class="comment">// Look up the block entity type
+<a href=#820 id=820 data-nosnippet>820</a>        </span><span class="kw">let </span>block_entity_type = REGISTRY
+<a href=#821 id=821 data-nosnippet>821</a>            .block_entity_types
+<a href=#822 id=822 data-nosnippet>822</a>            .by_key(<span class="kw-2">&amp;</span>persistent.entity_type)<span class="question-mark">?</span>;
+<a href=#823 id=823 data-nosnippet>823</a>
+<a href=#824 id=824 data-nosnippet>824</a>        <span class="comment">// Get the world reference from the chunk
+<a href=#825 id=825 data-nosnippet>825</a>        </span><span class="kw">let </span>level = chunk.level_weak();
+<a href=#826 id=826 data-nosnippet>826</a>
+<a href=#827 id=827 data-nosnippet>827</a>        <span class="comment">// Parse and load NBT data
+<a href=#828 id=828 data-nosnippet>828</a>        </span><span class="kw">if </span>persistent.nbt_data.is_empty() {
+<a href=#829 id=829 data-nosnippet>829</a>            <span class="comment">// No NBT data, just create the entity without loading
+<a href=#830 id=830 data-nosnippet>830</a>            </span>BLOCK_ENTITIES.create(block_entity_type, level, pos, state)
+<a href=#831 id=831 data-nosnippet>831</a>        } <span class="kw">else </span>{
+<a href=#832 id=832 data-nosnippet>832</a>            <span class="comment">// Parse NBT from bytes as borrowed
+<a href=#833 id=833 data-nosnippet>833</a>            </span><span class="kw">let </span><span class="prelude-val">Ok</span>(nbt) = read_borrowed_compound(<span class="kw-2">&amp;mut </span>Cursor::new(<span class="kw-2">&amp;</span>persistent.nbt_data)) <span class="kw">else </span>{
+<a href=#834 id=834 data-nosnippet>834</a>                <span class="kw">return </span>BLOCK_ENTITIES.create(block_entity_type, level, pos, state);
+<a href=#835 id=835 data-nosnippet>835</a>            };
+<a href=#836 id=836 data-nosnippet>836</a>
+<a href=#837 id=837 data-nosnippet>837</a>            <span class="comment">// Create the block entity and load NBT
+<a href=#838 id=838 data-nosnippet>838</a>            </span>BLOCK_ENTITIES.create_and_load(block_entity_type, level, pos, state, <span class="kw-2">&amp;</span>nbt)
+<a href=#839 id=839 data-nosnippet>839</a>        }
+<a href=#840 id=840 data-nosnippet>840</a>    }
+<a href=#841 id=841 data-nosnippet>841</a>
+<a href=#842 id=842 data-nosnippet>842</a>    <span class="doccomment">/// Converts a persistent section to runtime format.
+<a href=#843 id=843 data-nosnippet>843</a>    </span><span class="kw">fn </span>persistent_to_section(
+<a href=#844 id=844 data-nosnippet>844</a>        persistent: <span class="kw-2">&amp;</span>PersistentSection,
+<a href=#845 id=845 data-nosnippet>845</a>        chunk: <span class="kw-2">&amp;</span>PersistentChunk,
+<a href=#846 id=846 data-nosnippet>846</a>    ) -&gt; ChunkSection {
+<a href=#847 id=847 data-nosnippet>847</a>        <span class="kw">match </span>persistent {
+<a href=#848 id=848 data-nosnippet>848</a>            PersistentSection::Homogeneous {
+<a href=#849 id=849 data-nosnippet>849</a>                block_state,
+<a href=#850 id=850 data-nosnippet>850</a>                biomes,
+<a href=#851 id=851 data-nosnippet>851</a>            } =&gt; {
+<a href=#852 id=852 data-nosnippet>852</a>                <span class="kw">let </span>block_id = <span class="self">Self</span>::resolve_block_state(chunk, <span class="kw-2">*</span>block_state);
+<a href=#853 id=853 data-nosnippet>853</a>                <span class="kw">let </span>biome_data = <span class="self">Self</span>::persistent_to_biomes(biomes, chunk);
+<a href=#854 id=854 data-nosnippet>854</a>
+<a href=#855 id=855 data-nosnippet>855</a>                ChunkSection::new_with_biomes(PalettedContainer::Homogeneous(block_id), biome_data)
+<a href=#856 id=856 data-nosnippet>856</a>            }
+<a href=#857 id=857 data-nosnippet>857</a>            PersistentSection::Heterogeneous {
+<a href=#858 id=858 data-nosnippet>858</a>                palette,
+<a href=#859 id=859 data-nosnippet>859</a>                bits_per_entry,
+<a href=#860 id=860 data-nosnippet>860</a>                block_data,
+<a href=#861 id=861 data-nosnippet>861</a>                biomes,
+<a href=#862 id=862 data-nosnippet>862</a>            } =&gt; {
+<a href=#863 id=863 data-nosnippet>863</a>                <span class="comment">// Unpack indices (into section-local palette)
+<a href=#864 id=864 data-nosnippet>864</a>                </span><span class="kw">let </span>indices = unpack_indices(block_data, <span class="kw-2">*</span>bits_per_entry, BLOCKS_PER_SECTION);
+<a href=#865 id=865 data-nosnippet>865</a>
+<a href=#866 id=866 data-nosnippet>866</a>                <span class="comment">// Build runtime palette by resolving section-local -&gt; chunk -&gt; runtime
+<a href=#867 id=867 data-nosnippet>867</a>                </span><span class="kw">let </span>runtime_palette: Vec&lt;BlockStateId&gt; = palette
+<a href=#868 id=868 data-nosnippet>868</a>                    .iter()
+<a href=#869 id=869 data-nosnippet>869</a>                    .map(|<span class="kw-2">&amp;</span>idx| <span class="self">Self</span>::resolve_block_state(chunk, idx))
+<a href=#870 id=870 data-nosnippet>870</a>                    .collect();
+<a href=#871 id=871 data-nosnippet>871</a>
+<a href=#872 id=872 data-nosnippet>872</a>                <span class="comment">// Build cube
+<a href=#873 id=873 data-nosnippet>873</a>                </span><span class="kw">let </span><span class="kw-2">mut </span>cube = Box::new([[[BlockStateId(<span class="number">0</span>); <span class="number">16</span>]; <span class="number">16</span>]; <span class="number">16</span>]);
+<a href=#874 id=874 data-nosnippet>874</a>                <span class="kw">for </span>(i, <span class="kw-2">&amp;</span>idx) <span class="kw">in </span>indices.iter().enumerate() {
+<a href=#875 id=875 data-nosnippet>875</a>                    <span class="kw">let </span>y = i / <span class="number">256</span>;
+<a href=#876 id=876 data-nosnippet>876</a>                    <span class="kw">let </span>z = (i / <span class="number">16</span>) % <span class="number">16</span>;
+<a href=#877 id=877 data-nosnippet>877</a>                    <span class="kw">let </span>x = i % <span class="number">16</span>;
+<a href=#878 id=878 data-nosnippet>878</a>                    cube[y][z][x] = runtime_palette
+<a href=#879 id=879 data-nosnippet>879</a>                        .get(idx <span class="kw">as </span>usize)
+<a href=#880 id=880 data-nosnippet>880</a>                        .copied()
+<a href=#881 id=881 data-nosnippet>881</a>                        .unwrap_or(BlockStateId(<span class="number">0</span>));
+<a href=#882 id=882 data-nosnippet>882</a>                }
+<a href=#883 id=883 data-nosnippet>883</a>
+<a href=#884 id=884 data-nosnippet>884</a>                <span class="kw">let </span>states = PalettedContainer::from_cube(cube);
+<a href=#885 id=885 data-nosnippet>885</a>                <span class="kw">let </span>biome_data = <span class="self">Self</span>::persistent_to_biomes(biomes, chunk);
+<a href=#886 id=886 data-nosnippet>886</a>
+<a href=#887 id=887 data-nosnippet>887</a>                ChunkSection::new_with_biomes(states, biome_data)
+<a href=#888 id=888 data-nosnippet>888</a>            }
+<a href=#889 id=889 data-nosnippet>889</a>        }
+<a href=#890 id=890 data-nosnippet>890</a>    }
+<a href=#891 id=891 data-nosnippet>891</a>
+<a href=#892 id=892 data-nosnippet>892</a>    <span class="doccomment">/// Converts persistent biome data to runtime format.
+<a href=#893 id=893 data-nosnippet>893</a>    </span><span class="kw">fn </span>persistent_to_biomes(
+<a href=#894 id=894 data-nosnippet>894</a>        persistent: <span class="kw-2">&amp;</span>PersistentBiomeData,
+<a href=#895 id=895 data-nosnippet>895</a>        chunk: <span class="kw-2">&amp;</span>PersistentChunk,
+<a href=#896 id=896 data-nosnippet>896</a>    ) -&gt; PalettedContainer&lt;u8, <span class="number">4</span>&gt; {
+<a href=#897 id=897 data-nosnippet>897</a>        <span class="kw">match </span>persistent {
+<a href=#898 id=898 data-nosnippet>898</a>            PersistentBiomeData::Homogeneous { biome } =&gt; {
+<a href=#899 id=899 data-nosnippet>899</a>                <span class="kw">let </span>biome_id = <span class="self">Self</span>::resolve_biome(chunk, <span class="kw-2">*</span>biome);
+<a href=#900 id=900 data-nosnippet>900</a>                PalettedContainer::Homogeneous(biome_id)
+<a href=#901 id=901 data-nosnippet>901</a>            }
+<a href=#902 id=902 data-nosnippet>902</a>            PersistentBiomeData::Heterogeneous {
+<a href=#903 id=903 data-nosnippet>903</a>                palette,
+<a href=#904 id=904 data-nosnippet>904</a>                bits_per_entry,
+<a href=#905 id=905 data-nosnippet>905</a>                biome_data,
+<a href=#906 id=906 data-nosnippet>906</a>            } =&gt; {
+<a href=#907 id=907 data-nosnippet>907</a>                <span class="kw">let </span>indices = unpack_indices(biome_data, <span class="kw-2">*</span>bits_per_entry, BIOMES_PER_SECTION);
+<a href=#908 id=908 data-nosnippet>908</a>
+<a href=#909 id=909 data-nosnippet>909</a>                <span class="comment">// Resolve section-local palette -&gt; chunk palette -&gt; runtime
+<a href=#910 id=910 data-nosnippet>910</a>                </span><span class="kw">let </span>runtime_palette: Vec&lt;u8&gt; = palette
+<a href=#911 id=911 data-nosnippet>911</a>                    .iter()
+<a href=#912 id=912 data-nosnippet>912</a>                    .map(|<span class="kw-2">&amp;</span>idx| <span class="self">Self</span>::resolve_biome(chunk, idx))
+<a href=#913 id=913 data-nosnippet>913</a>                    .collect();
+<a href=#914 id=914 data-nosnippet>914</a>
+<a href=#915 id=915 data-nosnippet>915</a>                <span class="kw">let </span><span class="kw-2">mut </span>cube = Box::new([[[<span class="number">0u8</span>; <span class="number">4</span>]; <span class="number">4</span>]; <span class="number">4</span>]);
+<a href=#916 id=916 data-nosnippet>916</a>                <span class="kw">for </span>(i, <span class="kw-2">&amp;</span>idx) <span class="kw">in </span>indices.iter().enumerate() {
+<a href=#917 id=917 data-nosnippet>917</a>                    <span class="kw">let </span>y = i / <span class="number">16</span>;
+<a href=#918 id=918 data-nosnippet>918</a>                    <span class="kw">let </span>z = (i / <span class="number">4</span>) % <span class="number">4</span>;
+<a href=#919 id=919 data-nosnippet>919</a>                    <span class="kw">let </span>x = i % <span class="number">4</span>;
+<a href=#920 id=920 data-nosnippet>920</a>                    cube[y][z][x] = runtime_palette.get(idx <span class="kw">as </span>usize).copied().unwrap_or(<span class="number">0</span>);
+<a href=#921 id=921 data-nosnippet>921</a>                }
+<a href=#922 id=922 data-nosnippet>922</a>
+<a href=#923 id=923 data-nosnippet>923</a>                PalettedContainer::from_cube(cube)
+<a href=#924 id=924 data-nosnippet>924</a>            }
+<a href=#925 id=925 data-nosnippet>925</a>        }
+<a href=#926 id=926 data-nosnippet>926</a>    }
+<a href=#927 id=927 data-nosnippet>927</a>
+<a href=#928 id=928 data-nosnippet>928</a>    <span class="doccomment">/// Resolves a chunk palette index to a runtime `BlockStateId`.
+<a href=#929 id=929 data-nosnippet>929</a>    </span><span class="kw">fn </span>resolve_block_state(chunk: <span class="kw-2">&amp;</span>PersistentChunk, index: u16) -&gt; BlockStateId {
+<a href=#930 id=930 data-nosnippet>930</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(state) = chunk.block_states.get(index <span class="kw">as </span>usize) {
+<a href=#931 id=931 data-nosnippet>931</a>            <span class="comment">// Convert properties to the format expected by the registry
+<a href=#932 id=932 data-nosnippet>932</a>            </span><span class="kw">let </span>properties: Vec&lt;(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str)&gt; = state
+<a href=#933 id=933 data-nosnippet>933</a>                .properties
+<a href=#934 id=934 data-nosnippet>934</a>                .iter()
+<a href=#935 id=935 data-nosnippet>935</a>                .map(|(k, v)| (k.as_str(), v.as_str()))
+<a href=#936 id=936 data-nosnippet>936</a>                .collect();
+<a href=#937 id=937 data-nosnippet>937</a>
+<a href=#938 id=938 data-nosnippet>938</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(state_id) = REGISTRY
+<a href=#939 id=939 data-nosnippet>939</a>                .blocks
+<a href=#940 id=940 data-nosnippet>940</a>                .state_id_from_properties(<span class="kw-2">&amp;</span>state.name, <span class="kw-2">&amp;</span>properties)
+<a href=#941 id=941 data-nosnippet>941</a>            {
+<a href=#942 id=942 data-nosnippet>942</a>                <span class="kw">return </span>state_id;
+<a href=#943 id=943 data-nosnippet>943</a>            }
+<a href=#944 id=944 data-nosnippet>944</a>        }
+<a href=#945 id=945 data-nosnippet>945</a>        BlockStateId(<span class="number">0</span>) <span class="comment">// Air fallback
+<a href=#946 id=946 data-nosnippet>946</a>    </span>}
+<a href=#947 id=947 data-nosnippet>947</a>
+<a href=#948 id=948 data-nosnippet>948</a>    <span class="doccomment">/// Resolves a chunk palette index to a runtime biome ID.
+<a href=#949 id=949 data-nosnippet>949</a>    </span><span class="kw">fn </span>resolve_biome(chunk: <span class="kw-2">&amp;</span>PersistentChunk, index: u16) -&gt; u8 {
+<a href=#950 id=950 data-nosnippet>950</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(biome_key) = chunk.biomes.get(index <span class="kw">as </span>usize)
+<a href=#951 id=951 data-nosnippet>951</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(id) = REGISTRY.biomes.id_from_key(biome_key)
+<a href=#952 id=952 data-nosnippet>952</a>        {
+<a href=#953 id=953 data-nosnippet>953</a>            <span class="kw">return </span>id <span class="kw">as </span>u8;
+<a href=#954 id=954 data-nosnippet>954</a>        }
+<a href=#955 id=955 data-nosnippet>955</a>        <span class="number">0 </span><span class="comment">// Plains fallback
+<a href=#956 id=956 data-nosnippet>956</a>    </span>}
+<a href=#957 id=957 data-nosnippet>957</a>}
 </code></pre></div></section></main></body></html>
