@@ -82,7 +82,7 @@ pub async fn mojang_authenticate(
             StatusCode::OK => {
                 return response.json().await.map_err(|_| AuthError::FailedParse);
             }
-            StatusCode::NO_CONTENT => return Err(AuthError::UnverifiedUsername),
+            StatusCode::NO_CONTENT => last_error = AuthError::UnverifiedUsername,
             other => last_error = AuthError::UnknownStatusCode(other),
         }
     }

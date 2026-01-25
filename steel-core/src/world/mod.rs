@@ -596,6 +596,23 @@ impl World {
         self.broadcast_to_all_encoded(encoded);
     }
 
+    /// Broadcasts a packet to all players in the world.
+    ///
+    /// This method handles encoding the packets producced from the function passed
+    pub fn broadcast_to_all_with<P: ClientPacket, F: Fn(&Player) -> P>(&self, packet: F) {
+        self.players.iter_players(|_, player| {
+            let Ok(encoded) = EncodedPacket::from_bare(
+                packet(player),
+                STEEL_CONFIG.compression,
+                ConnectionProtocol::Play,
+            ) else {
+                return false;
+            };
+            player.connection.send_encoded_packet(encoded);
+            true
+        });
+    }
+
     /// Broadcasts an already-encoded packet to all players in the world.
     ///
     /// Use this when you have a pre-encoded packet to avoid re-encoding.

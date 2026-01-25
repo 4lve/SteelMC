@@ -21,8 +21,8 @@ use steel_registry::vanilla_dimension_types::OVERWORLD;
 use steel_registry::vanilla_game_rules::{IMMEDIATE_RESPAWN, LIMITED_CRAFTING, REDUCED_DEBUG_INFO};
 use steel_registry::{REGISTRY, Registry};
 use steel_utils::locks::SyncRwLock;
-use steel_utils::text::{TextComponent, color::NamedColor};
 use steel_utils::types::GameType;
+use text_components::{Modifier, TextComponent, format::Color};
 use tick_rate_manager::{SprintReport, TickRateManager};
 use tokio::{runtime::Runtime, task::spawn_blocking, time::sleep};
 use tokio_util::sync::CancellationToken;
@@ -170,6 +170,18 @@ impl Server {
         world.add_player(player);
     }
 
+    /// Gets all the players on the server
+    pub fn get_players(&self) -> Vec<Arc<Player>> {
+        let mut players = vec![];
+        for world in &self.worlds {
+            world.players.iter_players(|_, p| {
+                players.push(p.clone());
+                true
+            });
+        }
+        players
+    }
+
     /// Runs the server tick loop.
     pub async fn run(self: Arc<Self>, cancel_token: CancellationToken) {
         let mut next_tick_time = Instant::now();
@@ -276,52 +288,36 @@ impl Server {
     fn broadcast_tab_list(&self, tps: f32, mspt: f32) {
         // Color TPS based on value
         let tps_color = if tps >= 19.5 {
-            NamedColor::Green
+            Color::Green
         } else if tps >= 15.0 {
-            NamedColor::Yellow
+            Color::Yellow
         } else {
-            NamedColor::Red
+            Color::Red
         };
 
         // Color MSPT based on value (under 50ms is good)
         let mspt_color = if mspt <= 50.0 {
-            NamedColor::Aqua
+            Color::Aqua
         } else {
-            NamedColor::Red
+            Color::Red
         };
 
-        let packet = CTabList::new(
-            // Header: Steel Dev Build
-            TextComponent::new()
-                .text("\n")
-                .extra(
-                    TextComponent::new()
-                        .text("Steel Dev Build")
-                        .color(NamedColor::Yellow),
-                )
-                .extra(TextComponent::new().text("\n")),
-            // Footer: TPS and MSPT with live values
-            TextComponent::new()
-                .text("\n")
-                .extra(TextComponent::new().text("TPS: ").color(NamedColor::Gray))
-                .extra(
-                    TextComponent::new()
-                        .text(format!("{tps:.1}"))
-                        .color(tps_color),
-                )
-                .extra(TextComponent::new().text(" | ").color(NamedColor::DarkGray))
-                .extra(TextComponent::new().text("MSPT: ").color(NamedColor::Gray))
-                .extra(
-                    TextComponent::new()
-                        .text(format!("{mspt:.2}"))
-                        .color(mspt_color),
-                )
-                .extra(TextComponent::new().text("\n")),
-        );
+        let header = TextComponent::plain("\n").add_children(vec![
+            TextComponent::plain("Steel Dev Build").color(Color::Yellow),
+            TextComponent::plain("\n"),
+        ]);
+        let footer = TextComponent::plain("\n").add_children(vec![
+            TextComponent::plain("TPS: ").color(Color::Gray),
+            TextComponent::plain(format!("{tps:.1}")).color(tps_color),
+            TextComponent::plain(" | ").color(Color::DarkGray),
+            TextComponent::plain("MSPT: ").color(Color::Gray),
+            TextComponent::plain(format!("{mspt:.2}")).color(mspt_color),
+            TextComponent::plain("\n"),
+        ]);
 
         // Broadcast to all players in all worlds
         for world in &self.worlds {
-            world.broadcast_to_all(packet.clone());
+            world.broadcast_to_all_with(|player| CTabList::new(&header, &footer, player));
         }
     }
 
@@ -336,10 +332,8 @@ impl Server {
             ])
             .into();
 
-        let packet = CSystemChat::new(message, false);
-
         for world in &self.worlds {
-            world.broadcast_to_all(packet.clone());
+            world.broadcast_to_all_with(|player| CSystemChat::new(&message, false, player));
         }
     }
 

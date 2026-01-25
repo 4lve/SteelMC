@@ -8,7 +8,8 @@ use steel_protocol::{
     packets::login::{CHello, CLoginCompression, CLoginFinished, SHello, SKey},
     utils::ConnectionProtocol,
 };
-use steel_utils::{text::TextComponent, translations};
+use steel_utils::translations;
+use text_components::TextComponent;
 
 use crate::{
     AuthError, is_valid_player_name, mojang_authenticate, offline_uuid, signed_bytes_be_to_hex,
@@ -22,8 +23,7 @@ impl JavaTcpClient {
     /// This function will panic if the player name converted to a UUID fails.
     pub async fn handle_hello(&self, packet: SHello) {
         if !is_valid_player_name(&packet.name) {
-            self.kick(TextComponent::new().text("Invalid player name"))
-                .await;
+            self.kick("Invalid player name".into()).await;
             return;
         }
 
@@ -75,13 +75,12 @@ impl JavaTcpClient {
             .private_key
             .decrypt(Pkcs1v15Encrypt, &packet.challenge)
         else {
-            self.kick(TextComponent::new().text("Invalid key")).await;
+            self.kick("Invalid key".into()).await;
             return;
         };
 
         if challenge_response != challenge {
-            self.kick(TextComponent::new().text("Invalid challenge response"))
-                .await;
+            self.kick("Invalid challenge response".into()).await;
             return;
         }
 
@@ -91,14 +90,14 @@ impl JavaTcpClient {
             .private_key
             .decrypt(Pkcs1v15Encrypt, &packet.key)
         else {
-            self.kick(TextComponent::new().text("Invalid key")).await;
+            self.kick("Invalid key".into()).await;
             return;
         };
 
         let secret_key: [u8; 16] = if let Ok(secret_key) = secret_key.try_into() {
             secret_key
         } else {
-            self.kick(TextComponent::new().text("Invalid key")).await;
+            self.kick("Invalid key".into()).await;
             return;
         };
 
@@ -106,8 +105,7 @@ impl JavaTcpClient {
             .connection_updates
             .send(ConnectionUpdate::EnableEncryption(secret_key))
         else {
-            self.kick(TextComponent::new().text("Failed to send connection update"))
-                .await;
+            self.kick("Failed to send connection update".into()).await;
             return;
         };
 
@@ -116,7 +114,7 @@ impl JavaTcpClient {
         let mut gameprofile = self.gameprofile.lock().await;
 
         let Some(profile) = gameprofile.as_mut() else {
-            self.kick(TextComponent::new().text("No GameProfile")).await;
+            self.kick("No GameProfile".into()).await;
             return;
         };
 
@@ -132,12 +130,13 @@ impl JavaTcpClient {
                 Ok(new_profile) => *profile = new_profile,
                 Err(error) => {
                     self.kick(match error {
-                        AuthError::FailedResponse => TextComponent::new()
-                            .translate(translations::MULTIPLAYER_DISCONNECT_AUTHSERVERS_DOWN.msg()),
-                        AuthError::UnverifiedUsername => TextComponent::new().translate(
+                        AuthError::FailedResponse => TextComponent::translated(
+                            translations::MULTIPLAYER_DISCONNECT_AUTHSERVERS_DOWN.msg(),
+                        ),
+                        AuthError::UnverifiedUsername => TextComponent::translated(
                             translations::MULTIPLAYER_DISCONNECT_UNVERIFIED_USERNAME.msg(),
                         ),
-                        e => TextComponent::new().text(e.to_string()),
+                        e => e.to_string().into(),
                     })
                     .await;
                     return;

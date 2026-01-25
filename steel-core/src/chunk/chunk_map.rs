@@ -9,7 +9,7 @@ use std::{
 
 use rayon::{
     ThreadPool, ThreadPoolBuilder,
-    iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator},
+    iter::{IntoParallelIterator, ParallelIterator},
 };
 use rustc_hash::FxBuildHasher;
 use steel_protocol::packets::game::{
@@ -19,6 +19,7 @@ use steel_registry::{REGISTRY, dimension_type::DimensionTypeRef, vanilla_blocks}
 use steel_utils::{BlockPos, ChunkPos, SectionPos, locks::SyncMutex};
 use tokio::{runtime::Runtime, time::Instant};
 use tokio_util::task::TaskTracker;
+use tracing::Instrument;
 
 use crate::chunk::chunk_holder::ChunkHolder;
 use crate::chunk::chunk_ticket_manager::{
@@ -58,7 +59,7 @@ pub struct ChunkMap {
     /// The thread pool to use for chunk generation (throughput-oriented).
     pub generation_pool: Arc<ThreadPool>,
     /// The thread pool to use for chunk ticking (latency-oriented).
-    pub tick_pool: Arc<ThreadPool>,
+    //pub tick_pool: Arc<ThreadPool>,
     /// The runtime to use for chunk tasks.
     pub chunk_runtime: Arc<Runtime>,
     /// Manager for chunk saving and loading.
@@ -96,7 +97,7 @@ impl ChunkMap {
             chunk_tickets: SyncMutex::new(ChunkTicketManager::new()),
             world_gen_context: Arc::new(WorldGenContext::new(generator, world)),
             generation_pool: Arc::new(ThreadPoolBuilder::new().build().unwrap()),
-            tick_pool: Arc::new(ThreadPoolBuilder::new().build().unwrap()),
+            //tick_pool: Arc::new(ThreadPoolBuilder::new().build().unwrap()),
             chunk_runtime,
             region_manager: Arc::new(RegionManager::new(format!("world/{}", dimension.key.path))),
             chunks_to_broadcast: SyncMutex::new(Vec::new()),
@@ -258,8 +259,10 @@ impl ChunkMap {
         //log::info!("Running {} generation tasks", pending.len());
         let tasks = pending.drain(..).collect::<Vec<_>>();
         tasks.into_par_iter().for_each(|task| {
-            self.task_tracker
-                .spawn_on(async move { task.run().await }, self.chunk_runtime.handle());
+            self.task_tracker.spawn_on(
+                async move { task.run().await }.instrument(tracing::debug_span!("chunk gen spawn")),
+                self.chunk_runtime.handle(),
+            );
         });
     }
 
@@ -343,15 +346,15 @@ impl ChunkMap {
             let holder_creation_elapsed = holder_creation_start.elapsed();
 
             let schedule_start = Instant::now();
-            self.tick_pool.install(|| {
-                holders_to_schedule.par_iter().for_each(|(holder, level)| {
-                    if let Some(level) = level
-                        && is_full(*level)
-                    {
-                        holder.schedule_chunk_generation_task_b(ChunkStatus::Full, self);
-                    }
-                });
-            });
+            //self.tick_pool.install(|| {
+            for (holder, level) in &holders_to_schedule {
+                if let Some(level) = level
+                    && is_full(*level)
+                {
+                    holder.schedule_chunk_generation_task_b(ChunkStatus::Full, self);
+                }
+            }
+            //});
             let schedule_elapsed = schedule_start.elapsed();
 
             if updates_elapsed >= SLOW_TASK_WARN_THRESHOLD {

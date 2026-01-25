@@ -10,7 +10,7 @@ use std::mem;
 use steel_registry::item_stack::ItemStack;
 use steel_registry::menu_type::MenuTypeRef;
 use steel_registry::vanilla_menu_types;
-use steel_utils::text::TextComponent;
+use text_components::TextComponent;
 
 use crate::inventory::{
     SyncPlayerInv,

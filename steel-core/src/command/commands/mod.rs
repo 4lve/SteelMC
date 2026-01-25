@@ -4,6 +4,7 @@ pub mod gamemode;
 pub mod gamerule;
 pub mod seed;
 pub mod stop;
+pub mod tellraw;
 pub mod tick;
 pub mod weather;
 
@@ -34,12 +35,7 @@ pub struct SuggestionResult {
 /// A trait that defines the behavior of a type safe command executor.
 pub trait CommandExecutor<S> {
     /// Executes the command with the given type safe arguments.
-    fn execute(
-        &self,
-        parsed: S,
-        context: &mut CommandContext,
-        server: &Arc<Server>,
-    ) -> Result<(), CommandError>;
+    fn execute(&self, parsed: S, context: &mut CommandContext) -> Result<(), CommandError>;
 }
 
 /// The builder struct that holds command handler data and executor.
@@ -237,7 +233,7 @@ where
         args_start_pos: usize,
         context: &mut CommandContext,
     ) -> Option<SuggestionResult> {
-        let mut suggestion_ctx = SuggestionContext::new();
+        let mut suggestion_ctx = SuggestionContext::new(context.server.clone());
         self.executor
             .suggest(args, args_start_pos, context, &mut suggestion_ctx)
     }
@@ -287,11 +283,11 @@ where
         args: &[&str],
         parsed: S,
         context: &mut CommandContext,
-        server: &Arc<Server>,
+        _server: &Arc<Server>,
         _: &dyn CommandHandlerDyn,
     ) -> Option<Result<(), CommandError>> {
         args.is_empty()
-            .then(|| self.executor.execute(parsed, context, server))
+            .then(|| self.executor.execute(parsed, context))
     }
 
     fn usage(&self, _buffer: &mut Vec<CommandNode>, _: i32) -> CommandNodeInfo {
@@ -422,7 +418,7 @@ where
         server: &Arc<Server>,
         handler: &dyn CommandHandlerDyn,
     ) -> Option<Result<(), CommandError>> {
-        if let Err(err) = self.executor.execute(parsed, context, server) {
+        if let Err(err) = self.executor.execute(parsed, context) {
             return Some(Err(err));
         }
 
@@ -711,17 +707,14 @@ where
         let uses_ask_server = matches!(suggestion_type, Some(SuggestionType::AskServer));
 
         // Try to parse the current argument
-        if let Some((remaining, _)) = self.argument.parse(args, context) {
+        if let Some((remaining, _)) = self.argument.parse(args, context)
+            && !remaining.is_empty()
+        {
             // Argument parsed successfully - store parsed value in context for downstream args
             if let Some(parsed_value) = self.argument.parsed_value(args, context) {
                 suggestion_ctx.set(self.name, parsed_value);
             }
 
-            // Continue to next argument
-            if remaining.is_empty() {
-                // No more args
-                return None;
-            }
             // Calculate position after this argument
             let consumed_len: usize = args
                 .iter()
@@ -936,7 +929,7 @@ impl CommandHandlerDyn for DynCommandHandler {
         context: &mut CommandContext,
     ) -> Option<SuggestionResult> {
         let mut combined: Option<SuggestionResult> = None;
-        let suggestion_ctx = SuggestionContext::new();
+        let suggestion_ctx = SuggestionContext::new(context.server.clone());
 
         for executor in &self.executors {
             if let Some(result) =

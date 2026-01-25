@@ -25,9 +25,13 @@ pub mod text;
 pub mod types;
 
 #[rustfmt::skip]
-#[path = "generated/vanilla_translations.rs"]
+#[path = "generated/vanilla_translations/ids.rs"]
 #[allow(missing_docs, warnings)]
 pub mod translations;
+#[rustfmt::skip]
+#[path = "generated/vanilla_translations/registry.rs"]
+#[allow(missing_docs, warnings)]
+pub mod translations_registry;
 
 pub use front_vec::FrontVec;
 pub use types::BlockPos;

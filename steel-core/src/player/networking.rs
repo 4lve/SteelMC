@@ -8,7 +8,8 @@ use steel_protocol::packet_reader::TCPNetworkDecoder;
 use steel_protocol::packet_traits::{ClientPacket, CompressionInfo, EncodedPacket, ServerPacket};
 use steel_protocol::packet_writer::TCPNetworkEncoder;
 use steel_protocol::packets::common::{
-    CDisconnect, CKeepAlive, SClientInformation, SCustomPayload, SKeepAlive,
+    CDisconnect, CKeepAlive, CPongResponse, SClientInformation, SCustomPayload, SKeepAlive,
+    SPingRequest,
 };
 use steel_protocol::packets::game::{
     SAcceptTeleportation, SChat, SChatAck, SChatCommand, SChatSessionUpdate, SChunkBatchReceived,
@@ -20,7 +21,11 @@ use steel_protocol::packets::game::{
 use steel_protocol::utils::{ConnectionProtocol, PacketError, RawPacket};
 use steel_registry::packets::play;
 use steel_utils::locks::{AsyncMutex, SyncMutex};
-use steel_utils::{text::TextComponent, translations};
+use steel_utils::translations;
+use text_components::TextComponent;
+use text_components::content::Resolvable;
+use text_components::custom::CustomData;
+use text_components::resolving::TextResolutor;
 use tokio::io::{BufReader, BufWriter};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::select;
@@ -131,7 +136,7 @@ impl JavaConnection {
 
     /// Disconnects the client.
     pub fn disconnect(&self, reason: impl Into<TextComponent>) {
-        self.send_packet(CDisconnect::new(reason.into()));
+        self.send_packet(CDisconnect::new(&reason.into(), self));
         self.close();
     }
 
@@ -248,6 +253,7 @@ impl JavaConnection {
                     &player,
                     packet.id,
                     &packet.command,
+                    server.clone(),
                 );
             }
             play::S_CONTAINER_BUTTON_CLICK => {
@@ -294,6 +300,12 @@ impl JavaConnection {
             play::S_SIGN_UPDATE => {
                 let packet = SSignUpdate::read_packet(data)?;
                 player.handle_sign_update(packet);
+            }
+            play::S_PING_REQUEST => {
+                let packet = SPingRequest::read_packet(data)?;
+                player
+                    .connection
+                    .send_packet(CPongResponse::new(packet.time));
             }
             id => log::info!("play packet id {id} is not known"),
         }
@@ -363,5 +375,19 @@ impl JavaConnection {
         let player = self.player.upgrade().expect("Player is not available");
         let world = player.world.clone();
         world.remove_player(player).await;
+    }
+}
+
+impl TextResolutor for JavaConnection {
+    fn resolve_content(&self, _resolvable: &Resolvable) -> TextComponent {
+        TextComponent::new()
+    }
+
+    fn resolve_custom(&self, _data: &CustomData) -> Option<TextComponent> {
+        None
+    }
+
+    fn translate(&self, _key: &str) -> Option<String> {
+        None
     }
 }
