@@ -18,11 +18,14 @@ use super::fluid_level::{FluidLevel, FluidLevelSampler, FluidLevelSamplerImpl};
 use super::surface_height_sampler::SurfaceHeightEstimateSampler;
 
 /// Minimum Y value marker (way below min Y).
-const WAY_BELOW_MIN_Y: i32 = i32::MIN + 1;
+/// This must be a reasonable value that won't cause integer overflow in barrier calculations.
+/// Matches vanilla's DimensionType.MIN_HEIGHT * 16 = -2032 * 16 = -32512
+const WAY_BELOW_MIN_Y: i32 = -32512;
 
 /// 13 chunk position offsets for surface height sampling.
-/// Order matches vanilla - (0,0) is at index 7.
+/// Order matches vanilla - (0,0) MUST be first for early-return logic to work correctly.
 const SURFACE_SAMPLING_OFFSETS_IN_CHUNKS: [(i8, i8); 13] = [
+    (0, 0),   // Must be first - checked for early returns
     (-2, -1),
     (-1, -1),
     (0, -1),
@@ -30,7 +33,6 @@ const SURFACE_SAMPLING_OFFSETS_IN_CHUNKS: [(i8, i8); 13] = [
     (-3, 0),
     (-2, 0),
     (-1, 0),
-    (0, 0),  // index 7 - the "start" position
     (1, 0),
     (-2, 1),
     (-1, 1),
@@ -284,11 +286,8 @@ impl WorldAquiferSampler {
         z: i32,
         router: &mut ChunkNoiseRouter,
         height_estimator: &mut SurfaceHeightEstimateSampler,
-        _sample_options: &ChunkNoiseFunctionSampleOptions,
+        sample_options: &ChunkNoiseFunctionSampleOptions,
     ) -> FluidLevel {
-        // Use skip_cell_caches for all internal aquifer sampling since we're
-        // sampling at the aquifer's grid positions, not the block being generated.
-        let aquifer_options = ChunkNoiseFunctionSampleOptions::skip_cell_caches();
         let global_fluid = self.fluid_level_sampler.get_fluid_level(x, y, z);
         let mut lowest_preliminary_surface = i32::MAX;
         let top_of_aquifer_cell = y + 12;
@@ -329,12 +328,12 @@ impl WorldAquiferSampler {
             lowest_preliminary_surface,
             surface_at_center_is_under_global_fluid_level,
             router,
-            &aquifer_options,
+            sample_options,
         );
 
         FluidLevel::new(
             fluid_surface_level,
-            self.compute_fluid_type(x, y, z, &global_fluid, fluid_surface_level, router, &aquifer_options),
+            self.compute_fluid_type(x, y, z, &global_fluid, fluid_surface_level, router, sample_options),
         )
     }
 
@@ -512,11 +511,6 @@ impl AquiferSamplerImpl for WorldAquiferSampler {
         // Check global fluid first
         let global_fluid = self.fluid_level_sampler.get_fluid_level(pos_x, pos_y, pos_z);
 
-        // Skip aquifer calculations above surface - just use global fluid
-        if pos_y > self.skip_sampling_above_y {
-            return Some(global_fluid.get_block(pos_y, self.blocks.air));
-        }
-
         if global_fluid.get_block(pos_y, self.blocks.air) == self.blocks.lava {
             return Some(self.blocks.lava);
         }
@@ -534,10 +528,11 @@ impl AquiferSamplerImpl for WorldAquiferSampler {
         let mut closest_index_2 = 0usize;
         let mut closest_index_3 = 0usize;
 
-        // Iterate over 2x3x2 grid of cells
-        for x1 in 0..=1 {
-            for y1 in -1..=1 {
-                for z1 in 0..=1 {
+        // Iterate over 2x3x2 grid of cells in same order as vanilla
+        // Pumpkin's order: y goes 1,0,-1; for each y, (x,z) goes (1,1),(1,0),(0,1),(0,0)
+        for y1 in (-1..=1).rev() {
+            for x1 in (0..=1).rev() {
+                for z1 in (0..=1).rev() {
                     let spaced_grid_x = x_anchor + x1;
                     let spaced_grid_y = y_anchor + y1;
                     let spaced_grid_z = z_anchor + z1;
@@ -564,19 +559,20 @@ impl AquiferSamplerImpl for WorldAquiferSampler {
                     let new_dist = dx * dx + dy * dy + dz * dz;
 
                     // Insertion sort into 3 closest
-                    if dist_sq_1 >= new_dist {
+                    // Use strict > to match vanilla tie-breaking (earlier positions win)
+                    if dist_sq_1 > new_dist {
                         closest_index_3 = closest_index_2;
                         closest_index_2 = closest_index_1;
                         closest_index_1 = index;
                         dist_sq_3 = dist_sq_2;
                         dist_sq_2 = dist_sq_1;
                         dist_sq_1 = new_dist;
-                    } else if dist_sq_2 >= new_dist {
+                    } else if dist_sq_2 > new_dist {
                         closest_index_3 = closest_index_2;
                         closest_index_2 = index;
                         dist_sq_3 = dist_sq_2;
                         dist_sq_2 = new_dist;
-                    } else if dist_sq_3 >= new_dist {
+                    } else if dist_sq_3 > new_dist {
                         closest_index_3 = index;
                         dist_sq_3 = new_dist;
                     }

@@ -122,8 +122,8 @@ impl ChunkGenerator for VanillaNoiseGenerator {
             &self.shape,
             fluid_level_sampler,
             &self.blocks,
-            true,  // enable_aquifers
-            true,  // enable_ore_veins
+            true,   // enable_aquifers
+            true,   // enable_ore_veins
         );
 
         // Sample start density column
