@@ -61,7 +61,13 @@
 <a href=#61 id=61 data-nosnippet>61</a><span class="doccomment">/// Calculates the delta for entity movement (multiply by 4096).
 <a href=#62 id=62 data-nosnippet>62</a></span><span class="attr">#[inline]
 <a href=#63 id=63 data-nosnippet>63</a>#[must_use]
-<a href=#64 id=64 data-nosnippet>64</a></span><span class="kw">pub fn </span>calc_delta(current: f64, previous: f64) -&gt; i16 {
-<a href=#65 id=65 data-nosnippet>65</a>    ((current * <span class="number">4096.0</span>) - (previous * <span class="number">4096.0</span>)) <span class="kw">as </span>i16
-<a href=#66 id=66 data-nosnippet>66</a>}
+<a href=#64 id=64 data-nosnippet>64</a></span><span class="kw">pub fn </span>calc_delta(current: f64, previous: f64) -&gt; <span class="prelude-ty">Option</span>&lt;i16&gt; {
+<a href=#65 id=65 data-nosnippet>65</a>    <span class="kw">let </span>delta = (current * <span class="number">4096.0</span>) - (previous * <span class="number">4096.0</span>);
+<a href=#66 id=66 data-nosnippet>66</a>    <span class="comment">// check if delta fits in i16
+<a href=#67 id=67 data-nosnippet>67</a>    </span><span class="kw">if </span>delta &gt;= i16::MIN <span class="kw">as </span>f64 &amp;&amp; delta &lt;= i16::MAX <span class="kw">as </span>f64 {
+<a href=#68 id=68 data-nosnippet>68</a>        <span class="prelude-val">Some</span>(delta <span class="kw">as </span>i16)
+<a href=#69 id=69 data-nosnippet>69</a>    } <span class="kw">else </span>{
+<a href=#70 id=70 data-nosnippet>70</a>        <span class="prelude-val">None
+<a href=#71 id=71 data-nosnippet>71</a>    </span>}
+<a href=#72 id=72 data-nosnippet>72</a>}
 </code></pre></div></section></main></body></html>
