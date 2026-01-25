@@ -145,8 +145,7 @@ debug = true
 debug = true
 
 [profile.dev]
-# debug = 0
-debug = true
+debug = 0
 #codegen-backend = "cranelift"
 
 [workspace.lints.rust]
