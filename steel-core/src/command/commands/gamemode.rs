@@ -1,3 +1,4 @@
+//! Handler for the "gamemode" command.
 use crate::command::arguments::gamemode::GameModeArgument;
 use crate::command::arguments::player::PlayerArgument;
 use crate::command::commands::{
@@ -5,12 +6,12 @@ use crate::command::commands::{
 };
 use crate::command::context::CommandContext;
 use crate::command::error::CommandError;
-use text_components::TextComponent;
-use steel_utils::translations;
-use steel_utils::types::GameType;
-use text_components::translation::Translation;
 use crate::player::Player;
 use std::sync::Arc;
+use steel_utils::translations;
+use steel_utils::types::GameType;
+use text_components::TextComponent;
+use text_components::translation::Translation;
 
 /// Handler for the "gamemode" command.
 #[must_use]
@@ -23,7 +24,9 @@ pub fn command_handler() -> impl CommandHandlerDyn {
     .then(
         argument("gamemode", GameModeArgument)
             .executes(GameModeCommandExecutor)
-            .then(argument("targets", PlayerArgument::new()).executes(GameModeTargetCommandExecutor)),
+            .then(
+                argument("targets", PlayerArgument::new()).executes(GameModeTargetCommandExecutor),
+            ),
     )
 }
 
@@ -73,12 +76,12 @@ impl CommandExecutor<(((), GameType), Vec<Arc<Player>>)> for GameModeTargetComma
         let mode_translation = get_gamemode_translation(gamemode);
 
         for target in targets {
-             if target.set_game_mode(gamemode) {
+            if target.set_game_mode(gamemode) {
                 // Send message to target
                 target.send_message(
                     &translations::COMMANDS_GAMEMODE_SUCCESS_SELF
                         .message([mode_translation])
-                        .into()
+                        .into(),
                 );
 
                 // Send feedback to sender if sender is not the target
@@ -89,7 +92,7 @@ impl CommandExecutor<(((), GameType), Vec<Arc<Player>>)> for GameModeTargetComma
                 };
 
                 if !sender_is_target {
-                     context.sender.send_message(
+                    context.sender.send_message(
                         &translations::COMMANDS_GAMEMODE_SUCCESS_OTHER
                             .message([
                                 TextComponent::plain(target.gameprofile.name.clone()),
@@ -98,7 +101,7 @@ impl CommandExecutor<(((), GameType), Vec<Arc<Player>>)> for GameModeTargetComma
                             .into(),
                     );
                 }
-             }
+            }
         }
 
         Ok(())
