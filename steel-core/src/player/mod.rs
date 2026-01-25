@@ -254,6 +254,12 @@ pub struct Player {
 
     /// Block breaking state machine.
     pub block_breaking: SyncMutex<BlockBreakingManager>,
+
+    /// Tick counter for forced position sync (resets to 0 after sync, like vanilla teleportDelay).
+    position_sync_delay: AtomicI32,
+
+    /// Last `on_ground` state sent to tracking players (for detecting changes).
+    last_sent_on_ground: AtomicBool,
 }
 
 impl Player {
@@ -317,6 +323,8 @@ impl Player {
             on_ground: AtomicBool::new(false),
             last_impulse_tick: AtomicI32::new(0),
             block_breaking: SyncMutex::new(BlockBreakingManager::new()),
+            position_sync_delay: AtomicI32::new(0),
+            last_sent_on_ground: AtomicBool::new(false),
         }
     }
 
@@ -397,7 +405,7 @@ impl Player {
         &self,
         packet: &SChat,
     ) -> Result<(message_chain::SignedMessageLink, LastSeen), String> {
-        const MESSAGE_EXPIRES_AFTER: Duration = Duration::from_secs(5 * 60);
+        const MESSAGE_EXPIRES_AFTER: Duration = Duration::from_mins(5);
 
         let session = self.chat_session.lock().clone().ok_or("No chat session")?;
         let signature = packet.signature.as_ref().ok_or("No signature present")?;
@@ -822,19 +830,59 @@ impl Player {
                 let dy = calc_delta(pos.y, prev_pos.y);
                 let dz = calc_delta(pos.z, prev_pos.z);
 
+                // Vanilla sync conditions (ServerEntity.java:148)
+                let sync_delay = self.position_sync_delay.fetch_add(1, Ordering::Relaxed);
+                let last_on_ground = self.last_sent_on_ground.load(Ordering::Relaxed);
+                let on_ground_changed = last_on_ground != packet.on_ground;
+                let force_sync = sync_delay > 400 || on_ground_changed;
+
                 if let (Some(dx), Some(dy), Some(dz)) = (dx, dy, dz) {
-                    let move_packet = CMoveEntityPosRot {
-                        entity_id: self.entity_id,
-                        dx,
-                        dy,
-                        dz,
-                        y_rot: to_angle_byte(yaw),
-                        x_rot: to_angle_byte(pitch),
-                        on_ground: packet.on_ground,
-                    };
-                    self.world
-                        .broadcast_to_nearby(new_chunk, move_packet, Some(self.entity_id));
+                    if force_sync {
+                        // Send absolute position sync (forced by timer or on_ground change)
+                        self.position_sync_delay.store(0, Ordering::Relaxed);
+                        self.last_sent_on_ground
+                            .store(packet.on_ground, Ordering::Relaxed);
+
+                        let delta = self.get_delta_movement();
+                        let sync_packet = CEntityPositionSync {
+                            entity_id: self.entity_id,
+                            x: pos.x,
+                            y: pos.y,
+                            z: pos.z,
+                            velocity_x: delta.x,
+                            velocity_y: delta.y,
+                            velocity_z: delta.z,
+                            yaw,
+                            pitch,
+                            on_ground: packet.on_ground,
+                        };
+                        self.world.broadcast_to_nearby(
+                            new_chunk,
+                            sync_packet,
+                            Some(self.entity_id),
+                        );
+                    } else {
+                        let move_packet = CMoveEntityPosRot {
+                            entity_id: self.entity_id,
+                            dx,
+                            dy,
+                            dz,
+                            y_rot: to_angle_byte(yaw),
+                            x_rot: to_angle_byte(pitch),
+                            on_ground: packet.on_ground,
+                        };
+                        self.world.broadcast_to_nearby(
+                            new_chunk,
+                            move_packet,
+                            Some(self.entity_id),
+                        );
+                    }
                 } else {
+                    // Send absolute position sync (delta too big)
+                    self.position_sync_delay.store(0, Ordering::Relaxed);
+                    self.last_sent_on_ground
+                        .store(packet.on_ground, Ordering::Relaxed);
+
                     let delta = self.get_delta_movement();
                     let sync_packet = CEntityPositionSync {
                         entity_id: self.entity_id,
@@ -1390,8 +1438,7 @@ impl Player {
             .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| {
                 Some(if id == i32::MAX { 0 } else { id + 1 })
             })
-            .map(|old| if old == i32::MAX { 0 } else { old + 1 })
-            .unwrap_or(1);
+            .map_or(1, |old| if old == i32::MAX { 0 } else { old + 1 });
 
         // Update player position (vanilla: player.teleportSetPosition)
         *self.position.lock() = Vector3::new(x, y, z);
