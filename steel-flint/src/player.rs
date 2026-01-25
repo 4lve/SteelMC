@@ -88,7 +88,7 @@ mod tests {
         let item = Item::new("minecraft:stone");
         player.set_slot(PlayerSlot::Hotbar1, Some(&item));
 
-        let retrieved = player.get_slot(PlayerSlot::Hotbar1).unwrap();
+        let retrieved = player.get_slot(PlayerSlot::Hotbar1).expect("Slot not found");
         assert_eq!(retrieved.id, "minecraft:stone");
     }
 }

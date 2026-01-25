@@ -20,5 +20,6 @@ pub mod level_chunk;
 pub mod paletted_container;
 pub mod proto_chunk;
 pub mod section;
-
+/// Generates an emtpy world which can be used for testing
+pub mod empty_chunk_generator;
 pub mod world_gen_context;

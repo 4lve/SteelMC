@@ -6,7 +6,7 @@ use std::{
     },
     time::Duration,
 };
-
+use futures::executor;
 use rayon::{
     ThreadPool, ThreadPoolBuilder,
     iter::{IntoParallelIterator, ParallelIterator},
@@ -167,7 +167,7 @@ impl ChunkMap {
 
         // Block on async storage load
         let storage = &self.storage;
-        let result = futures::executor::block_on(async {
+        let result = executor::block_on(async {
             storage.load_chunk(*pos, min_y, height, level).await
         });
 

@@ -38,6 +38,10 @@ impl SteelTestWorld {
     ///
     /// The world uses the overworld dimension type and starts with seed 0.
     /// All chunks are created empty on-demand.
+    ///
+    /// # Panic
+    /// shouldn't panic only something is completely broken and then it is ok
+    #[allow(clippy::missing_panics_doc)]
     #[must_use]
     pub fn new() -> Self {
         let rt = runtime();
@@ -134,6 +138,7 @@ impl FlintWorld for SteelTestWorld {
 
 #[cfg(test)]
 mod tests {
+    use rustc_hash::FxHashMap;
     use super::*;
     use crate::init_test_registries;
 
@@ -178,7 +183,7 @@ mod tests {
 
         let stone = FlintBlock {
             id: "minecraft:stone".to_string(),
-            properties: Default::default(),
+            properties: FxHashMap::default(),
         };
 
         world.set_block([0, 64, 0], &stone);
@@ -195,7 +200,7 @@ mod tests {
         // Place a block
         let stone = FlintBlock {
             id: "minecraft:stone".to_string(),
-            properties: Default::default(),
+            properties: FxHashMap::default(),
         };
         world.set_block([0, 64, 0], &stone);
 
@@ -205,7 +210,7 @@ mod tests {
         // Remove with air
         let air = FlintBlock {
             id: "minecraft:air".to_string(),
-            properties: Default::default(),
+            properties: FxHashMap::default(),
         };
         world.set_block([0, 64, 0], &air);
 

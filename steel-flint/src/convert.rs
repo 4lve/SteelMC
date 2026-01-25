@@ -126,13 +126,13 @@ mod tests {
         init_test_registries();
         let block = FlintBlock {
             id: "minecraft:stone".to_string(),
-            properties: Default::default(),
+            properties: FxHashMap::default(),
         };
 
         let state_id = flint_block_to_state_id(&block);
         assert!(state_id.is_some(), "Stone should convert to valid state ID");
 
-        let block_data = state_id_to_block_data(state_id.unwrap());
+        let block_data = state_id_to_block_data(state_id.expect("Valid state ID"));
         assert_eq!(block_data.id, "minecraft:stone");
     }
 
@@ -141,7 +141,7 @@ mod tests {
         init_test_registries();
         let block = FlintBlock {
             id: "minecraft:air".to_string(),
-            properties: Default::default(),
+            properties: FxHashMap::default(),
         };
 
         let state_id = flint_block_to_state_id(&block);
@@ -153,7 +153,7 @@ mod tests {
         init_test_registries();
         let block = FlintBlock {
             id: "stone".to_string(),
-            properties: Default::default(),
+            properties: FxHashMap::default(),
         };
 
         let state_id = flint_block_to_state_id(&block);

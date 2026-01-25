@@ -45,9 +45,10 @@ pub use world::SteelTestWorld;
 pub use flint_steel::{TestLoader, TestRunConfig, TestRunner};
 
 use std::sync::{Arc, OnceLock};
-
+use tokio::runtime;
 use steel_registry::{REGISTRY, Registry};
 use tokio::runtime::Runtime;
+use steel_core::behavior;
 
 /// Global runtime for flint tests.
 static FLINT_RUNTIME: OnceLock<Arc<Runtime>> = OnceLock::new();
@@ -119,7 +120,7 @@ fn init_behaviors() {
 
     INIT.call_once(|| {
         // Initialize the global behavior registries
-        steel_core::behavior::init_behaviors();
+        behavior::init_behaviors();
     });
 }
 
@@ -127,7 +128,7 @@ fn init_behaviors() {
 fn init_runtime() {
     let _ = FLINT_RUNTIME.get_or_init(|| {
         Arc::new(
-            tokio::runtime::Builder::new_multi_thread()
+            runtime::Builder::new_multi_thread()
                 .worker_threads(2)
                 .enable_all()
                 .build()

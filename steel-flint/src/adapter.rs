@@ -49,6 +49,7 @@ mod tests {
     use crate::init_test_registries;
     use crate::{TestLoader, TestRunner};
     use std::path::PathBuf;
+    use flint_core::test_spec;
 
     #[test]
     fn test_run_fence_row_connections() {
@@ -57,7 +58,7 @@ mod tests {
         // Load the fence test
         let test_path =
             PathBuf::from("../../../flint/FlintBenchmark/tests/fences/fence_row_connections.json");
-        let spec = flint_core::test_spec::TestSpec::from_file(&test_path)
+        let spec = test_spec::TestSpec::from_file(&test_path)
             .expect("Failed to load fence test");
 
         // Create adapter and runner
@@ -107,10 +108,10 @@ mod tests {
         }
 
         // Load all test specs from paths
-        let specs: Vec<flint_core::test_spec::TestSpec> = paths
+        let specs: Vec<test_spec::TestSpec> = paths
             .iter()
             .filter_map(|path| {
-                flint_core::test_spec::TestSpec::from_file(path)
+                test_spec::TestSpec::from_file(path)
                     .map_err(|e| println!("Failed to load {}: {}", path.display(), e))
                     .ok()
             })
