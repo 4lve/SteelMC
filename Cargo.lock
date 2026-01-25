@@ -705,6 +705,7 @@ name = "flint-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "rustc-hash 2.1.1",
  "serde",
  "serde_json",
 ]
@@ -716,6 +717,7 @@ dependencies = [
  "anyhow",
  "dotenvy",
  "flint-core",
+ "rustc-hash 2.1.1",
  "serde",
  "serde_json",
 ]

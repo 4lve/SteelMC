@@ -47,7 +47,7 @@ impl FlintAdapter for SteelAdapter {
 mod tests {
     use super::*;
     use crate::init_test_registries;
-    use crate::{TestLoader, TestRunConfig, TestRunner};
+    use crate::{TestLoader, TestRunner};
     use std::path::PathBuf;
 
     #[test]
@@ -61,7 +61,7 @@ mod tests {
 
         // Create adapter and runner
         let adapter = SteelAdapter::new();
-        let runner = TestRunner::new(&adapter, TestRunConfig::default());
+        let runner = TestRunner::new(&adapter);
 
         // Run the test
         let result = runner.run_test(&spec);
@@ -110,7 +110,7 @@ mod tests {
             .collect();
 
         let adapter = SteelAdapter::new();
-        let runner = TestRunner::new(&adapter, TestRunConfig::default());
+        let runner = TestRunner::new(&adapter);
         let summary = runner.run_tests(&specs);
 
         println!("\n=== Flint Benchmark Results ===");

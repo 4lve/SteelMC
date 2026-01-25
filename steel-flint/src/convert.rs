@@ -2,6 +2,7 @@
 
 use flint_core::test_spec::{Block as FlintBlock, BlockFace};
 use flint_steel::traits::BlockData;
+use rustc_hash::FxHashMap;
 use steel_registry::REGISTRY;
 use steel_registry::blocks::properties::Direction;
 use steel_utils::{BlockPos as SteelBlockPos, BlockStateId, Identifier};
@@ -69,7 +70,7 @@ pub fn state_id_to_block_data(state_id: BlockStateId) -> BlockData {
     // Note: Using std HashMap because flint-steel's API requires it
     let props = REGISTRY.blocks.get_properties(state_id);
     #[allow(clippy::disallowed_types)]
-    let properties: std::collections::HashMap<String, String> = props
+    let properties: FxHashMap<String, String> = props
         .into_iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect();
