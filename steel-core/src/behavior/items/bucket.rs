@@ -5,18 +5,21 @@ use std::ptr;
 use steel_registry::REGISTRY;
 use steel_registry::blocks::BlockRef;
 use steel_registry::blocks::block_state_ext::BlockStateExt;
+use steel_registry::blocks::properties::BlockStateProperties;
 use steel_registry::items::ItemRef;
 use steel_registry::vanilla_blocks;
 use steel_registry::vanilla_items;
 use steel_utils::types::UpdateFlags;
 use steel_utils::math::Vector3;
-use crate::player::Player;
+use steel_utils::BlockStateId;
 
-use crate::entity::LivingEntity; 
+use crate::player::Player;
+use crate::entity::LivingEntity;
 use crate::behavior::ItemBehavior;
 use crate::behavior::context::InteractionResult;
 
-fn get_start_and_end_pos(player: &Player) -> (Vector3<f64>, Vector3<f64>) {
+/// Computes the start (eye position) and end positions for a raytrace.
+fn get_ray_endpoints(player: &Player) -> (Vector3<f64>, Vector3<f64>) {
     let start_pos = player.eye_position();
     let (yaw, pitch) = player.rotation();
     let (yaw_rad, pitch_rad) = (f64::from(yaw.to_radians()), f64::from(pitch.to_radians()));
@@ -32,6 +35,17 @@ fn get_start_and_end_pos(player: &Player) -> (Vector3<f64>, Vector3<f64>) {
     (start_pos, end_pos)
 }
 
+/// Checks if a fluid block state is a source block (level == 0).
+fn is_source_fluid(state: BlockStateId, block: BlockRef) -> bool {
+    // Only water and lava have the LEVEL property
+    if !ptr::eq(block, vanilla_blocks::WATER) && !ptr::eq(block, vanilla_blocks::LAVA) {
+        return false;
+    }
+    
+    // Source blocks have level 0
+    state.try_get_value(&BlockStateProperties::LEVEL)
+        .map_or(false, |level: u8| level == 0)
+}
 
 /// Behavior for filled bucket items (water bucket, lava bucket, etc.)
 ///
@@ -57,21 +71,24 @@ impl FilledBucketBehavior {
 
 impl ItemBehavior for FilledBucketBehavior {
     fn use_item(&self, context: &mut crate::behavior::UseItemContext) -> InteractionResult {
-        // Raytrace to find target block through fluids
-        let (start, end) = get_start_and_end_pos(context.player);
+        // Raytrace to find target block, passing through all fluids and air
+        let (start, end) = get_ray_endpoints(context.player);
         let (ray_block, ray_dir) = context.world.raytrace(start, end, |pos, world| {
-             let state = world.get_block_state(pos);
-             let block = state.get_block();
-             if ptr::eq(block, vanilla_blocks::WATER) || ptr::eq(block, vanilla_blocks::LAVA) || ptr::eq(block, vanilla_blocks::AIR) {
-                 return false;
-             }
-             true
+            let state = world.get_block_state(pos);
+            let block = state.get_block();
+            // Pass through air and all fluids
+            if ptr::eq(block, vanilla_blocks::AIR) 
+                || ptr::eq(block, vanilla_blocks::WATER) 
+                || ptr::eq(block, vanilla_blocks::LAVA) 
+            {
+                return false;
+            }
+            true
         });
 
-        let (clicked_pos, direction) = if let (Some(pos), Some(dir)) = (ray_block, ray_dir) {
-             (pos, dir)
-        } else {
-             return InteractionResult::Fail;
+        let (clicked_pos, direction) = match (ray_block, ray_dir) {
+            (Some(pos), Some(dir)) => (pos, dir),
+            _ => return InteractionResult::Fail,
         };
 
         let clicked_state = context.world.get_block_state(&clicked_pos);
@@ -95,8 +112,12 @@ impl ItemBehavior for FilledBucketBehavior {
             return InteractionResult::Fail;
         }
 
+        // If the same fluid already exists, consume the bucket but don't place again
         if ptr::eq(existing_block, self.fluid_block) {
-            return InteractionResult::Pass;
+            if !context.player.has_infinite_materials() {
+                context.item_stack.set_item(&self.empty_bucket.key);
+            }
+            return InteractionResult::Success;
         }
 
         let fluid_state = self.fluid_block.default_state();
@@ -107,7 +128,7 @@ impl ItemBehavior for FilledBucketBehavior {
         if !context.player.has_infinite_materials() {
             context.item_stack.set_item(&self.empty_bucket.key);
         }
-        // TODO: Sound
+        // TODO: Play bucket empty sound
 
         InteractionResult::Success
     }
@@ -115,8 +136,8 @@ impl ItemBehavior for FilledBucketBehavior {
 
 /// Behavior for empty bucket items.
 ///
-/// When used on a block, attempts to pick up fluid from that block.
-/// Supports picking up water and lava source blocks.
+/// When used on a fluid source block, picks up the fluid and gives a filled bucket.
+/// Only source blocks (level == 0) can be picked up.
 pub struct EmptyBucketBehavior;
 
 impl EmptyBucketBehavior {
@@ -129,56 +150,59 @@ impl EmptyBucketBehavior {
 
 impl ItemBehavior for EmptyBucketBehavior {
     fn use_item(&self, context: &mut crate::behavior::UseItemContext) -> InteractionResult {
-        let (start, end) = get_start_and_end_pos(context.player);
+        let (start, end) = get_ray_endpoints(context.player);
+        
+        // Raytrace: stop on source fluids or solid blocks, pass through air and flowing fluids
         let (hit_block, hit_dir) = context.world.raytrace(start, end, |pos, world| {
             let state = world.get_block_state(pos);
             let block = state.get_block();
-            // Stop on fluids or solids (ignore air)
+            
+            // Pass through air
             if ptr::eq(block, vanilla_blocks::AIR) {
                 return false;
             }
-
-            // TODO
-            // Add check for replaceable blocks
-            // Add check for fluids ( stop only on source blocks)
-            true 
+            
+            // Check if it's a fluid
+            if ptr::eq(block, vanilla_blocks::WATER) || ptr::eq(block, vanilla_blocks::LAVA) {
+                // Only stop on source blocks (level == 0)
+                return is_source_fluid(state, block);
+            }
+            
+            // Stop on solid/other blocks
+            true
         });
 
-        if let (Some(hit_pos), Some(_)) = (hit_block, hit_dir) {
-            // We hit something (fluid or solid). Check what it is.
-            let fluid_state = context.world.get_block_state(&hit_pos);
-            let fluid_block = fluid_state.get_block();
+        let (hit_pos, _) = match (hit_block, hit_dir) {
+            (Some(pos), Some(dir)) => (pos, dir),
+            _ => return InteractionResult::Fail,
+        };
 
-            log::info!("EmptyBucket hit block: {}", fluid_block.key);
+        let fluid_state = context.world.get_block_state(&hit_pos);
+        let fluid_block = fluid_state.get_block();
 
-            let filled_bucket = if ptr::eq(fluid_block, vanilla_blocks::WATER) {
-                &vanilla_items::ITEMS.water_bucket
-            } else if ptr::eq(fluid_block, vanilla_blocks::LAVA) {
-                &vanilla_items::ITEMS.lava_bucket
-            } else {
-                 return InteractionResult::Fail;
-            };
-
-
-            // Remove the fluid block (replace with air)
-            //TODO add waterlogged if else when implemented
-            let air_state = REGISTRY.blocks.get_default_state_id(vanilla_blocks::AIR);
-            if !context
-                .world
-                .set_block(hit_pos, air_state, UpdateFlags::UPDATE_ALL_IMMEDIATE)
-            {
-                return InteractionResult::Fail;
-            }
-
-            // Give filled bucket
-            if !context.player.has_infinite_materials() {
-                context.item_stack.set_item(&filled_bucket.key);
-            }
-            // TODO: Sound
-            InteractionResult::Success
+        // Determine which filled bucket to give based on the fluid type
+        let filled_bucket = if ptr::eq(fluid_block, vanilla_blocks::WATER) && is_source_fluid(fluid_state, fluid_block) {
+            &vanilla_items::ITEMS.water_bucket
+        } else if ptr::eq(fluid_block, vanilla_blocks::LAVA) && is_source_fluid(fluid_state, fluid_block) {
+            &vanilla_items::ITEMS.lava_bucket
         } else {
-            InteractionResult::Fail
+            // Not a pickable fluid (either not fluid or not source)
+            return InteractionResult::Fail;
+        };
+
+        // Remove the fluid block (replace with air)
+        // TODO: Handle waterlogged blocks when implemented
+        let air_state = REGISTRY.blocks.get_default_state_id(vanilla_blocks::AIR);
+        if !context.world.set_block(hit_pos, air_state, UpdateFlags::UPDATE_ALL_IMMEDIATE) {
+            return InteractionResult::Fail;
         }
+
+        // Give filled bucket (unless creative mode)
+        if !context.player.has_infinite_materials() {
+            context.item_stack.set_item(&filled_bucket.key);
+        }
+        
+        // TODO: Play bucket fill sound
+        InteractionResult::Success
     }
 }
-

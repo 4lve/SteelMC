@@ -124,7 +124,6 @@ pub struct UseOnContext<'a> {
     /// The world where the interaction is happening.
     pub world: &'a World,
     /// The item stack being used (mutable for consumption).
-    /// The item stack being used (mutable for consumption).
     pub item_stack: &'a mut ItemStack,
 }
 
