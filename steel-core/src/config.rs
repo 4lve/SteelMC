@@ -10,7 +10,7 @@ use serde::Deserialize;
 use steel_protocol::packet_traits::CompressionInfo;
 use steel_protocol::packets::config::{CServerLinks, Link, ServerLinksType};
 use steel_utils::codec::Or;
-use steel_utils::text::TextComponent;
+use text_components::TextComponent;
 
 /// Reference to the server configuration.
 ///

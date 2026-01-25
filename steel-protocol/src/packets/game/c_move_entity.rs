@@ -61,6 +61,12 @@ pub fn to_angle_byte(degrees: f32) -> i8 {
 /// Calculates the delta for entity movement (multiply by 4096).
 #[inline]
 #[must_use]
-pub fn calc_delta(current: f64, previous: f64) -> i16 {
-    ((current * 4096.0) - (previous * 4096.0)) as i16
+pub fn calc_delta(current: f64, previous: f64) -> Option<i16> {
+    let delta = (current * 4096.0) - (previous * 4096.0);
+    // check if delta fits in i16
+    if delta >= i16::MIN as f64 && delta <= i16::MAX as f64 {
+        Some(delta as i16)
+    } else {
+        None
+    }
 }

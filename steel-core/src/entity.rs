@@ -1,15 +1,32 @@
 //! This module contains entity-related traits and types.
 
+use std::sync::Arc;
+
 use steel_registry::item_stack::ItemStack;
 use steel_utils::math::Vector3;
+use uuid::Uuid;
 
-use crate::inventory::equipment::EquipmentSlot;
+use crate::{inventory::equipment::EquipmentSlot, player::Player};
+
+/// A trait for  entities.
+///
+/// This trait provides the core functionality for entities.
+/// It's based on Minecraft's `Entity` class.
+pub trait Entity {
+    /// Gets the Uuid of the entity.
+    fn get_uuid(&self) -> Uuid;
+
+    /// Gets the entity as a Player
+    fn as_player(self: Arc<Self>) -> Option<Arc<Player>> {
+        None
+    }
+}
 
 /// A trait for living entities that can take damage, heal, and die.
 ///
 /// This trait provides the core functionality for entities that have health,
 /// can be damaged, and can die. It's based on Minecraft's `LivingEntity` class.
-pub trait LivingEntity {
+pub trait LivingEntity: Entity {
     /// Gets the current health of the entity.
     fn get_health(&self) -> f32;
 

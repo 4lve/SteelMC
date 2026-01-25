@@ -41,5 +41,8 @@ hex.workspace = true
 # Error handling
 thiserror.workspace = true
 
+# Texts components
+text_components.workspace = true
+
 [lints]
 workspace = true

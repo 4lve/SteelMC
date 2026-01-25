@@ -12,8 +12,8 @@ use steel_registry::item_stack::ItemStack;
 use steel_registry::menu_type::MenuTypeRef;
 use steel_registry::vanilla_menu_types;
 use steel_utils::locks::SyncMutex;
-use steel_utils::text::TextComponent;
 use steel_utils::{BlockPos, translations};
+use text_components::TextComponent;
 
 use crate::inventory::{
     SyncPlayerInv,
@@ -355,7 +355,7 @@ impl CraftingMenuProvider {
 
 impl MenuProvider for CraftingMenuProvider {
     fn title(&self) -> TextComponent {
-        TextComponent::new().translate(translations::CONTAINER_CRAFTING.msg())
+        TextComponent::translated(translations::CONTAINER_CRAFTING.msg())
     }
 
     fn create(&self, container_id: u8) -> Box<dyn MenuInstance> {

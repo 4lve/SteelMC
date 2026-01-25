@@ -7,6 +7,7 @@ use std::any::Any;
 use std::array;
 use std::sync::{Arc, Weak};
 
+use simdnbt::ToNbtTag;
 use simdnbt::borrow::{
     BaseNbtCompound as BorrowedNbtCompound, NbtCompound as BorrowedNbtCompoundView,
 };
@@ -14,8 +15,8 @@ use simdnbt::owned::{NbtCompound, NbtList, NbtTag};
 use steel_registry::block_entity_type::BlockEntityTypeRef;
 use steel_registry::loot_table::DyeColor;
 use steel_registry::vanilla_block_entity_types;
-use steel_utils::text::{TextComponent, TextContent};
 use steel_utils::{BlockPos, BlockStateId};
+use text_components::{TextComponent, content::Content};
 use uuid::Uuid;
 
 use crate::block_entity::BlockEntity;
@@ -75,7 +76,7 @@ impl SignText {
         self.messages.iter().any(|msg| {
             // Check if the text component has any actual content
             match &msg.content {
-                TextContent::Text { text } => !text.is_empty(),
+                Content::Text { text } => !text.is_empty(),
                 _ => true, // Translations, etc. count as having a message
             }
         })
@@ -88,8 +89,7 @@ impl SignText {
             && let Some(compounds) = messages.compounds()
         {
             for (i, compound) in compounds.into_iter().enumerate().take(SIGN_LINES) {
-                if let Some(text) =
-                    TextComponent::from_nbt_tag(&NbtTag::Compound(compound.to_owned()))
+                if let Some(text) = TextComponent::from_nbt(&NbtTag::Compound(compound.to_owned()))
                 {
                     self.messages[i] = text;
                 }
@@ -113,7 +113,7 @@ impl SignText {
         let compounds: Vec<NbtCompound> = self
             .messages
             .iter()
-            .map(|msg| msg.clone().into_nbt_compound())
+            .map(|msg| msg.to_nbt_tag().into_compound().unwrap_or_default())
             .collect();
         nbt.insert("messages", NbtList::Compound(compounds));
 

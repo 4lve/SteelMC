@@ -12,14 +12,6 @@ pub mod player_inventory;
 pub mod profile_key;
 mod signature_cache;
 
-use std::{
-    sync::{
-        Arc, Weak,
-        atomic::{AtomicBool, AtomicI32, AtomicU8, Ordering},
-    },
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
-
 use block_breaking::BlockBreakingManager;
 use crossbeam::atomic::AtomicCell;
 pub use game_profile::{GameProfile, GameProfileAction};
@@ -27,21 +19,38 @@ use message_chain::SignedMessageChain;
 use message_validator::LastSeenMessagesValidator;
 use profile_key::RemoteChatSession;
 pub use signature_cache::{LastSeen, MessageCache};
-use steel_protocol::packets::game::CSetHeldSlot;
+use std::{
+    sync::{
+        Arc, Weak,
+        atomic::{AtomicBool, AtomicI32, AtomicU8, Ordering},
+    },
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
+use steel_protocol::packets::game::CSystemChatMessage;
 use steel_protocol::packets::game::{
-    AnimateAction, CAnimate, COpenSignEditor, CPlayerPosition, PlayerAction, SAcceptTeleportation,
-    SPickItemFromBlock, SPlayerAction, SSetCarriedItem, SUseItem, SUseItemOn,
+    AnimateAction, CAnimate, CEntityPositionSync, COpenSignEditor, CPlayerPosition, CSetHeldSlot,
+    PlayerAction, SAcceptTeleportation, SPickItemFromBlock, SPlayerAction, SSetCarriedItem,
+    SUseItem, SUseItemOn,
 };
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::game_rules::GameRuleValue;
 use steel_registry::vanilla_game_rules::{ELYTRA_MOVEMENT_CHECK, PLAYER_MOVEMENT_CHECK};
+use steel_registry::{REGISTRY, vanilla_chat_types};
 
 use steel_utils::locks::SyncMutex;
 use steel_utils::types::GameType;
+use text_components::resolving::TextResolutor;
+use text_components::{Modifier, TextComponent};
+use text_components::{
+    content::Resolvable,
+    custom::CustomData,
+    interactivity::{ClickEvent, HoverEvent},
+};
+use uuid::Uuid;
 
-use crate::config::STEEL_CONFIG;
 use crate::inventory::SyncPlayerInv;
 use crate::player::player_inventory::PlayerInventory;
+use crate::{config::STEEL_CONFIG, entity::Entity};
 
 use steel_crypto::{SignatureValidator, public_key_from_bytes, signature::NoValidation};
 use steel_protocol::packets::{
@@ -63,7 +72,7 @@ use crate::block_entity::entities::SignBlockEntity;
 use steel_utils::BlockPos;
 
 use steel_utils::types::InteractionHand;
-use steel_utils::{ChunkPos, math::Vector3, text::TextComponent, translations};
+use steel_utils::{ChunkPos, math::Vector3, translations};
 
 use crate::entity::LivingEntity;
 use crate::inventory::{
@@ -254,6 +263,12 @@ pub struct Player {
 
     /// Block breaking state machine.
     pub block_breaking: SyncMutex<BlockBreakingManager>,
+
+    /// Tick counter for forced position sync (resets to 0 after sync, like vanilla teleportDelay).
+    position_sync_delay: AtomicI32,
+
+    /// Last `on_ground` state sent to tracking players (for detecting changes).
+    last_sent_on_ground: AtomicBool,
 }
 
 impl Player {
@@ -317,6 +332,8 @@ impl Player {
             on_ground: AtomicBool::new(false),
             last_impulse_tick: AtomicI32::new(0),
             block_breaking: SyncMutex::new(BlockBreakingManager::new()),
+            position_sync_delay: AtomicI32::new(0),
+            last_sent_on_ground: AtomicBool::new(false),
         }
     }
 
@@ -397,7 +414,7 @@ impl Player {
         &self,
         packet: &SChat,
     ) -> Result<(message_chain::SignedMessageLink, LastSeen), String> {
-        const MESSAGE_EXPIRES_AFTER: Duration = Duration::from_secs(5 * 60);
+        const MESSAGE_EXPIRES_AFTER: Duration = Duration::from_mins(5);
 
         let session = self.chat_session.lock().clone().ok_or("No chat session")?;
         let signature = packet.signature.as_ref().ok_or("No signature present")?;
@@ -495,15 +512,14 @@ impl Player {
             match &verification_result {
                 Some(Ok(_)) => {}
                 Some(Err(err)) => {
-                    self.connection.disconnect(
-                        TextComponent::new().text(format!("Chat message validation failed: {err}")),
-                    );
+                    self.connection
+                        .disconnect(format!("Chat message validation failed: {err}"));
                     return;
                 }
                 None => {
-                    self.connection.disconnect(TextComponent::new().text(
+                    self.connection.disconnect(
                         "Secure chat is enforced on this server, but your message was not signed",
-                    ));
+                    );
                     return;
                 }
             }
@@ -517,6 +533,8 @@ impl Player {
 
         let sender_index = player.messages_sent.fetch_add(1, Ordering::SeqCst);
 
+        let registry_id = *REGISTRY.chat_types.get_id(vanilla_chat_types::CHAT) as i32;
+
         let chat_packet = CPlayerChat::new(
             0,
             player.gameprofile.id,
@@ -526,12 +544,21 @@ impl Player {
             packet.timestamp,
             packet.salt,
             Box::new([]),
-            Some(TextComponent::new().text(chat_message.clone())),
+            Some(TextComponent::plain(chat_message.clone())),
             FilterType::PassThrough,
             ChatTypeBound {
-                //TODO: Use the registry to derive this instead of hardcoding it
-                registry_id: 0,
-                sender_name: TextComponent::new().text(player.gameprofile.name.clone()),
+                registry_id,
+                sender_name: TextComponent::plain(player.gameprofile.name.clone())
+                    .insertion(player.gameprofile.name.clone())
+                    .click_event(ClickEvent::suggest_command(format!(
+                        "/tell {} ",
+                        player.gameprofile.name
+                    )))
+                    .hover_event(HoverEvent::show_entity(
+                        "minecraft:player",
+                        self.get_uuid(),
+                        Some(player.gameprofile.name.clone()),
+                    )),
                 target_name: None,
             },
         );
@@ -568,6 +595,12 @@ impl Player {
                 &chat_message,
             );
         }
+    }
+
+    /// Sends a system message to the player.
+    pub fn send_message(&self, text: &TextComponent) {
+        self.connection
+            .send_packet(CSystemChatMessage::new(text, self, false));
     }
 
     fn is_invalid_position(x: f64, y: f64, z: f64, rot_x: f32, rot_y: f32) -> bool {
@@ -745,7 +778,7 @@ impl Player {
                 let skip_checks = is_spectator || is_creative || tick_frozen || gamerule_skip;
 
                 // Validate movement using physics simulation
-                let validation = movement::validate_movement(
+                let mut validation = movement::validate_movement(
                     &self.world,
                     &movement::MovementInput {
                         target_pos,
@@ -771,19 +804,13 @@ impl Player {
                 // Movement accepted - update last good position
                 *self.last_good_position.lock() = target_pos;
 
-                // Update velocity based on actual movement (vanilla: handlePlayerKnownMovement)
-                {
-                    let mut dm = self.delta_movement.lock();
-                    dm.x = validation.move_delta.x;
-                    dm.y = validation.move_delta.y;
-                    dm.z = validation.move_delta.z;
-
-                    // Zero Y velocity when landing (vanilla: Block.updateEntityMovementAfterFallOn)
-                    // This prevents gravity from accumulating while on the ground
-                    if !was_on_ground && packet.on_ground {
-                        dm.y = 0.0;
-                    }
+                // Zero Y velocity when landing (vanilla: Block.updateEntityMovementAfterFallOn)
+                // This prevents gravity from accumulating while on the ground
+                if !was_on_ground && packet.on_ground {
+                    validation.move_delta.y = 0.0;
                 }
+                // Update velocity based on actual movement (vanilla: handlePlayerKnownMovement)
+                self.set_delta_movement(validation.move_delta);
 
                 // Jump detection (vanilla: jumpFromGround)
                 let moved_upwards = validation.move_delta.y > 0.0;
@@ -824,17 +851,79 @@ impl Player {
             // which is called every tick and computes view diffs efficiently
 
             if packet.has_pos {
-                let move_packet = CMoveEntityPosRot {
-                    entity_id: self.entity_id,
-                    dx: calc_delta(pos.x, prev_pos.x),
-                    dy: calc_delta(pos.y, prev_pos.y),
-                    dz: calc_delta(pos.z, prev_pos.z),
-                    y_rot: to_angle_byte(yaw),
-                    x_rot: to_angle_byte(pitch),
-                    on_ground: packet.on_ground,
-                };
-                self.world
-                    .broadcast_to_nearby(new_chunk, move_packet, Some(self.entity_id));
+                let dx = calc_delta(pos.x, prev_pos.x);
+                let dy = calc_delta(pos.y, prev_pos.y);
+                let dz = calc_delta(pos.z, prev_pos.z);
+
+                // Vanilla sync conditions (ServerEntity.java:148)
+                let sync_delay = self.position_sync_delay.fetch_add(1, Ordering::Relaxed);
+                let last_on_ground = self.last_sent_on_ground.load(Ordering::Relaxed);
+                let on_ground_changed = last_on_ground != packet.on_ground;
+                let force_sync = sync_delay > 400 || on_ground_changed;
+
+                if let (Some(dx), Some(dy), Some(dz)) = (dx, dy, dz) {
+                    if force_sync {
+                        // Send absolute position sync (forced by timer or on_ground change)
+                        self.position_sync_delay.store(0, Ordering::Relaxed);
+                        self.last_sent_on_ground
+                            .store(packet.on_ground, Ordering::Relaxed);
+
+                        let delta = self.get_delta_movement();
+                        let sync_packet = CEntityPositionSync {
+                            entity_id: self.entity_id,
+                            x: pos.x,
+                            y: pos.y,
+                            z: pos.z,
+                            velocity_x: delta.x,
+                            velocity_y: delta.y,
+                            velocity_z: delta.z,
+                            yaw,
+                            pitch,
+                            on_ground: packet.on_ground,
+                        };
+                        self.world.broadcast_to_nearby(
+                            new_chunk,
+                            sync_packet,
+                            Some(self.entity_id),
+                        );
+                    } else {
+                        let move_packet = CMoveEntityPosRot {
+                            entity_id: self.entity_id,
+                            dx,
+                            dy,
+                            dz,
+                            y_rot: to_angle_byte(yaw),
+                            x_rot: to_angle_byte(pitch),
+                            on_ground: packet.on_ground,
+                        };
+                        self.world.broadcast_to_nearby(
+                            new_chunk,
+                            move_packet,
+                            Some(self.entity_id),
+                        );
+                    }
+                } else {
+                    // Send absolute position sync (delta too big)
+                    self.position_sync_delay.store(0, Ordering::Relaxed);
+                    self.last_sent_on_ground
+                        .store(packet.on_ground, Ordering::Relaxed);
+
+                    let delta = self.get_delta_movement();
+                    let sync_packet = CEntityPositionSync {
+                        entity_id: self.entity_id,
+                        x: pos.x,
+                        y: pos.y,
+                        z: pos.z,
+                        velocity_x: delta.x,
+                        velocity_y: delta.y,
+                        velocity_z: delta.z,
+                        yaw,
+                        pitch,
+                        on_ground: packet.on_ground,
+                    };
+                    self.world
+                        .broadcast_to_nearby(new_chunk, sync_packet, Some(self.entity_id));
+                }
             } else {
                 let rot_packet = CMoveEntityRot {
                     entity_id: self.entity_id,
@@ -930,8 +1019,7 @@ impl Player {
                         "Player {} kicked for invalid public key",
                         self.gameprofile.name
                     );
-                    self.connection
-                        .disconnect(TextComponent::new().text("Invalid profile public key"));
+                    self.connection.disconnect("Invalid profile public key");
                 }
                 return;
             }
@@ -957,9 +1045,8 @@ impl Player {
                     self.gameprofile.name
                 );
                 if STEEL_CONFIG.enforce_secure_chat {
-                    self.connection.disconnect(
-                        TextComponent::new().text(format!("Chat session validation failed: {err}")),
-                    );
+                    self.connection
+                        .disconnect(format!("Chat session validation failed: {err}"));
                 }
             }
         }
@@ -1374,8 +1461,7 @@ impl Player {
             .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| {
                 Some(if id == i32::MAX { 0 } else { id + 1 })
             })
-            .map(|old| if old == i32::MAX { 0 } else { old + 1 })
-            .unwrap_or(1);
+            .map_or(1, |old| if old == i32::MAX { 0 } else { old + 1 });
 
         // Update player position (vanilla: player.teleportSetPosition)
         *self.position.lock() = Vector3::new(x, y, z);
@@ -1725,7 +1811,7 @@ impl Player {
                 // Create a plain text component from the line
                 // Strip formatting codes (like vanilla does with ChatFormatting.stripFormatting)
                 let stripped = strip_formatting_codes(line);
-                text.set_message(i, TextComponent::new().text(stripped));
+                text.set_message(i, TextComponent::plain(stripped));
             }
         }
 
@@ -1956,6 +2042,16 @@ impl Player {
     pub fn cleanup(&self) {}
 }
 
+impl Entity for Player {
+    fn get_uuid(&self) -> Uuid {
+        self.gameprofile.id
+    }
+
+    fn as_player(self: Arc<Self>) -> Option<Arc<Player>> {
+        Some(self)
+    }
+}
+
 impl LivingEntity for Player {
     fn get_health(&self) -> f32 {
         self.health.load()
@@ -2027,4 +2123,18 @@ fn strip_formatting_codes(text: &str) -> String {
     }
 
     result
+}
+
+impl TextResolutor for Player {
+    fn resolve_content(&self, _resolvable: &Resolvable) -> TextComponent {
+        TextComponent::new()
+    }
+
+    fn resolve_custom(&self, _data: &CustomData) -> Option<TextComponent> {
+        None
+    }
+
+    fn translate(&self, _key: &str) -> Option<String> {
+        None
+    }
 }

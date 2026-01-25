@@ -14,7 +14,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 /// Grace period for expired keys (8 hours, as in vanilla)
-pub const EXPIRY_GRACE_PERIOD: Duration = Duration::from_secs(8 * 60 * 60);
+pub const EXPIRY_GRACE_PERIOD: Duration = Duration::from_hours(8);
 
 /// Maximum size of key signature in bytes
 pub const MAX_KEY_SIGNATURE_SIZE: usize = 4096;

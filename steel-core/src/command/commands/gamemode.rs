@@ -1,16 +1,12 @@
 //! Handler for the "gamemode" command.
-use std::sync::Arc;
-
-use steel_utils::translations;
-use steel_utils::types::GameType;
-
 use crate::command::arguments::gamemode::GameModeArgument;
 use crate::command::commands::{
     CommandExecutor, CommandHandlerBuilder, CommandHandlerDyn, argument,
 };
 use crate::command::context::CommandContext;
 use crate::command::error::CommandError;
-use crate::server::Server;
+use steel_utils::translations;
+use steel_utils::types::GameType;
 
 /// Handler for the "gamemode" command.
 #[must_use]
@@ -30,7 +26,6 @@ impl CommandExecutor<((), GameType)> for GameModeCommandExecutor {
         &self,
         args: ((), GameType),
         context: &mut CommandContext,
-        _server: &Arc<Server>,
     ) -> Result<(), CommandError> {
         let ((), gamemode) = args;
 
@@ -55,7 +50,7 @@ impl CommandExecutor<((), GameType)> for GameModeCommandExecutor {
         };
 
         context.sender.send_message(
-            translations::COMMANDS_GAMEMODE_SUCCESS_SELF
+            &translations::COMMANDS_GAMEMODE_SUCCESS_SELF
                 .message([mode_translation])
                 .into(),
         );

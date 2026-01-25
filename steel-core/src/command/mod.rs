@@ -8,7 +8,7 @@ pub mod sender;
 use std::sync::Arc;
 
 use steel_protocol::packets::game::{CCommandSuggestions, CCommands, CommandNode, SuggestionEntry};
-use steel_utils::text::{TextComponent, color::NamedColor};
+use text_components::{Modifier, TextComponent, format::Color};
 
 use crate::command::commands::CommandHandlerDyn;
 use crate::command::context::CommandContext;
@@ -36,6 +36,7 @@ impl CommandDispatcher {
         dispatcher.register(commands::stop::command_handler());
         dispatcher.register(commands::tick::command_handler());
         dispatcher.register(commands::weather::command_handler());
+        dispatcher.register(commands::tellraw::command_handler());
         dispatcher
     }
 
@@ -49,7 +50,7 @@ impl CommandDispatcher {
 
     /// Executes a command.
     pub fn handle_command(&self, sender: CommandSender, command: String, server: &Arc<Server>) {
-        let mut context = CommandContext::new(sender.clone());
+        let mut context = CommandContext::new(sender.clone(), server.clone());
 
         if let Err(error) = Self::split_command(&command)
             .and_then(|(command, args)| self.execute(command, &args, &mut context, server))
@@ -59,17 +60,17 @@ impl CommandDispatcher {
                     log::error!(
                         "Error while parsing command \"{command}\": {s:?} was consumed, but couldn't be parsed"
                     );
-                    TextComponent::const_text("Internal error (See logs for details)")
+                    TextComponent::const_plain("Internal error (See logs for details)")
                 }
                 CommandError::InvalidRequirement => {
                     log::error!(
                         "Error while parsing command \"{command}\": a requirement that was expected was not met."
                     );
-                    TextComponent::const_text("Internal error (See logs for details)")
+                    TextComponent::const_plain("Internal error (See logs for details)")
                 }
                 CommandError::PermissionDenied => {
                     log::warn!("Permission denied for command \"{command}\"");
-                    TextComponent::const_text(
+                    TextComponent::const_plain(
                         "I'm sorry, but you do not have permission to perform this command. Please contact the server administrator if you believe this is an error.",
                     )
                 }
@@ -77,7 +78,7 @@ impl CommandDispatcher {
             };
 
             // TODO: Use vanilla error messages
-            sender.send_message(text.color(NamedColor::Red));
+            sender.send_message(&text.color(Color::Red));
         }
     }
 
@@ -110,7 +111,7 @@ impl CommandDispatcher {
         let command = command.trim();
         if command.is_empty() {
             return Err(CommandError::CommandFailed(Box::new(
-                TextComponent::const_text("Empty Command"),
+                TextComponent::const_plain("Empty Command"),
             )));
         }
 
@@ -166,7 +167,13 @@ impl CommandDispatcher {
     }
 
     /// Handles a command suggestion request from a player.
-    pub fn handle_suggestions(&self, player: &Arc<Player>, id: i32, command: &str) {
+    pub fn handle_suggestions(
+        &self,
+        player: &Arc<Player>,
+        id: i32,
+        command: &str,
+        server: Arc<Server>,
+    ) {
         // Remove leading slash if present
         let command = command.strip_prefix('/').unwrap_or(command);
 
@@ -211,7 +218,7 @@ impl CommandDispatcher {
         let args = &parts[1..];
 
         // Create context for suggestion
-        let mut context = CommandContext::new(CommandSender::Player(Arc::clone(player)));
+        let mut context = CommandContext::new(CommandSender::Player(Arc::clone(player)), server);
 
         // Get suggestions from handler
         if let Some(result) = handler.suggest(args, args_start_pos, &mut context) {

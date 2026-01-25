@@ -45,7 +45,7 @@ impl Item {
 
     /// Builder method to set a component on this item. Used during static initialization.
     #[must_use]
-    pub fn builder_set<T: 'static + crate::data_components::ComponentValue>(
+    pub fn builder_set<T: crate::data_components::Component>(
         mut self,
         component: crate::data_components::DataComponentType<T>,
         value: Option<T>,
