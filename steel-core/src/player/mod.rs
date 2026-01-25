@@ -12,14 +12,6 @@ pub mod player_inventory;
 pub mod profile_key;
 mod signature_cache;
 
-use std::{
-    sync::{
-        Arc, Weak,
-        atomic::{AtomicBool, AtomicI32, AtomicU8, Ordering},
-    },
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
-
 use block_breaking::BlockBreakingManager;
 use crossbeam::atomic::AtomicCell;
 pub use game_profile::{GameProfile, GameProfileAction};
@@ -27,6 +19,14 @@ use message_chain::SignedMessageChain;
 use message_validator::LastSeenMessagesValidator;
 use profile_key::RemoteChatSession;
 pub use signature_cache::{LastSeen, MessageCache};
+use std::{
+    sync::{
+        Arc, Weak,
+        atomic::{AtomicBool, AtomicI32, AtomicU8, Ordering},
+    },
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
+use steel_protocol::packets::game::CSystemChatMessage;
 use steel_protocol::packets::game::{
     AnimateAction, CAnimate, CEntityPositionSync, COpenSignEditor, CPlayerPosition, CSetHeldSlot,
     PlayerAction, SAcceptTeleportation, SPickItemFromBlock, SPlayerAction, SSetCarriedItem,
