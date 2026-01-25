@@ -28,10 +28,10 @@ use message_validator::LastSeenMessagesValidator;
 use profile_key::RemoteChatSession;
 pub use signature_cache::{LastSeen, MessageCache};
 use steel_protocol::packets::game::{
-    AnimateAction, CAnimate, COpenSignEditor, CPlayerPosition, PlayerAction, SAcceptTeleportation,
-    SPickItemFromBlock, SPlayerAction, SSetCarriedItem, SUseItem, SUseItemOn,
+    AnimateAction, CAnimate, CEntityPositionSync, COpenSignEditor, CPlayerPosition, CSetHeldSlot,
+    PlayerAction, SAcceptTeleportation, SPickItemFromBlock, SPlayerAction, SSetCarriedItem,
+    SUseItem, SUseItemOn,
 };
-use steel_protocol::packets::game::{CEntityPositionSync, CSetHeldSlot};
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::game_rules::GameRuleValue;
 use steel_registry::vanilla_game_rules::{ELYTRA_MOVEMENT_CHECK, PLAYER_MOVEMENT_CHECK};
