@@ -49,6 +49,7 @@ mod tests {
     use crate::init_test_registries;
     use crate::{TestLoader, TestRunner};
     use dotenvy::dotenv;
+    use flint_core::results::TestSummary;
     use flint_core::test_spec;
     use flint_core::utils::get_test_path;
     use std::env::var;
@@ -117,39 +118,18 @@ mod tests {
         }
         name == pattern
     }
-
-    #[test]
-    fn test_run_flint_selected() {
-        init_test_registries();
-        init_env();
-
-        // Load the fence test
-        let test_path = PathBuf::from(get_test_path());
-        let paths;
-        match TestLoader::new(&test_path, true) {
-            Ok(loader) => {
-                paths = collect_filtered_paths(&loader);
-            }
-            Err(err) => {
-                println!("error while loading test files: {}", err);
-                return;
-            }
-        }
-        let specs: Vec<TestSpec> = paths
+    fn generate_test_specs(paths: Vec<PathBuf>) -> Vec<TestSpec> {
+        paths
             .iter()
             .filter_map(|path| {
                 TestSpec::from_file(path)
                     .map_err(|e| println!("Failed to load {}: {}", path.display(), e))
                     .ok()
             })
-            .collect();
+            .collect()
+    }
 
-        // Create adapter and runner
-        let adapter = SteelAdapter::new();
-        let runner = TestRunner::new(&adapter);
-
-        // Run the test
-        let summary = runner.run_tests(&specs);
+    fn generate_output(summary: TestSummary) {
         println!("\n=== Flint Benchmark Results ===");
         println!(
             "Total: {}, Passed: {}, Failed: {}",
@@ -175,6 +155,34 @@ mod tests {
                 }
             }
         }
+        assert_eq!(summary.passed_tests, summary.total_tests, "Not all flint tests passed! {} out of {}", summary.passed_tests, summary.total_tests);
+    }
+
+    #[test]
+    fn test_run_flint_selected() {
+        init_test_registries();
+        init_env();
+
+        // Load the fence test
+        let test_path = PathBuf::from(get_test_path());
+        let paths;
+        match TestLoader::new(&test_path, true) {
+            Ok(loader) => {
+                paths = collect_filtered_paths(&loader);
+            }
+            Err(err) => {
+                println!("error while loading test files: {}", err);
+                return;
+            }
+        }
+        let specs: Vec<TestSpec> = generate_test_specs(paths);
+
+        // Create adapter and runner
+        let adapter = SteelAdapter::new();
+        let runner = TestRunner::new(&adapter);
+
+        // Run the test
+        generate_output(runner.run_tests(&specs));
     }
 
     #[test]
@@ -213,43 +221,10 @@ mod tests {
         println!("Found {} test(s) to run", paths.len());
 
         // Load all test specs from paths
-        let specs: Vec<TestSpec> = paths
-            .iter()
-            .filter_map(|path| {
-                TestSpec::from_file(path)
-                    .map_err(|e| println!("Failed to load {}: {}", path.display(), e))
-                    .ok()
-            })
-            .collect();
+        let specs: Vec<TestSpec> = generate_test_specs(paths);
 
         let adapter = SteelAdapter::new();
         let runner = TestRunner::new(&adapter);
-        let summary = runner.run_tests(&specs);
-
-        println!("\n=== Flint Benchmark Results ===");
-        println!(
-            "Total: {}, Passed: {}, Failed: {}",
-            summary.total_tests, summary.passed_tests, summary.failed_tests
-        );
-
-        for result in &summary.results {
-            let status = if result.success { "PASS" } else { "FAIL" };
-            println!(
-                "  [{}] {} ({}ms)",
-                status, result.test_name, result.execution_time_ms
-            );
-
-            if !result.success {
-                for assertion in &result.assertions {
-                    if !assertion.success {
-                        println!(
-                            "    -> tick {}: {}",
-                            assertion.tick,
-                            assertion.error_message.as_deref().unwrap_or("")
-                        );
-                    }
-                }
-            }
-        }
+        generate_output(runner.run_tests(&specs));
     }
 }
