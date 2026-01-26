@@ -45,6 +45,7 @@ mod player_area_map;
 mod player_map;
 mod world_entities;
 
+use crate::chunk::world_gen_context::ChunkGeneratorType;
 pub use player_area_map::PlayerAreaMap;
 pub use player_map::PlayerMap;
 
@@ -70,9 +71,8 @@ pub enum WorldStorageConfig {
 pub struct WorldConfig {
     /// Storage configuration for chunk persistence.
     pub storage: WorldStorageConfig,
-    /// Whether to skip loading level data from disk.
-    /// When true, creates fresh level data instead of loading.
-    pub skip_level_data: bool,
+    /// World generator.
+    pub generator: Arc<ChunkGeneratorType>,
 }
 
 /// A struct that represents a world.
@@ -93,25 +93,6 @@ pub struct World {
 }
 
 impl World {
-    /// Creates a new world with disk storage.
-    ///
-    /// Uses `Arc::new_cyclic` to create a cyclic reference between
-    /// the World and its `ChunkMap`'s `WorldGenContext`.
-    #[allow(clippy::new_without_default)]
-    pub async fn new(
-        chunk_runtime: Arc<Runtime>,
-        dimension: DimensionTypeRef,
-        seed: i64,
-    ) -> io::Result<Arc<Self>> {
-        let config = WorldConfig {
-            storage: WorldStorageConfig::Disk {
-                path: format!("world/{}", dimension.key.path),
-            },
-            skip_level_data: false,
-        };
-        Self::new_with_config(chunk_runtime, dimension, seed, config).await
-    }
-
     /// Creates a new world with custom configuration.
     ///
     /// This allows specifying storage backend (disk or RAM-only) and other options.
@@ -140,19 +121,25 @@ impl World {
         };
 
         // Create or skip level data based on config
-        let level_data = if config.skip_level_data {
+
+        let path = match &config.storage {
+            WorldStorageConfig::Disk { path } => path.clone(),
+            WorldStorageConfig::RamOnlyEmpty => String::new(),
+        };
+        let level_data = if path.is_empty() {
             LevelDataManager::new_empty(seed)
         } else {
-            let path = match &config.storage {
-                WorldStorageConfig::Disk { path } => path.clone(),
-                WorldStorageConfig::RamOnlyEmpty => String::new(),
-            };
-            if path.is_empty() {
-                LevelDataManager::new_empty(seed)
-            } else {
-                LevelDataManager::new(path, seed).await?
-            }
+            LevelDataManager::new(path, seed).await?
         };
+        // let generator = Arc::new(ChunkGeneratorType::Flat(FlatChunkGenerator::new(
+        //     REGISTRY
+        //         .blocks
+        //         .get_default_state_id(vanilla_blocks::BEDROCK), // Bedrock
+        //     REGISTRY.blocks.get_default_state_id(vanilla_blocks::DIRT), // Dirt
+        //     REGISTRY
+        //         .blocks
+        //         .get_default_state_id(vanilla_blocks::GRASS_BLOCK), // Grass Block
+        // )));
 
         Ok(Arc::new_cyclic(|weak_self: &Weak<World>| Self {
             chunk_map: Arc::new(ChunkMap::new_with_storage(
@@ -160,6 +147,7 @@ impl World {
                 weak_self.clone(),
                 &dimension,
                 storage,
+                config.generator,
             )),
             players: PlayerMap::new(),
             player_area_map: PlayerAreaMap::new(),

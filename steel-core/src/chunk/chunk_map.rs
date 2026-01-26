@@ -1,3 +1,9 @@
+use futures::executor;
+use rayon::{
+    ThreadPool, ThreadPoolBuilder,
+    iter::{IntoParallelIterator, ParallelIterator},
+};
+use rustc_hash::FxBuildHasher;
 use std::{
     io, mem,
     sync::{
@@ -6,16 +12,10 @@ use std::{
     },
     time::Duration,
 };
-use futures::executor;
-use rayon::{
-    ThreadPool, ThreadPoolBuilder,
-    iter::{IntoParallelIterator, ParallelIterator},
-};
-use rustc_hash::FxBuildHasher;
 use steel_protocol::packets::game::{
     BlockChange, CBlockUpdate, CSectionBlocksUpdate, CSetChunkCenter,
 };
-use steel_registry::{REGISTRY, dimension_type::DimensionTypeRef, vanilla_blocks};
+use steel_registry::{dimension_type::DimensionTypeRef};
 use steel_utils::{BlockPos, ChunkPos, SectionPos, locks::SyncMutex};
 use tokio::{runtime::Runtime, time::Instant};
 use tokio_util::task::TaskTracker;
@@ -30,7 +30,7 @@ use crate::chunk::world_gen_context::ChunkGeneratorType;
 use crate::chunk::{chunk_access::ChunkAccess, chunk_ticket_manager::is_ticked};
 use crate::chunk::{
     chunk_access::ChunkStatus, chunk_generation_task::ChunkGenerationTask,
-    flat_chunk_generator::FlatChunkGenerator, world_gen_context::WorldGenContext,
+    world_gen_context::WorldGenContext,
 };
 use crate::chunk_saver::{ChunkStorage, RegionManager};
 use crate::player::Player;
@@ -71,24 +71,6 @@ pub struct ChunkMap {
 }
 
 impl ChunkMap {
-    /// Creates a new chunk map with disk storage.
-    ///
-    /// This is a convenience method that creates a `RegionManager` for the given dimension.
-    /// For custom storage backends, use `new_with_storage`.
-    #[must_use]
-    #[allow(clippy::missing_panics_doc, clippy::unwrap_used)]
-    pub fn new(
-        chunk_runtime: Arc<Runtime>,
-        world: Weak<World>,
-        dimension: &DimensionTypeRef,
-    ) -> Self {
-        let storage = Arc::new(ChunkStorage::Disk(RegionManager::new(format!(
-            "world/{}",
-            dimension.key.path
-        ))));
-        Self::new_with_storage(chunk_runtime, world, dimension, storage)
-    }
-
     /// Creates a new chunk map with a custom storage backend.
     ///
     /// This allows using different storage implementations (disk, RAM, etc.).
@@ -99,17 +81,8 @@ impl ChunkMap {
         world: Weak<World>,
         _dimension: &DimensionTypeRef,
         storage: Arc<ChunkStorage>,
+        generator: Arc<ChunkGeneratorType>,
     ) -> Self {
-        let generator = Arc::new(ChunkGeneratorType::Flat(FlatChunkGenerator::new(
-            REGISTRY
-                .blocks
-                .get_default_state_id(vanilla_blocks::BEDROCK), // Bedrock
-            REGISTRY.blocks.get_default_state_id(vanilla_blocks::DIRT), // Dirt
-            REGISTRY
-                .blocks
-                .get_default_state_id(vanilla_blocks::GRASS_BLOCK), // Grass Block
-        )));
-
         Self {
             chunks: scc::HashMap::default(),
             unloading_chunks: scc::HashMap::default(),
@@ -167,9 +140,8 @@ impl ChunkMap {
 
         // Block on async storage load
         let storage = &self.storage;
-        let result = executor::block_on(async {
-            storage.load_chunk(*pos, min_y, height, level).await
-        });
+        let result =
+            executor::block_on(async { storage.load_chunk(*pos, min_y, height, level).await });
 
         match result {
             Ok(Some((chunk, _status))) => {

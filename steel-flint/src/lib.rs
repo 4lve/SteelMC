@@ -45,10 +45,11 @@ pub use world::SteelTestWorld;
 pub use flint_steel::{TestLoader, TestRunConfig, TestRunner};
 
 use std::sync::{Arc, OnceLock};
-use tokio::runtime;
-use steel_registry::{REGISTRY, Registry};
-use tokio::runtime::Runtime;
 use steel_core::behavior;
+use steel_registry::{REGISTRY, Registry};
+use tokio::runtime;
+use tokio::runtime::Runtime;
+use steel_core::config::WordGeneratorTypes;
 
 /// Global runtime for flint tests.
 static FLINT_RUNTIME: OnceLock<Arc<Runtime>> = OnceLock::new();
@@ -92,6 +93,7 @@ fn init_config() {
         enforce_secure_chat: false,
         compression: None,
         server_links: None,
+        word_generator: WordGeneratorTypes::Empty
     };
 
     INIT.call_once(|| {

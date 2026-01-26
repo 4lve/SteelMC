@@ -19,7 +19,7 @@ use steel_protocol::packets::game::{
 use steel_registry::game_rules::GameRuleValue;
 use steel_registry::vanilla_dimension_types::OVERWORLD;
 use steel_registry::vanilla_game_rules::{IMMEDIATE_RESPAWN, LIMITED_CRAFTING, REDUCED_DEBUG_INFO};
-use steel_registry::{REGISTRY, Registry};
+use steel_registry::{REGISTRY, Registry, vanilla_blocks};
 use steel_utils::locks::SyncRwLock;
 use steel_utils::types::GameType;
 use text_components::{Modifier, TextComponent, format::Color};
@@ -29,11 +29,14 @@ use tokio_util::sync::CancellationToken;
 
 use crate::behavior::init_behaviors;
 use crate::block_entity::init_block_entities;
+use crate::chunk::empty_chunk_generator::EmptyChunkGenerator;
+use crate::chunk::flat_chunk_generator::FlatChunkGenerator;
+use crate::chunk::world_gen_context::ChunkGeneratorType;
 use crate::command::CommandDispatcher;
-use crate::config::STEEL_CONFIG;
+use crate::config::{STEEL_CONFIG, WordGeneratorTypes};
 use crate::player::Player;
 use crate::server::registry_cache::RegistryCache;
-use crate::world::World;
+use crate::world::{World, WorldConfig, WorldStorageConfig};
 
 /// Interval in ticks between tab list updates (20 ticks = 1 second).
 const TAB_LIST_UPDATE_INTERVAL: u64 = 20;
@@ -90,8 +93,28 @@ impl Server {
                 hash
             })
         };
+        let generator = match STEEL_CONFIG.word_generator {
+            WordGeneratorTypes::Flat => {
+                ChunkGeneratorType::Flat(FlatChunkGenerator::new(
+                    REGISTRY
+                        .blocks
+                        .get_default_state_id(vanilla_blocks::BEDROCK), // Bedrock
+                    REGISTRY.blocks.get_default_state_id(vanilla_blocks::DIRT), // Dirt
+                    REGISTRY
+                        .blocks
+                        .get_default_state_id(vanilla_blocks::GRASS_BLOCK), // Grass Block
+                ))
+            }
+            WordGeneratorTypes::Empty => ChunkGeneratorType::Empty(EmptyChunkGenerator::new()),
+        };
+        let config = WorldConfig {
+            storage: WorldStorageConfig::Disk {
+                path: format!("world/{}", OVERWORLD.key.path),
+            },
+            generator: Arc::new(generator),
+        };
 
-        let overworld = World::new(chunk_runtime, OVERWORLD, seed)
+        let overworld = World::new_with_config(chunk_runtime, OVERWORLD, seed, config)
             .await
             .expect("Failed to create overworld");
 

@@ -11,6 +11,8 @@ use std::sync::{
 use flint_core::test_spec::Block as FlintBlock;
 use flint_steel::traits::BlockData;
 use flint_steel::{BlockPos as FlintBlockPos, FlintPlayer, FlintWorld};
+use steel_core::chunk::empty_chunk_generator::EmptyChunkGenerator;
+use steel_core::chunk::world_gen_context::ChunkGeneratorType;
 use steel_core::world::{World, WorldConfig, WorldStorageConfig};
 use steel_registry::vanilla_dimension_types::OVERWORLD;
 use steel_utils::{BlockPos, types::UpdateFlags};
@@ -49,7 +51,7 @@ impl SteelTestWorld {
         // Create world with RAM-only storage
         let config = WorldConfig {
             storage: WorldStorageConfig::RamOnlyEmpty,
-            skip_level_data: true,
+            generator: Arc::new(ChunkGeneratorType::Empty(EmptyChunkGenerator::new()))
         };
 
         let dimension = OVERWORLD;
@@ -138,9 +140,9 @@ impl FlintWorld for SteelTestWorld {
 
 #[cfg(test)]
 mod tests {
-    use rustc_hash::FxHashMap;
     use super::*;
     use crate::init_test_registries;
+    use rustc_hash::FxHashMap;
 
     #[test]
     fn test_world_creation() {

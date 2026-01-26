@@ -71,6 +71,14 @@
             "description": "Whether to enforce secure chat",
             "default": false
         },
+        "word_generator": {
+            "type": "string",
+            "enum": [
+                "flat",
+                "empty"
+            ],
+            description: "World generation settings",
+        },
         "compression": {
             "type": "object",
             "description": "Compression settings",

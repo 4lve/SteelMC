@@ -104,6 +104,16 @@ impl ServerLinks {
     }
 }
 
+/// The different types of world generators that can be used.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WordGeneratorTypes {
+    /// produces a flat gras world
+    Flat,
+    /// creates an empty world which can be used for test
+    Empty,
+}
+
 /// The server configuration.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ServerConfig {
@@ -133,6 +143,8 @@ pub struct ServerConfig {
     pub favicon: String,
     /// Whether to enforce secure chat.
     pub enforce_secure_chat: bool,
+    /// Defines which generator should be used for the world.
+    pub word_generator: WordGeneratorTypes,
     /// The compression settings for the server.
     pub compression: Option<CompressionInfo>,
     /// All settings and configurations for server links
