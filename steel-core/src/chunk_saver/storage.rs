@@ -55,7 +55,7 @@ impl ChunkStorage {
     ) -> io::Result<bool> {
         match self {
             Self::Disk(rm) => rm.save_chunk_data(prepared, status).await,
-            Self::RamOnly(ram) => ram.save_chunk_data(prepared).await,
+            Self::RamOnly(ram) => ram.save_chunk_data(prepared, status).await,
         }
     }
 
