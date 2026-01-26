@@ -12,6 +12,16 @@ use std::{
     time::{Duration, Instant},
 };
 
+use crate::behavior::init_behaviors;
+use crate::block_entity::init_block_entities;
+use crate::chunk::empty_chunk_generator::EmptyChunkGenerator;
+use crate::chunk::flat_chunk_generator::FlatChunkGenerator;
+use crate::chunk::world_gen_context::ChunkGeneratorType;
+use crate::command::CommandDispatcher;
+use crate::config::{STEEL_CONFIG, WordGeneratorTypes, WorldStorageConfig};
+use crate::player::Player;
+use crate::server::registry_cache::RegistryCache;
+use crate::world::{World, WorldConfig};
 use steel_crypto::key_store::KeyStore;
 use steel_protocol::packets::game::{
     CLogin, CSystemChat, CTabList, CTickingState, CTickingStep, CommonPlayerSpawnInfo,
@@ -26,17 +36,6 @@ use text_components::{Modifier, TextComponent, format::Color};
 use tick_rate_manager::{SprintReport, TickRateManager};
 use tokio::{runtime::Runtime, task::spawn_blocking, time::sleep};
 use tokio_util::sync::CancellationToken;
-
-use crate::behavior::init_behaviors;
-use crate::block_entity::init_block_entities;
-use crate::chunk::empty_chunk_generator::EmptyChunkGenerator;
-use crate::chunk::flat_chunk_generator::FlatChunkGenerator;
-use crate::chunk::world_gen_context::ChunkGeneratorType;
-use crate::command::CommandDispatcher;
-use crate::config::{STEEL_CONFIG, WordGeneratorTypes};
-use crate::player::Player;
-use crate::server::registry_cache::RegistryCache;
-use crate::world::{World, WorldConfig, WorldStorageConfig};
 
 /// Interval in ticks between tab list updates (20 ticks = 1 second).
 const TAB_LIST_UPDATE_INTERVAL: u64 = 20;
@@ -93,7 +92,7 @@ impl Server {
                 hash
             })
         };
-        let generator = match STEEL_CONFIG.word_generator {
+        let generator = match STEEL_CONFIG.world_generator {
             WordGeneratorTypes::Flat => {
                 ChunkGeneratorType::Flat(FlatChunkGenerator::new(
                     REGISTRY
@@ -108,8 +107,11 @@ impl Server {
             WordGeneratorTypes::Empty => ChunkGeneratorType::Empty(EmptyChunkGenerator::new()),
         };
         let config = WorldConfig {
-            storage: WorldStorageConfig::Disk {
-                path: format!("world/{}", OVERWORLD.key.path),
+            storage: match &STEEL_CONFIG.world_storage_config {
+                WorldStorageConfig::Disk { path } => WorldStorageConfig::Disk {
+                    path: format!("{}/{}", path, OVERWORLD.key.path),
+                },
+                WorldStorageConfig::RamOnly => WorldStorageConfig::RamOnly,
             },
             generator: Arc::new(generator),
         };

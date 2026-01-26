@@ -28,7 +28,12 @@
         level: 4,
     },
     // World generation settings
-    word_generator: "flat",
+    world_generator: "flat",
+    world_storage_config: {
+        "disk": {
+            "path": "world"
+        }
+    },
     // Server links configuration
     server_links: {
         // Enable server links feature

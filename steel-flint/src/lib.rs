@@ -45,7 +45,7 @@ pub use world::SteelTestWorld;
 pub use flint_steel::{TestLoader, TestRunConfig, TestRunner};
 
 use std::sync::{Arc, OnceLock};
-use steel_core::behavior;
+use steel_core::{behavior, config};
 use steel_registry::{REGISTRY, Registry};
 use tokio::runtime;
 use tokio::runtime::Runtime;
@@ -93,7 +93,8 @@ fn init_config() {
         enforce_secure_chat: false,
         compression: None,
         server_links: None,
-        word_generator: WordGeneratorTypes::Empty
+        world_storage_config: config::WorldStorageConfig::RamOnly,
+        world_generator: WordGeneratorTypes::Empty
     };
 
     INIT.call_once(|| {

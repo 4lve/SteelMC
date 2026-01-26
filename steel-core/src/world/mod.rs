@@ -48,23 +48,11 @@ mod world_entities;
 use crate::chunk::world_gen_context::ChunkGeneratorType;
 pub use player_area_map::PlayerAreaMap;
 pub use player_map::PlayerMap;
+pub use crate::config::WorldStorageConfig;
 
 /// Interval in ticks between player info broadcasts (600 ticks = 30 seconds).
 /// Matches vanilla `PlayerList.SEND_PLAYER_INFO_INTERVAL`.
 const SEND_PLAYER_INFO_INTERVAL: u64 = 600;
-
-/// Configuration for world storage.
-#[derive(Clone)]
-pub enum WorldStorageConfig {
-    /// Standard disk persistence using region files.
-    Disk {
-        /// Path to the world directory (e.g., "world/overworld").
-        path: String,
-    },
-    /// RAM-only storage with empty chunks created on demand.
-    /// No data is persisted - useful for testing and minigames.
-    RamOnlyEmpty,
-}
 
 /// Configuration for creating a new world.
 #[derive(Clone)]
@@ -115,7 +103,7 @@ impl World {
             WorldStorageConfig::Disk { path } => {
                 Arc::new(ChunkStorage::Disk(RegionManager::new(path.clone())))
             }
-            WorldStorageConfig::RamOnlyEmpty => {
+            WorldStorageConfig::RamOnly => {
                 Arc::new(ChunkStorage::RamOnly(RamOnlyStorage::empty_world()))
             }
         };
@@ -124,7 +112,7 @@ impl World {
 
         let path = match &config.storage {
             WorldStorageConfig::Disk { path } => path.clone(),
-            WorldStorageConfig::RamOnlyEmpty => String::new(),
+            WorldStorageConfig::RamOnly => String::new(),
         };
         let level_data = if path.is_empty() {
             LevelDataManager::new_empty(seed)
