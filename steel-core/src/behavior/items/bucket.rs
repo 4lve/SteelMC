@@ -125,6 +125,11 @@ impl ItemBehavior for FilledBucketBehavior {
             return InteractionResult::Fail;
         }
 
+        // Schedule a fluid tick to trigger spreading
+        // Water tick delay = 5, Lava = 30
+        let tick_delay = if ptr::eq(self.fluid_block, vanilla_blocks::WATER) { 5 } else { 30 };
+        context.world.schedule_fluid_tick(place_pos, context.world.game_time(), tick_delay);
+
         if !context.player.has_infinite_materials() {
             context.item_stack.set_item(&self.empty_bucket.key);
         }
@@ -181,10 +186,10 @@ impl ItemBehavior for EmptyBucketBehavior {
         let fluid_block = fluid_state.get_block();
 
         // Determine which filled bucket to give based on the fluid type
-        let filled_bucket = if ptr::eq(fluid_block, vanilla_blocks::WATER) && is_source_fluid(fluid_state, fluid_block) {
-            &vanilla_items::ITEMS.water_bucket
+        let (filled_bucket, tick_delay) = if ptr::eq(fluid_block, vanilla_blocks::WATER) && is_source_fluid(fluid_state, fluid_block) {
+            (&vanilla_items::ITEMS.water_bucket, 5u32)
         } else if ptr::eq(fluid_block, vanilla_blocks::LAVA) && is_source_fluid(fluid_state, fluid_block) {
-            &vanilla_items::ITEMS.lava_bucket
+            (&vanilla_items::ITEMS.lava_bucket, 30u32)
         } else {
             // Not a pickable fluid (either not fluid or not source)
             return InteractionResult::Fail;
@@ -195,6 +200,14 @@ impl ItemBehavior for EmptyBucketBehavior {
         let air_state = REGISTRY.blocks.get_default_state_id(vanilla_blocks::AIR);
         if !context.world.set_block(hit_pos, air_state, UpdateFlags::UPDATE_ALL_IMMEDIATE) {
             return InteractionResult::Fail;
+        }
+
+        // Schedule fluid ticks for neighboring blocks so they can recalculate
+        // This triggers the "de-propagation" - flowing water without a source will disappear
+        let current_tick = context.world.game_time();
+        for offset in [(0, 1, 0), (0, -1, 0), (1, 0, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1)] {
+            let neighbor = hit_pos.offset(offset.0, offset.1, offset.2);
+            context.world.schedule_fluid_tick(neighbor, current_tick, tick_delay);
         }
 
         // Give filled bucket (unless creative mode)

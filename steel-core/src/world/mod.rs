@@ -27,7 +27,7 @@ use steel_registry::vanilla_game_rules::RANDOM_TICK_SPEED;
 use steel_registry::{REGISTRY, dimension_type::DimensionTypeRef};
 
 use steel_registry::blocks::shapes::{AABBd, VoxelShape};
-use steel_utils::locks::SyncRwLock;
+use steel_utils::locks::{SyncMutex, SyncRwLock};
 use steel_utils::{BlockPos, BlockStateId, ChunkPos, SectionPos, types::UpdateFlags};
 use steel_utils::math::Vector3;
 use tokio::{runtime::Runtime, time::Instant};
@@ -43,10 +43,12 @@ use crate::{
 
 mod player_area_map;
 mod player_map;
+mod tick_scheduler;
 mod world_entities;
 
 pub use player_area_map::PlayerAreaMap;
 pub use player_map::PlayerMap;
+pub use tick_scheduler::{ScheduledTick, TickScheduler, TickType};
 
 /// Interval in ticks between player info broadcasts (600 ticks = 30 seconds).
 /// Matches vanilla `PlayerList.SEND_PLAYER_INFO_INTERVAL`.
@@ -67,6 +69,8 @@ pub struct World {
     /// Whether the tick rate is running normally (not frozen/paused).
     /// When false, movement validation checks are skipped.
     tick_runs_normally: AtomicBool,
+    /// Scheduled tick scheduler for blocks and fluids.
+    tick_scheduler: SyncMutex<TickScheduler>,
 }
 
 impl World {
@@ -90,6 +94,7 @@ impl World {
             dimension,
             level_data: SyncRwLock::new(level_data),
             tick_runs_normally: AtomicBool::new(true),
+            tick_scheduler: SyncMutex::new(TickScheduler::new()),
         }))
     }
 
@@ -221,6 +226,65 @@ impl World {
             .store(runs_normally, Ordering::Relaxed);
     }
 
+    /// Schedules a tick at the given position.
+    ///
+    /// # Arguments
+    /// * `pos` - Block position
+    /// * `tick_type` - Type of tick (Block or Fluid)
+    /// * `current_tick` - Current game tick
+    /// * `delay` - Ticks to wait before executing
+    pub fn schedule_tick(&self, pos: BlockPos, tick_type: TickType, current_tick: u64, delay: u32) {
+        self.tick_scheduler.lock().schedule(pos, tick_type, current_tick, delay, 0);
+    }
+
+    /// Schedules a fluid tick with default priority.
+    pub fn schedule_fluid_tick(&self, pos: BlockPos, current_tick: u64, delay: u32) {
+        self.tick_scheduler.lock().schedule_fluid(pos, current_tick, delay);
+    }
+
+    /// Schedules a block tick with default priority.
+    pub fn schedule_block_tick(&self, pos: BlockPos, current_tick: u64, delay: u32) {
+        self.tick_scheduler.lock().schedule_block(pos, current_tick, delay);
+    }
+
+    /// Processes all scheduled ticks that are due.
+    ///
+    /// Returns the number of ticks processed.
+    fn process_scheduled_ticks(&self, current_tick: u64) -> usize {
+        use crate::fluid::{FluidType, WaterFluid, FluidBehaviour, get_fluid_state};
+
+        let due_ticks = self.tick_scheduler.lock().get_due_ticks(current_tick);
+        let count = due_ticks.len();
+
+        for tick in due_ticks {
+            match tick.tick_type {
+                TickType::Fluid => {
+                    // Get the fluid type at this position
+                    let fluid_state = get_fluid_state(self, &tick.pos);
+                    
+                    match fluid_state.fluid_type {
+                        FluidType::Water => {
+                            WaterFluid.tick(self, tick.pos, current_tick);
+                        }
+                        FluidType::Lava => {
+                            // TODO: Implement LavaFluid
+                            log::trace!("Lava tick at {:?} (not implemented)", tick.pos);
+                        }
+                        FluidType::Empty => {
+                            // Fluid was removed, nothing to do
+                        }
+                    }
+                }
+                TickType::Block => {
+                    // TODO: Call block behavior tick  
+                    log::trace!("Processing block tick at {:?}", tick.pos);
+                }
+            }
+        }
+
+        count
+    }
+
     /// Gets the value of a game rule.
     #[must_use]
     pub fn get_game_rule(&self, rule: GameRuleRef) -> GameRuleValue {
@@ -244,6 +308,12 @@ impl World {
     #[must_use]
     pub fn seed(&self) -> i64 {
         self.level_data.read().data().seed
+    }
+
+    /// Gets the current game time (tick count).
+    #[must_use]
+    pub fn game_time(&self) -> u64 {
+        self.level_data.read().data().game_time as u64
     }
 
     /// Gets the obfuscated seed for sending to clients.
@@ -350,6 +420,10 @@ impl World {
                 );
             }
         }
+
+        // Note: We used to schedule neighbor fluid ticks when water was replaced,
+        // but vanilla doesn't do this. Neighbors get notified via shape updates
+        // and schedule their own ticks if needed.
 
         true
     }
@@ -473,6 +547,11 @@ impl World {
 
         self.chunk_map
             .tick_b(tick_count, random_tick_speed, runs_normally);
+
+        // Process scheduled ticks (blocks and fluids) when running normally
+        if runs_normally {
+            self.process_scheduled_ticks(tick_count);
+        }
 
         // Tick players (always tick players - they can move when frozen)
         let start = Instant::now();

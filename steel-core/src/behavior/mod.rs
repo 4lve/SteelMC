@@ -93,6 +93,23 @@ pub fn init_behaviors() {
     let mut block_behaviors = BlockBehaviorRegistry::new();
     register_block_behaviors(&mut block_behaviors);
 
+    // Register liquid block behaviors for proper de-propagation
+    // When a neighbor changes, these blocks schedule a tick for themselves
+    block_behaviors.set_behavior(
+        vanilla_blocks::WATER,
+        Box::new(blocks::LiquidBlockBehavior::new(
+            vanilla_blocks::WATER,
+            crate::fluid::FluidType::Water,
+        )),
+    );
+    block_behaviors.set_behavior(
+        vanilla_blocks::LAVA,
+        Box::new(blocks::LiquidBlockBehavior::new(
+            vanilla_blocks::LAVA,
+            crate::fluid::FluidType::Lava,
+        )),
+    );
+
     assert!(
         BLOCK_BEHAVIORS.0.set(block_behaviors).is_ok(),
         "Block behavior registry already initialized"
