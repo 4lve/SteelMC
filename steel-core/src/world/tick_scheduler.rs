@@ -157,6 +157,11 @@ impl TickScheduler {
     /// This removes the ticks from the scheduler.
     pub fn get_due_ticks(&mut self, current_tick: u64) -> Vec<ScheduledTick> {
         let mut due = Vec::new();
+        
+        // Log pending count occasionally if needed, or if non-zero
+        if !self.pending.is_empty() {
+            log::trace!("Checking due ticks for current={}, pending count={}", current_tick, self.pending.len());
+        }
 
         while let Some(tick) = self.pending.peek() {
             if tick.trigger_tick > current_tick {

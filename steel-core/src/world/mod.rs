@@ -420,11 +420,6 @@ impl World {
                 );
             }
         }
-
-        // Note: We used to schedule neighbor fluid ticks when water was replaced,
-        // but vanilla doesn't do this. Neighbors get notified via shape updates
-        // and schedule their own ticks if needed.
-
         true
     }
 
@@ -543,6 +538,12 @@ impl World {
     /// * `runs_normally` - Whether game elements (random ticks, entities) should run.
     ///   When false (frozen), only essential operations like chunk loading run.
     pub fn tick_b(&self, tick_count: u64, runs_normally: bool) {
+        // Update the world's stored game time so components (like fluids) can access it
+        {
+            let mut level_data = self.level_data.write();
+            level_data.data_mut().game_time = tick_count as i64;
+        }
+
         let random_tick_speed = self.get_game_rule(RANDOM_TICK_SPEED).as_int().unwrap_or(3) as u32;
 
         self.chunk_map

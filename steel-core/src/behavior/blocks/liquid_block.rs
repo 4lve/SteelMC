@@ -47,14 +47,14 @@ impl BlockBehaviour for LiquidBlockBehavior {
         _moved_by_piston: bool,
     ) {
         // Schedule a tick for this block to recalculate
-        // This is how de-propagation works: when water is removed,
-        // neighbors get notified and schedule their own ticks
+        // Neighbors get notified and schedule their own ticks
         let tick_delay = self.fluid_type.tick_delay();
-        world.schedule_fluid_tick(pos, 0, tick_delay);
+        world.schedule_fluid_tick(pos, world.game_time(), tick_delay);
     }
 
     /// Called when a neighbor's shape changes.
-    /// Also schedule a tick - vanilla does this in updateShape.
+    /// Note: vanilla's LiquidBlock.updateShape only schedules if current OR neighbor is source.
+    /// Let's be more conservative to avoid double-scheduling.
     fn update_shape(
         &self,
         state: BlockStateId,
@@ -62,17 +62,13 @@ impl BlockBehaviour for LiquidBlockBehavior {
         pos: BlockPos,
         _direction: steel_registry::blocks::properties::Direction,
         _neighbor_pos: BlockPos,
-        _neighbor_state: BlockStateId,
+        neighbor_state: BlockStateId,
     ) -> BlockStateId {
-        // Check if current fluid or neighbor is source
-        let current_fluid = get_fluid_state(world, &pos);
-        
-        // If we have water, schedule a tick to recalculate
-        if current_fluid.fluid_type == self.fluid_type && !current_fluid.is_empty() {
-            let tick_delay = self.fluid_type.tick_delay();
-            world.schedule_fluid_tick(pos, 0, tick_delay);
-        }
+        // Note: Vanilla calls scheduleTick here if source, but since set_block triggers 
+        // handle_neighbor_changed which ALSO schedules, this is redundant in our implementation
+        // and causes double logging/scheduling.
         
         state
     }
 }
+

@@ -204,11 +204,11 @@ impl ItemBehavior for EmptyBucketBehavior {
 
         // Schedule fluid ticks for neighboring blocks so they can recalculate
         // This triggers the "de-propagation" - flowing water without a source will disappear
-        let current_tick = context.world.game_time();
-        for offset in [(0, 1, 0), (0, -1, 0), (1, 0, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1)] {
-            let neighbor = hit_pos.offset(offset.0, offset.1, offset.2);
-            context.world.schedule_fluid_tick(neighbor, current_tick, tick_delay);
-        }
+        //let current_tick = context.world.game_time();
+        //for offset in [(0, 1, 0), (0, -1, 0), (1, 0, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1)] {
+        //    let neighbor = hit_pos.offset(offset.0, offset.1, offset.2);
+        //    context.world.schedule_fluid_tick(neighbor, current_tick, tick_delay);
+        //}
 
         // Give filled bucket (unless creative mode)
         if !context.player.has_infinite_materials() {
