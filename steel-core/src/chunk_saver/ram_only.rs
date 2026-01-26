@@ -30,7 +30,6 @@ pub struct RamOnlyStorage {
     saved_chunks: AsyncRwLock<FxHashMap<ChunkPos, SimpleRAMChunk>>,
 }
 
-/// ```rust
 /// Represents a simple in-memory chunk containing a prepared chunk save and its status.
 ///
 /// This structure is used to manage the in-memory representation of a chunk in a system,

@@ -50,7 +50,7 @@ impl SteelTestWorld {
 
         // Create world with RAM-only storage
         let config = WorldConfig {
-            storage: WorldStorageConfig::RamOnly,
+            storage: WorldStorageConfig::Disk { path: String::from("world") },
             generator: Arc::new(ChunkGeneratorType::Empty(EmptyChunkGenerator::new()))
         };
 
