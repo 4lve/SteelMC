@@ -44,7 +44,7 @@ pub use world::SteelTestWorld;
 /// Re-export flint types for convenience
 pub use flint_steel::{TestLoader, TestRunConfig, TestRunner};
 
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, OnceLock, LazyLock};
 use steel_core::{behavior, config};
 use steel_registry::{REGISTRY, Registry};
 use tokio::runtime;
@@ -78,7 +78,7 @@ fn init_config() {
     use steel_core::config::{ServerConfig, ServerConfigRef};
 
     static INIT: Once = Once::new();
-    static TEST_CONFIG: ServerConfig = ServerConfig {
+    static TEST_CONFIG: LazyLock<ServerConfig> = LazyLock::new(|| ServerConfig {
         mc_version: "1.21.11",
         server_port: 25565,
         seed: String::new(),
@@ -93,12 +93,12 @@ fn init_config() {
         enforce_secure_chat: false,
         compression: None,
         server_links: None,
-        world_storage_config: config::WorldStorageConfig::RamOnly,
-        world_generator: WordGeneratorTypes::Empty
-    };
+        world_storage_config: config::WorldStorageConfig::Disk { path: "world".to_string() },
+        world_generator: WordGeneratorTypes::Empty,
+    });
 
     INIT.call_once(|| {
-        ServerConfigRef::init(&TEST_CONFIG);
+        ServerConfigRef::init(&*TEST_CONFIG);
     });
 }
 

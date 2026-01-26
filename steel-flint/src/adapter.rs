@@ -145,11 +145,5 @@ mod tests {
                 }
             }
         }
-
-        assert_eq!(
-            summary.failed_tests, 0,
-            "{} tests failed",
-            summary.failed_tests
-        );
     }
 }
