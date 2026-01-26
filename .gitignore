@@ -11,3 +11,4 @@ CLAUDE.md
 .idea/
 /steel-flint/.cache
 /steel-flint/config
+.env

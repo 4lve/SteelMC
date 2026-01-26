@@ -25,6 +25,7 @@ rustc-hash = { workspace = true }
 
 # Serialization (for flint-core compatibility)
 serde_json = { workspace = true }
+dotenvy = "0.15.7"
 
 [lints]
 workspace = true

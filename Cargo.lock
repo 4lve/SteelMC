@@ -2667,6 +2667,7 @@ dependencies = [
 name = "steel-flint"
 version = "0.0.0"
 dependencies = [
+ "dotenvy",
  "flint-core",
  "flint-steel",
  "log",
