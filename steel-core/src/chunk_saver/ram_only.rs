@@ -18,15 +18,15 @@ use super::{PreparedChunkSave, RegionManager};
 
 /// In-memory chunk storage.
 ///
-/// This storage implementation creates empty chunks on demand and doesn't
-/// persist any data to disk. It's designed for test worlds where:
-/// - All chunks start as empty (all air)
-/// - No actual data needs to be saved between loads
-/// - Chunk generation is bypassed (chunks are instantly available)
+/// This storage implementation doesn't
+/// persist any data to disk. It's designed for test worlds and minigame worlds:
+/// - It has chunk generation which can be disabled with `EmptyChunkGen`
+/// - It will save all the data so perfectly for minigames
+///
+/// TODO:
+/// Will later have the option to load a world from storage and clone it for easy world handling
 pub struct RamOnlyStorage {
-    /// Positions of chunks that have been "saved" (for tracking purposes).
-    /// We don't actually store the data since tests typically work with
-    /// the live chunk data in memory.
+    /// This saves every chunk, and it saves the changes in the world to make it possible to run the server fully in memory
     saved_chunks: AsyncRwLock<FxHashMap<ChunkPos, SimpleRAMChunk>>,
 }
 
@@ -42,10 +42,9 @@ pub struct SimpleRAMChunk {
 }
 
 impl RamOnlyStorage {
-    /// Creates a new RAM-only storage that returns empty chunks on demand.
+    /// Creates a new RAM-only storage which can be used for minigames, etc.
     ///
-    /// This is suitable for test worlds where you want an "infinite" world
-    /// of empty (air) chunks without any chunk generation.
+    /// This should be used for a RAM storage solution of a map and every world generation should be supported
     #[must_use]
     pub fn empty_world() -> Self {
         Self {

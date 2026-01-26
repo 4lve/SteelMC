@@ -46,9 +46,9 @@ mod player_map;
 mod world_entities;
 
 use crate::chunk::world_gen_context::ChunkGeneratorType;
+pub use crate::config::WorldStorageConfig;
 pub use player_area_map::PlayerAreaMap;
 pub use player_map::PlayerMap;
-pub use crate::config::WorldStorageConfig;
 
 /// Interval in ticks between player info broadcasts (600 ticks = 30 seconds).
 /// Matches vanilla `PlayerList.SEND_PLAYER_INFO_INTERVAL`.

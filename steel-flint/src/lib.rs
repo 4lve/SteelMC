@@ -44,12 +44,12 @@ pub use world::SteelTestWorld;
 /// Re-export flint types for convenience
 pub use flint_steel::{TestLoader, TestRunConfig, TestRunner};
 
-use std::sync::{Arc, OnceLock, LazyLock};
+use std::sync::{Arc, LazyLock, OnceLock};
+use steel_core::config::WordGeneratorTypes;
 use steel_core::{behavior, config};
 use steel_registry::{REGISTRY, Registry};
 use tokio::runtime;
 use tokio::runtime::Runtime;
-use steel_core::config::WordGeneratorTypes;
 
 /// Global runtime for flint tests.
 static FLINT_RUNTIME: OnceLock<Arc<Runtime>> = OnceLock::new();
@@ -93,12 +93,14 @@ fn init_config() {
         enforce_secure_chat: false,
         compression: None,
         server_links: None,
-        world_storage_config: config::WorldStorageConfig::Disk { path: "world".to_string() },
+        world_storage_config: config::WorldStorageConfig::Disk {
+            path: "world".to_string(),
+        },
         world_generator: WordGeneratorTypes::Empty,
     });
 
     INIT.call_once(|| {
-        ServerConfigRef::init(&*TEST_CONFIG);
+        ServerConfigRef::init(&TEST_CONFIG);
     });
 }
 

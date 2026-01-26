@@ -15,17 +15,20 @@ use std::{
 use steel_protocol::packets::game::{
     BlockChange, CBlockUpdate, CSectionBlocksUpdate, CSetChunkCenter,
 };
-use steel_registry::{dimension_type::DimensionTypeRef};
+use steel_registry::dimension_type::DimensionTypeRef;
 use steel_utils::{BlockPos, ChunkPos, SectionPos, locks::SyncMutex};
 use tokio::{runtime::Runtime, time::Instant};
 use tokio_util::task::TaskTracker;
 use tracing::Instrument;
 
+use crate::chunk::chunk_generator::ChunkGenerator;
 use crate::chunk::chunk_holder::ChunkHolder;
 use crate::chunk::chunk_ticket_manager::{
     ChunkTicketManager, LevelChange, MAX_VIEW_DISTANCE, is_full,
 };
 use crate::chunk::player_chunk_view::PlayerChunkView;
+use crate::chunk::proto_chunk::ProtoChunk;
+use crate::chunk::section::{ChunkSection, Sections};
 use crate::chunk::world_gen_context::ChunkGeneratorType;
 use crate::chunk::{chunk_access::ChunkAccess, chunk_ticket_manager::is_ticked};
 use crate::chunk::{
@@ -140,8 +143,10 @@ impl ChunkMap {
 
         // Block on async storage load
         let storage = &self.storage;
-        let result =
-            executor::block_on(async { storage.load_chunk(*pos, min_y, height, level).await });
+        let level_clone = level.clone();
+        let result = executor::block_on(async {
+            storage.load_chunk(*pos, min_y, height, level_clone).await
+        });
 
         match result {
             Ok(Some((chunk, _status))) => {
@@ -156,8 +161,32 @@ impl ChunkMap {
                 true
             }
             Ok(None) => {
-                log::debug!("Storage returned no chunk for {pos:?}");
-                false
+                // Chunk doesn't exist in storage - generate it
+                let holder = Arc::new(ChunkHolder::new(*pos, 0, min_y, height));
+
+                // Create empty sections (same as chunk_status_tasks::empty)
+                let sections = (0..self.world_gen_context.section_count())
+                    .map(|_| ChunkSection::new_empty())
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice();
+
+                let proto_chunk =
+                    ProtoChunk::new(Sections::from_owned(sections), *pos, min_y, height);
+
+                // Insert with Empty status so try_chunk will work
+                holder.insert_chunk(ChunkAccess::Proto(proto_chunk), ChunkStatus::Empty);
+
+                // Run generator (fills blocks for flat world, no-op for empty world)
+                if let Some(chunk) = holder.try_chunk(ChunkStatus::Empty) {
+                    self.world_gen_context.generator.fill_from_noise(&chunk);
+                }
+
+                // Upgrade to full LevelChunk and notify Full status
+                holder.upgrade_to_full(level);
+                holder.notify_status(ChunkStatus::Full);
+
+                let _ = self.chunks.insert_sync(*pos, holder);
+                true
             }
             Err(e) => {
                 log::error!("Failed to load chunk {pos:?}: {e}");
