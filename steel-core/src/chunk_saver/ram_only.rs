@@ -8,14 +8,10 @@
 
 use std::{io, sync::Weak};
 
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashMap;
 use steel_utils::{ChunkPos, locks::AsyncRwLock};
 
-use crate::chunk::{
-    chunk_access::{ChunkAccess, ChunkStatus},
-    level_chunk::LevelChunk,
-    section::{ChunkSection, Sections},
-};
+use crate::chunk::chunk_access::{ChunkAccess, ChunkStatus};
 use crate::world::World;
 
 use super::{PreparedChunkSave, RegionManager};
@@ -34,8 +30,15 @@ pub struct RamOnlyStorage {
     saved_chunks: AsyncRwLock<FxHashMap<ChunkPos, SimpleRAMChunk>>,
 }
 
+/// ```rust
+/// Represents a simple in-memory chunk containing a prepared chunk save and its status.
+///
+/// This structure is used to manage the in-memory representation of a chunk in a system,
+/// including its saved data and current processing or usage status.
 pub struct SimpleRAMChunk {
+    /// A `PreparedChunkSave` instance that holds the saved state of the chunk.
     pub prepared: PreparedChunkSave,
+    /// A `ChunkStatus` value representing the current status of the chunk.
     pub chunk_status: ChunkStatus,
 }
 
