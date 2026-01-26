@@ -48,14 +48,14 @@ mod tests {
     use super::*;
     use crate::init_test_registries;
     use crate::{TestLoader, TestRunner};
+    use dotenvy::dotenv;
     use flint_core::test_spec;
+    use flint_core::utils::get_test_path;
     use std::env::var;
     use std::path::PathBuf;
-    use flint_core::utils::get_test_path;
     use test_spec::TestSpec;
-    use dotenvy::dotenv;
 
-    fn init_env(){
+    fn init_env() {
         dotenv().ok();
     }
 
@@ -124,13 +124,12 @@ mod tests {
         init_env();
 
         // Load the fence test
-        let test_path =
-            PathBuf::from(get_test_path());
+        let test_path = PathBuf::from(get_test_path());
         let paths;
         match TestLoader::new(&test_path, true) {
             Ok(loader) => {
                 paths = collect_filtered_paths(&loader);
-            },
+            }
             Err(err) => {
                 println!("error while loading test files: {}", err);
                 return;
@@ -189,7 +188,7 @@ mod tests {
             return;
         }
 
-        let paths ;
+        let paths;
         match TestLoader::new(&test_dir, true) {
             Ok(loader) => match loader.collect_all_test_files() {
                 Ok(_test_paths) => {
