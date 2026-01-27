@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["PROCESS_CHANGES_WARN_MIN_DURATION","PROCESS_CHANGES_WARN_THRESHOLD","SLOW_TASK_WARN_THRESHOLD","SLOW_TASK_WARN_THRESHOLD_BIG"],"struct":["ChunkMap"]};
+window.SIDEBAR_ITEMS = {"struct":["ChunkMap","ChunkMapTickTimings"]};
