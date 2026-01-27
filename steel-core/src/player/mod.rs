@@ -1,4 +1,5 @@
 //! This module contains all things player-related.
+mod abilities;
 pub mod block_breaking;
 pub mod chunk_sender;
 mod game_mode;
@@ -11,6 +12,8 @@ pub mod networking;
 pub mod player_inventory;
 pub mod profile_key;
 mod signature_cache;
+
+pub use abilities::Abilities;
 
 use block_breaking::BlockBreakingManager;
 use crossbeam::atomic::AtomicCell;
@@ -29,8 +32,8 @@ use std::{
 use steel_protocol::packets::game::CSystemChatMessage;
 use steel_protocol::packets::game::{
     AnimateAction, CAnimate, CEntityPositionSync, COpenSignEditor, CPlayerPosition, CSetHeldSlot,
-    PlayerAction, SAcceptTeleportation, SPickItemFromBlock, SPlayerAction, SSetCarriedItem,
-    SUseItem, SUseItemOn,
+    PlayerAction, SAcceptTeleportation, SPickItemFromBlock, SPlayerAbilities, SPlayerAction,
+    SSetCarriedItem, SUseItem, SUseItemOn,
 };
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::game_rules::GameRuleValue;
@@ -251,6 +254,9 @@ pub struct Player {
     /// Whether the player is currently sleeping in a bed.
     sleeping: AtomicBool,
 
+    /// Player abilities (flight, invulnerability, build permissions, speeds, etc.)
+    abilities: SyncMutex<Abilities>,
+
     /// Whether the player is currently fall flying (elytra gliding).
     fall_flying: AtomicBool,
 
@@ -328,6 +334,7 @@ impl Player {
             known_move_packet_count: AtomicI32::new(0),
             delta_movement: SyncMutex::new(Vector3::default()),
             sleeping: AtomicBool::new(false),
+            abilities: SyncMutex::new(Abilities::default()),
             fall_flying: AtomicBool::new(false),
             on_ground: AtomicBool::new(false),
             last_impulse_tick: AtomicI32::new(0),
@@ -1098,12 +1105,31 @@ impl Player {
 
         self.game_mode.store(gamemode);
 
+        // Update abilities based on new game mode (mirrors vanilla GameType.updatePlayerAbilities)
+        self.abilities.lock().update_for_game_mode(gamemode);
+
+        // Send abilities first (vanilla sends this before game event)
+        self.send_abilities();
+
         self.connection.send_packet(CGameEvent {
             event: GameEventType::ChangeGameMode,
             data: gamemode.into(),
         });
 
+        // Broadcast game mode update to all players (including self)
+        // This updates PlayerInfo on clients, which is used for isSpectator() checks
+        let update_packet =
+            CPlayerInfoUpdate::update_game_mode(self.gameprofile.id, gamemode as i32);
+        self.world.broadcast_to_all(update_packet);
+
         true
+    }
+
+    /// Sends the player abilities packet to the client.
+    /// This tells the client about flight, invulnerability, speeds, etc.
+    pub fn send_abilities(&self) {
+        let packet = self.abilities.lock().to_packet();
+        self.connection.send_packet(packet);
     }
 
     /// Handles a container button click packet (e.g., enchanting table buttons).
@@ -1361,6 +1387,48 @@ impl Player {
     /// Sets the player's fall flying state.
     pub fn set_fall_flying(&self, fall_flying: bool) {
         self.fall_flying.store(fall_flying, Ordering::Relaxed);
+    }
+
+    /// Returns true if the player is flying (creative/spectator flight).
+    #[must_use]
+    pub fn is_flying(&self) -> bool {
+        self.abilities.lock().flying
+    }
+
+    /// Sets the player's flying state.
+    pub fn set_flying(&self, flying: bool) {
+        self.abilities.lock().flying = flying;
+    }
+
+    /// Returns the player's flying speed.
+    #[must_use]
+    pub fn get_flying_speed(&self) -> f32 {
+        self.abilities.lock().flying_speed
+    }
+
+    /// Sets the player's flying speed.
+    pub fn set_flying_speed(&self, speed: f32) {
+        self.abilities.lock().flying_speed = speed;
+    }
+
+    /// Returns a copy of the player's abilities.
+    #[must_use]
+    pub fn get_abilities(&self) -> Abilities {
+        self.abilities.lock().clone()
+    }
+
+    /// Handles the player abilities packet from the client.
+    /// This is sent when the player starts or stops flying.
+    pub fn handle_player_abilities(&self, packet: SPlayerAbilities) {
+        let mut abilities = self.abilities.lock();
+
+        if abilities.may_fly {
+            abilities.flying = packet.is_flying();
+        } else if packet.is_flying() {
+            // Client tried to fly but isn't allowed - resync abilities
+            drop(abilities);
+            self.send_abilities();
+        }
     }
 
     /// Returns true if the player is on the ground.

@@ -218,10 +218,7 @@ pub mod vanilla_recipes;
 #[path = "generated/vanilla_entities.rs"]
 pub mod vanilla_entities;
 
-#[allow(warnings)]
-#[rustfmt::skip]
-#[path = "generated/vanilla_entity_data_serializers.rs"]
-pub mod vanilla_entity_data_serializers;
+
 
 #[allow(warnings)]
 #[rustfmt::skip]

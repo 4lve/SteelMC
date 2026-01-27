@@ -66,7 +66,13 @@ fn init_tracing() {
             OpenTelemetryLayer::new(tracer)
                 .with_filter(EnvFilter::new("trace,h2=off,hyper=off,tonic=off,tower=off")),
         )
-        .with(fmt::layer().with_timer(fmt::time::uptime()))
+        .with(
+            fmt::layer().with_timer(fmt::time::uptime()).with_filter(
+                EnvFilter::builder()
+                    .with_default_directive(tracing::Level::INFO.into())
+                    .from_env_lossy(),
+            ),
+        )
         .init();
 }
 

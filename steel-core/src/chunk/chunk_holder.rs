@@ -194,20 +194,23 @@ impl ChunkHolder {
         status.get_index() > allowed as usize
     }
 
-    /// Returns a future that completes when the chunk reaches the given status or is cancelled.
+    /// Schedules a generation task for this chunk if needed.
+    ///
+    /// Returns `true` if a new task was actually scheduled, `false` if the chunk
+    /// already has a suitable task or is already at the target status.
     #[allow(clippy::missing_panics_doc)]
     #[inline]
     pub(crate) fn schedule_chunk_generation_task_b(
         &self,
         status: ChunkStatus,
         chunk_map: &Arc<ChunkMap>,
-    ) {
+    ) -> bool {
         if self.is_status_disallowed(status) {
-            return;
+            return false;
         }
 
         if self.try_chunk(status).is_some() {
-            return;
+            return false;
         }
 
         let task = self.generation_task.lock();
@@ -216,6 +219,9 @@ impl ChunkHolder {
         if task.is_none() || status > task.as_ref().unwrap().target_status {
             drop(task);
             self.reschedule_chunk_task_b(status, chunk_map);
+            true
+        } else {
+            false
         }
     }
 
