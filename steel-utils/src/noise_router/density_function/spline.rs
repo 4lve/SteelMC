@@ -170,7 +170,7 @@ impl Spline {
                 let z = point_1_partial - point_2_max + point_1_min;
                 let aa = point_1_partial - point_2_min + point_1_max;
                 let ab = -point_2_partial + point_2_min - point_1_max;
-                let ac = -point_2_partial + point_2_max - point_1_max;
+                let ac = -point_2_partial + point_2_max - point_1_min;
 
                 let ad = z.min(ab);
                 let ae = aa.max(ac);

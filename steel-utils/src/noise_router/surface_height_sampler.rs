@@ -14,8 +14,12 @@ use super::density_function::{NoiseFunctionComponentRange, PassThrough, Unblende
 use super::proto_noise_router::{ProtoNoiseFunctionComponent, ProtoSurfaceEstimator};
 use super::WrapperType;
 
-/// Density cutoff for surface detection (matches vanilla).
-const SURFACE_DENSITY_CUTOFF: f64 = 0.390625;
+/// Density cutoff for surface detection.
+///
+/// Vanilla's `FindTopSurface.compute()` checks `density > 0.0`. The density function
+/// already has `-0.390625` baked in (from `NoiseRouterData`), so checking `> 0.0` is
+/// equivalent to checking the raw density `> 0.390625`.
+const SURFACE_DENSITY_CUTOFF: f64 = 0.0;
 
 /// Options for building the surface height sampler.
 pub struct SurfaceHeightSamplerBuilderOptions {

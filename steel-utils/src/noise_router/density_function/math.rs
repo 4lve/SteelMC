@@ -111,6 +111,24 @@ impl StaticChunkNoiseFunctionComponentImpl for Linear {
         );
         self.data.apply_density(input_density)
     }
+
+    fn fill(
+        &self,
+        component_stack: &mut [ChunkNoiseFunctionComponent],
+        array: &mut [f64],
+        mapper: &impl IndexToNoisePos,
+        sample_options: &mut ChunkNoiseFunctionSampleOptions,
+    ) {
+        ChunkNoiseFunctionComponent::fill_from_stack(
+            &mut component_stack[..=self.input_index],
+            array,
+            mapper,
+            sample_options,
+        );
+        for value in array {
+            *value = self.data.apply_density(*value);
+        }
+    }
 }
 
 impl Linear {
@@ -265,15 +283,20 @@ impl StaticChunkNoiseFunctionComponentImpl for Binary {
 
         match self.data.operation {
             BinaryOperation::Add => {
-                array.iter_mut().enumerate().for_each(|(index, value)| {
-                    let pos = mapper.at(index, Some(sample_options));
-                    let density2 = ChunkNoiseFunctionComponent::sample_from_stack(
-                        &mut component_stack[..=self.input2_index],
-                        &pos,
-                        sample_options,
-                    );
-                    *value += density2;
-                });
+                // Batch fill argument2 into a temporary array, then add element-wise.
+                // This matches vanilla's Ap2.fillArray for ADD, which is critical for
+                // CacheOnce instances in argument2's subtree to get their batch cache
+                // populated during cell cache filling passes.
+                let mut array2 = vec![0.0; array.len()];
+                ChunkNoiseFunctionComponent::fill_from_stack(
+                    &mut component_stack[..=self.input2_index],
+                    &mut array2,
+                    mapper,
+                    sample_options,
+                );
+                for (v1, v2) in array.iter_mut().zip(array2.iter()) {
+                    *v1 += *v2;
+                }
             }
             BinaryOperation::Mul => {
                 array.iter_mut().enumerate().for_each(|(index, value)| {

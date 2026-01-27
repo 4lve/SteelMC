@@ -408,7 +408,9 @@ impl WorldAquiferSampler {
         // Check for deep dark region (no aquifers there)
         let erosion = router.erosion(&pos, sample_options);
         let depth = router.depth(&pos, sample_options);
-        let is_deep_dark = erosion < -0.225 && depth > 0.9;
+        // Vanilla uses (double)-0.225F and (double)0.9F — float-to-double cast preserves
+        // float precision loss: -0.225f32 as f64 != -0.225f64
+        let is_deep_dark = erosion < f64::from(-0.225_f32) && depth > f64::from(0.9_f32);
 
         let (partially_flooded, fully_flooded) = if is_deep_dark {
             (-1.0, -1.0)
@@ -421,8 +423,9 @@ impl WorldAquiferSampler {
             };
 
             let floodedness_noise = router.fluid_level_floodedness_noise(&pos, sample_options).clamp(-1.0, 1.0);
-            let fully_flooded_threshold = map(floodedness_factor, 1.0, 0.0, -0.3, 0.8);
-            let partially_flooded_threshold = map(floodedness_factor, 1.0, 0.0, -0.8, 0.4);
+            // Vanilla uses float literals widened to double: -0.3F, 0.8F, -0.8F, 0.4F
+            let fully_flooded_threshold = map(floodedness_factor, 1.0, 0.0, f64::from(-0.3_f32), f64::from(0.8_f32));
+            let partially_flooded_threshold = map(floodedness_factor, 1.0, 0.0, f64::from(-0.8_f32), f64::from(0.4_f32));
 
             (floodedness_noise - partially_flooded_threshold, floodedness_noise - fully_flooded_threshold)
         };
@@ -479,7 +482,8 @@ impl WorldAquiferSampler {
             let pos = UnblendedNoisePos::new(fluid_type_cell_x, fluid_type_cell_y, fluid_type_cell_z);
             let lava_noise = router.lava_noise(&pos, sample_options);
 
-            if lava_noise.abs() > 0.3 {
+            // Vanilla uses (double)0.3F
+            if lava_noise.abs() > f64::from(0.3_f32) {
                 return self.blocks.lava;
             }
         }
@@ -582,11 +586,10 @@ impl AquiferSamplerImpl for WorldAquiferSampler {
         let mut closest_index_2 = 0usize;
         let mut closest_index_3 = 0usize;
 
-        // Iterate over 2x3x2 grid of cells in same order as vanilla
-        // Pumpkin's order: y goes 1,0,-1; for each y, (x,z) goes (1,1),(1,0),(0,1),(0,0)
-        for y1 in (-1..=1).rev() {
-            for x1 in (0..=1).rev() {
-                for z1 in (0..=1).rev() {
+        // Iterate over 2x3x2 grid of cells in vanilla order: x(0..=1) > y(-1..=1) > z(0..=1)
+        for x1 in 0..=1 {
+            for y1 in -1..=1 {
+                for z1 in 0..=1 {
                     let spaced_grid_x = x_anchor + x1;
                     let spaced_grid_y = y_anchor + y1;
                     let spaced_grid_z = z_anchor + z1;
@@ -613,20 +616,20 @@ impl AquiferSamplerImpl for WorldAquiferSampler {
                     let new_dist = dx * dx + dy * dy + dz * dz;
 
                     // Insertion sort into 3 closest
-                    // Use strict > to match vanilla tie-breaking (earlier positions win)
-                    if dist_sq_1 > new_dist {
+                    // Use >= to match vanilla: equal-distance entries displace existing ones
+                    if dist_sq_1 >= new_dist {
                         closest_index_3 = closest_index_2;
                         closest_index_2 = closest_index_1;
                         closest_index_1 = index;
                         dist_sq_3 = dist_sq_2;
                         dist_sq_2 = dist_sq_1;
                         dist_sq_1 = new_dist;
-                    } else if dist_sq_2 > new_dist {
+                    } else if dist_sq_2 >= new_dist {
                         closest_index_3 = closest_index_2;
                         closest_index_2 = index;
                         dist_sq_3 = dist_sq_2;
                         dist_sq_2 = new_dist;
-                    } else if dist_sq_3 > new_dist {
+                    } else if dist_sq_3 >= new_dist {
                         closest_index_3 = index;
                         dist_sq_3 = new_dist;
                     }

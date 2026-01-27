@@ -136,11 +136,13 @@ impl OreVeinSampler {
         let dist_to_min = (block_y - vein_type.min_y) as f64;
         let dist_to_max = (vein_type.max_y - block_y) as f64;
         let boundary_dist = dist_to_min.min(dist_to_max);
-        let boundary_fade = clamped_map(boundary_dist, 0.0, 20.0, -0.2, 0.0);
+        // Vanilla uses -0.2F widened to double
+        let boundary_fade = clamped_map(boundary_dist, 0.0, 20.0, f64::from(-0.2_f32), 0.0);
 
         // Check if we're in a vein core
+        // Vanilla uses (double)0.4F — float-to-double cast
         let abs_toggle = vein_toggle.abs();
-        if abs_toggle + boundary_fade < 0.4 {
+        if abs_toggle + boundary_fade < f64::from(0.4_f32) {
             return None;
         }
 
@@ -158,12 +160,20 @@ impl OreVeinSampler {
         }
 
         // Clamp and map the sample value
-        let clamped_sample = clamped_map(abs_toggle, 0.4, 0.6, 0.1, 0.3) as f32;
+        // Vanilla uses (double)0.4F, (double)0.6F, (double)0.1F, (double)0.3F
+        let clamped_sample = clamped_map(
+            abs_toggle,
+            f64::from(0.4_f32),
+            f64::from(0.6_f32),
+            f64::from(0.1_f32),
+            f64::from(0.3_f32),
+        ) as f32;
 
         // Final random check and gap check
         if random.next_f32() < clamped_sample {
             let vein_gap = router.vein_gap(pos, sample_options);
-            if vein_gap > -0.3 {
+            // Vanilla uses (double)-0.3F
+            if vein_gap > f64::from(-0.3_f32) {
                 // 2% chance for raw ore block, 98% for regular ore
                 return if random.next_f32() < 0.02 {
                     Some(vein_type.raw_ore)
@@ -174,7 +184,8 @@ impl OreVeinSampler {
         }
 
         // Return stone if we're in a vein but didn't place ore
-        if abs_toggle + boundary_fade >= 0.4 {
+        // Vanilla uses (double)0.4F
+        if abs_toggle + boundary_fade >= f64::from(0.4_f32) {
             Some(vein_type.stone)
         } else {
             None

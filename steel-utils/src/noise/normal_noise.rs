@@ -5,15 +5,15 @@
 // Noise code uses mathematical single-letter variables (x, y, z, i, j, k)
 #![allow(clippy::many_single_char_names)]
 
-use crate::random::{Random, RandomSplitter};
+use crate::random::{RandomSource, RandomSplitter};
 
 use super::PerlinNoise;
 
 /// Input factor for slight variation between the two noise samplers.
 const INPUT_FACTOR: f64 = 1.018_126_888_217_522_7;
 
-/// Target deviation for value normalization.
-const TARGET_DEVIATION: f64 = 1.0 / 3.0;
+/// Value factor numerator — vanilla uses 0.16666666666666666 (1/6), NOT TARGET_DEVIATION (1/3).
+const VALUE_FACTOR_NUMERATOR: f64 = 0.166_666_666_666_666_66;
 
 /// Parameters for creating a `NormalNoise` instance.
 #[derive(Clone, Debug)]
@@ -101,22 +101,20 @@ impl NormalNoise {
     }
 
     /// Creates a `NormalNoise` using legacy random for legacy nether biome.
-    pub fn create_legacy_nether_biome<R: Random>(
-        random: &mut R,
-        name: &str,
+    ///
+    /// Vanilla passes the `RandomSource` directly through to
+    /// `PerlinNoise.createLegacyForLegacyNetherBiome` without forking.
+    pub fn create_legacy_nether_biome(
+        random: &mut RandomSource,
         parameters: NoiseParameters,
     ) -> Self {
-        let mut positional_random_factory = random.next_positional();
-
-        let first = PerlinNoise::create_from_random_source(
-            &mut positional_random_factory,
-            &format!("{name}/first"),
+        let first = PerlinNoise::create_legacy_for_legacy_nether_biome(
+            random,
             parameters.first_octave,
             &parameters.amplitudes,
         );
-        let second = PerlinNoise::create_from_random_source(
-            &mut positional_random_factory,
-            &format!("{name}/second"),
+        let second = PerlinNoise::create_legacy_for_legacy_nether_biome(
+            random,
             parameters.first_octave,
             &parameters.amplitudes,
         );
@@ -137,7 +135,7 @@ impl NormalNoise {
         }
 
         let octave_spread = max_octave - min_octave;
-        let value_factor = TARGET_DEVIATION / expected_deviation(octave_spread);
+        let value_factor = VALUE_FACTOR_NUMERATOR / expected_deviation(octave_spread);
         let max_value = (first.max_value() + second.max_value()) * value_factor;
 
         Self {
@@ -180,6 +178,7 @@ fn expected_deviation(octaves: i32) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::random::Random;
     use crate::random::xoroshiro::Xoroshiro;
 
     #[test]

@@ -16,9 +16,12 @@ fn skip_octave(random: &mut RandomSource) {
 }
 
 /// Constant for coordinate wrapping to prevent floating-point discontinuities.
-const ROUND_OFF: f64 = 33_554_432.0;
+/// Vanilla uses 3.3554432E7F (float) cast to double.
+const ROUND_OFF: f64 = 3.3554432E7;
 
 /// Wrap a coordinate to prevent discontinuities in large worlds.
+/// Matches Minecraft's `PerlinNoise.wrap` method exactly:
+/// `x - (double)Mth.lfloor(x / 3.3554432E7 + 0.5) * 3.3554432E7`
 #[inline]
 #[must_use]
 pub fn wrap(value: f64) -> f64 {
@@ -151,17 +154,17 @@ impl PerlinNoise {
     }
 
     /// Creates `PerlinNoise` using legacy random for legacy nether biome.
-    pub fn create_legacy_for_legacy_nether_biome<R: Random>(
-        random: &mut R,
+    ///
+    /// Vanilla passes the `RandomSource` directly to the legacy constructor
+    /// without forking a positional random.
+    pub fn create_legacy_for_legacy_nether_biome(
+        random: &mut RandomSource,
         first_octave: i32,
         amplitudes: &[f64],
     ) -> Self {
-        let positional_random_factory = random.next_positional();
-        let mut random_source =
-            positional_random_factory.with_hash_of("minecraft:legacy_nether_biome");
         let neg_first_octave = -first_octave;
         Self::create_legacy_internal(
-            &mut random_source,
+            random,
             first_octave,
             amplitudes.to_vec(),
             neg_first_octave as usize,

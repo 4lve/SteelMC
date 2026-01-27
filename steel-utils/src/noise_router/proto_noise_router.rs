@@ -340,8 +340,9 @@ impl ProtoNoiseRouters {
                 }
                 BaseNoiseFunctionComponent::BlendDensity { input_index } => {
                     // TODO: Replace this when the blender is implemented
-                    let min_value = stack[*input_index].min();
-                    let max_value = stack[*input_index].max();
+                    // Vanilla BlendedNoise returns -Infinity/Infinity for bounds
+                    let min_value = f64::NEG_INFINITY;
+                    let max_value = f64::INFINITY;
 
                     ProtoNoiseFunctionComponent::PassThrough(PassThrough::new(
                         *input_index,

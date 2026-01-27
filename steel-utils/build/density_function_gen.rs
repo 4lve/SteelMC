@@ -379,7 +379,7 @@ fn flatten_node(ctx: &mut FlattenContext, node: &Value) -> usize {
         "BlendOffset" => quote! { BaseNoiseFunctionComponent::BlendOffset },
         "BlendAlpha" => quote! { BaseNoiseFunctionComponent::BlendAlpha },
         "EndIslands" => quote! { BaseNoiseFunctionComponent::EndIslands },
-        "FindTopSurface" => quote! { BaseNoiseFunctionComponent::FindTopSurface },
+        "Beardifier" => quote! { BaseNoiseFunctionComponent::Beardifier },
         "BlendedNoise" => handle_blended_noise(ctx),
         "Constant" => handle_constant(value.expect("Missing value for Constant")),
         "YClampedGradient" => {
@@ -492,94 +492,206 @@ fn flatten_spline(ctx: &mut FlattenContext, spline: &Value) -> Ident {
     spline_name
 }
 
-fn generate_environment(env_name: &str, env_data: &Map<String, Value>) -> (TokenStream, String) {
-    let mut ctx = FlattenContext::new(env_name);
-
-    let field_mapping = [
-        ("barrierNoise", "barrier_noise"),
-        (
-            "fluidLevelFloodednessNoise",
-            "fluid_level_floodedness_noise",
-        ),
-        ("fluidLevelSpreadNoise", "fluid_level_spread_noise"),
-        ("lavaNoise", "lava_noise"),
-        ("erosion", "erosion"),
-        ("depth", "depth"),
-        ("finalDensity", "final_density"),
-        ("veinToggle", "vein_toggle"),
-        ("veinRidged", "vein_ridged"),
-        ("veinGap", "vein_gap"),
-        ("temperature", "temperature"),
-        ("vegetation", "vegetation"),
-        ("continents", "continents"),
-        ("ridges", "ridges"),
-    ];
-
-    let mut indices: FxHashMap<&str, usize> = FxHashMap::default();
-
-    for (json_name, _rust_name) in &field_mapping {
-        if let Some(node) = env_data.get(*json_name) {
-            let idx = flatten_node(&mut ctx, node);
-            indices.insert(json_name, idx);
-        }
-    }
-
+/// Emit the static data, splines, and component stack array for a flatten context.
+/// Returns `None` if the stack is empty.
+fn emit_stack(ctx: &FlattenContext, stack_name: &Ident) -> Option<TokenStream> {
     let components = &ctx.stack;
     let static_data = &ctx.static_data;
     let splines = &ctx.splines;
+    let components_len = components.len();
 
+    if components_len == 0 {
+        return None;
+    }
+
+    Some(quote! {
+        #(#static_data)*
+        #(#splines)*
+        static #stack_name: [BaseNoiseFunctionComponent; #components_len] = [
+            #(#components),*
+        ];
+    })
+}
+
+fn generate_environment(env_name: &str, env_data: &Map<String, Value>) -> (TokenStream, String) {
     let env_name_upper = env_name.to_shouty_snake_case();
-    let stack_name = Ident::new(
-        &format!("{env_name_upper}_COMPONENT_STACK"),
+
+    // === Noise stack ===
+    let mut noise_ctx = FlattenContext::new(env_name);
+
+    let noise_fields = [
+        "barrierNoise",
+        "fluidLevelFloodednessNoise",
+        "fluidLevelSpreadNoise",
+        "lavaNoise",
+        "erosion",
+        "depth",
+        "finalDensity",
+        "veinToggle",
+        "veinRidged",
+        "veinGap",
+    ];
+
+    let mut noise_indices: FxHashMap<&str, usize> = FxHashMap::default();
+    for json_name in &noise_fields {
+        if let Some(node) = env_data.get(*json_name) {
+            let idx = flatten_node(&mut noise_ctx, node);
+            noise_indices.insert(json_name, idx);
+        }
+    }
+
+    // Post-process finalDensity: wrap with CellCache(Add(finalDensity, Beardifier))
+    // Vanilla adds Beardifier at runtime but the component stack needs the slot
+    if let Some(&original_final) = noise_indices.get("finalDensity") {
+        let beardifier_idx = noise_ctx.stack.len();
+        noise_ctx
+            .stack
+            .push(quote! { BaseNoiseFunctionComponent::Beardifier });
+
+        let add_data_name = noise_ctx.next_data_name("BINARY_DATA");
+        noise_ctx.static_data.push(quote! {
+            static #add_data_name: BinaryData = BinaryData { operation: BinaryOperation::Add };
+        });
+
+        let add_idx = noise_ctx.stack.len();
+        noise_ctx.stack.push(quote! {
+            BaseNoiseFunctionComponent::Binary {
+                argument1_index: #original_final,
+                argument2_index: #beardifier_idx,
+                data: &#add_data_name,
+            }
+        });
+
+        let cell_cache_idx = noise_ctx.stack.len();
+        noise_ctx.stack.push(quote! {
+            BaseNoiseFunctionComponent::Wrapper {
+                input_index: #add_idx,
+                wrapper: WrapperType::CellCache,
+            }
+        });
+
+        noise_indices.insert("finalDensity", cell_cache_idx);
+    }
+
+    let noise_stack_name = Ident::new(
+        &format!("{env_name_upper}_NOISE_STACK"),
         Span::call_site(),
     );
+    let noise_stream = emit_stack(&noise_ctx, &noise_stack_name);
+
+    // === Surface estimator stack ===
+    let surface_prefix = format!("{env_name}_surface");
+    let mut surface_ctx = FlattenContext::new(&surface_prefix);
+
+    // Extract the inner density function from FindTopSurface if available
+    if let Some(node) = env_data.get("initialDensityWithoutJaggedness") {
+        if let Some(obj) = node.as_object() {
+            let class = obj.get("_class").and_then(Value::as_str);
+            if class == Some("FindTopSurface") {
+                // FindTopSurface wraps an inner density function in "value.density"
+                if let Some(density_node) = obj.get("value").and_then(|v| v.get("density")) {
+                    flatten_node(&mut surface_ctx, density_node);
+                }
+            } else {
+                // Not FindTopSurface - flatten directly
+                flatten_node(&mut surface_ctx, node);
+            }
+        }
+    }
+
+    let surface_stack_name = Ident::new(
+        &format!("{env_name_upper}_SURFACE_STACK"),
+        Span::call_site(),
+    );
+    let surface_stream = emit_stack(&surface_ctx, &surface_stack_name);
+
+    // === Multi noise stack ===
+    let multi_prefix = format!("{env_name}_multi");
+    let mut multi_ctx = FlattenContext::new(&multi_prefix);
+
+    let multi_fields = [
+        "temperature",
+        "vegetation",
+        "continents",
+        "erosion",
+        "depth",
+        "ridges",
+    ];
+
+    let mut multi_indices: FxHashMap<&str, usize> = FxHashMap::default();
+    for json_name in &multi_fields {
+        if let Some(node) = env_data.get(*json_name) {
+            let idx = flatten_node(&mut multi_ctx, node);
+            multi_indices.insert(json_name, idx);
+        }
+    }
+
+    let multi_stack_name = Ident::new(
+        &format!("{env_name_upper}_MULTI_STACK"),
+        Span::call_site(),
+    );
+    let multi_stream = emit_stack(&multi_ctx, &multi_stack_name);
+
+    // === Build the router ===
     let router_name = Ident::new(
         &format!("{env_name_upper}_BASE_NOISE_ROUTER"),
         Span::call_site(),
     );
 
-    let barrier_noise = indices.get("barrierNoise").copied().unwrap_or(0);
-    let fluid_floodedness = indices
+    let barrier_noise = noise_indices.get("barrierNoise").copied().unwrap_or(0);
+    let fluid_floodedness = noise_indices
         .get("fluidLevelFloodednessNoise")
         .copied()
         .unwrap_or(0);
-    let fluid_spread = indices.get("fluidLevelSpreadNoise").copied().unwrap_or(0);
-    let lava_noise = indices.get("lavaNoise").copied().unwrap_or(0);
-    let erosion = indices.get("erosion").copied().unwrap_or(0);
-    let depth = indices.get("depth").copied().unwrap_or(0);
-    let final_density = indices.get("finalDensity").copied().unwrap_or(0);
-    let vein_toggle = indices.get("veinToggle").copied().unwrap_or(0);
-    let vein_ridged = indices.get("veinRidged").copied().unwrap_or(0);
-    let vein_gap = indices.get("veinGap").copied().unwrap_or(0);
+    let fluid_spread = noise_indices
+        .get("fluidLevelSpreadNoise")
+        .copied()
+        .unwrap_or(0);
+    let lava_noise = noise_indices.get("lavaNoise").copied().unwrap_or(0);
+    let noise_erosion = noise_indices.get("erosion").copied().unwrap_or(0);
+    let noise_depth = noise_indices.get("depth").copied().unwrap_or(0);
+    let final_density = noise_indices.get("finalDensity").copied().unwrap_or(0);
+    let vein_toggle = noise_indices.get("veinToggle").copied().unwrap_or(0);
+    let vein_ridged = noise_indices.get("veinRidged").copied().unwrap_or(0);
+    let vein_gap = noise_indices.get("veinGap").copied().unwrap_or(0);
 
-    let components_len = components.len();
+    let temperature = multi_indices.get("temperature").copied().unwrap_or(0);
+    let vegetation = multi_indices.get("vegetation").copied().unwrap_or(0);
+    let continents = multi_indices.get("continents").copied().unwrap_or(0);
+    let multi_erosion = multi_indices.get("erosion").copied().unwrap_or(0);
+    let multi_depth = multi_indices.get("depth").copied().unwrap_or(0);
+    let ridges = multi_indices.get("ridges").copied().unwrap_or(0);
 
-    let stream = quote! {
-        #(#static_data)*
-
-        #(#splines)*
-
-        static #stack_name: [BaseNoiseFunctionComponent; #components_len] = [
-            #(#components),*
-        ];
-
-        pub static #router_name: BaseNoiseRouters = BaseNoiseRouters {
-            noise: BaseNoiseRouter {
-                full_component_stack: &#stack_name,
-                barrier_noise: #barrier_noise,
-                fluid_level_floodedness_noise: #fluid_floodedness,
-                fluid_level_spread_noise: #fluid_spread,
-                lava_noise: #lava_noise,
-                erosion: #erosion,
-                depth: #depth,
-                final_density: #final_density,
-                vein_toggle: #vein_toggle,
-                vein_ridged: #vein_ridged,
-                vein_gap: #vein_gap,
+    // Build surface estimator reference
+    let surface_estimator_tokens = if surface_stream.is_some() {
+        quote! {
+            surface_estimator: BaseSurfaceEstimator {
+                full_component_stack: &#surface_stack_name,
             },
+        }
+    } else {
+        quote! {
             surface_estimator: BaseSurfaceEstimator {
                 full_component_stack: &[],
             },
+        }
+    };
+
+    // Build multi noise reference
+    let multi_noise_tokens = if multi_stream.is_some() {
+        quote! {
+            multi_noise: BaseMultiNoiseRouter {
+                full_component_stack: &#multi_stack_name,
+                temperature: #temperature,
+                vegetation: #vegetation,
+                continents: #continents,
+                erosion: #multi_erosion,
+                depth: #multi_depth,
+                ridges: #ridges,
+            },
+        }
+    } else {
+        quote! {
             multi_noise: BaseMultiNoiseRouter {
                 full_component_stack: &[],
                 temperature: 0,
@@ -589,8 +701,39 @@ fn generate_environment(env_name: &str, env_data: &Map<String, Value>) -> (Token
                 depth: 0,
                 ridges: 0,
             },
-        };
+        }
     };
+
+    let mut stream = TokenStream::new();
+    if let Some(ns) = noise_stream {
+        stream.extend(ns);
+    }
+    if let Some(ss) = surface_stream {
+        stream.extend(ss);
+    }
+    if let Some(ms) = multi_stream {
+        stream.extend(ms);
+    }
+
+    stream.extend(quote! {
+        pub static #router_name: BaseNoiseRouters = BaseNoiseRouters {
+            noise: BaseNoiseRouter {
+                full_component_stack: &#noise_stack_name,
+                barrier_noise: #barrier_noise,
+                fluid_level_floodedness_noise: #fluid_floodedness,
+                fluid_level_spread_noise: #fluid_spread,
+                lava_noise: #lava_noise,
+                erosion: #noise_erosion,
+                depth: #noise_depth,
+                final_density: #final_density,
+                vein_toggle: #vein_toggle,
+                vein_ridged: #vein_ridged,
+                vein_gap: #vein_gap,
+            },
+            #surface_estimator_tokens
+            #multi_noise_tokens
+        };
+    });
 
     (stream, router_name.to_string())
 }
@@ -612,7 +755,7 @@ pub(crate) fn build() -> TokenStream {
     let mut stream = TokenStream::new();
 
     stream.extend(quote! {
-        use crate::noise_router::data::{
+        use crate::noise_router::types::{
             BaseNoiseFunctionComponent, BaseNoiseRouter, BaseNoiseRouters, BaseSurfaceEstimator,
             BaseMultiNoiseRouter, NoiseData, ShiftedNoiseData, ClampedYGradientData,
             BinaryData, BinaryOperation, UnaryData, UnaryOperation, LinearData, LinearOperation,
