@@ -3,6 +3,9 @@
 use std::sync::Arc;
 
 use steel::SteelServer;
+#[cfg(feature = "spawn_chunk_display")]
+use steel::spawn_progress::SwitchableWriter;
+use steel::spawn_progress::generate_spawn_chunks;
 use steel_utils::{text::DisplayResolutor, translations};
 use text_components::fmt::set_display_resolutor;
 use tokio::{
@@ -12,7 +15,7 @@ use tokio::{
 use tokio_util::task::TaskTracker;
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
-#[cfg(not(feature = "jaeger"))]
+#[cfg(all(not(feature = "jaeger"), not(feature = "spawn_chunk_display")))]
 fn init_tracing() {
     tracing_subscriber::registry()
         .with(fmt::layer().with_timer(fmt::time::uptime()))
@@ -24,7 +27,25 @@ fn init_tracing() {
         .init();
 }
 
-#[cfg(feature = "jaeger")]
+#[cfg(all(not(feature = "jaeger"), feature = "spawn_chunk_display"))]
+fn init_tracing() -> SwitchableWriter {
+    let writer = SwitchableWriter::new();
+    tracing_subscriber::registry()
+        .with(
+            fmt::layer()
+                .with_timer(fmt::time::uptime())
+                .with_writer(writer.clone()),
+        )
+        .with(
+            EnvFilter::builder()
+                .with_default_directive(tracing::Level::INFO.into())
+                .from_env_lossy(),
+        )
+        .init();
+    writer
+}
+
+#[cfg(all(feature = "jaeger", not(feature = "spawn_chunk_display")))]
 fn init_tracing() {
     use opentelemetry::KeyValue;
     use opentelemetry::global;
@@ -70,6 +91,60 @@ fn init_tracing() {
         .init();
 }
 
+#[cfg(all(feature = "jaeger", feature = "spawn_chunk_display"))]
+fn init_tracing() -> SwitchableWriter {
+    use opentelemetry::KeyValue;
+    use opentelemetry::global;
+    use opentelemetry::trace::TracerProvider;
+    use opentelemetry_sdk::Resource;
+    use opentelemetry_sdk::trace::SdkTracerProvider;
+    use tracing_opentelemetry::OpenTelemetryLayer;
+    use tracing_subscriber::Layer;
+
+    let writer = SwitchableWriter::new();
+
+    let exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_tonic()
+        .build()
+        .expect("Failed to create OTLP span exporter");
+
+    let tracer_provider = SdkTracerProvider::builder()
+        .with_resource(
+            Resource::builder()
+                .with_attributes([
+                    KeyValue::new("service.name", "steel"),
+                    KeyValue::new(
+                        "service.build",
+                        if cfg!(debug_assertions) {
+                            "debug"
+                        } else {
+                            "release"
+                        },
+                    ),
+                ])
+                .build(),
+        )
+        .with_batch_exporter(exporter)
+        .build();
+
+    let tracer = tracer_provider.tracer("steel");
+    global::set_tracer_provider(tracer_provider);
+
+    tracing_subscriber::registry()
+        .with(
+            OpenTelemetryLayer::new(tracer)
+                .with_filter(EnvFilter::new("trace,h2=off,hyper=off,tonic=off,tower=off")),
+        )
+        .with(
+            fmt::layer()
+                .with_timer(fmt::time::uptime())
+                .with_writer(writer.clone()),
+        )
+        .init();
+
+    writer
+}
+
 #[cfg(feature = "dhat-heap")]
 #[global_allocator]
 static ALLOC: dhat::Alloc = dhat::Alloc;
@@ -104,11 +179,22 @@ fn main() {
 }
 
 async fn main_async(chunk_runtime: Arc<Runtime>) {
-    init_tracing();
-    run_server(chunk_runtime).await;
+    #[cfg(feature = "spawn_chunk_display")]
+    {
+        let writer = init_tracing();
+        run_server(chunk_runtime, &writer).await;
+    }
+    #[cfg(not(feature = "spawn_chunk_display"))]
+    {
+        init_tracing();
+        run_server(chunk_runtime).await;
+    }
 }
 
-async fn run_server(chunk_runtime: Arc<Runtime>) {
+async fn run_server(
+    chunk_runtime: Arc<Runtime>,
+    #[cfg(feature = "spawn_chunk_display")] writer: &SwitchableWriter,
+) {
     set_display_resolutor(&DisplayResolutor);
 
     #[cfg(feature = "deadlock_detection")]
@@ -147,6 +233,11 @@ async fn run_server(chunk_runtime: Arc<Runtime>) {
             .message(["4LVE", "Borrow Checker"])
             .component()
     );
+
+    #[cfg(feature = "spawn_chunk_display")]
+    generate_spawn_chunks(&steel.server, writer).await;
+    #[cfg(not(feature = "spawn_chunk_display"))]
+    generate_spawn_chunks(&steel.server).await;
 
     let server = steel.server.clone();
     let cancel_token = steel.cancel_token.clone();
