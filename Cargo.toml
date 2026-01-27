@@ -75,7 +75,19 @@ uuid = { version = "1.19", features = ["serde", "v4"] }
 
 # Logging
 log = "0.4.29"
-simplelog = "0.12.2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = [
+    "env-filter",
+    "fmt",
+    "ansi",
+    "std",
+    "tracing-log",
+] }
+tracing-log = "0.2"
+opentelemetry = "0.31"
+opentelemetry_sdk = { version = "0.31", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.31", features = ["grpc-tonic"] }
+tracing-opentelemetry = "0.32"
 
 # Networking
 reqwest = { version = "0.13.1", features = [

@@ -2,8 +2,6 @@
 
 use std::sync::Arc;
 
-use log::LevelFilter;
-use simplelog::{ColorChoice, Config, TermLogger, TerminalMode};
 use steel::SteelServer;
 use steel_utils::{text::DisplayResolutor, translations};
 use text_components::fmt::set_display_resolutor;
@@ -12,6 +10,71 @@ use tokio::{
     signal,
 };
 use tokio_util::task::TaskTracker;
+use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
+
+#[cfg(not(feature = "jaeger"))]
+fn init_tracing() {
+    tracing_subscriber::registry()
+        .with(fmt::layer().with_timer(fmt::time::uptime()))
+        .with(
+            EnvFilter::builder()
+                .with_default_directive(tracing::Level::INFO.into())
+                .from_env_lossy(),
+        )
+        .init();
+}
+
+#[cfg(feature = "jaeger")]
+fn init_tracing() {
+    use opentelemetry::KeyValue;
+    use opentelemetry::global;
+    use opentelemetry::trace::TracerProvider;
+    use opentelemetry_sdk::Resource;
+    use opentelemetry_sdk::trace::SdkTracerProvider;
+    use tracing_opentelemetry::OpenTelemetryLayer;
+    use tracing_subscriber::Layer;
+
+    let exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_tonic()
+        .build()
+        .expect("Failed to create OTLP span exporter");
+
+    let tracer_provider = SdkTracerProvider::builder()
+        .with_resource(
+            Resource::builder()
+                .with_attributes([
+                    KeyValue::new("service.name", "steel"),
+                    KeyValue::new(
+                        "service.build",
+                        if cfg!(debug_assertions) {
+                            "debug"
+                        } else {
+                            "release"
+                        },
+                    ),
+                ])
+                .build(),
+        )
+        .with_batch_exporter(exporter)
+        .build();
+
+    let tracer = tracer_provider.tracer("steel");
+    global::set_tracer_provider(tracer_provider);
+
+    tracing_subscriber::registry()
+        .with(
+            OpenTelemetryLayer::new(tracer)
+                .with_filter(EnvFilter::new("trace,h2=off,hyper=off,tonic=off,tower=off")),
+        )
+        .with(
+            fmt::layer().with_timer(fmt::time::uptime()).with_filter(
+                EnvFilter::builder()
+                    .with_default_directive(tracing::Level::INFO.into())
+                    .from_env_lossy(),
+            ),
+        )
+        .init();
+}
 
 #[cfg(feature = "dhat-heap")]
 #[global_allocator]
@@ -47,13 +110,11 @@ fn main() {
 }
 
 async fn main_async(chunk_runtime: Arc<Runtime>) {
-    TermLogger::init(
-        LevelFilter::Info,
-        Config::default(),
-        TerminalMode::Mixed,
-        ColorChoice::Auto,
-    )
-    .expect("Failed to initialize logger");
+    init_tracing();
+    run_server(chunk_runtime).await;
+}
+
+async fn run_server(chunk_runtime: Arc<Runtime>) {
     set_display_resolutor(&DisplayResolutor);
 
     #[cfg(feature = "deadlock_detection")]

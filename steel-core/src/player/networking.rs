@@ -8,14 +8,15 @@ use steel_protocol::packet_reader::TCPNetworkDecoder;
 use steel_protocol::packet_traits::{ClientPacket, CompressionInfo, EncodedPacket, ServerPacket};
 use steel_protocol::packet_writer::TCPNetworkEncoder;
 use steel_protocol::packets::common::{
-    CDisconnect, CKeepAlive, SClientInformation, SCustomPayload, SKeepAlive,
+    CDisconnect, CKeepAlive, CPongResponse, SClientInformation, SCustomPayload, SKeepAlive,
+    SPingRequest,
 };
 use steel_protocol::packets::game::{
     SAcceptTeleportation, SChat, SChatAck, SChatCommand, SChatSessionUpdate, SChunkBatchReceived,
     SClientTickEnd, SCommandSuggestion, SContainerButtonClick, SContainerClick, SContainerClose,
     SContainerSlotStateChanged, SMovePlayerPos, SMovePlayerPosRot, SMovePlayerRot,
-    SMovePlayerStatusOnly, SPickItemFromBlock, SPlayerAction, SPlayerInput, SPlayerLoad,
-    SSetCarriedItem, SSetCreativeModeSlot, SSignUpdate, SSwing, SUseItem, SUseItemOn,
+    SMovePlayerStatusOnly, SPickItemFromBlock, SPlayerAbilities, SPlayerAction, SPlayerInput,
+    SPlayerLoad, SSetCarriedItem, SSetCreativeModeSlot, SSignUpdate, SSwing, SUseItem, SUseItemOn,
 };
 use steel_protocol::utils::{ConnectionProtocol, PacketError, RawPacket};
 use steel_registry::packets::play;
@@ -275,6 +276,9 @@ impl JavaConnection {
             play::S_PLAYER_INPUT => {
                 player.handle_player_input(SPlayerInput::read_packet(data)?);
             }
+            play::S_PLAYER_ABILITIES => {
+                player.handle_player_abilities(SPlayerAbilities::read_packet(data)?);
+            }
             play::S_USE_ITEM_ON => {
                 player.handle_use_item_on(SUseItemOn::read_packet(data)?);
             }
@@ -299,6 +303,12 @@ impl JavaConnection {
             play::S_SIGN_UPDATE => {
                 let packet = SSignUpdate::read_packet(data)?;
                 player.handle_sign_update(packet);
+            }
+            play::S_PING_REQUEST => {
+                let packet = SPingRequest::read_packet(data)?;
+                player
+                    .connection
+                    .send_packet(CPongResponse::new(packet.time));
             }
             id => log::info!("play packet id {id} is not known"),
         }

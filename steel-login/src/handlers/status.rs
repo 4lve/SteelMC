@@ -1,8 +1,9 @@
 //! Status state packet handlers (server list ping).
 
 use steel_core::config::STEEL_CONFIG;
-use steel_protocol::packets::status::{
-    CPongResponse, SPingRequest, {CStatusResponse, Players, Status, Version},
+use steel_protocol::packets::{
+    common::{CPongResponse, SPingRequest},
+    status::{CStatusResponse, Players, Status, Version},
 };
 use steel_registry::packets::CURRENT_MC_PROTOCOL;
 

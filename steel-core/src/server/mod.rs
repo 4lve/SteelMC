@@ -33,7 +33,7 @@ use crate::command::CommandDispatcher;
 use crate::config::STEEL_CONFIG;
 use crate::player::Player;
 use crate::server::registry_cache::RegistryCache;
-use crate::world::World;
+use crate::world::{World, WorldTickTimings};
 
 /// Interval in ticks between tab list updates (20 ticks = 1 second).
 const TAB_LIST_UPDATE_INTERVAL: u64 = 20;
@@ -161,6 +161,9 @@ impl Server {
             enforces_secure_chat: STEEL_CONFIG.enforce_secure_chat,
         });
 
+        // Send player abilities (flight, invulnerability, etc.)
+        player.send_abilities();
+
         let commands = self.command_dispatcher.read().get_commands();
         player.connection.send_packet(commands);
 
@@ -264,23 +267,46 @@ impl Server {
         }
     }
 
+    #[tracing::instrument(level = "trace", skip(self), name = "tick_worlds")]
     async fn tick_worlds(&self, tick_count: u64, runs_normally: bool) {
         let mut tasks = Vec::with_capacity(self.worlds.len());
         for world in &self.worlds {
             let world_clone = world.clone();
             tasks.push(spawn_blocking(move || {
-                world_clone.tick_b(tick_count, runs_normally);
+                world_clone.tick_b(tick_count, runs_normally)
             }));
         }
         let start = Instant::now();
+        let mut all_timings: Vec<WorldTickTimings> = Vec::with_capacity(tasks.len());
         for task in tasks {
-            let _ = task.await;
+            if let Ok(timings) = task.await {
+                all_timings.push(timings);
+            }
         }
-        if start.elapsed().as_millis() > 1 {
-            log::warn!(
-                "Worlds ticked in {:?}, tick count: {tick_count}",
-                start.elapsed()
-            );
+        let elapsed = start.elapsed();
+        if elapsed.as_millis() >= 30 {
+            // Log detailed breakdown when tick is slow
+            for (i, timings) in all_timings.iter().enumerate() {
+                let cm = &timings.chunk_map;
+                tracing::warn!(
+                    world = i,
+                    ?elapsed,
+                    tick_count,
+                    player_tick = ?timings.player_tick,
+                    ticket_updates = ?cm.ticket_updates,
+                    holder_creation = ?cm.holder_creation,
+                    schedule_generation = ?cm.schedule_generation,
+                    scheduled_count = cm.scheduled_count,
+                    run_generation = ?cm.run_generation,
+                    broadcast_changes = ?cm.broadcast_changes,
+                    process_unloads = ?cm.process_unloads,
+                    collect_tickable = ?cm.collect_tickable,
+                    tick_chunks = ?cm.tick_chunks,
+                    tickable_count = cm.tickable_count,
+                    total_chunks = cm.total_chunks,
+                    "Worlds tick slow"
+                );
+            }
         }
     }
 

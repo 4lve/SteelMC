@@ -36,7 +36,13 @@ uuid.workspace = true
 
 # Logging
 log.workspace = true
-simplelog.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tracing-log.workspace = true
+opentelemetry = { workspace = true, optional = true }
+opentelemetry_sdk = { workspace = true, optional = true }
+opentelemetry-otlp = { workspace = true, optional = true }
+tracing-opentelemetry = { workspace = true, optional = true }
 
 # Networking
 reqwest.workspace = true
@@ -65,3 +71,9 @@ stand-alone = []
 deadlock_detection = ["dep:parking_lot"]
 dhat-heap = ["dhat"]
 mimalloc = ["dep:mimalloc"]
+jaeger = [
+    "dep:opentelemetry",
+    "dep:opentelemetry_sdk",
+    "dep:opentelemetry-otlp",
+    "dep:tracing-opentelemetry",
+]

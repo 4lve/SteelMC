@@ -8,6 +8,8 @@ use std::{
     time::Duration,
 };
 
+use crate::chunk::chunk_map::ChunkMapTickTimings;
+
 use sha2::{Digest, Sha256};
 use steel_protocol::packet_traits::{ClientPacket, EncodedPacket};
 use steel_protocol::packets::game::{
@@ -46,6 +48,15 @@ mod world_entities;
 
 pub use player_area_map::PlayerAreaMap;
 pub use player_map::PlayerMap;
+
+/// Timing information for a world tick.
+#[derive(Debug)]
+pub struct WorldTickTimings {
+    /// Chunk map tick timings.
+    pub chunk_map: ChunkMapTickTimings,
+    /// Time spent ticking players.
+    pub player_tick: Duration,
+}
 
 /// Interval in ticks between player info broadcasts (600 ticks = 30 seconds).
 /// Matches vanilla `PlayerList.SEND_PLAYER_INFO_INTERVAL`.
@@ -467,27 +478,36 @@ impl World {
     /// * `tick_count` - The current tick number
     /// * `runs_normally` - Whether game elements (random ticks, entities) should run.
     ///   When false (frozen), only essential operations like chunk loading run.
-    pub fn tick_b(&self, tick_count: u64, runs_normally: bool) {
+    ///
+    /// Returns timing information for the world tick.
+    #[tracing::instrument(level = "trace", skip(self), name = "world_tick")]
+    pub fn tick_b(&self, tick_count: u64, runs_normally: bool) -> WorldTickTimings {
         let random_tick_speed = self.get_game_rule(RANDOM_TICK_SPEED).as_int().unwrap_or(3) as u32;
 
-        self.chunk_map
+        let chunk_map_timings = self
+            .chunk_map
             .tick_b(tick_count, random_tick_speed, runs_normally);
 
         // Tick players (always tick players - they can move when frozen)
-        let start = Instant::now();
-        self.players.iter_players(|_uuid, player| {
-            player.tick();
-
-            true
-        });
-        let player_tick_elapsed = start.elapsed();
-        if player_tick_elapsed >= Duration::from_millis(100) {
-            log::warn!("Player tick slow: {player_tick_elapsed:?}");
-        }
+        let player_tick = {
+            let _span = tracing::trace_span!("player_tick").entered();
+            let start = Instant::now();
+            self.players.iter_players(|_uuid, player| {
+                player.tick();
+                true
+            });
+            start.elapsed()
+        };
 
         // Broadcast player latency updates periodically
         if tick_count.is_multiple_of(SEND_PLAYER_INFO_INTERVAL) {
+            let _span = tracing::trace_span!("broadcast_latency").entered();
             self.broadcast_player_latency_updates();
+        }
+
+        WorldTickTimings {
+            chunk_map: chunk_map_timings,
+            player_tick,
         }
     }
 

@@ -61,6 +61,7 @@ enum_dispatch.workspace = true
 replace_with.workspace = true
 text_components.workspace = true
 simdnbt.workspace = true
+tracing.workspace = true
 
 [build-dependencies]
 serde.workspace = true
