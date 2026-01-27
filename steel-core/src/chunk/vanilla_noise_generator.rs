@@ -3,6 +3,47 @@
 //! This generator uses the same density function component stack as vanilla Minecraft
 //! for accurate terrain generation with proper cell-based interpolation, aquifers,
 //! and ore vein generation.
+//!
+//! # Architecture
+//!
+//! The generation uses a two-stage noise router architecture:
+//! 1. **ProtoNoiseRouters**: Built once per world from seed, contains initialized noise samplers
+//! 2. **ChunkNoiseGenerator**: Built per chunk, handles interpolation and block sampling
+//!
+//! # Cell-Based Interpolation
+//!
+//! Instead of sampling density at every block (computationally expensive), the generator
+//! uses **trilinear interpolation** between cell corners:
+//!
+//! - **Horizontal cell size**: 4 blocks (4 cells per chunk horizontally)
+//! - **Vertical cell size**: 8 blocks (48 cells per chunk vertically)
+//! - **Total cells per chunk**: 4 × 48 × 4 = 768 cells
+//!
+//! The interpolation loop structure:
+//! ```text
+//! for cell_x:
+//!     sample_end_density()      // Sample next X column
+//!     for cell_z:
+//!         for cell_y (top to bottom):
+//!             on_sampled_cell_corners()  // Cache 8 corners
+//!             for local_y:
+//!                 interpolate_y(delta)
+//!                 for local_x:
+//!                     interpolate_x(delta)
+//!                     for local_z:
+//!                         interpolate_z(delta)
+//!                         sample_block_state()  // Final block
+//!     swap_buffers()  // Reuse end as start
+//! ```
+//!
+//! # Block Sampling Chain
+//!
+//! The [`ChainedBlockStateSampler`] determines the final block:
+//! 1. **OreVeinSampler**: Check for large copper/iron veins
+//! 2. **AquiferSampler**: Check for water/lava placement
+//! 3. **Default**: Stone if density > 0, air otherwise
+//!
+//! [`ChainedBlockStateSampler`]: steel_utils::noise_router::ChainedBlockStateSampler
 
 // Uses coordinate variables (cell_x, cell_y, cell_z, start_cell_z, etc.)
 #![allow(

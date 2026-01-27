@@ -1,16 +1,33 @@
+/// Configuration data for simple noise density functions.
+///
+/// Used by the `Noise` density function to sample double Perlin noise.
 pub struct NoiseData {
+    /// Noise identifier (e.g., "continentalness", "erosion").
     pub noise_id: &'static str,
+    /// Scale factor for X and Z coordinates.
     pub xz_scale: f64,
+    /// Scale factor for Y coordinate.
     pub y_scale: f64,
 }
+/// Configuration data for shifted noise density functions.
+///
+/// Used by `ShiftedNoise` which applies domain warping before sampling.
 pub struct ShiftedNoiseData {
+    /// Scale factor for X and Z coordinates.
     pub xz_scale: f64,
+    /// Scale factor for Y coordinate (often 0 for 2D noise).
     pub y_scale: f64,
+    /// Noise identifier.
     pub noise_id: &'static str,
 }
+/// Mapper type for weird-scaled noise (cave generation).
+///
+/// Maps density values to scale multipliers for varying cave sizes.
 #[derive(Copy, Clone)]
 pub enum WeirdScaledMapper {
+    /// Cave mapper: scale varies from 0.5 to 3.0
     Caves,
+    /// Tunnel mapper: scale varies from 0.75 to 2.0
     Tunnels,
 }
 impl WeirdScaledMapper {
@@ -53,40 +70,71 @@ impl WeirdScaledMapper {
         }
     }
 }
+/// Configuration data for weird-scaled noise.
 pub struct WeirdScaledData {
+    /// Noise identifier.
     pub noise_id: &'static str,
+    /// Mapper type (Caves or Tunnels).
     pub mapper: WeirdScaledMapper,
 }
+/// Configuration data for interpolated noise sampler.
+///
+/// Used by `InterpolatedNoiseSampler` which blends lower and upper noise.
 pub struct InterpolatedNoiseSamplerData {
+    /// Scaled XZ coordinate factor.
     pub scaled_xz_scale: f64,
+    /// Scaled Y coordinate factor.
     pub scaled_y_scale: f64,
+    /// XZ frequency factor.
     pub xz_factor: f64,
+    /// Y frequency factor.
     pub y_factor: f64,
+    /// Smear scale multiplier for Y blending.
     pub smear_scale_multiplier: f64,
 }
+/// Configuration data for clamped Y gradient.
+///
+/// Creates a linear gradient in Y that is clamped at the endpoints.
 pub struct ClampedYGradientData {
+    /// Y coordinate where gradient starts.
     pub from_y: f64,
+    /// Y coordinate where gradient ends.
     pub to_y: f64,
+    /// Value at from_y.
     pub from_value: f64,
+    /// Value at to_y.
     pub to_value: f64,
 }
+/// Binary operation types for combining two density values.
 #[derive(Copy, Clone)]
 pub enum BinaryOperation {
+    /// Addition: `a + b`
     Add,
+    /// Multiplication: `a * b`
     Mul,
+    /// Minimum: `min(a, b)`
     Min,
+    /// Maximum: `max(a, b)`
     Max,
 }
+/// Configuration data for binary operations.
 pub struct BinaryData {
+    /// The operation type.
     pub operation: BinaryOperation,
 }
+/// Linear operation types for single-input transformations.
 #[derive(Copy, Clone)]
 pub enum LinearOperation {
+    /// Addition: `input + argument`
     Add,
+    /// Multiplication: `input * argument`
     Mul,
 }
+/// Configuration data for linear operations.
 pub struct LinearData {
+    /// The operation type.
     pub operation: LinearOperation,
+    /// The constant argument.
     pub argument: f64,
 }
 impl LinearData {
@@ -99,16 +147,25 @@ impl LinearData {
         }
     }
 }
+/// Unary operation types for single-value transformations.
 #[derive(Copy, Clone)]
 pub enum UnaryOperation {
+    /// Absolute value: `|x|`
     Abs,
+    /// Square: `x²`
     Square,
+    /// Cube: `x³`
     Cube,
+    /// Half negative: `x < 0 ? x * 0.5 : x`
     HalfNegative,
+    /// Quarter negative: `x < 0 ? x * 0.25 : x`
     QuarterNegative,
+    /// Squeeze: `clamp(x,-1,1)/2 - clamp(x,-1,1)³/24`
     Squeeze,
 }
+/// Configuration data for unary operations.
 pub struct UnaryData {
+    /// The operation type.
     pub operation: UnaryOperation,
 }
 impl UnaryData {
@@ -140,8 +197,11 @@ impl UnaryData {
         }
     }
 }
+/// Configuration data for clamping operations.
 pub struct ClampData {
+    /// Minimum output value.
     pub min_value: f64,
+    /// Maximum output value.
     pub max_value: f64,
 }
 impl ClampData {
@@ -151,127 +211,230 @@ impl ClampData {
         density.clamp(self.min_value, self.max_value)
     }
 }
+/// Configuration data for range choice operations.
 pub struct RangeChoiceData {
+    /// Minimum value (inclusive) to be "in range".
     pub min_inclusive: f64,
+    /// Maximum value (exclusive) to be "in range".
     pub max_exclusive: f64,
 }
+/// A point on a cubic spline curve.
 pub struct SplinePoint {
+    /// X coordinate (location on the spline).
     pub location: f32,
+    /// Y value or nested spline at this location.
     pub value: &'static SplineRepr,
+    /// Derivative (slope) at this point for smoothing.
     pub derivative: f32,
 }
+/// Spline representation for terrain height curves.
+///
+/// Splines are used to map climate parameters to terrain features.
 pub enum SplineRepr {
+    /// A standard spline with control points.
     Standard {
+        /// Index of the location function (x-axis input).
         location_function_index: usize,
+        /// Spline control points.
         points: &'static [SplinePoint],
     },
+    /// A constant value (leaf node).
     Fixed {
+        /// The constant value.
         value: f32,
     },
 }
+/// Wrapper types for caching and interpolation.
 #[derive(Copy, Clone)]
 pub enum WrapperType {
+    /// Trilinear interpolation between cell corners.
     Interpolated,
+    /// 2D flat cache at biome resolution.
     CacheFlat,
+    /// Column-based (X,Z) cache.
     Cache2D,
+    /// Single-sample cache within a pass.
     CacheOnce,
+    /// Per-cell density cache.
     CellCache,
 }
+/// Base noise function component enum.
+///
+/// This enum defines all density function types used in terrain generation.
+/// Each variant can reference other components by index in the stack.
 pub enum BaseNoiseFunctionComponent {
+    /// Beardifier for structures (adjusts density near structures).
     Beardifier,
+    /// Blend alpha for chunk borders.
     BlendAlpha,
+    /// Blend offset for chunk borders.
     BlendOffset,
+    /// Blend density using alpha.
     BlendDensity {
+        /// Index of input density.
         input_index: usize,
     },
+    /// End dimension island generator.
     EndIslands,
+    /// Simple noise sampler.
     Noise {
+        /// Noise configuration.
         data: &'static NoiseData,
     },
+    /// Shift A (X offset from noise).
     ShiftA {
+        /// Noise identifier.
         noise_id: &'static str,
     },
+    /// Shift B (Z offset from noise).
     ShiftB {
+        /// Noise identifier.
         noise_id: &'static str,
     },
+    /// Shifted noise with domain warping.
     ShiftedNoise {
+        /// Index of X shift component.
         shift_x_index: usize,
+        /// Index of Y shift component.
         shift_y_index: usize,
+        /// Index of Z shift component.
         shift_z_index: usize,
+        /// Shifted noise configuration.
         data: &'static ShiftedNoiseData,
     },
+    /// Interpolated noise (blends lower/upper noise).
     InterpolatedNoiseSampler {
+        /// Interpolation configuration.
         data: &'static InterpolatedNoiseSamplerData,
     },
+    /// Weird scaled noise for caves.
     WeirdScaled {
+        /// Index of input density.
         input_index: usize,
+        /// Weird scaled configuration.
         data: &'static WeirdScaledData,
     },
+    /// Cache/interpolation wrapper.
     Wrapper {
+        /// Index of wrapped component.
         input_index: usize,
+        /// Wrapper type.
         wrapper: WrapperType,
     },
+    /// Constant value.
     Constant {
+        /// The constant density value.
         value: f64,
     },
+    /// Y-based gradient with clamping.
     ClampedYGradient {
+        /// Gradient configuration.
         data: &'static ClampedYGradientData,
     },
+    /// Binary operation (add, mul, min, max).
     Binary {
+        /// Index of first input.
         argument1_index: usize,
+        /// Index of second input.
         argument2_index: usize,
+        /// Binary operation configuration.
         data: &'static BinaryData,
     },
+    /// Linear transformation (add/mul by constant).
     Linear {
+        /// Index of input.
         input_index: usize,
+        /// Linear operation configuration.
         data: &'static LinearData,
     },
+    /// Unary transformation.
     Unary {
+        /// Index of input.
         input_index: usize,
+        /// Unary operation configuration.
         data: &'static UnaryData,
     },
+    /// Clamp to range.
     Clamp {
+        /// Index of input.
         input_index: usize,
+        /// Clamp configuration.
         data: &'static ClampData,
     },
+    /// Conditional based on input range.
     RangeChoice {
+        /// Index of condition input.
         input_index: usize,
+        /// Index of "in range" result.
         when_in_range_index: usize,
+        /// Index of "out of range" result.
         when_out_range_index: usize,
+        /// Range configuration.
         data: &'static RangeChoiceData,
     },
+    /// Cubic spline for terrain shaping.
     Spline {
+        /// Spline representation.
         spline: &'static SplineRepr,
     },
 }
+/// Base noise router containing the full component stack.
+///
+/// This is the static, seed-independent representation of the noise router.
+/// It is converted to a `ProtoNoiseRouter` by initializing noise samplers.
 pub struct BaseNoiseRouter {
+    /// Complete stack of density function components.
     pub full_component_stack: &'static [BaseNoiseFunctionComponent],
+    /// Index of barrier noise (aquifer barriers).
     pub barrier_noise: usize,
+    /// Index of fluid level floodedness.
     pub fluid_level_floodedness_noise: usize,
+    /// Index of fluid level spread.
     pub fluid_level_spread_noise: usize,
+    /// Index of lava noise.
     pub lava_noise: usize,
+    /// Index of erosion value.
     pub erosion: usize,
+    /// Index of depth below surface.
     pub depth: usize,
+    /// Index of final terrain density.
     pub final_density: usize,
+    /// Index of ore vein toggle.
     pub vein_toggle: usize,
+    /// Index of ore vein ridged noise.
     pub vein_ridged: usize,
+    /// Index of ore vein gap noise.
     pub vein_gap: usize,
 }
+/// Base surface estimator for aquifer calculations.
 pub struct BaseSurfaceEstimator {
+    /// Component stack for surface height estimation.
     pub full_component_stack: &'static [BaseNoiseFunctionComponent],
 }
+/// Base multi-noise router for biome parameters.
 pub struct BaseMultiNoiseRouter {
+    /// Component stack for biome parameters.
     pub full_component_stack: &'static [BaseNoiseFunctionComponent],
+    /// Index of temperature parameter.
     pub temperature: usize,
+    /// Index of vegetation/humidity parameter.
     pub vegetation: usize,
+    /// Index of continentalness parameter.
     pub continents: usize,
+    /// Index of erosion parameter.
     pub erosion: usize,
+    /// Index of depth parameter.
     pub depth: usize,
+    /// Index of ridges/weirdness parameter.
     pub ridges: usize,
 }
+/// Collection of all base noise routers for a dimension.
 pub struct BaseNoiseRouters {
+    /// Main terrain generation router.
     pub noise: BaseNoiseRouter,
+    /// Surface height estimation router.
     pub surface_estimator: BaseSurfaceEstimator,
+    /// Multi-noise router for biome parameters.
     pub multi_noise: BaseMultiNoiseRouter,
 }
 pub const OVERWORLD_BASE_NOISE_ROUTER: BaseNoiseRouters = BaseNoiseRouters {

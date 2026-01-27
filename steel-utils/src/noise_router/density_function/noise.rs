@@ -18,9 +18,18 @@ use crate::noise_router::chunk_noise_router::{
     ChunkNoiseFunctionComponent, StaticChunkNoiseFunctionComponentImpl,
 };
 
-/// A simple noise density function.
+/// A simple noise density function that samples Double Perlin noise.
+///
+/// Samples the noise at scaled coordinates:
+/// ```text
+/// sample(pos) = sampler.sample(x * xz_scale, y * y_scale, z * xz_scale)
+/// ```
+///
+/// Range: `[-max_value, +max_value]` where `max_value` is the sampler's max.
 pub struct Noise {
+    /// The Double Perlin noise sampler.
     sampler: DoublePerlinNoise,
+    /// Scale factors for sampling.
     data: &'static NoiseData,
 }
 
@@ -70,8 +79,16 @@ fn shift_sample_3d(sampler: &DoublePerlinNoise, x: f64, y: f64, z: f64) -> f64 {
     sampler.sample(x * 0.25f64, y * 0.25f64, z * 0.25f64) * 4f64
 }
 
-/// Shift A density function (shifts X and Z).
+/// Shift A density function for domain warping.
+///
+/// Samples noise to produce an offset for the X coordinate.
+/// Used to add organic variation to terrain features.
+///
+/// ```text
+/// sample(pos) = sampler.sample(x * 0.25, 0, z * 0.25) * 4
+/// ```
 pub struct ShiftA {
+    /// The offset noise sampler.
     sampler: DoublePerlinNoise,
 }
 
@@ -106,8 +123,16 @@ impl StaticIndependentChunkNoiseFunctionComponentImpl for ShiftA {
     }
 }
 
-/// Shift B density function (shifts Z and X).
+/// Shift B density function for domain warping.
+///
+/// Samples noise to produce an offset for the Z coordinate.
+/// Uses swapped X/Z inputs compared to ShiftA for varied warping.
+///
+/// ```text
+/// sample(pos) = sampler.sample(z * 0.25, x * 0.25, 0) * 4
+/// ```
 pub struct ShiftB {
+    /// The offset noise sampler.
     sampler: DoublePerlinNoise,
 }
 
@@ -142,12 +167,27 @@ impl StaticIndependentChunkNoiseFunctionComponentImpl for ShiftB {
     }
 }
 
-/// Shifted noise density function.
+/// Shifted noise density function with domain warping.
+///
+/// Applies coordinate offsets from other density functions before
+/// sampling noise. This creates organically warped terrain features.
+///
+/// ```text
+/// translated_x = x * xz_scale + input_x.sample(pos)
+/// translated_y = y * y_scale + input_y.sample(pos)  // or just input_y if y_scale == 0
+/// translated_z = z * xz_scale + input_z.sample(pos)
+/// sample(pos) = sampler.sample(translated_x, translated_y, translated_z)
+/// ```
 pub struct ShiftedNoise {
+    /// Index of X offset component.
     pub input_x_index: usize,
+    /// Index of Y offset component.
     pub input_y_index: usize,
+    /// Index of Z offset component.
     pub input_z_index: usize,
+    /// The noise sampler.
     sampler: DoublePerlinNoise,
+    /// Scale factors.
     data: &'static ShiftedNoiseData,
 }
 
@@ -238,12 +278,31 @@ impl StaticChunkNoiseFunctionComponentImpl for ShiftedNoise {
     }
 }
 
-/// Interpolated noise sampler for terrain generation.
+/// Interpolated noise sampler for blended terrain generation.
+///
+/// This combines three Perlin noise samplers to create smooth,
+/// natural-looking terrain. It interpolates between "lower" and
+/// "upper" noise using a "selector" noise.
+///
+/// # Algorithm
+///
+/// 1. Sample selector noise (8 octaves) to get blend factor `q`
+/// 2. Sample lower noise (16 octaves) if `q < 1`
+/// 3. Sample upper noise (16 octaves) if `q > 0`
+/// 4. Lerp between lower and upper using clamped `q`
+///
+/// This creates terrain that smoothly transitions between different
+/// noise patterns, avoiding harsh boundaries.
 pub struct InterpolatedNoiseSampler {
+    /// Lower bound noise (16 octaves).
     lower_noise: PerlinNoise,
+    /// Upper bound noise (16 octaves).
     upper_noise: PerlinNoise,
+    /// Selector/blend noise (8 octaves).
     noise: PerlinNoise,
+    /// Configuration data.
     data: &'static InterpolatedNoiseSamplerData,
+    /// Maximum possible output value.
     max_value: f64,
 }
 

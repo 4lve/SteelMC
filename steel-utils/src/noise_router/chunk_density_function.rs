@@ -73,18 +73,28 @@ pub mod chunk_pos {
     }
 }
 
+/// Wrapper data for tracking position within a cell.
+///
+/// This tracks the current block position within a 4×8×4 cell and
+/// computes interpolation deltas for trilinear interpolation.
 pub struct WrapperData {
-    // Our relative position within the cell
+    /// X position within the cell (0 to horizontal_cell_block_count-1).
     cell_x_block_position: usize,
+    /// Y position within the cell (0 to vertical_cell_block_count-1).
     cell_y_block_position: usize,
+    /// Z position within the cell (0 to horizontal_cell_block_count-1).
     cell_z_block_position: usize,
 
-    // Number of blocks per cell per axis
+    /// Blocks per cell horizontally (typically 4).
     horizontal_cell_block_count: usize,
+    /// Blocks per cell vertically (typically 8).
     vertical_cell_block_count: usize,
 
+    /// X interpolation delta (0.0 to 1.0).
     x_delta: f64,
+    /// Y interpolation delta (0.0 to 1.0).
     y_delta: f64,
+    /// Z interpolation delta (0.0 to 1.0).
     z_delta: f64,
 }
 
@@ -132,20 +142,32 @@ impl WrapperData {
     }
 }
 
+/// Sample action controlling cache behavior.
+///
+/// Determines how cell caches should be handled during sampling.
 pub enum SampleAction {
+    /// Skip cell caches and sample directly.
+    /// Used for positions outside the current cell (e.g., aquifer lookups).
     SkipCellCaches,
+    /// Use cell caches with the given wrapper data.
     CellCaches(WrapperData),
 }
 
+/// Options passed to density function sampling methods.
+///
+/// Controls caching behavior and tracks unique IDs for `CacheOnce` wrappers.
 pub struct ChunkNoiseFunctionSampleOptions {
+    /// Whether we are currently populating caches.
     populating_caches: bool,
+    /// Current sample action (use caches or skip).
     pub action: SampleAction,
 
-    // Global IDs for the `CacheOnce` wrapper
+    /// Unique ID for `CacheOnce` results (incremented per sample).
     pub cache_result_unique_id: u64,
+    /// Unique ID for `CacheOnce` fill operations (incremented per fill).
     pub cache_fill_unique_id: u64,
 
-    // The current index of a slice being filled by the `fill` function
+    /// Current index when filling arrays.
     pub fill_index: usize,
 }
 
@@ -183,20 +205,27 @@ impl ChunkNoiseFunctionSampleOptions {
     }
 }
 
+/// Options for building chunk noise function components.
+///
+/// Contains chunk-specific parameters needed to create caches
+/// and interpolators with the correct dimensions.
 pub struct ChunkNoiseFunctionBuilderOptions {
-    // Number of blocks per cell per axis
+    /// Blocks per cell horizontally (typically 4).
     pub horizontal_cell_block_count: usize,
+    /// Blocks per cell vertically (typically 8).
     pub vertical_cell_block_count: usize,
 
-    // Number of cells per chunk per axis
+    /// Number of vertical cells per chunk (typically 48).
     pub vertical_cell_count: usize,
+    /// Number of horizontal cells per chunk (typically 4).
     pub horizontal_cell_count: usize,
 
-    // The biome coords of this chunk
+    /// Starting biome X coordinate.
     pub start_biome_x: i32,
+    /// Starting biome Z coordinate.
     pub start_biome_z: i32,
 
-    // Number of biome regions per chunk per axis
+    /// Number of biome regions per chunk axis.
     pub horizontal_biome_end: usize,
 }
 
@@ -223,23 +252,40 @@ impl ChunkNoiseFunctionBuilderOptions {
     }
 }
 
-// These are chunk specific function components that are picked based on the wrapper type
+/// Density interpolator for trilinear interpolation between cell corners.
+///
+/// This is the core of the cell-based generation system. Instead of sampling
+/// density at every block (expensive), we sample at cell corners and interpolate.
+///
+/// # Algorithm
+///
+/// 1. Fill `start_buffer` and `end_buffer` with corner densities
+/// 2. Call `on_sampled_cell_corners()` to extract 8 corner values
+/// 3. Call `interpolate_y()`, `interpolate_x()`, `interpolate_z()` with deltas
+/// 4. Read `result` for the final interpolated density
 pub struct DensityInterpolator {
-    // What we are interpolating
+    /// Index of the input component to interpolate.
     pub(crate) input_index: usize,
 
-    // y-z plane buffers to be interpolated together, each of these values is that of the cell, not
-    // the block
+    /// Y-Z plane buffer for start X column.
     pub(crate) start_buffer: Box<[f64]>,
+    /// Y-Z plane buffer for end X column.
     pub(crate) end_buffer: Box<[f64]>,
 
+    /// First pass: 8 cell corner values.
     first_pass: [f64; 8],
+    /// Second pass: 4 Y-interpolated values.
     second_pass: [f64; 4],
+    /// Third pass: 2 X-interpolated values.
     third_pass: [f64; 2],
+    /// Final interpolated result.
     pub(crate) result: f64,
 
+    /// Number of vertical cells.
     pub(crate) vertical_cell_count: usize,
+    /// Minimum possible output.
     min_value: f64,
+    /// Maximum possible output.
     max_value: f64,
 }
 
@@ -417,15 +463,26 @@ impl MutableChunkNoiseFunctionComponentImpl for DensityInterpolator {
     }
 }
 
+/// Flat cache for 2D biome-resolution density values.
+///
+/// Caches density at biome resolution (1 sample per 4 blocks) for
+/// density functions that only vary in X and Z (e.g., continentalness).
 pub struct FlatCache {
+    /// Index of the input component.
     pub(crate) input_index: usize,
 
+    /// Cached density values (biome resolution).
     pub(crate) cache: Box<[f64]>,
+    /// Starting biome X coordinate.
     start_biome_x: i32,
+    /// Starting biome Z coordinate.
     start_biome_z: i32,
+    /// Horizontal biome extent.
     horizontal_biome_end: usize,
 
+    /// Minimum possible output.
     min_value: f64,
+    /// Maximum possible output.
     max_value: f64,
 }
 
@@ -508,13 +565,22 @@ impl FlatCache {
     }
 }
 
+/// 2D column cache for density functions constant in Y.
+///
+/// Caches the last sampled (X, Z) column to avoid redundant sampling
+/// when Y varies but X and Z remain constant.
 #[derive(Clone)]
 pub struct Cache2D {
+    /// Index of the input component.
     pub(crate) input_index: usize,
+    /// Last sampled column (packed X, Z).
     last_sample_column: u64,
+    /// Last cached result.
     last_sample_result: f64,
 
+    /// Minimum possible output.
     min_value: f64,
+    /// Maximum possible output.
     max_value: f64,
 }
 
@@ -569,15 +635,26 @@ impl Cache2D {
     }
 }
 
+/// Cache-once wrapper for single-sample caching.
+///
+/// Caches results within a single sampling pass, identified by unique IDs.
+/// Useful for expensive density functions sampled multiple times per position.
 pub struct CacheOnce {
+    /// Index of the input component.
     pub(crate) input_index: usize,
+    /// ID of the last cached result.
     cache_result_unique_id: u64,
+    /// ID of the last cached fill.
     cache_fill_unique_id: u64,
+    /// Last cached sample result.
     last_sample_result: f64,
 
+    /// Cached fill array.
     cache: Box<[f64]>,
 
+    /// Minimum possible output.
     min_value: f64,
+    /// Maximum possible output.
     max_value: f64,
 }
 
@@ -675,11 +752,19 @@ impl CacheOnce {
     }
 }
 
+/// Cell cache for per-cell density storage.
+///
+/// Pre-computes and caches density values for all blocks within a cell.
+/// Indexed by (y, x, z) position within the cell.
 pub struct CellCache {
+    /// Index of the input component.
     pub(crate) input_index: usize,
+    /// Cached density values for the current cell.
     pub(crate) cache: Box<[f64]>,
 
+    /// Minimum possible output.
     min_value: f64,
+    /// Maximum possible output.
     max_value: f64,
 }
 
@@ -749,11 +834,20 @@ impl CellCache {
     }
 }
 
+/// Enum of all chunk-specific noise function components.
+///
+/// These are created per-chunk based on wrapper types and provide
+/// caching and interpolation functionality.
 #[enum_dispatch(MutableChunkNoiseFunctionComponentImpl, NoiseFunctionComponentRange)]
 pub enum ChunkSpecificNoiseFunctionComponent {
+    /// Trilinear density interpolator.
     DensityInterpolator(DensityInterpolator),
+    /// 2D biome-resolution cache.
     FlatCache(FlatCache),
+    /// Column-based XZ cache.
     Cache2D(Cache2D),
+    /// Single-pass result cache.
     CacheOnce(CacheOnce),
+    /// Per-cell density cache.
     CellCache(CellCache),
 }

@@ -57,11 +57,17 @@ impl InterpolatedNoiseSamplerRuntime {
     }
 }
 
-/// Evaluated spline runtime.
+/// Runtime spline representation for evaluation.
+///
+/// Built from `SplineRepr` during runtime initialization.
 pub enum SplineRuntime {
+    /// A constant value (leaf node).
     Fixed(f32),
+    /// A spline curve with control points.
     Spline {
+        /// Index of the input function in the component stack.
         input_index: usize,
+        /// Control points.
         points: Vec<SplinePointRuntime>,
     },
 }

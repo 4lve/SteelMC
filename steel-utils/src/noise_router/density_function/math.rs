@@ -15,8 +15,18 @@ use crate::noise_router::chunk_noise_router::{
 };
 
 /// A constant density function that always returns the same value.
+///
+/// This is the simplest density function - it returns the same value
+/// regardless of position. Used for baseline terrain values.
+///
+/// # Example
+///
+/// ```text
+/// sample(x, y, z) = value
+/// ```
 #[derive(Clone)]
 pub struct Constant {
+    /// The constant value returned at all positions.
     value: f64,
 }
 
@@ -57,11 +67,21 @@ impl StaticIndependentChunkNoiseFunctionComponentImpl for Constant {
 }
 
 /// A linear transformation density function (add or multiply by a constant).
+///
+/// Applies a simple linear transformation to an input density:
+/// - `Add`: `output = input + argument`
+/// - `Mul`: `output = input * argument`
+///
+/// This is more efficient than `Binary` when one operand is constant.
 #[derive(Clone)]
 pub struct Linear {
+    /// Index of the input component in the stack.
     pub input_index: usize,
+    /// Minimum possible output value.
     min_value: f64,
+    /// Maximum possible output value.
     max_value: f64,
+    /// Operation data (Add or Mul with argument value).
     data: &'static LinearData,
 }
 
@@ -124,13 +144,29 @@ impl Linear {
     }
 }
 
-/// A binary operation density function (add, mul, min, max).
+/// A binary operation density function combining two inputs.
+///
+/// Applies one of four operations:
+/// - `Add`: `input1 + input2`
+/// - `Mul`: `input1 * input2` (short-circuits if input1 == 0)
+/// - `Min`: `min(input1, input2)` (short-circuits if input1 < input2.min())
+/// - `Max`: `max(input1, input2)` (short-circuits if input1 > input2.max())
+///
+/// # Optimizations
+///
+/// The `sample` method uses early-exit optimizations based on min/max bounds
+/// to avoid sampling the second input when the result is already determined.
 #[derive(Clone)]
 pub struct Binary {
+    /// Index of the first input component.
     pub input1_index: usize,
+    /// Index of the second input component.
     pub input2_index: usize,
+    /// Minimum possible output value.
     min_value: f64,
+    /// Maximum possible output value.
     max_value: f64,
+    /// Operation data.
     data: &'static BinaryData,
 }
 
@@ -329,12 +365,24 @@ impl Binary {
     }
 }
 
-/// A unary operation density function (abs, square, cube, etc.).
+/// A unary operation density function that transforms a single input.
+///
+/// Available operations:
+/// - `Abs`: `|input|`
+/// - `Square`: `input²`
+/// - `Cube`: `input³`
+/// - `HalfNegative`: `input < 0 ? input * 0.5 : input`
+/// - `QuarterNegative`: `input < 0 ? input * 0.25 : input`
+/// - `Squeeze`: `clamp(input, -1, 1)`
 #[derive(Clone)]
 pub struct Unary {
+    /// Index of the input component in the stack.
     pub input_index: usize,
+    /// Minimum possible output value.
     min_value: f64,
+    /// Maximum possible output value.
     max_value: f64,
+    /// Operation data.
     data: &'static UnaryData,
 }
 
@@ -416,9 +464,16 @@ impl Unary {
 }
 
 /// A clamp density function that restricts values to a range.
+///
+/// Clamps the input to the range `[min_value, max_value]`:
+/// ```text
+/// sample(pos) = clamp(input.sample(pos), min_value, max_value)
+/// ```
 #[derive(Clone)]
 pub struct Clamp {
+    /// Index of the input component in the stack.
     pub input_index: usize,
+    /// Clamp bounds.
     data: &'static ClampData,
 }
 

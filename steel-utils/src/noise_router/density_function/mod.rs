@@ -2,6 +2,37 @@
 //!
 //! This module contains the core density function components that are evaluated
 //! during terrain generation to produce density values at each position.
+//!
+//! # Overview
+//!
+//! Density functions are composable building blocks that output a density value
+//! at any 3D position. The terrain generator uses these to determine whether
+//! a position should be solid (`density > 0`) or air (`density < 0`).
+//!
+//! # Component Categories
+//!
+//! ## Independent Components
+//! No dependencies on other components:
+//! - [`Constant`]: Fixed value everywhere
+//! - [`Noise`]: Perlin noise sampling with scaling
+//! - [`ShiftA`], [`ShiftB`]: Coordinate shift functions
+//! - [`InterpolatedNoiseSampler`]: 3D interpolated noise
+//! - [`ClampedYGradient`]: Linear gradient based on Y
+//! - [`EndIsland`]: End dimension island shape
+//!
+//! ## Dependent Components
+//! Reference earlier components in the stack:
+//! - [`Linear`]: `ax + b` transformation
+//! - [`Binary`]: Add, Mul, Min, Max operations
+//! - [`Unary`]: Abs, Square, Cube, etc.
+//! - [`Clamp`]: Value clamping
+//! - [`RangeChoice`]: Conditional selection
+//! - [`SplineFunction`]: Cubic spline interpolation
+//!
+//! # Range Tracking
+//!
+//! All components implement [`NoiseFunctionComponentRange`] to track
+//! min/max possible outputs, enabling early-exit optimizations.
 
 use crate::noise_router::WrapperType;
 use enum_dispatch::enum_dispatch;

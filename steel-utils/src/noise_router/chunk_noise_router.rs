@@ -2,6 +2,35 @@
 //!
 //! This module contains the chunk noise router which evaluates the density function
 //! component stack for a specific chunk, handling caching and interpolation.
+//!
+//! # Overview
+//!
+//! The [`ChunkNoiseRouter`] is the per-chunk counterpart to [`ProtoNoiseRouter`].
+//! While the proto router is built once per world from the seed, the chunk router
+//! is created for each chunk being generated and manages:
+//!
+//! - **Component stack**: References to proto components + chunk-specific wrappers
+//! - **Interpolation buffers**: Start/end column buffers for trilinear interpolation
+//! - **Cell caches**: Cached density values per 4×8×4 block cell
+//!
+//! # Component Types
+//!
+//! The router stack contains three types of components:
+//!
+//! | Type | Description |
+//! |------|-------------|
+//! | [`Independent`](ChunkNoiseFunctionComponent::Independent) | No dependencies (Constant, Noise, etc.) |
+//! | [`Dependent`](ChunkNoiseFunctionComponent::Dependent) | References earlier stack items |
+//! | [`Chunk`](ChunkNoiseFunctionComponent::Chunk) | Chunk-specific caches and interpolators |
+//!
+//! # Key Outputs
+//!
+//! The router provides named density functions for terrain generation:
+//! - `final_density` - Solid (>0) vs air (<0) decision
+//! - `barrier_noise` - Aquifer barrier strength
+//! - `vein_toggle`, `vein_ridged`, `vein_gap` - Ore vein generation
+//!
+//! [`ProtoNoiseRouter`]: super::proto_noise_router::ProtoNoiseRouter
 
 // Uses coordinate variables (cell_x, cell_y, cell_z)
 #![allow(clippy::similar_names)]
@@ -70,12 +99,26 @@ pub trait MutableChunkNoiseFunctionComponentImpl {
     }
 }
 
+/// Chunk noise function component (per-chunk).
+///
+/// This is the third stage of the router architecture. Chunk components
+/// include references to proto components plus chunk-specific caches.
+///
+/// # Variants
+///
+/// - `Independent`: Reference to seed-initialized independent component
+/// - `Dependent`: Reference to seed-initialized dependent component
+/// - `Chunk`: Chunk-specific cache or interpolator (owned)
+/// - `PassThrough`: Placeholder for blending behavior
 pub enum ChunkNoiseFunctionComponent<'a> {
+    /// Reference to independent proto component.
     Independent(&'a IndependentProtoNoiseFunctionComponent),
+    /// Reference to dependent proto component.
     Dependent(&'a DependentProtoNoiseFunctionComponent),
-    // NOTE: The box here is intentional: we want to bring down the size to keep the component stack
-    // smaller
+    /// Chunk-specific cache or interpolator.
+    /// NOTE: Boxed to keep variant sizes similar.
     Chunk(ChunkSpecificNoiseFunctionComponent),
+    /// Pass-through for blending placeholders.
     PassThrough(PassThrough),
 }
 
@@ -230,19 +273,46 @@ macro_rules! sample_function {
     };
 }
 
+/// Chunk-specific noise router that evaluates density functions.
+///
+/// This router is created for each chunk being generated. It holds references
+/// to the proto router's components plus chunk-specific wrappers for caching
+/// and interpolation.
+///
+/// # Fields
+///
+/// - Named density indices (`barrier_noise`, `final_density`, etc.): Stack indices
+///   for accessing specific density functions by name.
+/// - `component_stack`: The full stack of density function components.
+/// - `interpolator_indices`: Indices of `DensityInterpolator` components for
+///   trilinear interpolation.
+/// - `cell_indices`: Indices of `CellCache` components for per-cell caching.
 pub struct ChunkNoiseRouter<'a> {
+    /// Index for barrier noise (aquifer barriers).
     barrier_noise: usize,
+    /// Index for fluid level floodedness noise.
     fluid_level_floodedness_noise: usize,
+    /// Index for fluid level spread noise.
     fluid_level_spread_noise: usize,
+    /// Index for lava placement noise.
     lava_noise: usize,
+    /// Index for erosion value.
     erosion: usize,
+    /// Index for depth below surface.
     depth: usize,
+    /// Index for final density (solid vs air).
     final_density: usize,
+    /// Index for ore vein toggle (copper vs iron).
     vein_toggle: usize,
+    /// Index for ore vein ridged noise.
     vein_ridged: usize,
+    /// Index for ore vein gap noise.
     vein_gap: usize,
+    /// The full component stack for density evaluation.
     component_stack: Box<[ChunkNoiseFunctionComponent<'a>]>,
+    /// Indices of interpolator components in the stack.
     interpolator_indices: Box<[usize]>,
+    /// Indices of cell cache components in the stack.
     cell_indices: Box<[usize]>,
 }
 
@@ -260,6 +330,23 @@ impl ChunkNoiseRouter<'_> {
 }
 
 impl<'a> ChunkNoiseRouter<'a> {
+    /// Creates a new chunk noise router from the proto router.
+    ///
+    /// This method builds the chunk-specific component stack by:
+    /// 1. Copying references to independent/dependent proto components
+    /// 2. Creating chunk-specific wrappers (interpolators, caches)
+    /// 3. Pre-filling flat caches with biome-resolution data
+    ///
+    /// # Arguments
+    ///
+    /// * `base` - The seed-initialized proto noise router
+    /// * `build_options` - Chunk-specific build parameters including:
+    ///   - Cell dimensions (horizontal/vertical block counts)
+    ///   - Biome coordinate ranges for cache sizing
+    ///
+    /// # Returns
+    ///
+    /// A new `ChunkNoiseRouter` ready for density sampling.
     #[allow(clippy::too_many_lines)] // Construction iterates over all component types
     #[must_use]
     pub fn generate(
@@ -485,6 +572,15 @@ impl<'a> ChunkNoiseRouter<'a> {
         }
     }
 
+    /// Interpolates density values in the X direction.
+    ///
+    /// This is the first step of trilinear interpolation within a cell.
+    /// It lerps between the start and end X columns based on delta.
+    ///
+    /// # Arguments
+    ///
+    /// * `delta` - Interpolation factor from 0.0 (start X) to 1.0 (end X).
+    ///             Typically `local_x / horizontal_cell_block_count`.
     pub fn interpolate_x(&mut self, delta: f64) {
         let indices = &self.interpolator_indices;
         let components = &mut self.component_stack;
@@ -504,6 +600,15 @@ impl<'a> ChunkNoiseRouter<'a> {
         }
     }
 
+    /// Interpolates density values in the Y direction.
+    ///
+    /// This is the second step of trilinear interpolation within a cell.
+    /// It lerps between Y levels based on delta.
+    ///
+    /// # Arguments
+    ///
+    /// * `delta` - Interpolation factor from 0.0 (bottom Y) to 1.0 (top Y).
+    ///             Typically `local_y / vertical_cell_block_count`.
     pub fn interpolate_y(&mut self, delta: f64) {
         let indices = &self.interpolator_indices;
         let components = &mut self.component_stack;
@@ -523,6 +628,15 @@ impl<'a> ChunkNoiseRouter<'a> {
         }
     }
 
+    /// Interpolates density values in the Z direction and produces final value.
+    ///
+    /// This is the final step of trilinear interpolation. After calling this,
+    /// the interpolated density value is ready for sampling.
+    ///
+    /// # Arguments
+    ///
+    /// * `delta` - Interpolation factor from 0.0 (start Z) to 1.0 (end Z).
+    ///             Typically `local_z / horizontal_cell_block_count`.
     pub fn interpolate_z(&mut self, delta: f64) {
         let indices = &self.interpolator_indices;
         let components = &mut self.component_stack;
@@ -541,6 +655,15 @@ impl<'a> ChunkNoiseRouter<'a> {
         }
     }
 
+    /// Notifies interpolators that cell corners have been sampled.
+    ///
+    /// This extracts the 8 corner values for the current cell from the
+    /// start/end buffers. Must be called before interpolation for each cell.
+    ///
+    /// # Arguments
+    ///
+    /// * `cell_y_position` - Y position within the vertical cell array
+    /// * `cell_z_position` - Z position within the horizontal cell array
     pub fn on_sampled_cell_corners(&mut self, cell_y_position: usize, cell_z_position: usize) {
         let indices = &self.interpolator_indices;
         let components = &mut self.component_stack;
@@ -559,6 +682,11 @@ impl<'a> ChunkNoiseRouter<'a> {
         }
     }
 
+    /// Swaps interpolator start and end buffers.
+    ///
+    /// Called after processing all cells in an X column. The end buffer
+    /// becomes the start buffer for the next column, avoiding redundant
+    /// density sampling.
     pub fn swap_buffers(&mut self) {
         let indices = &self.interpolator_indices;
         let components = &mut self.component_stack;
