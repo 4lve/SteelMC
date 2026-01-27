@@ -86,7 +86,7 @@
 <a href=#86 id=86 data-nosnippet>86</a>
 <a href=#87 id=87 data-nosnippet>87</a>                <span class="comment">// Send feedback to sender if sender is not the target
 <a href=#88 id=88 data-nosnippet>88</a>                </span><span class="kw">let </span>sender_is_target = <span class="kw">if let </span><span class="prelude-val">Some</span>(sender_player) = context.sender.get_player() {
-<a href=#89 id=89 data-nosnippet>89</a>                    sender_player.entity_id == target.entity_id
+<a href=#89 id=89 data-nosnippet>89</a>                    sender_player.id == target.id
 <a href=#90 id=90 data-nosnippet>90</a>                } <span class="kw">else </span>{
 <a href=#91 id=91 data-nosnippet>91</a>                    <span class="bool-val">false
 <a href=#92 id=92 data-nosnippet>92</a>                </span>};

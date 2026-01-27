@@ -91,13 +91,22 @@
 <a href=#91 id=91 data-nosnippet>91</a>            <span class="kw">return </span>InteractionResult::Fail;
 <a href=#92 id=92 data-nosnippet>92</a>        }
 <a href=#93 id=93 data-nosnippet>93</a>
-<a href=#94 id=94 data-nosnippet>94</a>        <span class="comment">// Consume one item from the stack
-<a href=#95 id=95 data-nosnippet>95</a>        </span>context.item_stack.shrink(<span class="number">1</span>);
-<a href=#96 id=96 data-nosnippet>96</a>
-<a href=#97 id=97 data-nosnippet>97</a>        <span class="comment">// TODO: Play place sound
-<a href=#98 id=98 data-nosnippet>98</a>        // TODO: Call behavior.on_place()
-<a href=#99 id=99 data-nosnippet>99</a>
-<a href=#100 id=100 data-nosnippet>100</a>        </span>InteractionResult::Success
-<a href=#101 id=101 data-nosnippet>101</a>    }
-<a href=#102 id=102 data-nosnippet>102</a>}
+<a href=#94 id=94 data-nosnippet>94</a>        <span class="comment">// Play place sound (exclude the placing player, they hear it client-side)
+<a href=#95 id=95 data-nosnippet>95</a>        </span><span class="kw">let </span>sound_type = <span class="kw-2">&amp;</span><span class="self">self</span>.block.config.sound_type;
+<a href=#96 id=96 data-nosnippet>96</a>        context.world.play_block_sound(
+<a href=#97 id=97 data-nosnippet>97</a>            sound_type.place_sound,
+<a href=#98 id=98 data-nosnippet>98</a>            place_pos,
+<a href=#99 id=99 data-nosnippet>99</a>            sound_type.volume,
+<a href=#100 id=100 data-nosnippet>100</a>            sound_type.pitch,
+<a href=#101 id=101 data-nosnippet>101</a>            <span class="prelude-val">Some</span>(context.player.id),
+<a href=#102 id=102 data-nosnippet>102</a>        );
+<a href=#103 id=103 data-nosnippet>103</a>
+<a href=#104 id=104 data-nosnippet>104</a>        <span class="comment">// Consume one item from the stack
+<a href=#105 id=105 data-nosnippet>105</a>        </span>context.item_stack.shrink(<span class="number">1</span>);
+<a href=#106 id=106 data-nosnippet>106</a>
+<a href=#107 id=107 data-nosnippet>107</a>        <span class="comment">// TODO: Call behavior.on_place()
+<a href=#108 id=108 data-nosnippet>108</a>
+<a href=#109 id=109 data-nosnippet>109</a>        </span>InteractionResult::Success
+<a href=#110 id=110 data-nosnippet>110</a>    }
+<a href=#111 id=111 data-nosnippet>111</a>}
 </code></pre></div></section></main></body></html>

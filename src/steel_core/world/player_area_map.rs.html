@@ -52,7 +52,7 @@
 <a href=#52 id=52 data-nosnippet>52</a>
 <a href=#53 id=53 data-nosnippet>53</a>    <span class="doccomment">/// Registers a player at their current position using their chunk view.
 <a href=#54 id=54 data-nosnippet>54</a>    </span><span class="kw">pub fn </span>on_player_join(<span class="kw-2">&amp;</span><span class="self">self</span>, player: <span class="kw-2">&amp;</span>Player, view: <span class="kw-2">&amp;</span>PlayerChunkView) {
-<a href=#55 id=55 data-nosnippet>55</a>        <span class="kw">let </span>entity_id = player.entity_id;
+<a href=#55 id=55 data-nosnippet>55</a>        <span class="kw">let </span>entity_id = player.id;
 <a href=#56 id=56 data-nosnippet>56</a>        <span class="kw">let </span><span class="kw-2">mut </span>player_set = FxHashSet::default();
 <a href=#57 id=57 data-nosnippet>57</a>
 <a href=#58 id=58 data-nosnippet>58</a>        view.for_each(|chunk| {
@@ -65,7 +65,7 @@
 <a href=#65 id=65 data-nosnippet>65</a>
 <a href=#66 id=66 data-nosnippet>66</a>    <span class="doccomment">/// Removes a player from all tracked chunks.
 <a href=#67 id=67 data-nosnippet>67</a>    </span><span class="kw">pub fn </span>on_player_leave(<span class="kw-2">&amp;</span><span class="self">self</span>, player: <span class="kw-2">&amp;</span>Arc&lt;Player&gt;) {
-<a href=#68 id=68 data-nosnippet>68</a>        <span class="kw">let </span>entity_id = player.entity_id;
+<a href=#68 id=68 data-nosnippet>68</a>        <span class="kw">let </span>entity_id = player.id;
 <a href=#69 id=69 data-nosnippet>69</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, chunks)) = <span class="self">self</span>.player_chunks.remove_sync(<span class="kw-2">&amp;</span>entity_id) {
 <a href=#70 id=70 data-nosnippet>70</a>            <span class="kw">for </span>chunk <span class="kw">in </span>chunks {
 <a href=#71 id=71 data-nosnippet>71</a>                <span class="self">self</span>.remove_from_chunk(chunk, entity_id);

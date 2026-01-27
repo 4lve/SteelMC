@@ -39,7 +39,7 @@
 <a href=#39 id=39 data-nosnippet>39</a>    /// Returns `true` if the player was inserted, `false` if a player with the same UUID already exists.
 <a href=#40 id=40 data-nosnippet>40</a>    </span><span class="kw">pub fn </span>insert(<span class="kw-2">&amp;</span><span class="self">self</span>, player: Arc&lt;Player&gt;) -&gt; bool {
 <a href=#41 id=41 data-nosnippet>41</a>        <span class="kw">let </span>uuid = player.gameprofile.id;
-<a href=#42 id=42 data-nosnippet>42</a>        <span class="kw">let </span>entity_id = player.entity_id;
+<a href=#42 id=42 data-nosnippet>42</a>        <span class="kw">let </span>entity_id = player.id;
 <a href=#43 id=43 data-nosnippet>43</a>
 <a href=#44 id=44 data-nosnippet>44</a>        <span class="kw">if </span><span class="self">self</span>.by_uuid.insert_sync(uuid, player.clone()).is_err() {
 <a href=#45 id=45 data-nosnippet>45</a>            <span class="kw">return </span><span class="bool-val">false</span>;
@@ -54,7 +54,7 @@
 <a href=#54 id=54 data-nosnippet>54</a>    /// Returns the removed player if found.
 <a href=#55 id=55 data-nosnippet>55</a>    </span><span class="kw">pub async fn </span>remove(<span class="kw-2">&amp;</span><span class="self">self</span>, uuid: <span class="kw-2">&amp;</span>Uuid) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;Player&gt;&gt; {
 <a href=#56 id=56 data-nosnippet>56</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, player)) = <span class="self">self</span>.by_uuid.remove_async(uuid).<span class="kw">await </span>{
-<a href=#57 id=57 data-nosnippet>57</a>            <span class="kw">let _ </span>= <span class="self">self</span>.by_entity_id.remove_async(<span class="kw-2">&amp;</span>player.entity_id).<span class="kw">await</span>;
+<a href=#57 id=57 data-nosnippet>57</a>            <span class="kw">let _ </span>= <span class="self">self</span>.by_entity_id.remove_async(<span class="kw-2">&amp;</span>player.id).<span class="kw">await</span>;
 <a href=#58 id=58 data-nosnippet>58</a>            <span class="prelude-val">Some</span>(player)
 <a href=#59 id=59 data-nosnippet>59</a>        } <span class="kw">else </span>{
 <a href=#60 id=60 data-nosnippet>60</a>            <span class="prelude-val">None

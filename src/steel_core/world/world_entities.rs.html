@@ -12,7 +12,7 @@
 <a href=#12 id=12 data-nosnippet>12</a>    <span class="doccomment">/// Removes a player from the world.
 <a href=#13 id=13 data-nosnippet>13</a>    </span><span class="kw">pub async fn </span>remove_player(<span class="self">self</span>: <span class="kw-2">&amp;</span>Arc&lt;<span class="self">Self</span>&gt;, player: Arc&lt;Player&gt;) {
 <a href=#14 id=14 data-nosnippet>14</a>        <span class="kw">let </span>uuid = player.gameprofile.id;
-<a href=#15 id=15 data-nosnippet>15</a>        <span class="kw">let </span>entity_id = player.entity_id;
+<a href=#15 id=15 data-nosnippet>15</a>        <span class="kw">let </span>entity_id = player.id;
 <a href=#16 id=16 data-nosnippet>16</a>
 <a href=#17 id=17 data-nosnippet>17</a>        <span class="kw">if </span><span class="self">self</span>.players.remove(<span class="kw-2">&amp;</span>uuid).<span class="kw">await</span>.is_some() {
 <a href=#18 id=18 data-nosnippet>18</a>            <span class="kw">let </span>start = Instant::now();
@@ -70,7 +70,7 @@
 <a href=#70 id=70 data-nosnippet>70</a>                </span><span class="kw">let </span>existing_pos = <span class="kw-2">*</span>existing_player.position.lock();
 <a href=#71 id=71 data-nosnippet>71</a>                <span class="kw">let </span>(existing_yaw, existing_pitch) = existing_player.rotation.load();
 <a href=#72 id=72 data-nosnippet>72</a>                player.connection.send_packet(CAddEntity::player(
-<a href=#73 id=73 data-nosnippet>73</a>                    existing_player.entity_id,
+<a href=#73 id=73 data-nosnippet>73</a>                    existing_player.id,
 <a href=#74 id=74 data-nosnippet>74</a>                    existing_player.gameprofile.id,
 <a href=#75 id=75 data-nosnippet>75</a>                    existing_pos.x,
 <a href=#76 id=76 data-nosnippet>76</a>                    existing_pos.y,
@@ -93,7 +93,7 @@
 <a href=#93 id=93 data-nosnippet>93</a>            </span><span class="bool-val">true</span>, <span class="comment">// show_hat
 <a href=#94 id=94 data-nosnippet>94</a>        </span>);
 <a href=#95 id=95 data-nosnippet>95</a>        <span class="kw">let </span>spawn_packet = CAddEntity::player(
-<a href=#96 id=96 data-nosnippet>96</a>            player.entity_id,
+<a href=#96 id=96 data-nosnippet>96</a>            player.id,
 <a href=#97 id=97 data-nosnippet>97</a>            player.gameprofile.id,
 <a href=#98 id=98 data-nosnippet>98</a>            pos.x,
 <a href=#99 id=99 data-nosnippet>99</a>            pos.y,
