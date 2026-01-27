@@ -12,12 +12,6 @@ use std::{
     },
     time::{Duration, Instant},
 };
-
-use rayon::{
-    ThreadPool, ThreadPoolBuilder,
-    iter::{IntoParallelIterator, ParallelIterator},
-};
-use rustc_hash::FxBuildHasher;
 use steel_protocol::packets::game::{
     BlockChange, CBlockUpdate, CSectionBlocksUpdate, CSetChunkCenter,
 };
