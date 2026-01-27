@@ -43,6 +43,10 @@ opentelemetry = { workspace = true, optional = true }
 opentelemetry_sdk = { workspace = true, optional = true }
 opentelemetry-otlp = { workspace = true, optional = true }
 tracing-opentelemetry = { workspace = true, optional = true }
+termion = "4.0.6"
+arboard = "3.6.1"
+nix = { version = "0.31.1", features = ["fs"] }
+chrono = "0.4.43"
 
 # Networking
 reqwest.workspace = true
