@@ -3,6 +3,7 @@
 /steel-utils/src/generated
 /steel-core/src/behavior/generated
 /config
+/.temp
 /minecraft-src
 profile.json.gz
 /world

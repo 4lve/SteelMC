@@ -249,7 +249,7 @@ impl JavaConnection {
             }
             play::S_COMMAND_SUGGESTION => {
                 let packet = SCommandSuggestion::read_packet(data)?;
-                server.command_dispatcher.read().handle_suggestions(
+                server.command_dispatcher.read().handle_player_suggestions(
                     &player,
                     packet.id,
                     &packet.command,

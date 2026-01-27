@@ -9,9 +9,12 @@ use std::sync::Arc;
 
 use steel_core::chunk::chunk_access::ChunkStatus;
 use steel_utils::locks::SyncMutex;
+use termion::color::Rgb;
+use termion::cursor::Up;
 use tracing_subscriber::fmt::MakeWriter;
 
-use super::DISPLAY_DIAMETER;
+use crate::logger::Input;
+use crate::spawn_progress::{DISPLAY_DIAMETER, DISPLAY_RADIUS};
 
 /// Grid type alias for convenience.
 pub type Grid = [[Option<ChunkStatus>; DISPLAY_DIAMETER]; DISPLAY_DIAMETER];
@@ -136,14 +139,15 @@ const fn status_color(status: Option<ChunkStatus>) -> (u8, u8, u8) {
 }
 
 /// Terminal progress display showing a colored grid of chunk generation statuses.
-struct SpawnProgressDisplay {
+pub struct SpawnProgressDisplay {
     grid: Grid,
-    rendered: bool,
+    /// If the progress is beign displayed
+    pub rendered: bool,
 }
 
 impl SpawnProgressDisplay {
     /// Creates a new display with all cells unloaded (black).
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             grid: [[None; DISPLAY_DIAMETER]; DISPLAY_DIAMETER],
             rendered: false,
@@ -201,12 +205,12 @@ impl SpawnProgressDisplay {
     }
 
     /// Updates the internal grid state.
-    fn set_grid(&mut self, new_grid: &Grid) {
+    pub fn set_grid(&mut self, new_grid: &Grid) {
         self.grid = *new_grid;
     }
 
     /// Renders the current grid state to the terminal.
-    fn render_current(&mut self) {
+    pub fn render_current(&mut self) {
         let mut out = io::stderr().lock();
         if self.rendered {
             self.render_overwrite(&mut out);
@@ -236,5 +240,34 @@ impl SpawnProgressDisplay {
         self.erase(&mut out);
         let _ = out.flush();
         self.rendered = false;
+    }
+}
+impl Input {
+    pub fn render_current_spawn(&mut self) {
+        let _ = write!(self.out, "{}", Up(DISPLAY_RADIUS as u16 + 1));
+        for z in (0..DISPLAY_DIAMETER).step_by(2) {
+            let _ = write!(self.out, "\r");
+            for x in 0..DISPLAY_DIAMETER {
+                let (tr, tg, tb) = status_color(self.spawn_display.grid[z][x]);
+                if z + 1 < DISPLAY_DIAMETER {
+                    let (br, bg, bb) = status_color(self.spawn_display.grid[z + 1][x]);
+                    let _ = write!(
+                        self.out,
+                        "{}{}▀",
+                        Rgb(tr, tg, tb).fg_string(),
+                        Rgb(br, bg, bb).bg_string()
+                    );
+                } else {
+                    let _ = write!(self.out, "{}▀", Rgb(tr, tg, tb).fg_string());
+                }
+            }
+            let _ = writeln!(
+                self.out,
+                "{}{}",
+                termion::style::Reset,
+                termion::clear::UntilNewline
+            );
+        }
+        let _ = self.out.flush();
     }
 }
