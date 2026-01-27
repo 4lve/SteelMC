@@ -8,6 +8,7 @@ pub mod container;
 pub mod crafting;
 pub mod crafting_menu;
 pub mod equipment;
+pub mod hopper_menu;
 pub mod inventory_menu;
 pub mod lock;
 pub mod menu;
@@ -17,5 +18,6 @@ pub mod slot;
 
 pub use chest_menu::{ChestMenu, ChestMenuProvider};
 pub use crafting_menu::{CraftingMenu, CraftingMenuProvider};
+pub use hopper_menu::{HopperMenu, HopperMenuProvider};
 pub use lock::SyncPlayerInv;
 pub use menu_provider::{MenuInstance, MenuProvider};
