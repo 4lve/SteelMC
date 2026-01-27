@@ -156,7 +156,7 @@ impl Server {
         let dimension_key = world.dimension.key.clone();
 
         player.connection.send_packet(CLogin {
-            player_id: player.entity_id,
+            player_id: player.id,
             hardcore: false,
             levels: vec![dimension_key.clone()],
             max_players: STEEL_CONFIG.max_players as i32,

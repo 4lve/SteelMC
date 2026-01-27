@@ -681,7 +681,7 @@ impl ChunkMap {
 
                 // Update the player area map with the diff
                 world.player_area_map.on_player_view_change(
-                    player.entity_id,
+                    player.id,
                     &added_chunks,
                     &removed_chunks,
                 );

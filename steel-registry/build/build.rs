@@ -21,12 +21,15 @@ mod instruments;
 mod item_tags;
 mod items;
 mod jukebox_songs;
+mod level_events;
 mod loot_tables;
 mod menu_types;
 mod packets;
 mod painting_variants;
 mod pig_variants;
 mod recipes;
+mod sound_events;
+mod sound_types;
 mod timeline_tags;
 mod timelines;
 mod trim_materials;
@@ -73,6 +76,9 @@ const VANILLA_ENTITIES: &str = "entities";
 const LOOT_TABLES: &str = "loot_tables";
 const BLOCK_ENTITY_TYPES: &str = "block_entity_types";
 const GAME_RULES: &str = "game_rules";
+const LEVEL_EVENTS: &str = "level_events";
+const SOUND_EVENTS: &str = "sound_events";
+const SOUND_TYPES: &str = "sound_types";
 
 pub fn main() {
     // Rerun build script when any file in the build/ directory changes
@@ -116,6 +122,9 @@ pub fn main() {
         (loot_tables::build(), LOOT_TABLES),
         (block_entity_types::build(), BLOCK_ENTITY_TYPES),
         (game_rules::build(), GAME_RULES),
+        (level_events::build(), LEVEL_EVENTS),
+        (sound_events::build(), SOUND_EVENTS),
+        (sound_types::build(), SOUND_TYPES),
     ];
 
     for (content, file_name) in vanilla_builds {

@@ -3,6 +3,7 @@ mod c_animate;
 mod c_block_changed_ack;
 mod c_block_destruction;
 mod c_block_entity_data;
+mod c_block_event;
 mod c_block_update;
 mod c_chunk_batch_finished;
 mod c_chunk_batch_start;
@@ -17,6 +18,7 @@ mod c_entity_position_sync;
 mod c_forget_level_chunk;
 mod c_game_event;
 mod c_level_chunk_with_light;
+mod c_level_event;
 mod c_login;
 mod c_move_entity;
 mod c_open_screen;
@@ -33,6 +35,7 @@ mod c_set_chunk_cache_radius;
 mod c_set_chunk_center;
 mod c_set_cursor_item;
 mod c_set_held_slot;
+mod c_sound;
 mod c_system_chat;
 mod c_system_chat_message;
 mod c_tab_list;
@@ -71,6 +74,7 @@ pub use c_animate::{AnimateAction, CAnimate};
 pub use c_block_changed_ack::CBlockChangedAck;
 pub use c_block_destruction::CBlockDestruction;
 pub use c_block_entity_data::CBlockEntityData;
+pub use c_block_event::CBlockEvent;
 pub use c_block_update::CBlockUpdate;
 pub use c_chunk_batch_finished::CChunkBatchFinished;
 pub use c_chunk_batch_start::CChunkBatchStart;
@@ -89,6 +93,7 @@ pub use c_level_chunk_with_light::{
     BlockEntityInfo, CLevelChunkWithLight, ChunkPacketData, HeightmapType, Heightmaps,
     LightUpdatePacketData,
 };
+pub use c_level_event::CLevelEvent;
 pub use c_login::CLogin;
 pub use c_login::CommonPlayerSpawnInfo;
 pub use c_move_entity::{
@@ -110,6 +115,7 @@ pub use c_set_chunk_cache_radius::CSetChunkCacheRadius;
 pub use c_set_chunk_center::CSetChunkCenter;
 pub use c_set_cursor_item::CSetCursorItem;
 pub use c_set_held_slot::CSetHeldSlot;
+pub use c_sound::{CSound, SoundSource};
 pub use c_system_chat::CSystemChat;
 pub use c_system_chat_message::CSystemChatMessage;
 pub use c_tab_list::CTabList;

@@ -147,7 +147,7 @@ pub struct Player {
     pub world: Arc<World>,
 
     /// The entity ID assigned to this player.
-    pub entity_id: i32,
+    pub id: i32,
 
     /// Whether the player has finished loading the client.
     pub client_loaded: AtomicBool,
@@ -297,7 +297,7 @@ impl Player {
             connection,
 
             world,
-            entity_id,
+            id: entity_id,
             client_loaded: AtomicBool::new(false),
             position: SyncMutex::new(pos),
             rotation: AtomicCell::new((0.0, 0.0)),
@@ -877,7 +877,7 @@ impl Player {
 
                         let delta = self.get_delta_movement();
                         let sync_packet = CEntityPositionSync {
-                            entity_id: self.entity_id,
+                            entity_id: self.id,
                             x: pos.x,
                             y: pos.y,
                             z: pos.z,
@@ -888,14 +888,11 @@ impl Player {
                             pitch,
                             on_ground: packet.on_ground,
                         };
-                        self.world.broadcast_to_nearby(
-                            new_chunk,
-                            sync_packet,
-                            Some(self.entity_id),
-                        );
+                        self.world
+                            .broadcast_to_nearby(new_chunk, sync_packet, Some(self.id));
                     } else {
                         let move_packet = CMoveEntityPosRot {
-                            entity_id: self.entity_id,
+                            entity_id: self.id,
                             dx,
                             dy,
                             dz,
@@ -903,11 +900,8 @@ impl Player {
                             x_rot: to_angle_byte(pitch),
                             on_ground: packet.on_ground,
                         };
-                        self.world.broadcast_to_nearby(
-                            new_chunk,
-                            move_packet,
-                            Some(self.entity_id),
-                        );
+                        self.world
+                            .broadcast_to_nearby(new_chunk, move_packet, Some(self.id));
                     }
                 } else {
                     // Send absolute position sync (delta too big)
@@ -917,7 +911,7 @@ impl Player {
 
                     let delta = self.get_delta_movement();
                     let sync_packet = CEntityPositionSync {
-                        entity_id: self.entity_id,
+                        entity_id: self.id,
                         x: pos.x,
                         y: pos.y,
                         z: pos.z,
@@ -929,26 +923,26 @@ impl Player {
                         on_ground: packet.on_ground,
                     };
                     self.world
-                        .broadcast_to_nearby(new_chunk, sync_packet, Some(self.entity_id));
+                        .broadcast_to_nearby(new_chunk, sync_packet, Some(self.id));
                 }
             } else {
                 let rot_packet = CMoveEntityRot {
-                    entity_id: self.entity_id,
+                    entity_id: self.id,
                     y_rot: to_angle_byte(yaw),
                     x_rot: to_angle_byte(pitch),
                     on_ground: packet.on_ground,
                 };
                 self.world
-                    .broadcast_to_nearby(new_chunk, rot_packet, Some(self.entity_id));
+                    .broadcast_to_nearby(new_chunk, rot_packet, Some(self.id));
             }
 
             if packet.has_rot {
                 let head_packet = CRotateHead {
-                    entity_id: self.entity_id,
+                    entity_id: self.id,
                     head_y_rot: to_angle_byte(yaw),
                 };
                 self.world
-                    .broadcast_to_nearby(new_chunk, head_packet, Some(self.entity_id));
+                    .broadcast_to_nearby(new_chunk, head_packet, Some(self.id));
             }
 
             *self.prev_position.lock() = pos;
@@ -1593,14 +1587,10 @@ impl Player {
             InteractionHand::MainHand => AnimateAction::SwingMainHand,
             InteractionHand::OffHand => AnimateAction::SwingOffHand,
         };
-        let packet = CAnimate::new(self.entity_id, action);
+        let packet = CAnimate::new(self.id, action);
 
         let chunk = *self.last_chunk_pos.lock();
-        let exclude = if update_self {
-            None
-        } else {
-            Some(self.entity_id)
-        };
+        let exclude = if update_self { None } else { Some(self.id) };
         self.world.broadcast_to_nearby(chunk, packet, exclude);
     }
 
