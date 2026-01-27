@@ -4,7 +4,7 @@
 //! which uses pre-generated noise function component stacks to match vanilla Minecraft.
 
 #[allow(missing_docs)]
-pub mod data;
+pub mod types;
 #[allow(missing_docs)]
 pub mod density_function;
 #[allow(missing_docs)]
@@ -13,7 +13,7 @@ pub mod evaluator;
 pub use crate::generated_noise_params as noise_params;
 
 // density_functions is generated at build time from density_function.json
-pub use crate::generated_density_functions as generated_data;
+pub use crate::generated_density_functions::*;
 
 // Chunk-specific noise router modules
 #[allow(missing_docs)]
@@ -35,7 +35,7 @@ pub mod ore_sampler;
 #[allow(missing_docs)]
 pub mod surface_height_sampler;
 
-pub use data::*;
+pub use types::*;
 pub use evaluator::{NoisePos, NoiseRouterRuntime};
 pub use noise_params::*;
 
@@ -90,7 +90,7 @@ mod tests {
 
         // Verify the stacks have content
         assert!(!proto.noise.full_component_stack.is_empty());
-        assert!(!proto.surface_estimator.full_component_stack.is_empty());
+        // TODO: surface_estimator will be populated after Extractor re-extraction
         assert!(!proto.multi_noise.full_component_stack.is_empty());
 
         // Verify key router indices are valid

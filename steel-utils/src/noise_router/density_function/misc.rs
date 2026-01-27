@@ -54,7 +54,9 @@ impl EndIsland {
                 let o = i64::from(i + m);
                 let p = i64::from(j + n);
 
-                if (o * o + p * p) > 4096 && sampler.get_value_2d(o as f64, p as f64) < -0.9 {
+                if (o * o + p * p) > 4096
+                    && sampler.get_value_2d(o as f64, p as f64) < f64::from(-0.9_f32)
+                {
                     let g = (o as f32).abs().mul_add(3439.0, (p as f32).abs() * 147.0) % 13.0 + 9.0;
                     let h = (k - m * 2) as f32;
                     let q = (l - n * 2) as f32;
@@ -164,7 +166,7 @@ impl StaticChunkNoiseFunctionComponentImpl for WeirdScaled {
 impl NoiseFunctionComponentRange for WeirdScaled {
     #[inline]
     fn min(&self) -> f64 {
-        -self.max()
+        0.0
     }
 
     #[inline]

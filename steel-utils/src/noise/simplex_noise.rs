@@ -54,7 +54,7 @@ impl SimplexNoise {
     // Skew constants for 2D simplex
     // sqrt(3) = 1.732_050_807_568_877_2
     const F2: f64 = 0.366_025_403_784_438_6; // 0.5 * (sqrt(3) - 1)
-    const G2: f64 = 0.211_324_865_405_187_1; // (3 - sqrt(3)) / 6
+    const G2: f64 = 0.211_324_865_405_187_13; // (3 - sqrt(3)) / 6
 
     /// Creates a new `SimplexNoise` from a random source.
     pub fn new<R: Random>(random: &mut R) -> Self {

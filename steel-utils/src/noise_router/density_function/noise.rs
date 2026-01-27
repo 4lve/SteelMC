@@ -258,7 +258,7 @@ impl InterpolatedNoiseSampler {
         let upper_noise = PerlinNoise::create_legacy_for_blended_noise(random, &big_octaves);
         let noise = PerlinNoise::create_legacy_for_blended_noise(random, &little_octaves);
 
-        let max_value = lower_noise.max_broken_value(data.scaled_y_scale + 2.0);
+        let max_value = lower_noise.max_broken_value(data.scaled_y_scale);
 
         Self {
             lower_noise,
