@@ -58,7 +58,7 @@ pub struct PreparedChunkSave {
     /// The chunk position.
     pub pos: ChunkPos,
     /// The serialized chunk data.
-    persistent: PersistentChunk,
+    pub persistent: PersistentChunk,
 }
 
 /// An open region file with its header.
@@ -318,7 +318,7 @@ impl RegionManager {
         // Get block entities if this is a full chunk
         let block_entities: Vec<SharedBlockEntity> = chunk
             .as_full()
-            .map(super::super::chunk::level_chunk::LevelChunk::get_block_entities)
+            .map(LevelChunk::get_block_entities)
             .unwrap_or_default();
 
         let persistent = Self::to_persistent(chunk.sections(), &block_entities, pos);
@@ -754,7 +754,7 @@ impl RegionManager {
     /// * `min_y` - The minimum Y coordinate of the world
     /// * `height` - The total height of the world
     /// * `level` - Weak reference to the world for `LevelChunk`
-    fn persistent_to_chunk(
+    pub(crate) fn persistent_to_chunk(
         persistent: &PersistentChunk,
         pos: ChunkPos,
         status: ChunkStatus,

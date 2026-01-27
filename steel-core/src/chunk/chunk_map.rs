@@ -1,3 +1,9 @@
+use futures::executor;
+use rayon::{
+    ThreadPool, ThreadPoolBuilder,
+    iter::{IntoParallelIterator, ParallelIterator},
+};
+use rustc_hash::FxBuildHasher;
 use std::{
     io, mem,
     sync::{
@@ -6,33 +12,30 @@ use std::{
     },
     time::{Duration, Instant},
 };
-
-use rayon::{
-    ThreadPool, ThreadPoolBuilder,
-    iter::{IntoParallelIterator, ParallelIterator},
-};
-use rustc_hash::FxBuildHasher;
 use steel_protocol::packets::game::{
     BlockChange, CBlockUpdate, CSectionBlocksUpdate, CSetChunkCenter,
 };
-use steel_registry::{REGISTRY, dimension_type::DimensionTypeRef, vanilla_blocks};
+use steel_registry::dimension_type::DimensionTypeRef;
 use steel_utils::{BlockPos, ChunkPos, SectionPos, locks::SyncMutex};
 use tokio::runtime::Runtime;
 use tokio_util::task::TaskTracker;
 use tracing::instrument;
 
+use crate::chunk::chunk_generator::ChunkGenerator;
 use crate::chunk::chunk_holder::ChunkHolder;
 use crate::chunk::chunk_ticket_manager::{
     ChunkTicketManager, LevelChange, MAX_VIEW_DISTANCE, is_full,
 };
 use crate::chunk::player_chunk_view::PlayerChunkView;
+use crate::chunk::proto_chunk::ProtoChunk;
+use crate::chunk::section::{ChunkSection, Sections};
 use crate::chunk::world_gen_context::ChunkGeneratorType;
 use crate::chunk::{chunk_access::ChunkAccess, chunk_ticket_manager::is_ticked};
 use crate::chunk::{
     chunk_access::ChunkStatus, chunk_generation_task::ChunkGenerationTask,
-    flat_chunk_generator::FlatChunkGenerator, world_gen_context::WorldGenContext,
+    world_gen_context::WorldGenContext,
 };
-use crate::chunk_saver::RegionManager;
+use crate::chunk_saver::{ChunkStorage, RegionManager};
 use crate::player::Player;
 use crate::world::World;
 
@@ -83,8 +86,8 @@ pub struct ChunkMap {
     //pub tick_pool: Arc<ThreadPool>,
     /// The runtime to use for chunk tasks.
     pub chunk_runtime: Arc<Runtime>,
-    /// Manager for chunk saving and loading.
-    pub region_manager: Arc<RegionManager>,
+    /// Storage backend for chunk saving and loading.
+    pub storage: Arc<ChunkStorage>,
     /// Chunk holders with pending block changes to broadcast.
     pub chunks_to_broadcast: SyncMutex<Vec<Arc<ChunkHolder>>>,
     /// Last length of `tickable_chunks` to pre-allocate with appropriate capacity.
@@ -92,24 +95,18 @@ pub struct ChunkMap {
 }
 
 impl ChunkMap {
-    /// Creates a new chunk map.
+    /// Creates a new chunk map with a custom storage backend.
+    ///
+    /// This allows using different storage implementations (disk, RAM, etc.).
     #[must_use]
     #[allow(clippy::missing_panics_doc, clippy::unwrap_used)]
-    pub fn new(
+    pub fn new_with_storage(
         chunk_runtime: Arc<Runtime>,
         world: Weak<World>,
-        dimension: &DimensionTypeRef,
+        _dimension: &DimensionTypeRef,
+        storage: Arc<ChunkStorage>,
+        generator: Arc<ChunkGeneratorType>,
     ) -> Self {
-        let generator = Arc::new(ChunkGeneratorType::Flat(FlatChunkGenerator::new(
-            REGISTRY
-                .blocks
-                .get_default_state_id(vanilla_blocks::BEDROCK), // Bedrock
-            REGISTRY.blocks.get_default_state_id(vanilla_blocks::DIRT), // Dirt
-            REGISTRY
-                .blocks
-                .get_default_state_id(vanilla_blocks::GRASS_BLOCK), // Grass Block
-        )));
-
         Self {
             chunks: scc::HashMap::default(),
             unloading_chunks: scc::HashMap::default(),
@@ -120,7 +117,7 @@ impl ChunkMap {
             generation_pool: Arc::new(ThreadPoolBuilder::new().build().unwrap()),
             //tick_pool: Arc::new(ThreadPoolBuilder::new().build().unwrap()),
             chunk_runtime,
-            region_manager: Arc::new(RegionManager::new(format!("world/{}", dimension.key.path))),
+            storage,
             chunks_to_broadcast: SyncMutex::new(Vec::new()),
             last_tickable_len: AtomicUsize::new(0),
         }
@@ -136,6 +133,87 @@ impl ChunkMap {
         let chunk_holder = self.chunks.get_sync(pos)?;
         let guard = chunk_holder.try_chunk(ChunkStatus::Full)?;
         Some(f(&guard))
+    }
+
+    /// Ensures a chunk is loaded synchronously for testing purposes.
+    ///
+    /// This method blocks until the chunk is loaded from storage.
+    /// For RAM-only storage, this creates empty chunks on-demand.
+    ///
+    /// Returns `true` if the chunk was loaded (or was already loaded),
+    /// `false` if loading failed.
+    ///
+    /// # Note
+    /// This is intended for testing only. In production, use the async
+    /// chunk loading pipeline with tickets.
+    pub fn ensure_chunk_loaded(&self, pos: &ChunkPos) -> bool {
+        // Check if already loaded
+        if self.chunks.contains_sync(pos) {
+            return true;
+        }
+
+        // Get dimension info from world
+        let Some(world) = self.world_gen_context.weak_world().upgrade() else {
+            log::error!("World has been dropped, cannot load chunk");
+            return false;
+        };
+        let dimension = &world.dimension;
+        let min_y = dimension.min_y;
+        let height = dimension.height;
+        let level = self.world_gen_context.weak_world();
+
+        // Block on async storage load
+        let storage = &self.storage;
+        let level_clone = level.clone();
+        let result = executor::block_on(async {
+            storage.load_chunk(*pos, min_y, height, level_clone).await
+        });
+
+        match result {
+            Ok(Some((chunk, _status))) => {
+                // Insert the chunk into the map
+                // Use ticket level 0 (highest priority) for test chunks
+                let holder = ChunkHolder::new(*pos, 0, min_y, height);
+                holder.insert_chunk(chunk, ChunkStatus::Full);
+
+                // Use insert_sync since we're already in a blocking context
+                // and the scc HashMap handles concurrent access
+                let _ = self.chunks.insert_sync(*pos, Arc::new(holder));
+                true
+            }
+            Ok(None) => {
+                // Chunk doesn't exist in storage - generate it
+                let holder = Arc::new(ChunkHolder::new(*pos, 0, min_y, height));
+
+                // Create empty sections (same as chunk_status_tasks::empty)
+                let sections = (0..self.world_gen_context.section_count())
+                    .map(|_| ChunkSection::new_empty())
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice();
+
+                let proto_chunk =
+                    ProtoChunk::new(Sections::from_owned(sections), *pos, min_y, height);
+
+                // Insert with Empty status so try_chunk will work
+                holder.insert_chunk(ChunkAccess::Proto(proto_chunk), ChunkStatus::Empty);
+
+                // Run generator (fills blocks for flat world, no-op for empty world)
+                if let Some(chunk) = holder.try_chunk(ChunkStatus::Empty) {
+                    self.world_gen_context.generator.fill_from_noise(&chunk);
+                }
+
+                // Upgrade to full LevelChunk and notify Full status
+                holder.upgrade_to_full(level);
+                holder.notify_status(ChunkStatus::Full);
+
+                let _ = self.chunks.insert_sync(*pos, holder);
+                true
+            }
+            Err(e) => {
+                log::error!("Failed to load chunk {pos:?}: {e}");
+                false
+            }
+        }
     }
 
     /// Records a block change at the given position.
@@ -500,7 +578,7 @@ impl ChunkMap {
 
         // Save chunk data if dirty
         if let Some(prepared) = prepared {
-            let result = self.region_manager.save_chunk_data(prepared, status).await;
+            let result = self.storage.save_chunk_data(prepared, status).await;
 
             if let Err(e) = result {
                 tracing::error!("Error saving chunk: {e}");
@@ -535,7 +613,7 @@ impl ChunkMap {
                     let pos = *pos;
                     let map_clone = self.clone();
                     self.task_tracker.spawn(async move {
-                        if let Err(e) = map_clone.region_manager.release_chunk(pos).await {
+                        if let Err(e) = map_clone.storage.release_chunk(pos).await {
                             tracing::error!(?pos, "Error releasing chunk: {e}");
                         }
                     });
@@ -687,7 +765,7 @@ impl ChunkMap {
             };
 
             let (prepared, status) = prepared;
-            match self.region_manager.save_chunk_data(prepared, status).await {
+            match self.storage.save_chunk_data(prepared, status).await {
                 Ok(true) => saved_count += 1,
                 Ok(false) => {} // Not dirty
                 Err(e) => {
@@ -697,7 +775,7 @@ impl ChunkMap {
         }
 
         // Close all region files (flushes headers and releases file handles)
-        if let Err(e) = self.region_manager.close_all().await {
+        if let Err(e) = self.storage.close_all().await {
             tracing::error!("Failed to close region files: {e}");
         }
 

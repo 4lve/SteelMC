@@ -143,6 +143,19 @@ pub struct LevelDataManager {
 }
 
 impl LevelDataManager {
+    /// Creates a new in-memory level data manager without disk persistence.
+    ///
+    /// This is used for test worlds and temporary worlds that don't need
+    /// to save data to disk.
+    #[must_use]
+    pub fn new_empty(seed: i64) -> Self {
+        Self {
+            path: PathBuf::new(),
+            data: LevelData::new_with_seed(seed),
+            dirty: false,
+        }
+    }
+
     /// Creates a new level data manager for the given world directory.
     ///
     /// If `level.json` exists, it will be loaded (the provided seed is ignored).
@@ -207,7 +220,15 @@ impl LevelDataManager {
     }
 
     /// Saves the level data to disk unconditionally.
+    ///
+    /// If the path is empty (in-memory mode), this is a no-op.
     pub async fn save_force(&mut self) -> io::Result<()> {
+        // Skip saving for in-memory level data
+        if self.path.as_os_str().is_empty() {
+            self.dirty = false;
+            return Ok(());
+        }
+
         // Ensure parent directory exists
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent).await?;

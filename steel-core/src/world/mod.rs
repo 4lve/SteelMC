@@ -39,6 +39,7 @@ use crate::{
     ChunkMap,
     behavior::BLOCK_BEHAVIORS,
     block_entity::SharedBlockEntity,
+    chunk_saver::{ChunkStorage, RamOnlyStorage, RegionManager},
     config::STEEL_CONFIG,
     level_data::LevelDataManager,
     player::{LastSeen, Player},
@@ -48,6 +49,8 @@ mod player_area_map;
 mod player_map;
 mod world_entities;
 
+use crate::chunk::world_gen_context::ChunkGeneratorType;
+pub use crate::config::WorldStorageConfig;
 pub use player_area_map::PlayerAreaMap;
 pub use player_map::PlayerMap;
 
@@ -63,6 +66,15 @@ pub struct WorldTickTimings {
 /// Interval in ticks between player info broadcasts (600 ticks = 30 seconds).
 /// Matches vanilla `PlayerList.SEND_PLAYER_INFO_INTERVAL`.
 const SEND_PLAYER_INFO_INTERVAL: u64 = 600;
+
+/// Configuration for creating a new world.
+#[derive(Clone)]
+pub struct WorldConfig {
+    /// Storage configuration for chunk persistence.
+    pub storage: WorldStorageConfig,
+    /// World generator.
+    pub generator: Arc<ChunkGeneratorType>,
+}
 
 /// A struct that represents a world.
 pub struct World {
@@ -82,21 +94,62 @@ pub struct World {
 }
 
 impl World {
-    /// Creates a new world.
+    /// Creates a new world with custom configuration.
     ///
+    /// This allows specifying storage backend (disk or RAM-only) and other options.
     /// Uses `Arc::new_cyclic` to create a cyclic reference between
     /// the World and its `ChunkMap`'s `WorldGenContext`.
-    #[allow(clippy::new_without_default)]
-    pub async fn new(
+    ///
+    /// # Arguments
+    /// * `chunk_runtime` - The Tokio runtime for chunk operations
+    /// * `dimension` - The dimension type (overworld, nether, end)
+    /// * `seed` - The world seed
+    /// * `config` - World configuration including storage options
+    pub async fn new_with_config(
         chunk_runtime: Arc<Runtime>,
         dimension: DimensionTypeRef,
         seed: i64,
+        config: WorldConfig,
     ) -> io::Result<Arc<Self>> {
-        let level_data =
-            LevelDataManager::new(format!("world/{}", dimension.key.path), seed).await?;
+        // Create storage backend based on config
+        let storage: Arc<ChunkStorage> = match &config.storage {
+            WorldStorageConfig::Disk { path } => {
+                Arc::new(ChunkStorage::Disk(RegionManager::new(path.clone())))
+            }
+            WorldStorageConfig::RamOnly => {
+                Arc::new(ChunkStorage::RamOnly(RamOnlyStorage::empty_world()))
+            }
+        };
+
+        // Create or skip level data based on config
+
+        let path = match &config.storage {
+            WorldStorageConfig::Disk { path } => path.clone(),
+            WorldStorageConfig::RamOnly => String::new(),
+        };
+        let level_data = if path.is_empty() {
+            LevelDataManager::new_empty(seed)
+        } else {
+            LevelDataManager::new(path, seed).await?
+        };
+        // let generator = Arc::new(ChunkGeneratorType::Flat(FlatChunkGenerator::new(
+        //     REGISTRY
+        //         .blocks
+        //         .get_default_state_id(vanilla_blocks::BEDROCK), // Bedrock
+        //     REGISTRY.blocks.get_default_state_id(vanilla_blocks::DIRT), // Dirt
+        //     REGISTRY
+        //         .blocks
+        //         .get_default_state_id(vanilla_blocks::GRASS_BLOCK), // Grass Block
+        // )));
 
         Ok(Arc::new_cyclic(|weak_self: &Weak<World>| Self {
-            chunk_map: Arc::new(ChunkMap::new(chunk_runtime, weak_self.clone(), &dimension)),
+            chunk_map: Arc::new(ChunkMap::new_with_storage(
+                chunk_runtime,
+                weak_self.clone(),
+                &dimension,
+                storage,
+                config.generator,
+            )),
             players: PlayerMap::new(),
             player_area_map: PlayerAreaMap::new(),
             dimension,
