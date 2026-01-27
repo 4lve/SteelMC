@@ -12,10 +12,11 @@ use tokio::{
     time::sleep,
 };
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
-use tracing::Subscriber;
 #[cfg(feature = "jaeger")]
-use tracing_subscriber::registry::LookupSpan;
-use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt, util::SubscriberInitExt};
+use tracing::Subscriber;
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
+#[cfg(feature = "jaeger")]
+use tracing_subscriber::{Layer, registry::LookupSpan};
 
 #[cfg(feature = "jaeger")]
 fn init_jaeger<S>() -> impl Layer<S> + Send + Sync
