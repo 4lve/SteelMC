@@ -3,6 +3,7 @@
 //! This module provides random number generator derivers for various
 //! terrain generation systems.
 
+use steel_utils::random::RandomSource;
 use steel_utils::random::{PositionalRandom, Random, RandomSplitter, xoroshiro::Xoroshiro};
 
 /// Random configuration for world generation.
@@ -27,14 +28,14 @@ impl WorldRandomConfig {
         // Create specialized derivers
         let aquifer_deriver = base_deriver.with_hash_of("minecraft:aquifer");
         let aquifer_deriver = match aquifer_deriver {
-            steel_utils::random::RandomSource::Xoroshiro(mut x) => x.next_positional(),
-            steel_utils::random::RandomSource::Legacy(mut l) => l.next_positional(),
+            RandomSource::Xoroshiro(mut x) => x.next_positional(),
+            RandomSource::Legacy(mut l) => l.next_positional(),
         };
 
         let ore_deriver = base_deriver.with_hash_of("minecraft:ore");
         let ore_deriver = match ore_deriver {
-            steel_utils::random::RandomSource::Xoroshiro(mut x) => x.next_positional(),
-            steel_utils::random::RandomSource::Legacy(mut l) => l.next_positional(),
+            RandomSource::Xoroshiro(mut x) => x.next_positional(),
+            RandomSource::Legacy(mut l) => l.next_positional(),
         };
 
         Self {

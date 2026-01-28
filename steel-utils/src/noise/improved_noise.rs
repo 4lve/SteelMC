@@ -95,7 +95,7 @@ impl ImprovedNoise {
         } else {
             let m = if y_max >= 0.0 && y_max < h { y_max } else { h };
             // Use f32 then f64 to match vanilla's 1.0E-7F float literal
-            (floor(m / y_scale + f64::from(1.0e-7_f32)) as f64) * y_scale
+            f64::from(floor(m / y_scale + f64::from(1.0e-7_f32))) * y_scale
         };
 
         self.sample_and_lerp(i, j, k, g, h - n, l, h)

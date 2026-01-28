@@ -1,6 +1,6 @@
 //! Build-time code generator for density functions.
 //!
-//! This module reads Minecraft's vanilla noise_settings JSON files and generates
+//! This module reads Minecraft's vanilla `noise_settings` JSON files and generates
 //! Rust code for the noise router density functions. It parses the vanilla JSON
 //! format directly without any translation layer.
 
@@ -13,7 +13,8 @@ use rustc_hash::FxHashMap;
 use serde_json::{Map, Value};
 
 /// Base path for builtin datapacks
-const DATAPACK_BASE: &str = "../steel-registry/build_assets/builtin_datapacks/minecraft/data/minecraft";
+const DATAPACK_BASE: &str =
+    "../steel-registry/build_assets/builtin_datapacks/minecraft/data/minecraft";
 
 /// Context for flattening density functions with reference resolution
 struct FlattenContext {
@@ -57,19 +58,19 @@ impl FlattenContext {
     /// Resolve a density function reference like "minecraft:overworld/continents"
     fn resolve_reference(&mut self, reference: &str) -> Value {
         let path = reference.strip_prefix("minecraft:").unwrap_or(reference);
-        
+
         if let Some(cached) = self.ref_cache.get(path) {
             return cached.clone();
         }
 
-        let file_path = format!("{}/worldgen/density_function/{}.json", DATAPACK_BASE, path);
-        
+        let file_path = format!("{DATAPACK_BASE}/worldgen/density_function/{path}.json");
+
         let content = fs::read_to_string(&file_path)
-            .unwrap_or_else(|e| panic!("Failed to read density function at {}: {}", file_path, e));
-        
+            .unwrap_or_else(|e| panic!("Failed to read density function at {file_path}: {e}"));
+
         let value: Value = serde_json::from_str(&content)
-            .unwrap_or_else(|e| panic!("Failed to parse density function at {}: {}", file_path, e));
-        
+            .unwrap_or_else(|e| panic!("Failed to parse density function at {file_path}: {e}"));
+
         self.ref_cache.insert(path.to_string(), value.clone());
         value
     }
@@ -300,7 +301,9 @@ fn handle_clamp(ctx: &mut FlattenContext, value: &Value) -> TokenStream {
 fn handle_range_choice(ctx: &mut FlattenContext, value: &Value) -> TokenStream {
     let input = value.get("input").expect("Missing input");
     let when_in_range = value.get("when_in_range").expect("Missing when_in_range");
-    let when_out_of_range = value.get("when_out_of_range").expect("Missing when_out_of_range");
+    let when_out_of_range = value
+        .get("when_out_of_range")
+        .expect("Missing when_out_of_range");
     let min_inclusive = get_f64(value, "min_inclusive");
     let max_exclusive = get_f64(value, "max_exclusive");
 
@@ -382,7 +385,7 @@ fn handle_find_top_surface(ctx: &mut FlattenContext, value: &Value) -> TokenStre
 fn flatten_node(ctx: &mut FlattenContext, node: &Value) -> usize {
     // Handle numeric constants
     if let Some(n) = node.as_f64() {
-        let hash = format!("const:{}", n);
+        let hash = format!("const:{n}");
         if let Some(&idx) = ctx.seen.get(&hash) {
             return idx;
         }
@@ -408,12 +411,12 @@ fn flatten_node(ctx: &mut FlattenContext, node: &Value) -> usize {
     let obj = node
         .as_object()
         .unwrap_or_else(|| panic!("Expected object node, got: {node:?}"));
-    
+
     let type_str = obj
         .get("type")
         .and_then(Value::as_str)
         .unwrap_or_else(|| panic!("Missing type in node: {obj:?}"));
-    
+
     let type_name = strip_minecraft_prefix(type_str);
 
     let component = match type_name {
@@ -422,50 +425,50 @@ fn flatten_node(ctx: &mut FlattenContext, node: &Value) -> usize {
         "blend_alpha" => quote! { BaseNoiseFunctionComponent::BlendAlpha },
         "end_islands" => quote! { BaseNoiseFunctionComponent::EndIslands },
         "beardifier" => quote! { BaseNoiseFunctionComponent::Beardifier },
-        
+
         // Blended noise (old_blended_noise)
         "old_blended_noise" => handle_old_blended_noise(ctx),
-        
+
         // Y clamped gradient
         "y_clamped_gradient" => handle_y_clamped_gradient(ctx, node),
-        
+
         // Noise types
         "noise" => handle_noise(ctx, node),
         "shift_a" => handle_shift_a(ctx, node),
         "shift_b" => handle_shift_b(ctx, node),
         "shifted_noise" => handle_shifted_noise(ctx, node),
-        
+
         // Cache/wrapper types
         "interpolated" | "flat_cache" | "cache_2d" | "cache_once" | "cache_all_in_cell" => {
             handle_cache(ctx, node, type_name)
         }
-        
+
         // Binary operations
         "add" | "mul" | "min" | "max" => handle_binary_operation(ctx, node, type_name),
-        
+
         // Unary operations
         "abs" | "square" | "cube" | "half_negative" | "quarter_negative" | "squeeze" => {
             handle_unary_operation(ctx, node, type_name)
         }
-        
+
         // Clamp
         "clamp" => handle_clamp(ctx, node),
-        
+
         // Range choice
         "range_choice" => handle_range_choice(ctx, node),
-        
+
         // Blend density
         "blend_density" => handle_blend_density(ctx, node),
-        
+
         // Weird scaled sampler
         "weird_scaled_sampler" => handle_weird_scaled_sampler(ctx, node),
-        
+
         // Spline
         "spline" => handle_spline_component(ctx, node),
-        
+
         // Find top surface (for surface estimation)
         "find_top_surface" => handle_find_top_surface(ctx, node),
-        
+
         _ => panic!("Unknown density function type: {type_name}"),
     };
 
@@ -488,8 +491,10 @@ fn flatten_spline(ctx: &mut FlattenContext, spline: &Value) -> Ident {
     }
 
     // It's an object spline with coordinate and points
-    let obj = spline.as_object().expect("Spline should be object or number");
-    
+    let obj = spline
+        .as_object()
+        .expect("Spline should be object or number");
+
     // Get the coordinate function
     let coord_fn = obj.get("coordinate").expect("Missing coordinate in spline");
     let coord_idx = flatten_node(ctx, coord_fn);
@@ -504,17 +509,17 @@ fn flatten_spline(ctx: &mut FlattenContext, spline: &Value) -> Ident {
 
     for point in points {
         let point_obj = point.as_object().expect("Point should be object");
-        
+
         let location = point_obj
             .get("location")
             .and_then(Value::as_f64)
             .expect("Missing location in point") as f32;
-        
+
         let derivative = point_obj
             .get("derivative")
             .and_then(Value::as_f64)
             .expect("Missing derivative in point") as f32;
-        
+
         let value_spline = point_obj.get("value").expect("Missing value in point");
         let value_spline_name = flatten_spline(ctx, value_spline);
 
@@ -563,29 +568,36 @@ fn emit_stack(ctx: &FlattenContext, stack_name: &Ident) -> Option<TokenStream> {
     })
 }
 
-fn generate_environment(env_name: &str, noise_router: &Map<String, Value>) -> (TokenStream, String) {
-    let env_name_upper = env_name.to_shouty_snake_case();
+/// Result of building a noise stack with its indices.
+struct NoiseStackResult {
+    ctx: FlattenContext,
+    indices: FxHashMap<&'static str, usize>,
+    stack_name: Ident,
+}
 
-    // === Noise stack ===
+const NOISE_FIELDS: [(&str, &str); 10] = [
+    ("barrier", "barrierNoise"),
+    ("fluid_level_floodedness", "fluidLevelFloodednessNoise"),
+    ("fluid_level_spread", "fluidLevelSpreadNoise"),
+    ("lava", "lavaNoise"),
+    ("erosion", "erosion"),
+    ("depth", "depth"),
+    ("final_density", "finalDensity"),
+    ("vein_toggle", "veinToggle"),
+    ("vein_ridged", "veinRidged"),
+    ("vein_gap", "veinGap"),
+];
+
+/// Build the main noise stack and collect indices for router fields.
+fn build_noise_stack(
+    env_name: &str,
+    env_name_upper: &str,
+    env_data: &Map<String, Value>,
+) -> NoiseStackResult {
     let mut noise_ctx = FlattenContext::new(env_name);
-
-    // Map vanilla field names to internal field names
-    let noise_fields = [
-        ("barrier", "barrierNoise"),
-        ("fluid_level_floodedness", "fluidLevelFloodednessNoise"),
-        ("fluid_level_spread", "fluidLevelSpreadNoise"),
-        ("lava", "lavaNoise"),
-        ("erosion", "erosion"),
-        ("depth", "depth"),
-        ("final_density", "finalDensity"),
-        ("vein_toggle", "veinToggle"),
-        ("vein_ridged", "veinRidged"),
-        ("vein_gap", "veinGap"),
-    ];
-
     let mut noise_indices: FxHashMap<&str, usize> = FxHashMap::default();
-    for (json_name, internal_name) in &noise_fields {
-        if let Some(node) = noise_router.get(*json_name) {
+    for (json_name, internal_name) in NOISE_FIELDS {
+        if let Some(node) = env_data.get(json_name) {
             let idx = flatten_node(&mut noise_ctx, node);
             noise_indices.insert(internal_name, idx);
         }
@@ -623,68 +635,178 @@ fn generate_environment(env_name: &str, noise_router: &Map<String, Value>) -> (T
         noise_indices.insert("finalDensity", cell_cache_idx);
     }
 
-    let noise_stack_name = Ident::new(&format!("{env_name_upper}_NOISE_STACK"), Span::call_site());
-    let noise_stream = emit_stack(&noise_ctx, &noise_stack_name);
+    let stack_name = Ident::new(&format!("{env_name_upper}_NOISE_STACK"), Span::call_site());
 
-    // === Surface estimator stack ===
+    NoiseStackResult {
+        ctx: noise_ctx,
+        indices: noise_indices,
+        stack_name,
+    }
+}
+
+/// Build the surface estimator stack.
+fn build_surface_stack(
+    env_name: &str,
+    env_name_upper: &str,
+    noise_router: &Map<String, Value>,
+) -> (FlattenContext, Ident) {
     let surface_prefix = format!("{env_name}_surface");
-    let mut surface_ctx = FlattenContext::new(&surface_prefix);
+    let mut ctx = FlattenContext::new(&surface_prefix);
 
     // Extract the density from preliminary_surface_level (FindTopSurface)
-    if let Some(node) = noise_router.get("preliminary_surface_level") {
-        if let Some(obj) = node.as_object() {
-            let type_str = obj.get("type").and_then(Value::as_str);
-            if type_str == Some("minecraft:find_top_surface") {
-                if let Some(density_node) = obj.get("density") {
-                    flatten_node(&mut surface_ctx, density_node);
-                }
-            } else {
-                flatten_node(&mut surface_ctx, node);
+    if let Some(node) = noise_router.get("preliminary_surface_level")
+        && let Some(obj) = node.as_object()
+    {
+        let type_str = obj.get("type").and_then(Value::as_str);
+        if type_str == Some("minecraft:find_top_surface") {
+            if let Some(density_node) = obj.get("density") {
+                flatten_node(&mut ctx, density_node);
             }
+        } else {
+            // Not FindTopSurface - flatten directly
+            flatten_node(&mut ctx, node);
         }
     }
 
     // If no surface density was found, add a constant 0 placeholder
-    if surface_ctx.stack.is_empty() {
-        surface_ctx.stack.push(quote! { BaseNoiseFunctionComponent::Constant { value: 0f64 } });
+    if ctx.stack.is_empty() {
+        ctx.stack
+            .push(quote! { BaseNoiseFunctionComponent::Constant { value: 0f64 } });
     }
 
-    let surface_stack_name = Ident::new(
+    let stack_name = Ident::new(
         &format!("{env_name_upper}_SURFACE_STACK"),
         Span::call_site(),
     );
-    let surface_stream = emit_stack(&surface_ctx, &surface_stack_name);
+    (ctx, stack_name)
+}
 
-    // === Multi noise stack ===
+/// Result of building a multi-noise stack with its indices.
+struct MultiNoiseStackResult {
+    ctx: FlattenContext,
+    indices: FxHashMap<&'static str, usize>,
+    stack_name: Ident,
+}
+
+const MULTI_FIELDS: [&str; 6] = [
+    "temperature",
+    "vegetation",
+    "continents",
+    "erosion",
+    "depth",
+    "ridges",
+];
+
+/// Build the multi-noise stack for biome parameters.
+fn build_multi_noise_stack(
+    env_name: &str,
+    env_name_upper: &str,
+    noise_router: &Map<String, Value>,
+) -> MultiNoiseStackResult {
     let multi_prefix = format!("{env_name}_multi");
     let mut multi_ctx = FlattenContext::new(&multi_prefix);
 
-    let multi_fields = [
-        "temperature",
-        "vegetation",
-        "continents",
-        "erosion",
-        "depth",
-        "ridges",
-    ];
-
-    let mut multi_indices: FxHashMap<&str, usize> = FxHashMap::default();
-    for json_name in &multi_fields {
-        if let Some(node) = noise_router.get(*json_name) {
+    let mut multi_indices: FxHashMap<&'static str, usize> = FxHashMap::default();
+    for json_name in MULTI_FIELDS {
+        if let Some(node) = noise_router.get(json_name) {
             let idx = flatten_node(&mut multi_ctx, node);
             multi_indices.insert(json_name, idx);
         }
     }
 
-    let multi_stack_name = Ident::new(&format!("{env_name_upper}_MULTI_STACK"), Span::call_site());
-    let multi_stream = emit_stack(&multi_ctx, &multi_stack_name);
+    let stack_name = Ident::new(&format!("{env_name_upper}_MULTI_STACK"), Span::call_site());
 
-    // === Build the router ===
+    MultiNoiseStackResult {
+        ctx: multi_ctx,
+        indices: multi_indices,
+        stack_name,
+    }
+}
+
+/// Build the surface estimator tokens for the router.
+fn build_surface_estimator_tokens(
+    surface_stream: Option<&TokenStream>,
+    surface_stack_name: &Ident,
+) -> TokenStream {
+    if surface_stream.is_some() {
+        quote! {
+            surface_estimator: BaseSurfaceEstimator {
+                full_component_stack: &#surface_stack_name,
+            },
+        }
+    } else {
+        quote! {
+            surface_estimator: BaseSurfaceEstimator {
+                full_component_stack: &[],
+            },
+        }
+    }
+}
+
+/// Build the multi-noise tokens for the router.
+fn build_multi_noise_tokens(
+    multi_stream: Option<&TokenStream>,
+    multi_stack_name: &Ident,
+    multi_indices: &FxHashMap<&'static str, usize>,
+) -> TokenStream {
+    if multi_stream.is_some() {
+        let temperature = multi_indices.get("temperature").copied().unwrap_or(0);
+        let vegetation = multi_indices.get("vegetation").copied().unwrap_or(0);
+        let continents = multi_indices.get("continents").copied().unwrap_or(0);
+        let erosion = multi_indices.get("erosion").copied().unwrap_or(0);
+        let depth = multi_indices.get("depth").copied().unwrap_or(0);
+        let ridges = multi_indices.get("ridges").copied().unwrap_or(0);
+
+        quote! {
+            multi_noise: BaseMultiNoiseRouter {
+                full_component_stack: &#multi_stack_name,
+                temperature: #temperature,
+                vegetation: #vegetation,
+                continents: #continents,
+                erosion: #erosion,
+                depth: #depth,
+                ridges: #ridges,
+            },
+        }
+    } else {
+        quote! {
+            multi_noise: BaseMultiNoiseRouter {
+                full_component_stack: &[],
+                temperature: 0,
+                vegetation: 0,
+                continents: 0,
+                erosion: 0,
+                depth: 0,
+                ridges: 0,
+            },
+        }
+    }
+}
+
+fn generate_environment(
+    env_name: &str,
+    noise_router: &Map<String, Value>,
+) -> (TokenStream, String) {
+    let env_name_upper = env_name.to_shouty_snake_case();
+
+    // Build all three stacks
+    let noise_result = build_noise_stack(env_name, &env_name_upper, noise_router);
+    let (surface_ctx, surface_stack_name) =
+        build_surface_stack(env_name, &env_name_upper, noise_router);
+    let multi_result = build_multi_noise_stack(env_name, &env_name_upper, noise_router);
+
+    // Emit stack arrays
+    let noise_stream = emit_stack(&noise_result.ctx, &noise_result.stack_name);
+    let surface_stream = emit_stack(&surface_ctx, &surface_stack_name);
+    let multi_stream = emit_stack(&multi_result.ctx, &multi_result.stack_name);
+
+    // Build router tokens
     let router_name = Ident::new(
         &format!("{env_name_upper}_BASE_NOISE_ROUTER"),
         Span::call_site(),
     );
 
+    let noise_indices = &noise_result.indices;
     let barrier_noise = noise_indices.get("barrierNoise").copied().unwrap_or(0);
     let fluid_floodedness = noise_indices
         .get("fluidLevelFloodednessNoise")
@@ -702,47 +824,15 @@ fn generate_environment(env_name: &str, noise_router: &Map<String, Value>) -> (T
     let vein_ridged = noise_indices.get("veinRidged").copied().unwrap_or(0);
     let vein_gap = noise_indices.get("veinGap").copied().unwrap_or(0);
 
-    let temperature = multi_indices.get("temperature").copied().unwrap_or(0);
-    let vegetation = multi_indices.get("vegetation").copied().unwrap_or(0);
-    let continents = multi_indices.get("continents").copied().unwrap_or(0);
-    let multi_erosion = multi_indices.get("erosion").copied().unwrap_or(0);
-    let multi_depth = multi_indices.get("depth").copied().unwrap_or(0);
-    let ridges = multi_indices.get("ridges").copied().unwrap_or(0);
+    let surface_estimator_tokens =
+        build_surface_estimator_tokens(surface_stream.as_ref(), &surface_stack_name);
+    let multi_noise_tokens = build_multi_noise_tokens(
+        multi_stream.as_ref(),
+        &multi_result.stack_name,
+        &multi_result.indices,
+    );
 
-    // Build surface estimator reference (always has at least constant 0)
-    let surface_estimator_tokens = quote! {
-        surface_estimator: BaseSurfaceEstimator {
-            full_component_stack: &#surface_stack_name,
-        },
-    };
-
-    // Build multi noise reference
-    let multi_noise_tokens = if multi_stream.is_some() {
-        quote! {
-            multi_noise: BaseMultiNoiseRouter {
-                full_component_stack: &#multi_stack_name,
-                temperature: #temperature,
-                vegetation: #vegetation,
-                continents: #continents,
-                erosion: #multi_erosion,
-                depth: #multi_depth,
-                ridges: #ridges,
-            },
-        }
-    } else {
-        quote! {
-            multi_noise: BaseMultiNoiseRouter {
-                full_component_stack: &[],
-                temperature: 0,
-                vegetation: 0,
-                continents: 0,
-                erosion: 0,
-                depth: 0,
-                ridges: 0,
-            },
-        }
-    };
-
+    // Assemble final stream
     let mut stream = TokenStream::new();
     if let Some(ns) = noise_stream {
         stream.extend(ns);
@@ -755,6 +845,7 @@ fn generate_environment(env_name: &str, noise_router: &Map<String, Value>) -> (T
         stream.extend(ms);
     }
 
+    let noise_stack_name = &noise_result.stack_name;
     stream.extend(quote! {
         pub static #router_name: BaseNoiseRouters = BaseNoiseRouters {
             noise: BaseNoiseRouter {
@@ -780,11 +871,11 @@ fn generate_environment(env_name: &str, noise_router: &Map<String, Value>) -> (T
 
 pub(crate) fn build() -> TokenStream {
     // Set up rerun-if-changed for all relevant JSON files
-    let noise_settings_path = format!("{}/worldgen/noise_settings", DATAPACK_BASE);
-    let density_function_path = format!("{}/worldgen/density_function", DATAPACK_BASE);
-    
-    println!("cargo:rerun-if-changed={}", noise_settings_path);
-    println!("cargo:rerun-if-changed={}", density_function_path);
+    let noise_settings_path = format!("{DATAPACK_BASE}/worldgen/noise_settings");
+    let density_function_path = format!("{DATAPACK_BASE}/worldgen/density_function");
+
+    println!("cargo:rerun-if-changed={noise_settings_path}");
+    println!("cargo:rerun-if-changed={density_function_path}");
 
     let mut stream = TokenStream::new();
 
@@ -810,30 +901,27 @@ pub(crate) fn build() -> TokenStream {
     ];
 
     for (env_name, file_name) in environments {
-        let file_path = format!("{}/worldgen/noise_settings/{}", DATAPACK_BASE, file_name);
-        
-        let json_content = match fs::read_to_string(&file_path) {
-            Ok(content) => content,
-            Err(_) => {
-                eprintln!("Note: Skipping {} - file not found at {}", env_name, file_path);
-                continue;
-            }
+        let file_path = format!("{DATAPACK_BASE}/worldgen/noise_settings/{file_name}");
+
+        let Ok(json_content) = fs::read_to_string(&file_path) else {
+            eprintln!("Note: Skipping {env_name} - file not found at {file_path}");
+            continue;
         };
 
         let noise_settings: Value = match serde_json::from_str(&json_content) {
             Ok(v) => v,
             Err(e) => {
-                eprintln!("Warning: Failed to parse {}: {}", file_path, e);
+                eprintln!("Warning: Failed to parse {file_path}: {e}");
                 continue;
             }
         };
 
-        let noise_router = match noise_settings.get("noise_router").and_then(Value::as_object) {
-            Some(router) => router,
-            None => {
-                eprintln!("Warning: No noise_router found in {}", file_path);
-                continue;
-            }
+        let Some(noise_router) = noise_settings
+            .get("noise_router")
+            .and_then(Value::as_object)
+        else {
+            eprintln!("Warning: No noise_router found in {file_path}");
+            continue;
         };
 
         let (env_stream, _router_name) = generate_environment(env_name, noise_router);
