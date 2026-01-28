@@ -1,4 +1,8 @@
 //! Build-time code generator for density functions.
+//!
+//! This module reads Minecraft's vanilla `noise_settings` JSON files and generates
+//! Rust code for the noise router density functions. It parses the vanilla JSON
+//! format directly without any translation layer.
 
 use std::fs;
 
@@ -8,6 +12,11 @@ use quote::quote;
 use rustc_hash::FxHashMap;
 use serde_json::{Map, Value};
 
+/// Base path for builtin datapacks
+const DATAPACK_BASE: &str =
+    "../steel-registry/build_assets/builtin_datapacks/minecraft/data/minecraft";
+
+/// Context for flattening density functions with reference resolution
 struct FlattenContext {
     env_prefix: String,
     stack: Vec<TokenStream>,
@@ -16,6 +25,8 @@ struct FlattenContext {
     data_counter: usize,
     splines: Vec<TokenStream>,
     spline_counter: usize,
+    /// Cache for resolved density function references
+    ref_cache: FxHashMap<String, Value>,
 }
 
 impl FlattenContext {
@@ -28,6 +39,7 @@ impl FlattenContext {
             data_counter: 0,
             splines: Vec::new(),
             spline_counter: 0,
+            ref_cache: FxHashMap::default(),
         }
     }
 
@@ -42,6 +54,26 @@ impl FlattenContext {
         self.spline_counter += 1;
         Ident::new(&name, Span::call_site())
     }
+
+    /// Resolve a density function reference like "minecraft:overworld/continents"
+    fn resolve_reference(&mut self, reference: &str) -> Value {
+        let path = reference.strip_prefix("minecraft:").unwrap_or(reference);
+
+        if let Some(cached) = self.ref_cache.get(path) {
+            return cached.clone();
+        }
+
+        let file_path = format!("{DATAPACK_BASE}/worldgen/density_function/{path}.json");
+
+        let content = fs::read_to_string(&file_path)
+            .unwrap_or_else(|e| panic!("Failed to read density function at {file_path}: {e}"));
+
+        let value: Value = serde_json::from_str(&content)
+            .unwrap_or_else(|e| panic!("Failed to parse density function at {file_path}: {e}"));
+
+        self.ref_cache.insert(path.to_string(), value.clone());
+        value
+    }
 }
 
 fn hash_json(value: &Value) -> String {
@@ -54,6 +86,10 @@ fn get_f64(val: &Value, key: &str) -> f64 {
         .unwrap_or_else(|| panic!("Missing {key}"))
 }
 
+fn get_f64_or(val: &Value, key: &str, default: f64) -> f64 {
+    val.get(key).and_then(Value::as_f64).unwrap_or(default)
+}
+
 fn get_str<'a>(val: &'a Value, key: &str) -> &'a str {
     val.get(key)
         .and_then(Value::as_str)
@@ -64,7 +100,11 @@ fn strip_minecraft_prefix(id: &str) -> &str {
     id.strip_prefix("minecraft:").unwrap_or(id)
 }
 
-fn handle_blended_noise(ctx: &mut FlattenContext) -> TokenStream {
+// =============================================================================
+// Vanilla JSON handlers - parse minecraft:* types directly
+// =============================================================================
+
+fn handle_old_blended_noise(ctx: &mut FlattenContext) -> TokenStream {
     let data_name = ctx.next_data_name("BLENDED_NOISE_DATA");
     ctx.static_data.push(quote! {
         static #data_name: InterpolatedNoiseSamplerData = InterpolatedNoiseSamplerData {
@@ -78,19 +118,15 @@ fn handle_blended_noise(ctx: &mut FlattenContext) -> TokenStream {
     quote! { BaseNoiseFunctionComponent::InterpolatedNoiseSampler { data: &#data_name } }
 }
 
-fn handle_constant(value: &Value) -> TokenStream {
-    let val = value
-        .get("value")
-        .and_then(Value::as_f64)
-        .expect("Missing constant value");
+fn handle_constant_value(val: f64) -> TokenStream {
     quote! { BaseNoiseFunctionComponent::Constant { value: #val } }
 }
 
 fn handle_y_clamped_gradient(ctx: &mut FlattenContext, value: &Value) -> TokenStream {
-    let from_y = get_f64(value, "fromY");
-    let to_y = get_f64(value, "toY");
-    let from_value = get_f64(value, "fromValue");
-    let to_value = get_f64(value, "toValue");
+    let from_y = get_f64(value, "from_y");
+    let to_y = get_f64(value, "to_y");
+    let from_value = get_f64(value, "from_value");
+    let to_value = get_f64(value, "to_value");
 
     let data_name = ctx.next_data_name("Y_GRADIENT_DATA");
     ctx.static_data.push(quote! {
@@ -106,8 +142,8 @@ fn handle_y_clamped_gradient(ctx: &mut FlattenContext, value: &Value) -> TokenSt
 
 fn handle_noise(ctx: &mut FlattenContext, value: &Value) -> TokenStream {
     let noise_id = strip_minecraft_prefix(get_str(value, "noise"));
-    let xz_scale = get_f64(value, "xzScale");
-    let y_scale = get_f64(value, "yScale");
+    let xz_scale = get_f64_or(value, "xz_scale", 1.0);
+    let y_scale = get_f64_or(value, "y_scale", 1.0);
 
     let data_name = ctx.next_data_name("NOISE_DATA");
     ctx.static_data.push(quote! {
@@ -120,23 +156,28 @@ fn handle_noise(ctx: &mut FlattenContext, value: &Value) -> TokenStream {
     quote! { BaseNoiseFunctionComponent::Noise { data: &#data_name } }
 }
 
-fn handle_shift(value: &Value, is_shift_a: bool) -> TokenStream {
-    let noise_id = strip_minecraft_prefix(get_str(value, "offsetNoise"));
-    if is_shift_a {
-        quote! { BaseNoiseFunctionComponent::ShiftA { noise_id: #noise_id } }
-    } else {
-        quote! { BaseNoiseFunctionComponent::ShiftB { noise_id: #noise_id } }
-    }
+fn handle_shift_a(_ctx: &mut FlattenContext, value: &Value) -> TokenStream {
+    let noise_id = strip_minecraft_prefix(get_str(value, "argument"));
+    quote! { BaseNoiseFunctionComponent::ShiftA { noise_id: #noise_id } }
+}
+
+fn handle_shift_b(_ctx: &mut FlattenContext, value: &Value) -> TokenStream {
+    let noise_id = strip_minecraft_prefix(get_str(value, "argument"));
+    quote! { BaseNoiseFunctionComponent::ShiftB { noise_id: #noise_id } }
 }
 
 fn handle_shifted_noise(ctx: &mut FlattenContext, value: &Value) -> TokenStream {
     let noise_id = strip_minecraft_prefix(get_str(value, "noise"));
-    let xz_scale = get_f64(value, "xzScale");
-    let y_scale = get_f64(value, "yScale");
+    let xz_scale = get_f64_or(value, "xz_scale", 1.0);
+    let y_scale = get_f64_or(value, "y_scale", 1.0);
 
-    let idx_for_x = flatten_node(ctx, value.get("shiftX").expect("Missing shiftX"));
-    let idx_for_y = flatten_node(ctx, value.get("shiftY").expect("Missing shiftY"));
-    let idx_for_z = flatten_node(ctx, value.get("shiftZ").expect("Missing shiftZ"));
+    let shift_x = value.get("shift_x").expect("Missing shift_x");
+    let shift_y = value.get("shift_y").expect("Missing shift_y");
+    let shift_z = value.get("shift_z").expect("Missing shift_z");
+
+    let idx_for_x = flatten_node(ctx, shift_x);
+    let idx_for_y = flatten_node(ctx, shift_y);
+    let idx_for_z = flatten_node(ctx, shift_z);
 
     let data_name = ctx.next_data_name("SHIFTED_NOISE_DATA");
     ctx.static_data.push(quote! {
@@ -157,18 +198,17 @@ fn handle_shifted_noise(ctx: &mut FlattenContext, value: &Value) -> TokenStream 
     }
 }
 
-fn handle_wrapping(ctx: &mut FlattenContext, value: &Value) -> TokenStream {
-    let wrap_type = get_str(value, "type");
-    let wrapped_node = value.get("wrapped").expect("Missing wrapped");
+fn handle_cache(ctx: &mut FlattenContext, value: &Value, wrapper_type: &str) -> TokenStream {
+    let wrapped_node = value.get("argument").expect("Missing argument");
     let input_idx = flatten_node(ctx, wrapped_node);
 
-    let wrap_variant = match wrap_type {
-        "Interpolated" => quote! { WrapperType::Interpolated },
-        "FlatCache" => quote! { WrapperType::CacheFlat },
-        "Cache2D" => quote! { WrapperType::Cache2D },
-        "CacheOnce" => quote! { WrapperType::CacheOnce },
-        "CellCache" => quote! { WrapperType::CellCache },
-        _ => panic!("Unknown wrapper type: {wrap_type}"),
+    let wrap_variant = match wrapper_type {
+        "interpolated" => quote! { WrapperType::Interpolated },
+        "flat_cache" => quote! { WrapperType::CacheFlat },
+        "cache_2d" => quote! { WrapperType::Cache2D },
+        "cache_once" => quote! { WrapperType::CacheOnce },
+        "cache_all_in_cell" => quote! { WrapperType::CellCache },
+        _ => panic!("Unknown wrapper type: {wrapper_type}"),
     };
 
     quote! {
@@ -179,20 +219,19 @@ fn handle_wrapping(ctx: &mut FlattenContext, value: &Value) -> TokenStream {
     }
 }
 
-fn handle_binary_operation(ctx: &mut FlattenContext, value: &Value) -> TokenStream {
-    let operation = get_str(value, "type");
+fn handle_binary_operation(ctx: &mut FlattenContext, value: &Value, op_type: &str) -> TokenStream {
     let arg1 = value.get("argument1").expect("Missing argument1");
     let arg2 = value.get("argument2").expect("Missing argument2");
 
     let idx_arg1 = flatten_node(ctx, arg1);
     let idx_arg2 = flatten_node(ctx, arg2);
 
-    let op = match operation {
-        "ADD" => quote! { BinaryOperation::Add },
-        "MUL" => quote! { BinaryOperation::Mul },
-        "MIN" => quote! { BinaryOperation::Min },
-        "MAX" => quote! { BinaryOperation::Max },
-        _ => panic!("Unknown binary operation: {operation}"),
+    let op = match op_type {
+        "add" => quote! { BinaryOperation::Add },
+        "mul" => quote! { BinaryOperation::Mul },
+        "min" => quote! { BinaryOperation::Min },
+        "max" => quote! { BinaryOperation::Max },
+        _ => panic!("Unknown binary operation: {op_type}"),
     };
 
     let data_name = ctx.next_data_name("BINARY_DATA");
@@ -209,19 +248,18 @@ fn handle_binary_operation(ctx: &mut FlattenContext, value: &Value) -> TokenStre
     }
 }
 
-fn handle_unary_operation(ctx: &mut FlattenContext, value: &Value) -> TokenStream {
-    let operation = get_str(value, "type");
-    let input = value.get("input").expect("Missing input");
+fn handle_unary_operation(ctx: &mut FlattenContext, value: &Value, op_type: &str) -> TokenStream {
+    let input = value.get("argument").expect("Missing argument");
     let input_idx = flatten_node(ctx, input);
 
-    let op = match operation {
-        "ABS" => quote! { UnaryOperation::Abs },
-        "SQUARE" => quote! { UnaryOperation::Square },
-        "CUBE" => quote! { UnaryOperation::Cube },
-        "HALF_NEGATIVE" => quote! { UnaryOperation::HalfNegative },
-        "QUARTER_NEGATIVE" => quote! { UnaryOperation::QuarterNegative },
-        "SQUEEZE" => quote! { UnaryOperation::Squeeze },
-        _ => panic!("Unknown unary operation: {operation}"),
+    let op = match op_type {
+        "abs" => quote! { UnaryOperation::Abs },
+        "square" => quote! { UnaryOperation::Square },
+        "cube" => quote! { UnaryOperation::Cube },
+        "half_negative" => quote! { UnaryOperation::HalfNegative },
+        "quarter_negative" => quote! { UnaryOperation::QuarterNegative },
+        "squeeze" => quote! { UnaryOperation::Squeeze },
+        _ => panic!("Unknown unary operation: {op_type}"),
     };
 
     let data_name = ctx.next_data_name("UNARY_DATA");
@@ -239,8 +277,8 @@ fn handle_unary_operation(ctx: &mut FlattenContext, value: &Value) -> TokenStrea
 
 fn handle_clamp(ctx: &mut FlattenContext, value: &Value) -> TokenStream {
     let input = value.get("input").expect("Missing input");
-    let min_val = get_f64(value, "minValue");
-    let max_val = get_f64(value, "maxValue");
+    let min_val = get_f64(value, "min");
+    let max_val = get_f64(value, "max");
 
     let input_idx = flatten_node(ctx, input);
 
@@ -262,10 +300,12 @@ fn handle_clamp(ctx: &mut FlattenContext, value: &Value) -> TokenStream {
 
 fn handle_range_choice(ctx: &mut FlattenContext, value: &Value) -> TokenStream {
     let input = value.get("input").expect("Missing input");
-    let when_in_range = value.get("whenInRange").expect("Missing whenInRange");
-    let when_out_of_range = value.get("whenOutOfRange").expect("Missing whenOutOfRange");
-    let min_inclusive = get_f64(value, "minInclusive");
-    let max_exclusive = get_f64(value, "maxExclusive");
+    let when_in_range = value.get("when_in_range").expect("Missing when_in_range");
+    let when_out_of_range = value
+        .get("when_out_of_range")
+        .expect("Missing when_out_of_range");
+    let min_inclusive = get_f64(value, "min_inclusive");
+    let max_exclusive = get_f64(value, "max_exclusive");
 
     let input_idx = flatten_node(ctx, input);
     let when_in_idx = flatten_node(ctx, when_in_range);
@@ -290,7 +330,7 @@ fn handle_range_choice(ctx: &mut FlattenContext, value: &Value) -> TokenStream {
 }
 
 fn handle_blend_density(ctx: &mut FlattenContext, value: &Value) -> TokenStream {
-    let input = value.get("input").expect("Missing input");
+    let input = value.get("argument").expect("Missing argument");
     let input_idx = flatten_node(ctx, input);
     quote! { BaseNoiseFunctionComponent::BlendDensity { input_index: #input_idx } }
 }
@@ -298,13 +338,13 @@ fn handle_blend_density(ctx: &mut FlattenContext, value: &Value) -> TokenStream 
 fn handle_weird_scaled_sampler(ctx: &mut FlattenContext, value: &Value) -> TokenStream {
     let input = value.get("input").expect("Missing input");
     let noise_id = strip_minecraft_prefix(get_str(value, "noise"));
-    let rarity_mapper = get_str(value, "rarityValueMapper");
+    let rarity_mapper = get_str(value, "rarity_value_mapper");
 
     let input_idx = flatten_node(ctx, input);
 
     let mapper = match rarity_mapper {
-        "TYPE1" => quote! { WeirdScaledMapper::Tunnels },
-        "TYPE2" => quote! { WeirdScaledMapper::Caves },
+        "type_1" => quote! { WeirdScaledMapper::Tunnels },
+        "type_2" => quote! { WeirdScaledMapper::Caves },
         _ => panic!("Unknown rarity mapper: {rarity_mapper}"),
     };
 
@@ -330,36 +370,39 @@ fn handle_spline_component(ctx: &mut FlattenContext, value: &Value) -> TokenStre
     quote! { BaseNoiseFunctionComponent::Spline { spline: &#spline_name } }
 }
 
-fn handle_linear_operation(ctx: &mut FlattenContext, value: &Value) -> TokenStream {
-    let input = value.get("input").expect("Missing input");
-    let operation = get_str(value, "type");
-    let argument = get_f64(value, "argument");
-
-    let input_idx = flatten_node(ctx, input);
-
-    let op = match operation {
-        "ADD" => quote! { LinearOperation::Add },
-        "MUL" => quote! { LinearOperation::Mul },
-        _ => panic!("Unknown linear operation: {operation}"),
-    };
-
-    let data_name = ctx.next_data_name("LINEAR_DATA");
-    ctx.static_data.push(quote! {
-        static #data_name: LinearData = LinearData {
-            operation: #op,
-            argument: #argument,
-        };
-    });
-
-    quote! {
-        BaseNoiseFunctionComponent::Linear {
-            input_index: #input_idx,
-            data: &#data_name,
-        }
+fn handle_find_top_surface(ctx: &mut FlattenContext, value: &Value) -> TokenStream {
+    // FindTopSurface wraps an inner density function
+    // For surface estimation purposes, we need the inner density
+    if let Some(density) = value.get("density") {
+        flatten_node(ctx, density);
     }
+    // Return the density node itself (the FindTopSurface is not a component we generate directly)
+    // The caller should use the inner density
+    quote! { BaseNoiseFunctionComponent::Constant { value: 0.0 } }
 }
 
+/// Main node flattening function - parses vanilla JSON directly
 fn flatten_node(ctx: &mut FlattenContext, node: &Value) -> usize {
+    // Handle numeric constants
+    if let Some(n) = node.as_f64() {
+        let hash = format!("const:{n}");
+        if let Some(&idx) = ctx.seen.get(&hash) {
+            return idx;
+        }
+        let component = handle_constant_value(n);
+        let idx = ctx.stack.len();
+        ctx.stack.push(component);
+        ctx.seen.insert(hash, idx);
+        return idx;
+    }
+
+    // Handle string references (e.g., "minecraft:overworld/continents")
+    if let Some(ref_str) = node.as_str() {
+        let resolved = ctx.resolve_reference(ref_str);
+        return flatten_node(ctx, &resolved);
+    }
+
+    // Handle object nodes
     let hash = hash_json(node);
     if let Some(&idx) = ctx.seen.get(&hash) {
         return idx;
@@ -368,45 +411,65 @@ fn flatten_node(ctx: &mut FlattenContext, node: &Value) -> usize {
     let obj = node
         .as_object()
         .unwrap_or_else(|| panic!("Expected object node, got: {node:?}"));
-    let class = obj
-        .get("_class")
+
+    let type_str = obj
+        .get("type")
         .and_then(Value::as_str)
-        .unwrap_or_else(|| panic!("Missing _class in node: {obj:?}"));
+        .unwrap_or_else(|| panic!("Missing type in node: {obj:?}"));
 
-    let value = obj.get("value");
+    let type_name = strip_minecraft_prefix(type_str);
 
-    let component = match class {
-        "BlendOffset" => quote! { BaseNoiseFunctionComponent::BlendOffset },
-        "BlendAlpha" => quote! { BaseNoiseFunctionComponent::BlendAlpha },
-        "EndIslands" => quote! { BaseNoiseFunctionComponent::EndIslands },
-        "Beardifier" => quote! { BaseNoiseFunctionComponent::Beardifier },
-        "BlendedNoise" => handle_blended_noise(ctx),
-        "Constant" => handle_constant(value.expect("Missing value for Constant")),
-        "YClampedGradient" => {
-            handle_y_clamped_gradient(ctx, value.expect("Missing value for YClampedGradient"))
+    let component = match type_name {
+        // Simple components (no arguments)
+        "blend_offset" => quote! { BaseNoiseFunctionComponent::BlendOffset },
+        "blend_alpha" => quote! { BaseNoiseFunctionComponent::BlendAlpha },
+        "end_islands" => quote! { BaseNoiseFunctionComponent::EndIslands },
+        "beardifier" => quote! { BaseNoiseFunctionComponent::Beardifier },
+
+        // Blended noise (old_blended_noise)
+        "old_blended_noise" => handle_old_blended_noise(ctx),
+
+        // Y clamped gradient
+        "y_clamped_gradient" => handle_y_clamped_gradient(ctx, node),
+
+        // Noise types
+        "noise" => handle_noise(ctx, node),
+        "shift_a" => handle_shift_a(ctx, node),
+        "shift_b" => handle_shift_b(ctx, node),
+        "shifted_noise" => handle_shifted_noise(ctx, node),
+
+        // Cache/wrapper types
+        "interpolated" | "flat_cache" | "cache_2d" | "cache_once" | "cache_all_in_cell" => {
+            handle_cache(ctx, node, type_name)
         }
-        "Noise" => handle_noise(ctx, value.expect("Missing value for Noise")),
-        "ShiftA" => handle_shift(value.expect("Missing value for ShiftA"), true),
-        "ShiftB" => handle_shift(value.expect("Missing value for ShiftB"), false),
-        "ShiftedNoise" => handle_shifted_noise(ctx, value.expect("Missing value for ShiftedNoise")),
-        "Wrapping" => handle_wrapping(ctx, value.expect("Missing value for Wrapping")),
-        "BinaryOperation" => {
-            handle_binary_operation(ctx, value.expect("Missing value for BinaryOperation"))
+
+        // Binary operations
+        "add" | "mul" | "min" | "max" => handle_binary_operation(ctx, node, type_name),
+
+        // Unary operations
+        "abs" | "square" | "cube" | "half_negative" | "quarter_negative" | "squeeze" => {
+            handle_unary_operation(ctx, node, type_name)
         }
-        "UnaryOperation" => {
-            handle_unary_operation(ctx, value.expect("Missing value for UnaryOperation"))
-        }
-        "Clamp" => handle_clamp(ctx, value.expect("Missing value for Clamp")),
-        "RangeChoice" => handle_range_choice(ctx, value.expect("Missing value for RangeChoice")),
-        "BlendDensity" => handle_blend_density(ctx, value.expect("Missing value for BlendDensity")),
-        "WeirdScaledSampler" => {
-            handle_weird_scaled_sampler(ctx, value.expect("Missing value for WeirdScaledSampler"))
-        }
-        "Spline" => handle_spline_component(ctx, value.expect("Missing value for Spline")),
-        "LinearOperation" => {
-            handle_linear_operation(ctx, value.expect("Missing value for LinearOperation"))
-        }
-        _ => panic!("Unknown density function class: {class}"),
+
+        // Clamp
+        "clamp" => handle_clamp(ctx, node),
+
+        // Range choice
+        "range_choice" => handle_range_choice(ctx, node),
+
+        // Blend density
+        "blend_density" => handle_blend_density(ctx, node),
+
+        // Weird scaled sampler
+        "weird_scaled_sampler" => handle_weird_scaled_sampler(ctx, node),
+
+        // Spline
+        "spline" => handle_spline_component(ctx, node),
+
+        // Find top surface (for surface estimation)
+        "find_top_surface" => handle_find_top_surface(ctx, node),
+
+        _ => panic!("Unknown density function type: {type_name}"),
     };
 
     let idx = ctx.stack.len();
@@ -418,82 +481,74 @@ fn flatten_node(ctx: &mut FlattenContext, node: &Value) -> usize {
 fn flatten_spline(ctx: &mut FlattenContext, spline: &Value) -> Ident {
     let spline_name = ctx.next_spline_name();
 
-    let obj = spline.as_object().expect("Spline should be object");
-    let spline_type = obj
-        .get("_type")
-        .and_then(Value::as_str)
-        .expect("Missing _type");
-
-    match spline_type {
-        "fixed" => {
-            let value_obj = obj.get("value").expect("Missing value in fixed spline");
-            let value = value_obj
-                .get("value")
-                .and_then(Value::as_f64)
-                .expect("Missing value.value") as f32;
-            ctx.splines.push(quote! {
-                static #spline_name: SplineRepr = SplineRepr::Fixed { value: #value };
-            });
-        }
-        "standard" => {
-            let value_obj = obj.get("value").expect("Missing value in standard spline");
-            let location_fn = value_obj
-                .get("locationFunction")
-                .expect("Missing locationFunction");
-            let locations = value_obj
-                .get("locations")
-                .and_then(Value::as_array)
-                .expect("Missing locations");
-            let values = value_obj
-                .get("values")
-                .and_then(Value::as_array)
-                .expect("Missing values");
-            let derivatives = value_obj
-                .get("derivatives")
-                .and_then(Value::as_array)
-                .expect("Missing derivatives");
-
-            let coord_idx = flatten_node(ctx, location_fn);
-
-            let mut point_tokens = Vec::new();
-
-            for ((location_val, value_spline), derivative_val) in
-                locations.iter().zip(values.iter()).zip(derivatives.iter())
-            {
-                let location = location_val.as_f64().expect("location should be f64") as f32;
-                let derivative = derivative_val.as_f64().expect("derivative should be f64") as f32;
-                let value_spline_name = flatten_spline(ctx, value_spline);
-
-                point_tokens.push(quote! {
-                    SplinePoint {
-                        location: #location,
-                        value: &#value_spline_name,
-                        derivative: #derivative,
-                    }
-                });
-            }
-
-            let points_len = point_tokens.len();
-            let points_name = Ident::new(&format!("{spline_name}_POINTS"), Span::call_site());
-            ctx.splines.push(quote! {
-                static #points_name: [SplinePoint; #points_len] = [#(#point_tokens),*];
-            });
-
-            ctx.splines.push(quote! {
-                static #spline_name: SplineRepr = SplineRepr::Standard {
-                    location_function_index: #coord_idx,
-                    points: &#points_name,
-                };
-            });
-        }
-        _ => panic!("Unknown spline type: {spline_type}"),
+    // Check if it's a fixed spline (just a number)
+    if let Some(value) = spline.as_f64() {
+        let value_f32 = value as f32;
+        ctx.splines.push(quote! {
+            static #spline_name: SplineRepr = SplineRepr::Fixed { value: #value_f32 };
+        });
+        return spline_name;
     }
+
+    // It's an object spline with coordinate and points
+    let obj = spline
+        .as_object()
+        .expect("Spline should be object or number");
+
+    // Get the coordinate function
+    let coord_fn = obj.get("coordinate").expect("Missing coordinate in spline");
+    let coord_idx = flatten_node(ctx, coord_fn);
+
+    // Get the points array
+    let points = obj
+        .get("points")
+        .and_then(Value::as_array)
+        .expect("Missing points in spline");
+
+    let mut point_tokens = Vec::new();
+
+    for point in points {
+        let point_obj = point.as_object().expect("Point should be object");
+
+        let location = point_obj
+            .get("location")
+            .and_then(Value::as_f64)
+            .expect("Missing location in point") as f32;
+
+        let derivative = point_obj
+            .get("derivative")
+            .and_then(Value::as_f64)
+            .expect("Missing derivative in point") as f32;
+
+        let value_spline = point_obj.get("value").expect("Missing value in point");
+        let value_spline_name = flatten_spline(ctx, value_spline);
+
+        point_tokens.push(quote! {
+            SplinePoint {
+                location: #location,
+                value: &#value_spline_name,
+                derivative: #derivative,
+            }
+        });
+    }
+
+    let points_len = point_tokens.len();
+    let points_name = Ident::new(&format!("{spline_name}_POINTS"), Span::call_site());
+    ctx.splines.push(quote! {
+        static #points_name: [SplinePoint; #points_len] = [#(#point_tokens),*];
+    });
+
+    ctx.splines.push(quote! {
+        static #spline_name: SplineRepr = SplineRepr::Standard {
+            location_function_index: #coord_idx,
+            points: &#points_name,
+        };
+    });
 
     spline_name
 }
 
 /// Emit the static data, splines, and component stack array for a flatten context.
-/// Returns `None` if the stack is empty.
 fn emit_stack(ctx: &FlattenContext, stack_name: &Ident) -> Option<TokenStream> {
     let components = &ctx.stack;
     let static_data = &ctx.static_data;
@@ -520,17 +575,17 @@ struct NoiseStackResult {
     stack_name: Ident,
 }
 
-const NOISE_FIELDS: [&str; 10] = [
-    "barrierNoise",
-    "fluidLevelFloodednessNoise",
-    "fluidLevelSpreadNoise",
-    "lavaNoise",
-    "erosion",
-    "depth",
-    "finalDensity",
-    "veinToggle",
-    "veinRidged",
-    "veinGap",
+const NOISE_FIELDS: [(&str, &str); 10] = [
+    ("barrier", "barrierNoise"),
+    ("fluid_level_floodedness", "fluidLevelFloodednessNoise"),
+    ("fluid_level_spread", "fluidLevelSpreadNoise"),
+    ("lava", "lavaNoise"),
+    ("erosion", "erosion"),
+    ("depth", "depth"),
+    ("final_density", "finalDensity"),
+    ("vein_toggle", "veinToggle"),
+    ("vein_ridged", "veinRidged"),
+    ("vein_gap", "veinGap"),
 ];
 
 /// Build the main noise stack and collect indices for router fields.
@@ -539,29 +594,29 @@ fn build_noise_stack(
     env_name_upper: &str,
     env_data: &Map<String, Value>,
 ) -> NoiseStackResult {
-    let mut ctx = FlattenContext::new(env_name);
-    let mut indices: FxHashMap<&'static str, usize> = FxHashMap::default();
-    for json_name in NOISE_FIELDS {
+    let mut noise_ctx = FlattenContext::new(env_name);
+    let mut noise_indices: FxHashMap<&str, usize> = FxHashMap::default();
+    for (json_name, internal_name) in NOISE_FIELDS {
         if let Some(node) = env_data.get(json_name) {
-            let idx = flatten_node(&mut ctx, node);
-            indices.insert(json_name, idx);
+            let idx = flatten_node(&mut noise_ctx, node);
+            noise_indices.insert(internal_name, idx);
         }
     }
 
     // Post-process finalDensity: wrap with CellCache(Add(finalDensity, Beardifier))
-    // Vanilla adds Beardifier at runtime but the component stack needs the slot
-    if let Some(&original_final) = indices.get("finalDensity") {
-        let beardifier_idx = ctx.stack.len();
-        ctx.stack
+    if let Some(&original_final) = noise_indices.get("finalDensity") {
+        let beardifier_idx = noise_ctx.stack.len();
+        noise_ctx
+            .stack
             .push(quote! { BaseNoiseFunctionComponent::Beardifier });
 
-        let add_data_name = ctx.next_data_name("BINARY_DATA");
-        ctx.static_data.push(quote! {
+        let add_data_name = noise_ctx.next_data_name("BINARY_DATA");
+        noise_ctx.static_data.push(quote! {
             static #add_data_name: BinaryData = BinaryData { operation: BinaryOperation::Add };
         });
 
-        let add_idx = ctx.stack.len();
-        ctx.stack.push(quote! {
+        let add_idx = noise_ctx.stack.len();
+        noise_ctx.stack.push(quote! {
             BaseNoiseFunctionComponent::Binary {
                 argument1_index: #original_final,
                 argument2_index: #beardifier_idx,
@@ -569,22 +624,22 @@ fn build_noise_stack(
             }
         });
 
-        let cell_cache_idx = ctx.stack.len();
-        ctx.stack.push(quote! {
+        let cell_cache_idx = noise_ctx.stack.len();
+        noise_ctx.stack.push(quote! {
             BaseNoiseFunctionComponent::Wrapper {
                 input_index: #add_idx,
                 wrapper: WrapperType::CellCache,
             }
         });
 
-        indices.insert("finalDensity", cell_cache_idx);
+        noise_indices.insert("finalDensity", cell_cache_idx);
     }
 
     let stack_name = Ident::new(&format!("{env_name_upper}_NOISE_STACK"), Span::call_site());
 
     NoiseStackResult {
-        ctx,
-        indices,
+        ctx: noise_ctx,
+        indices: noise_indices,
         stack_name,
     }
 }
@@ -593,25 +648,30 @@ fn build_noise_stack(
 fn build_surface_stack(
     env_name: &str,
     env_name_upper: &str,
-    env_data: &Map<String, Value>,
+    noise_router: &Map<String, Value>,
 ) -> (FlattenContext, Ident) {
     let surface_prefix = format!("{env_name}_surface");
     let mut ctx = FlattenContext::new(&surface_prefix);
 
-    // Extract the inner density function from FindTopSurface if available
-    if let Some(node) = env_data.get("initialDensityWithoutJaggedness")
+    // Extract the density from preliminary_surface_level (FindTopSurface)
+    if let Some(node) = noise_router.get("preliminary_surface_level")
         && let Some(obj) = node.as_object()
     {
-        let class = obj.get("_class").and_then(Value::as_str);
-        if class == Some("FindTopSurface") {
-            // FindTopSurface wraps an inner density function in "value.density"
-            if let Some(density_node) = obj.get("value").and_then(|v| v.get("density")) {
+        let type_str = obj.get("type").and_then(Value::as_str);
+        if type_str == Some("minecraft:find_top_surface") {
+            if let Some(density_node) = obj.get("density") {
                 flatten_node(&mut ctx, density_node);
             }
         } else {
             // Not FindTopSurface - flatten directly
             flatten_node(&mut ctx, node);
         }
+    }
+
+    // If no surface density was found, add a constant 0 placeholder
+    if ctx.stack.is_empty() {
+        ctx.stack
+            .push(quote! { BaseNoiseFunctionComponent::Constant { value: 0f64 } });
     }
 
     let stack_name = Ident::new(
@@ -641,23 +701,24 @@ const MULTI_FIELDS: [&str; 6] = [
 fn build_multi_noise_stack(
     env_name: &str,
     env_name_upper: &str,
-    env_data: &Map<String, Value>,
+    noise_router: &Map<String, Value>,
 ) -> MultiNoiseStackResult {
     let multi_prefix = format!("{env_name}_multi");
-    let mut ctx = FlattenContext::new(&multi_prefix);
-    let mut indices: FxHashMap<&'static str, usize> = FxHashMap::default();
+    let mut multi_ctx = FlattenContext::new(&multi_prefix);
+
+    let mut multi_indices: FxHashMap<&'static str, usize> = FxHashMap::default();
     for json_name in MULTI_FIELDS {
-        if let Some(node) = env_data.get(json_name) {
-            let idx = flatten_node(&mut ctx, node);
-            indices.insert(json_name, idx);
+        if let Some(node) = noise_router.get(json_name) {
+            let idx = flatten_node(&mut multi_ctx, node);
+            multi_indices.insert(json_name, idx);
         }
     }
 
     let stack_name = Ident::new(&format!("{env_name_upper}_MULTI_STACK"), Span::call_site());
 
     MultiNoiseStackResult {
-        ctx,
-        indices,
+        ctx: multi_ctx,
+        indices: multi_indices,
         stack_name,
     }
 }
@@ -722,14 +783,17 @@ fn build_multi_noise_tokens(
     }
 }
 
-fn generate_environment(env_name: &str, env_data: &Map<String, Value>) -> (TokenStream, String) {
+fn generate_environment(
+    env_name: &str,
+    noise_router: &Map<String, Value>,
+) -> (TokenStream, String) {
     let env_name_upper = env_name.to_shouty_snake_case();
 
     // Build all three stacks
-    let noise_result = build_noise_stack(env_name, &env_name_upper, env_data);
+    let noise_result = build_noise_stack(env_name, &env_name_upper, noise_router);
     let (surface_ctx, surface_stack_name) =
-        build_surface_stack(env_name, &env_name_upper, env_data);
-    let multi_result = build_multi_noise_stack(env_name, &env_name_upper, env_data);
+        build_surface_stack(env_name, &env_name_upper, noise_router);
+    let multi_result = build_multi_noise_stack(env_name, &env_name_upper, noise_router);
 
     // Emit stack arrays
     let noise_stream = emit_stack(&noise_result.ctx, &noise_result.stack_name);
@@ -773,6 +837,7 @@ fn generate_environment(env_name: &str, env_data: &Map<String, Value>) -> (Token
     if let Some(ns) = noise_stream {
         stream.extend(ns);
     }
+    // surface_stream is always Some since we add at least constant 0
     if let Some(ss) = surface_stream {
         stream.extend(ss);
     }
@@ -805,18 +870,12 @@ fn generate_environment(env_name: &str, env_data: &Map<String, Value>) -> (Token
 }
 
 pub(crate) fn build() -> TokenStream {
-    println!("cargo:rerun-if-changed=build_assets/density_function.json");
+    // Set up rerun-if-changed for all relevant JSON files
+    let noise_settings_path = format!("{DATAPACK_BASE}/worldgen/noise_settings");
+    let density_function_path = format!("{DATAPACK_BASE}/worldgen/density_function");
 
-    let json_file = fs::read_to_string("build_assets/density_function.json")
-        .expect("Failed to read density_function.json");
-
-    let json_file = json_file
-        .replace("-Infinity", "\"__NEG_INFINITY__\"")
-        .replace("Infinity", "\"__POS_INFINITY__\"")
-        .replace("NaN", "\"__NAN__\"");
-
-    let data: Map<String, Value> =
-        serde_json::from_str(&json_file).expect("Failed to parse density_function.json");
+    println!("cargo:rerun-if-changed={noise_settings_path}");
+    println!("cargo:rerun-if-changed={density_function_path}");
 
     let mut stream = TokenStream::new();
 
@@ -830,21 +889,43 @@ pub(crate) fn build() -> TokenStream {
         };
     });
 
+    // Map environment names to their noise_settings JSON files
     let environments = [
-        "overworld",
-        "amplified",
-        "large_biomes",
-        "nether",
-        "end",
-        "caves",
-        "floating_islands",
+        ("overworld", "overworld.json"),
+        ("amplified", "amplified.json"),
+        ("large_biomes", "large_biomes.json"),
+        ("nether", "nether.json"),
+        ("end", "end.json"),
+        ("caves", "caves.json"),
+        ("floating_islands", "floating_islands.json"),
     ];
 
-    for env_name in environments {
-        if let Some(env_data) = data.get(env_name).and_then(Value::as_object) {
-            let (env_stream, _router_name) = generate_environment(env_name, env_data);
-            stream.extend(env_stream);
-        }
+    for (env_name, file_name) in environments {
+        let file_path = format!("{DATAPACK_BASE}/worldgen/noise_settings/{file_name}");
+
+        let Ok(json_content) = fs::read_to_string(&file_path) else {
+            eprintln!("Note: Skipping {env_name} - file not found at {file_path}");
+            continue;
+        };
+
+        let noise_settings: Value = match serde_json::from_str(&json_content) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("Warning: Failed to parse {file_path}: {e}");
+                continue;
+            }
+        };
+
+        let Some(noise_router) = noise_settings
+            .get("noise_router")
+            .and_then(Value::as_object)
+        else {
+            eprintln!("Warning: No noise_router found in {file_path}");
+            continue;
+        };
+
+        let (env_stream, _router_name) = generate_environment(env_name, noise_router);
+        stream.extend(env_stream);
     }
 
     stream
