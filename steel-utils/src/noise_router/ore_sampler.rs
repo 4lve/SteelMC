@@ -24,9 +24,9 @@
 //! - 98% chance: Regular ore block
 //! - Filler: Granite (copper veins) or Tuff (iron veins)
 
+use crate::BlockStateId;
 use crate::noise::clamped_map;
 use crate::random::{PositionalRandom, Random, RandomSplitter};
-use crate::BlockStateId;
 
 use super::chunk_density_function::ChunkNoiseFunctionSampleOptions;
 use super::chunk_noise_router::ChunkNoiseRouter;

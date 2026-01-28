@@ -129,8 +129,7 @@ impl ChunkGenerator for VanillaNoiseGenerator {
         let h_count = i32::from(self.shape.horizontal_cell_block_count());
         let v_count = i32::from(self.shape.vertical_cell_block_count());
         let horizontal_cells = 16 / h_count;
-        let vertical_cell_count =
-            floor_div(i32::from(self.shape.height), v_count) as usize;
+        let vertical_cell_count = floor_div(i32::from(self.shape.height), v_count) as usize;
 
         let delta_y_step = 1.0 / f64::from(v_count);
         let delta_xz_step = 1.0 / f64::from(h_count);
@@ -151,8 +150,8 @@ impl ChunkGenerator for VanillaNoiseGenerator {
             &self.shape,
             fluid_level_sampler,
             &self.blocks,
-            true,   // enable_aquifers
-            true,   // enable_ore_veins
+            true, // enable_aquifers
+            true, // enable_ore_veins
         );
 
         // Sample start density column
@@ -173,8 +172,7 @@ impl ChunkGenerator for VanillaNoiseGenerator {
                     // Notify generator about cell corners and fill cell caches
                     generator.on_sampled_cell_corners(cell_x, cell_y, cell_z);
 
-                    let sample_start_y =
-                        (generator.minimum_cell_y() + cell_y) * v_count;
+                    let sample_start_y = (generator.minimum_cell_y() + cell_y) * v_count;
 
                     for local_y in (0..v_count).rev() {
                         let block_y = sample_start_y + local_y;

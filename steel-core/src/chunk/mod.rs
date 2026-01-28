@@ -23,8 +23,8 @@ pub mod paletted_container;
 pub mod proto_chunk;
 /// Random configuration for world generation.
 pub mod random_config;
+pub mod section;
 /// Vanilla-accurate noise generator using data-driven noise router.
 pub mod vanilla_noise_generator;
-pub mod section;
 
 pub mod world_gen_context;

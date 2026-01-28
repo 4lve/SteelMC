@@ -93,22 +93,18 @@ fn bench_multiple_chunks(c: &mut Criterion) {
 
     // Benchmark generating multiple adjacent chunks (simulates player movement)
     for count in [4, 9, 16] {
-        group.bench_with_input(
-            BenchmarkId::new("adjacent", count),
-            &count,
-            |b, &count| {
-                let side = (count as f64).sqrt() as i32;
-                b.iter(|| {
-                    for x in 0..side {
-                        for z in 0..side {
-                            let chunk = create_empty_chunk(x, z);
-                            generator.fill_from_noise(black_box(&chunk));
-                            black_box(&chunk);
-                        }
+        group.bench_with_input(BenchmarkId::new("adjacent", count), &count, |b, &count| {
+            let side = (count as f64).sqrt() as i32;
+            b.iter(|| {
+                for x in 0..side {
+                    for z in 0..side {
+                        let chunk = create_empty_chunk(x, z);
+                        generator.fill_from_noise(black_box(&chunk));
+                        black_box(&chunk);
                     }
-                });
-            },
-        );
+                }
+            });
+        });
     }
 
     group.finish();
