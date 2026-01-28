@@ -14,7 +14,7 @@ use crate::world::World;
 #[enum_dispatch(ChunkGenerator)]
 pub enum ChunkGeneratorType {
     Flat(FlatChunkGenerator),
-    Vanilla(VanillaNoiseGenerator),
+    Vanilla(Box<VanillaNoiseGenerator>),
 }
 
 /// Context for world generation.

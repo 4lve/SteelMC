@@ -167,8 +167,8 @@ impl Linear {
 /// Applies one of four operations:
 /// - `Add`: `input1 + input2`
 /// - `Mul`: `input1 * input2` (short-circuits if input1 == 0)
-/// - `Min`: `min(input1, input2)` (short-circuits if input1 < input2.min())
-/// - `Max`: `max(input1, input2)` (short-circuits if input1 > input2.max())
+/// - `Min`: `min(input1, input2)` (short-circuits if input1 < `input2.min()`)
+/// - `Max`: `max(input1, input2)` (short-circuits if input1 > `input2.max()`)
 ///
 /// # Optimizations
 ///

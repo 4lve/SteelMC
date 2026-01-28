@@ -133,8 +133,8 @@ impl ChunkMap {
             tuff: REGISTRY.blocks.get_default_state_id(vanilla_blocks::TUFF),
         };
 
-        let generator = Arc::new(ChunkGeneratorType::Vanilla(VanillaNoiseGenerator::new(
-            seed, blocks,
+        let generator = Arc::new(ChunkGeneratorType::Vanilla(Box::new(
+            VanillaNoiseGenerator::new(seed, blocks),
         )));
 
         Self::with_generator(chunk_runtime, world, dimension, generator)

@@ -214,7 +214,7 @@ impl<'a> ChunkNoiseGenerator<'a> {
     /// * `horizontal_cell_count` - Number of cells horizontally (typically 4)
     /// * `start_block_x` - Starting X block coordinate of the chunk
     /// * `start_block_z` - Starting Z block coordinate of the chunk
-    /// * `generation_shape` - Generation bounds (min_y, height, cell sizes)
+    /// * `generation_shape` - Generation bounds (`min_y`, height, cell sizes)
     /// * `fluid_level_sampler` - Default fluid levels (sea level, lava level)
     /// * `blocks` - Block state IDs for terrain generation
     /// * `enable_aquifers` - Whether to enable underground water/lava pockets
@@ -223,6 +223,7 @@ impl<'a> ChunkNoiseGenerator<'a> {
     /// # Returns
     ///
     /// A new `ChunkNoiseGenerator` ready for terrain generation.
+    #[must_use]
     pub fn new(
         noise_router_base: &'a ProtoNoiseRouter,
         surface_estimator_base: &'a ProtoSurfaceEstimator,
@@ -245,7 +246,7 @@ impl<'a> ChunkNoiseGenerator<'a> {
         let horizontal_biome_end =
             biome_from_block((horizontal_cell_count * h_cell as usize) as i32) as usize;
         let vertical_cell_count =
-            floor_div(i32::from(generation_shape.height) as i32, i32::from(v_cell)) as usize;
+            floor_div(i32::from(generation_shape.height), i32::from(v_cell)) as usize;
         let minimum_cell_y = floor_div(i32::from(generation_shape.min_y), i32::from(v_cell));
 
         // Build chunk noise router
@@ -280,7 +281,7 @@ impl<'a> ChunkNoiseGenerator<'a> {
             AquiferSampler::World(WorldAquiferSampler::new(
                 section_x,
                 section_z,
-                random_config.aquifer_deriver.clone(),
+                random_config.aquifer_deriver,
                 generation_shape.min_y,
                 generation_shape.height,
                 fluid_level_sampler,
@@ -296,7 +297,7 @@ impl<'a> ChunkNoiseGenerator<'a> {
         // Build chained sampler
         let state_sampler = if enable_ore_veins {
             let ore_sampler =
-                OreVeinSampler::new(random_config.ore_deriver.clone(), blocks.to_ore_blocks());
+                OreVeinSampler::new(random_config.ore_deriver, blocks.to_ore_blocks());
             ChainedBlockStateSampler::with_ores(aquifer_sampler, ore_sampler)
         } else {
             ChainedBlockStateSampler::aquifer_only(aquifer_sampler)
@@ -428,11 +429,11 @@ impl<'a> ChunkNoiseGenerator<'a> {
         self.cache_fill_unique_id += 1;
 
         let start_x = (self.start_cell_pos_x + cell_x)
-            * self.generation_shape.horizontal_cell_block_count() as i32;
+            * i32::from(self.generation_shape.horizontal_cell_block_count());
         let start_y = (cell_y + self.minimum_cell_y)
-            * self.generation_shape.vertical_cell_block_count() as i32;
+            * i32::from(self.generation_shape.vertical_cell_block_count());
         let start_z = (self.start_cell_pos_z + cell_z)
-            * self.generation_shape.horizontal_cell_block_count() as i32;
+            * i32::from(self.generation_shape.horizontal_cell_block_count());
 
         let mapper = ChunkIndexMapper {
             start_x,
@@ -489,54 +490,63 @@ impl<'a> ChunkNoiseGenerator<'a> {
 
     /// Returns the horizontal cell block count.
     #[inline]
+    #[must_use]
     pub fn horizontal_cell_block_count(&self) -> u8 {
         self.generation_shape.horizontal_cell_block_count()
     }
 
     /// Returns the vertical cell block count.
     #[inline]
+    #[must_use]
     pub fn vertical_cell_block_count(&self) -> u8 {
         self.generation_shape.vertical_cell_block_count()
     }
 
     /// Returns the minimum Y.
     #[inline]
+    #[must_use]
     pub fn min_y(&self) -> i8 {
         self.generation_shape.min_y
     }
 
     /// Returns the height.
     #[inline]
+    #[must_use]
     pub fn height(&self) -> u16 {
         self.generation_shape.height
     }
 
     /// Returns the blocks configuration.
     #[inline]
+    #[must_use]
     pub fn blocks(&self) -> &TerrainBlocks {
         self.blocks
     }
 
     /// Returns the vertical cell count.
     #[inline]
+    #[must_use]
     pub fn vertical_cell_count(&self) -> usize {
         self.vertical_cell_count
     }
 
     /// Returns the minimum cell Y.
     #[inline]
+    #[must_use]
     pub fn minimum_cell_y(&self) -> i32 {
         self.minimum_cell_y
     }
 
     /// Returns the start cell X position.
     #[inline]
+    #[must_use]
     pub fn start_cell_pos_x(&self) -> i32 {
         self.start_cell_pos_x
     }
 
     /// Returns the start cell Z position.
     #[inline]
+    #[must_use]
     pub fn start_cell_pos_z(&self) -> i32 {
         self.start_cell_pos_z
     }

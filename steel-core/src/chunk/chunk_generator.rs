@@ -24,3 +24,31 @@ pub trait ChunkGenerator: Send + Sync {
     /// Applies biome decorations to the chunk.
     fn apply_biome_decorations(&self, chunk: &ChunkAccess);
 }
+
+/// Blanket implementation for boxed chunk generators.
+/// This allows `Box<T>` to be used in `enum_dispatch` enums.
+impl<T: ChunkGenerator + ?Sized> ChunkGenerator for Box<T> {
+    fn create_structures(&self, chunk: &ChunkAccess) {
+        (**self).create_structures(chunk);
+    }
+
+    fn create_biomes(&self, chunk: &ChunkAccess) {
+        (**self).create_biomes(chunk);
+    }
+
+    fn fill_from_noise(&self, chunk: &ChunkAccess) {
+        (**self).fill_from_noise(chunk);
+    }
+
+    fn build_surface(&self, chunk: &ChunkAccess) {
+        (**self).build_surface(chunk);
+    }
+
+    fn apply_carvers(&self, chunk: &ChunkAccess) {
+        (**self).apply_carvers(chunk);
+    }
+
+    fn apply_biome_decorations(&self, chunk: &ChunkAccess) {
+        (**self).apply_biome_decorations(chunk);
+    }
+}

@@ -133,8 +133,8 @@ impl OreVeinSampler {
         }
 
         // Calculate boundary fade (20 blocks at each boundary)
-        let dist_to_min = (block_y - vein_type.min_y) as f64;
-        let dist_to_max = (vein_type.max_y - block_y) as f64;
+        let dist_to_min = f64::from(block_y - vein_type.min_y);
+        let dist_to_max = f64::from(vein_type.max_y - block_y);
         let boundary_dist = dist_to_min.min(dist_to_max);
         // Vanilla uses -0.2F widened to double
         let boundary_fade = clamped_map(boundary_dist, 0.0, 20.0, f64::from(-0.2_f32), 0.0);

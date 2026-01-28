@@ -126,7 +126,7 @@ impl StaticIndependentChunkNoiseFunctionComponentImpl for ShiftA {
 /// Shift B density function for domain warping.
 ///
 /// Samples noise to produce an offset for the Z coordinate.
-/// Uses swapped X/Z inputs compared to ShiftA for varied warping.
+/// Uses swapped X/Z inputs compared to `ShiftA` for varied warping.
 ///
 /// ```text
 /// sample(pos) = sampler.sample(z * 0.25, x * 0.25, 0) * 4
