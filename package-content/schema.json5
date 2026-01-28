@@ -20,6 +20,12 @@
             "description": "World seed for generating the world",
             "default": ""
         },
+        "world_type": {
+            "type": "string",
+            "description": "World generation type",
+            "enum": ["flat", "normal"],
+            "default": "normal"
+        },
         "max_players": {
             "type": "integer",
             "description": "Maximum number of players allowed on the server",

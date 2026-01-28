@@ -64,5 +64,9 @@ harness = false
 name = "legacy_random"
 harness = false
 
+[[bench]]
+name = "noise_router"
+harness = false
+
 [lints]
 workspace = true

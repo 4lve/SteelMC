@@ -4,6 +4,8 @@
     server_port: 25565,
     // World seed for generating the world, empty string means random seed
     seed: "",
+    // World generation type: "flat" or "normal" (vanilla terrain)
+    world_type: "normal",
     // Maximum number of players allowed on the server
     max_players: 20,
     // Maximum view distance in chunks

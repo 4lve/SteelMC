@@ -80,6 +80,7 @@ pub enum RandomSource {
 }
 
 /// A random number generator that can be split.
+#[derive(Clone, Copy)]
 #[enum_dispatch(PositionalRandom)]
 pub enum RandomSplitter {
     /// A xoroshiro random number generator.

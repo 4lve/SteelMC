@@ -21,7 +21,6 @@ use tokio::runtime::Runtime;
 use tokio_util::task::TaskTracker;
 use tracing::instrument;
 
-use crate::chunk::chunk_holder::ChunkHolder;
 use crate::chunk::chunk_ticket_manager::{
     ChunkTicketManager, LevelChange, MAX_VIEW_DISTANCE, is_full,
 };
@@ -30,8 +29,10 @@ use crate::chunk::world_gen_context::ChunkGeneratorType;
 use crate::chunk::{chunk_access::ChunkAccess, chunk_ticket_manager::is_ticked};
 use crate::chunk::{
     chunk_access::ChunkStatus, chunk_generation_task::ChunkGenerationTask,
-    flat_chunk_generator::FlatChunkGenerator, world_gen_context::WorldGenContext,
+    chunk_noise_generator::TerrainBlocks, flat_chunk_generator::FlatChunkGenerator,
+    world_gen_context::WorldGenContext,
 };
+use crate::chunk::{chunk_holder::ChunkHolder, vanilla_noise_generator::VanillaNoiseGenerator};
 use crate::chunk_saver::RegionManager;
 use crate::player::Player;
 use crate::world::World;
@@ -92,7 +93,7 @@ pub struct ChunkMap {
 }
 
 impl ChunkMap {
-    /// Creates a new chunk map.
+    /// Creates a new chunk map with a flat world generator.
     #[must_use]
     #[allow(clippy::missing_panics_doc, clippy::unwrap_used)]
     pub fn new(
@@ -110,6 +111,66 @@ impl ChunkMap {
                 .get_default_state_id(vanilla_blocks::GRASS_BLOCK), // Grass Block
         )));
 
+        Self::with_generator(chunk_runtime, world, dimension, generator)
+    }
+
+    /// Creates a new chunk map with vanilla noise-based terrain generation.
+    #[must_use]
+    #[allow(clippy::missing_panics_doc, clippy::unwrap_used)]
+    pub fn new_with_noise(
+        chunk_runtime: Arc<Runtime>,
+        world: Weak<World>,
+        dimension: &DimensionTypeRef,
+        seed: u64,
+    ) -> Self {
+        let blocks = TerrainBlocks {
+            stone: REGISTRY.blocks.get_default_state_id(vanilla_blocks::STONE),
+            water: REGISTRY.blocks.get_default_state_id(vanilla_blocks::WATER),
+            lava: REGISTRY.blocks.get_default_state_id(vanilla_blocks::LAVA),
+            air: REGISTRY.blocks.get_default_state_id(vanilla_blocks::AIR),
+            bedrock: REGISTRY
+                .blocks
+                .get_default_state_id(vanilla_blocks::BEDROCK),
+            copper_ore: REGISTRY
+                .blocks
+                .get_default_state_id(vanilla_blocks::COPPER_ORE),
+            deepslate_copper_ore: REGISTRY
+                .blocks
+                .get_default_state_id(vanilla_blocks::DEEPSLATE_COPPER_ORE),
+            raw_copper_block: REGISTRY
+                .blocks
+                .get_default_state_id(vanilla_blocks::RAW_COPPER_BLOCK),
+            granite: REGISTRY
+                .blocks
+                .get_default_state_id(vanilla_blocks::GRANITE),
+            iron_ore: REGISTRY
+                .blocks
+                .get_default_state_id(vanilla_blocks::IRON_ORE),
+            deepslate_iron_ore: REGISTRY
+                .blocks
+                .get_default_state_id(vanilla_blocks::DEEPSLATE_IRON_ORE),
+            raw_iron_block: REGISTRY
+                .blocks
+                .get_default_state_id(vanilla_blocks::RAW_IRON_BLOCK),
+            tuff: REGISTRY.blocks.get_default_state_id(vanilla_blocks::TUFF),
+        };
+
+        let generator = Arc::new(ChunkGeneratorType::Vanilla(Box::new(
+            VanillaNoiseGenerator::new(seed, blocks),
+        )));
+
+        Self::with_generator(chunk_runtime, world, dimension, generator)
+    }
+
+    /// Creates a new chunk map with a custom generator.
+    #[must_use]
+    #[allow(clippy::missing_panics_doc, clippy::unwrap_used)]
+    pub fn with_generator(
+        chunk_runtime: Arc<Runtime>,
+        world: Weak<World>,
+        dimension: &DimensionTypeRef,
+        generator: Arc<ChunkGeneratorType>,
+    ) -> Self {
         Self {
             chunks: scc::HashMap::default(),
             unloading_chunks: scc::HashMap::default(),

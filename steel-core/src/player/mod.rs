@@ -290,7 +290,9 @@ impl Player {
         // Create a single shared inventory container used by both the player and inventory menu
         let inventory = Arc::new(SyncMutex::new(PlayerInventory::new(player.clone())));
 
-        let pos = Vector3::new(0.0, 0.0, 0.0);
+        // Calculate spawn position using heightmap if available, or a safe default
+        let spawn_y = world.get_spawn_height(0, 0);
+        let pos = Vector3::new(0.0, f64::from(spawn_y), 0.0);
 
         Self {
             gameprofile,

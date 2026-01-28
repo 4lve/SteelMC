@@ -39,10 +39,21 @@ use crate::{
     ChunkMap,
     behavior::BLOCK_BEHAVIORS,
     block_entity::SharedBlockEntity,
+    chunk::{chunk_access::ChunkAccess, heightmap::HeightmapType},
     config::STEEL_CONFIG,
     level_data::LevelDataManager,
     player::{LastSeen, Player},
 };
+
+/// The type of world generation to use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum WorldType {
+    /// Flat world with configurable layers.
+    #[default]
+    Flat,
+    /// Vanilla-accurate noise-based terrain generation.
+    Normal,
+}
 
 mod player_area_map;
 mod player_map;
@@ -82,7 +93,7 @@ pub struct World {
 }
 
 impl World {
-    /// Creates a new world.
+    /// Creates a new world with the default (flat) generator.
     ///
     /// Uses `Arc::new_cyclic` to create a cyclic reference between
     /// the World and its `ChunkMap`'s `WorldGenContext`.
@@ -92,16 +103,44 @@ impl World {
         dimension: DimensionTypeRef,
         seed: i64,
     ) -> io::Result<Arc<Self>> {
+        Self::with_world_type(chunk_runtime, dimension, seed, WorldType::default()).await
+    }
+
+    /// Creates a new world with the specified world type.
+    ///
+    /// Uses `Arc::new_cyclic` to create a cyclic reference between
+    /// the World and its `ChunkMap`'s `WorldGenContext`.
+    #[allow(clippy::new_without_default)]
+    pub async fn with_world_type(
+        chunk_runtime: Arc<Runtime>,
+        dimension: DimensionTypeRef,
+        seed: i64,
+        world_type: WorldType,
+    ) -> io::Result<Arc<Self>> {
         let level_data =
             LevelDataManager::new(format!("world/{}", dimension.key.path), seed).await?;
 
-        Ok(Arc::new_cyclic(|weak_self: &Weak<World>| Self {
-            chunk_map: Arc::new(ChunkMap::new(chunk_runtime, weak_self.clone(), &dimension)),
-            players: PlayerMap::new(),
-            player_area_map: PlayerAreaMap::new(),
-            dimension,
-            level_data: SyncRwLock::new(level_data),
-            tick_runs_normally: AtomicBool::new(true),
+        Ok(Arc::new_cyclic(|weak_self: &Weak<World>| {
+            let chunk_map = match world_type {
+                WorldType::Flat => {
+                    Arc::new(ChunkMap::new(chunk_runtime, weak_self.clone(), &dimension))
+                }
+                WorldType::Normal => Arc::new(ChunkMap::new_with_noise(
+                    chunk_runtime,
+                    weak_self.clone(),
+                    &dimension,
+                    seed as u64,
+                )),
+            };
+
+            Self {
+                chunk_map,
+                players: PlayerMap::new(),
+                player_area_map: PlayerAreaMap::new(),
+                dimension,
+                level_data: SyncRwLock::new(level_data),
+                tick_runs_normally: AtomicBool::new(true),
+            }
         }))
     }
 
@@ -161,6 +200,35 @@ impl World {
     #[must_use]
     pub fn max_build_height(&self) -> i32 {
         self.get_min_y() + self.get_height()
+    }
+
+    /// Returns a safe spawn Y coordinate at the given X,Z position.
+    ///
+    /// If the chunk at the spawn position is loaded, uses the heightmap to find
+    /// the surface. Otherwise, returns a safe default height (100).
+    #[must_use]
+    pub fn get_spawn_height(&self, x: i32, z: i32) -> i32 {
+        let chunk_pos = ChunkPos::new(
+            SectionPos::block_to_section_coord(x),
+            SectionPos::block_to_section_coord(z),
+        );
+
+        // Try to get the surface height from the heightmap if the chunk is loaded
+        self.chunk_map
+            .with_full_chunk(&chunk_pos, |chunk| {
+                if let ChunkAccess::Full(level_chunk) = chunk {
+                    let local_x = (x & 0xF) as usize;
+                    let local_z = (z & 0xF) as usize;
+                    let heightmaps = level_chunk.heightmaps.read();
+                    heightmaps
+                        .get(HeightmapType::MotionBlocking)
+                        .get_first_available(local_x, local_z)
+                } else {
+                    // Chunk not at Full status, use default
+                    100
+                }
+            })
+            .unwrap_or(100) // Chunk not loaded, use a safe default
     }
 
     /// Checks if a player may interact with the world at the given position.

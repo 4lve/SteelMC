@@ -7,6 +7,7 @@ build = "build/build.rs"
 [features]
 #default = ["stand-alone"]
 stand-alone = []
+benchmarks = []
 
 [dependencies]
 # Internal crates
@@ -69,6 +70,14 @@ serde_json.workspace = true
 proc-macro2.workspace = true
 quote.workspace = true
 heck.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "chunk_generator"
+harness = false
+required-features = ["benchmarks"]
 
 [lints]
 workspace = true
