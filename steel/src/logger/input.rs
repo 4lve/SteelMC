@@ -2,6 +2,7 @@ use crate::SERVER;
 use crate::logger::{CommandLogger, Input};
 use nix::fcntl::{FcntlArg, OFlag, fcntl};
 use std::{
+    fmt::Write as _,
     io::{self, Result, Write},
     os::fd::AsFd,
     sync::Arc,
@@ -20,6 +21,7 @@ pub enum ExtendedKey {
     Termion(Key),
     ShiftHome,
     ShiftEnd,
+    String(String),
 }
 
 impl CommandLogger {
@@ -45,13 +47,20 @@ impl CommandLogger {
             )
             .expect("Couldn't set non-blocking mode");
             let mut reader = stdin.events();
+            let special_chars = ['\n', '\t'];
+            let mut string = String::new();
 
             loop {
+                let mut added_char = false;
                 if token.is_cancelled() {
                     break;
                 }
                 if let Some(Ok(event)) = reader.next() {
                     match event {
+                        Event::Key(Key::Char(char)) if !special_chars.contains(&char) => {
+                            added_char = true;
+                            write!(string, "{char}").ok();
+                        }
                         Event::Key(key) => {
                             tx.send(ExtendedKey::Termion(key)).ok();
                         }
@@ -68,6 +77,10 @@ impl CommandLogger {
                         }
                         Event::Mouse(_) => (),
                     }
+                }
+                if !added_char && !string.is_empty() {
+                    tx.send(ExtendedKey::String(string.clone())).ok();
+                    string = String::new();
                 }
             }
         });
@@ -108,12 +121,11 @@ impl CommandLogger {
                                 if input.completion.enabled {
                                     input.completion.enabled = false;
                                     input.completion.selected = 0;
-                                    for ch in input.completion.completed.clone().chars() {
-                                        if input.replace {
-                                            input.replace(ch)?;
-                                        } else {
-                                            input.push(ch)?;
-                                        }
+                                    let completion = input.completion.completed.clone();
+                                    if input.replace {
+                                        input.replace(completion)?;
+                                    } else {
+                                        input.push(completion)?;
                                     }
                                     input.completion.completed = String::new();
                                 } else {
@@ -121,21 +133,6 @@ impl CommandLogger {
                                     let pos = input.pos;
                                     input.update_suggestion_list(pos);
                                     input.rewrite_current_input()?;
-                                }
-                                continue;
-                            }
-                            Key::Char(char) => {
-                                if char == ' ' {
-                                    input.completion.selected = 0;
-                                }
-                                // Delete selection if active
-                                if input.selection.is_active() {
-                                    input.delete_selection()?;
-                                }
-                                if input.replace {
-                                    input.replace(char)?;
-                                } else {
-                                    input.push(char)?;
                                 }
                                 continue;
                             }
@@ -189,7 +186,7 @@ impl CommandLogger {
                                     input.update_suggestion_list(pos);
                                 }
                             }
-                            Key::Up => {
+                            Key::Up | Key::Ctrl('p') => {
                                 if input.completion.enabled {
                                     input.update_completion(-1)?;
                                 } else {
@@ -198,7 +195,7 @@ impl CommandLogger {
                                 }
                                 continue;
                             }
-                            Key::Down => {
+                            Key::Down | Key::Ctrl('n') => {
                                 if input.completion.enabled {
                                     input.update_completion(1)?;
                                 } else if input.history.pos != 0 {
@@ -339,6 +336,21 @@ impl CommandLogger {
                                 input.rewrite_input(len, len)?;
                                 continue;
                             }
+                        }
+                        ExtendedKey::String(string) => {
+                            if string.chars().any(|c| c == ' ') {
+                                input.completion.selected = 0;
+                            }
+                            // Delete selection if active
+                            if input.selection.is_active() {
+                                input.delete_selection()?;
+                            }
+                            if input.replace {
+                                input.replace(string)?;
+                            } else {
+                                input.push(string)?;
+                            }
+                            continue;
                         }
                     }
                     if input.completion.enabled {

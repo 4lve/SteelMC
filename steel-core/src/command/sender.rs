@@ -29,7 +29,7 @@ impl CommandSender {
     pub fn send_message(&self, text: &TextComponent) {
         match self {
             Self::Player(player) => player.send_message(text),
-            Self::Console => log::info!("{text:p}"),
+            Self::Console => log::info!("{:p}", *text),
             // TODO: Implement Rcon message sending
             Self::Rcon => unimplemented!(),
         }

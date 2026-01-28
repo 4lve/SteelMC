@@ -60,43 +60,65 @@ impl Input {
             cancel_token,
         }
     }
-    fn push(&mut self, ch: char) -> Result<()> {
+    fn push(&mut self, mut string: String) -> Result<()> {
+        let mut string_len = string.chars().count();
+        if string_len + self.length > 2048 {
+            let slice = string
+                .char_indices()
+                .nth(2048usize.saturating_sub(self.length))
+                .expect("Couldn't got the 2048 character.");
+            string = string[..slice.0].to_string();
+            string_len = string.chars().count();
+        }
         if self.pos == 0 {
-            self.text.insert(0, ch);
+            self.text.insert_str(0, &string);
         } else {
             let Some((pos, char)) = self.text.char_indices().nth(self.pos - 1) else {
                 return Ok(());
             };
-            self.text.insert(pos + char.len_utf8(), ch);
+            self.text.insert_str(pos + char.len_utf8(), &string);
         }
-        let length = self.length + 1;
-        let pos = self.pos + 1;
+        let length = self.length + string_len;
+        let pos = self.pos + string_len;
         self.update_suggestion_list(pos);
         self.rewrite_input(length, pos)?;
         Ok(())
     }
-    fn replace(&mut self, ch: char) -> Result<()> {
+    fn replace(&mut self, mut string: String) -> Result<()> {
+        let mut string_len = string.chars().count();
+        if (self.is_at_end() && string_len + self.length > 2048)
+            || (!self.is_at_end() && string_len - 1 + self.length > 2048)
+        {
+            let slice = string
+                .char_indices()
+                .nth(2048usize.saturating_sub(self.length))
+                .expect("Couldn't got the 2048 character.");
+            string = string[..slice.0].to_string();
+            string_len = string.chars().count();
+        }
         if self.pos == 0 {
-            self.text.insert(0, ch);
+            if self.is_empty() {
+                self.text = string;
+            } else {
+                self.text = format!("{}{}", string, &self.text[1..]);
+            }
         } else {
             let Some((pos, char)) = self.text.char_indices().nth(self.pos - 1) else {
                 return Ok(());
             };
             if self.is_at_end() {
-                self.text.insert(pos + char.len_utf8(), ch);
+                self.text.insert_str(pos + char.len_utf8(), &string);
             } else {
-                self.text.replace_range(
-                    pos + char.len_utf8()..=pos + char.len_utf8(),
-                    &ch.to_string(),
-                );
+                self.text
+                    .replace_range(pos + char.len_utf8()..=pos + char.len_utf8(), &string);
             }
         }
         let length = if self.is_at_end() {
-            self.length + 1
+            self.length + string_len
         } else {
-            self.length
+            self.length + string_len.saturating_sub(1)
         };
-        let pos = self.pos + 1;
+        let pos = self.pos + string_len;
         self.update_suggestion_list(pos);
         self.rewrite_input(length, pos)?;
         Ok(())
@@ -289,7 +311,6 @@ impl Input {
             } else {
                 (self.completion.selected + update as usize) % self.completion.suggestions.len()
             };
-            let mut height = 0u16;
             let width = if let Ok((width, _)) = termion::terminal_size() {
                 width as usize / 20
             } else {
@@ -297,16 +318,17 @@ impl Input {
             };
             let grid_size = width * 3;
             let start = (self.completion.selected / grid_size) * grid_size;
-            for h in 0..3 {
-                if start + h * width >= self.completion.suggestions.len() {
-                    break;
-                }
-                write!(self.out, "\n\r")?;
-                for w in 0..width {
-                    let pos = start + h * width + w;
-
+            let mut height = 0u16;
+            'outer: for w in 0..width {
+                for h in 0..3 {
+                    let pos = start + w * 3 + h;
                     if pos >= self.completion.suggestions.len() {
-                        break;
+                        break 'outer;
+                    }
+
+                    write!(self.out, "\n\r")?;
+                    if w != 0 {
+                        write!(self.out, "{}", Right(w as u16 * 20))?;
                     }
 
                     let color = if pos == self.completion.selected {
@@ -326,12 +348,17 @@ impl Input {
                         },
                         style::Reset
                     )?;
+                    height += 1;
                 }
-                height += 1;
+                write!(self.out, "{}", Up(3))?;
+                height = 0;
             }
-            let y = self.get_end().0;
+            let y = height + self.get_end().0 as u16;
             let x = self.get_current_pos().1;
-            write!(self.out, "{}\r{}", Up(height + y as u16), Right(x as u16))?;
+            if y != 0 {
+                write!(self.out, "{}", Up(y))?;
+            }
+            write!(self.out, "\r{}", Right(x as u16))?;
 
             if let Some(text) = self.text[..self.pos].split_whitespace().last()
                 && let Some(striped) =
@@ -373,7 +400,7 @@ impl Input {
         }
 
         // Build the output string with selection highlighting
-        let output = if self.selection.is_active() && !self.completion.error {
+        let output = if self.selection.is_active() {
             let range = self.selection.get_range();
             let start = range.start;
             let end = range.end;
