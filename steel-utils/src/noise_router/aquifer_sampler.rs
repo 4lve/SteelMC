@@ -2,6 +2,42 @@
 //!
 //! This module contains the aquifer sampling system that determines where
 //! water and lava appear in caves and underground areas.
+//!
+//! # Overview
+//!
+//! The aquifer system creates natural underground water pockets and lava lakes
+//! by using a grid-based approach with noise. It matches vanilla Minecraft's
+//! `NoiseBasedAquifer` implementation.
+//!
+//! # Sampler Variants
+//!
+//! - [`SeaLevelAquiferSampler`]: Simple sampler that places water below sea level (Y=63)
+//! - [`WorldAquiferSampler`]: Full implementation with underground water/lava pockets
+//!
+//! # Grid System
+//!
+//! The world aquifer uses a 3D grid for caching:
+//! - **X spacing**: 16 blocks
+//! - **Y spacing**: 12 blocks
+//! - **Z spacing**: 16 blocks
+//!
+//! Each grid cell has a random offset position and a computed [`FluidLevel`].
+//!
+//! # Algorithm
+//!
+//! For each block position:
+//! 1. Find the 3 closest aquifer grid points
+//! 2. Compute fluid levels using 13-point surface sampling
+//! 3. Calculate barriers between different fluid regions
+//! 4. Determine if fluid (water/lava) or solid should be placed
+//!
+//! # Fluid Type Selection
+//!
+//! - **Sea level**: Water at Y=63 and above in air
+//! - **Underground**: Water/lava based on noise and depth
+//! - **Deep lava**: Lava below Y=-54
+//!
+//! [`FluidLevel`]: super::fluid_level::FluidLevel
 
 #![allow(clippy::similar_names, clippy::too_many_lines)]
 
@@ -180,7 +216,28 @@ pub struct WorldAquiferSampler {
 }
 
 impl WorldAquiferSampler {
-    /// Creates a new world aquifer sampler.
+    /// Creates a new world aquifer sampler for a chunk.
+    ///
+    /// This initializes the grid-based cache for aquifer positions and fluid levels.
+    /// The cache covers a slightly larger area than the chunk to handle boundary
+    /// lookups during the 2×3×2 grid search.
+    ///
+    /// # Arguments
+    ///
+    /// * `chunk_x` - Chunk X coordinate (chunk position, not block position)
+    /// * `chunk_z` - Chunk Z coordinate
+    /// * `random_deriver` - Position-based random for consistent aquifer positions
+    /// * `minimum_y` - World minimum Y coordinate (e.g., -64)
+    /// * `height` - World height (e.g., 384 blocks)
+    /// * `fluid_level_sampler` - Default fluid levels (sea level water, deep lava)
+    /// * `blocks` - Block state IDs for water, lava, and air
+    ///
+    /// # Grid System
+    ///
+    /// The aquifer uses a 3D grid with different spacing per axis:
+    /// - X: 16 blocks per cell
+    /// - Y: 12 blocks per cell
+    /// - Z: 16 blocks per cell
     #[must_use]
     pub fn new(
         chunk_x: i32,
@@ -237,7 +294,17 @@ impl WorldAquiferSampler {
     }
 
     /// Computes similarity between two squared distances.
-    /// Returns 1.0 - (dist2 - dist1) / 25.0
+    ///
+    /// This determines how much two aquifer points should blend together.
+    /// A similarity > 0 means the points are close enough to create a barrier.
+    ///
+    /// # Formula
+    ///
+    /// `similarity = 1.0 - (dist2 - dist1) / 25.0`
+    ///
+    /// - Returns 1.0 when distances are equal (maximum blending)
+    /// - Returns 0.0 when `dist2 - dist1 = 25` (no blending)
+    /// - Returns negative when difference > 25 (too far apart)
     #[inline]
     fn similarity(dist_sq_1: i32, dist_sq_2: i32) -> f64 {
         1.0 - f64::from(dist_sq_2 - dist_sq_1) / 25.0

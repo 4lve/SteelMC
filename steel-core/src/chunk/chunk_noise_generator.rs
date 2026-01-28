@@ -30,16 +30,25 @@ fn block_to_section(block: i32) -> i32 {
     block >> 4
 }
 
-/// Generation shape configuration.
+/// Generation shape configuration for a dimension.
+///
+/// Defines the vertical bounds and cell sizes for terrain generation.
+/// Different dimensions use different configurations:
+///
+/// | Dimension | Min Y | Height | Horizontal Cell | Vertical Cell |
+/// |-----------|-------|--------|-----------------|---------------|
+/// | Overworld | -64   | 384    | 4               | 8             |
+/// | Nether    | 0     | 128    | 4               | 8             |
+/// | The End   | 0     | 256    | 4               | 4             |
 #[derive(Clone)]
 pub struct GenerationShapeConfig {
-    /// Minimum Y coordinate.
+    /// Minimum Y coordinate (e.g., -64 for overworld).
     pub min_y: i8,
-    /// Total height.
+    /// Total height in blocks (e.g., 384 for overworld).
     pub height: u16,
-    /// Horizontal cell block count (typically 4).
+    /// Horizontal cell size in blocks (typically 4).
     horizontal_cell_block_count: u8,
-    /// Vertical cell block count (typically 8).
+    /// Vertical cell size in blocks (typically 8).
     vertical_cell_block_count: u8,
 }
 
@@ -85,33 +94,36 @@ impl GenerationShapeConfig {
 }
 
 /// Block state IDs needed for terrain generation.
+///
+/// Contains all block types used during the noise-based terrain
+/// generation phase, including stone, fluids, and ore vein blocks.
 #[derive(Clone)]
 pub struct TerrainBlocks {
-    /// Stone block.
+    /// Default solid block.
     pub stone: BlockStateId,
-    /// Water block.
+    /// Water block for seas and aquifers.
     pub water: BlockStateId,
-    /// Lava block.
+    /// Lava block for deep underground and aquifers.
     pub lava: BlockStateId,
-    /// Air block.
+    /// Air block for caves and surface.
     pub air: BlockStateId,
-    /// Bedrock block (used by flat world generator).
+    /// Bedrock block.
     pub bedrock: BlockStateId,
-    /// Copper ore block.
+    /// Copper ore (Y >= 0).
     pub copper_ore: BlockStateId,
-    /// Deepslate copper ore block.
+    /// Deepslate copper ore (Y < 0).
     pub deepslate_copper_ore: BlockStateId,
-    /// Raw copper block.
+    /// Raw copper block (rare in veins).
     pub raw_copper_block: BlockStateId,
-    /// Granite block.
+    /// Granite (copper vein filler).
     pub granite: BlockStateId,
-    /// Iron ore block.
+    /// Iron ore (Y >= 0).
     pub iron_ore: BlockStateId,
-    /// Deepslate iron ore block.
+    /// Deepslate iron ore (Y < 0).
     pub deepslate_iron_ore: BlockStateId,
-    /// Raw iron block.
+    /// Raw iron block (rare in veins).
     pub raw_iron_block: BlockStateId,
-    /// Tuff block.
+    /// Tuff (iron vein filler).
     pub tuff: BlockStateId,
 }
 
@@ -143,33 +155,70 @@ impl TerrainBlocks {
 }
 
 /// Chunk noise generator managing the router and samplers.
+///
+/// This is the high-level coordinator for terrain generation within a chunk.
+/// It combines:
+/// - The noise router for density evaluation
+/// - The block state sampler chain (aquifer + ore veins)
+/// - Surface height estimation for aquifer calculations
+///
+/// # Usage
+///
+/// 1. Create with `new()`
+/// 2. Call `sample_start_density()` once
+/// 3. For each X column:
+///    - Call `sample_end_density(cell_x)`
+///    - For each Z, Y cell: call `on_sampled_cell_corners()`
+///    - For each block: call `interpolate_y/x/z()` then `sample_block_state()`
+///    - Call `swap_buffers()` at end of column
 pub struct ChunkNoiseGenerator<'a> {
-    /// Block state sampler chain.
+    /// Block state sampler chain (ore veins -> aquifer -> default).
     pub state_sampler: ChainedBlockStateSampler,
-    /// Surface height estimator.
+    /// Surface height estimator for aquifer fluid level calculation.
     pub height_estimator: SurfaceHeightEstimateSampler<'a>,
-    /// The noise router.
+    /// The chunk noise router for density evaluation.
     pub router: ChunkNoiseRouter<'a>,
-    /// Generation shape.
+    /// Generation shape configuration.
     generation_shape: &'a GenerationShapeConfig,
-    /// Block state IDs.
+    /// Block state IDs for terrain.
     blocks: &'a TerrainBlocks,
     /// Starting cell X position.
     start_cell_pos_x: i32,
     /// Starting cell Z position.
     start_cell_pos_z: i32,
-    /// Vertical cell count.
+    /// Number of vertical cells.
     vertical_cell_count: usize,
-    /// Minimum cell Y.
+    /// Minimum cell Y coordinate.
     minimum_cell_y: i32,
-    /// Cache fill unique ID.
+    /// Cache fill unique ID (incremented per fill operation).
     cache_fill_unique_id: u64,
-    /// Cache result unique ID.
+    /// Cache result unique ID (incremented per sample).
     cache_result_unique_id: u64,
 }
 
 impl<'a> ChunkNoiseGenerator<'a> {
-    /// Creates a new chunk noise generator.
+    /// Creates a new chunk noise generator for terrain generation.
+    ///
+    /// This is the main entry point for creating a generator that will fill
+    /// a chunk with terrain using noise-based density functions.
+    ///
+    /// # Arguments
+    ///
+    /// * `noise_router_base` - The proto noise router (seed-initialized)
+    /// * `surface_estimator_base` - Surface height estimation router for aquifers
+    /// * `random_config` - World random configuration for aquifer/ore derivers
+    /// * `horizontal_cell_count` - Number of cells horizontally (typically 4)
+    /// * `start_block_x` - Starting X block coordinate of the chunk
+    /// * `start_block_z` - Starting Z block coordinate of the chunk
+    /// * `generation_shape` - Generation bounds (min_y, height, cell sizes)
+    /// * `fluid_level_sampler` - Default fluid levels (sea level, lava level)
+    /// * `blocks` - Block state IDs for terrain generation
+    /// * `enable_aquifers` - Whether to enable underground water/lava pockets
+    /// * `enable_ore_veins` - Whether to enable large ore vein generation
+    ///
+    /// # Returns
+    ///
+    /// A new `ChunkNoiseGenerator` ready for terrain generation.
     pub fn new(
         noise_router_base: &'a ProtoNoiseRouter,
         surface_estimator_base: &'a ProtoSurfaceEstimator,
@@ -266,20 +315,34 @@ impl<'a> ChunkNoiseGenerator<'a> {
         }
     }
 
-    /// Samples the start density column.
+    /// Samples the start density column for trilinear interpolation.
+    ///
+    /// Call this once before starting the generation loop. This fills the
+    /// start buffer with density values at the chunk's first X column.
     #[inline]
     pub fn sample_start_density(&mut self) {
         self.cache_result_unique_id = 0;
         self.sample_density(true, self.start_cell_pos_x);
     }
 
-    /// Samples the end density column for the given cell X.
+    /// Samples the end density column for the given cell X index.
+    ///
+    /// Call this at the start of each X iteration to sample the next column.
+    /// After processing, call `swap_buffers()` to reuse this as the start column.
+    ///
+    /// # Arguments
+    ///
+    /// * `cell_x` - The current cell X index (0 to horizontal_cells-1)
     #[inline]
     pub fn sample_end_density(&mut self, cell_x: i32) {
         self.sample_density(false, self.start_cell_pos_x + cell_x + 1);
     }
 
-    /// Samples density for a column.
+    /// Internal: Samples density for a vertical column at the given X position.
+    ///
+    /// This fills interpolator buffers with density values for all Y levels
+    /// at each Z cell position. The `start` flag determines whether to fill
+    /// the start buffer or end buffer.
     fn sample_density(&mut self, start: bool, current_x: i32) {
         let h_cell = i32::from(self.generation_shape.horizontal_cell_block_count());
         let v_cell = i32::from(self.generation_shape.vertical_cell_block_count());
@@ -337,7 +400,17 @@ impl<'a> ChunkNoiseGenerator<'a> {
         self.router.swap_buffers();
     }
 
-    /// Called when cell corners are sampled.
+    /// Notifies the generator that cell corners have been sampled.
+    ///
+    /// This must be called at the start of each cell iteration to:
+    /// 1. Extract the 8 corner values from interpolator buffers
+    /// 2. Fill cell caches with density values for this cell
+    ///
+    /// # Arguments
+    ///
+    /// * `cell_x` - Cell X index (0 to horizontal_cells-1)
+    /// * `cell_y` - Cell Y index (0 to vertical_cell_count-1)
+    /// * `cell_z` - Cell Z index (0 to horizontal_cells-1)
     pub fn on_sampled_cell_corners(&mut self, cell_x: i32, cell_y: i32, cell_z: i32) {
         let h_cell = self.generation_shape.horizontal_cell_block_count() as usize;
         let v_cell = self.generation_shape.vertical_cell_block_count() as usize;

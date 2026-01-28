@@ -2,6 +2,27 @@
 //!
 //! This module handles the generation of large ore veins (copper and iron)
 //! that are placed during the noise generation phase.
+//!
+//! # Vein Types
+//!
+//! | Type | Y Range | Ore | Filler Stone |
+//! |------|---------|-----|--------------|
+//! | Copper | 0 to 50 | Copper Ore / Deepslate Copper | Granite |
+//! | Iron | -60 to -8 | Iron Ore / Deepslate Iron | Tuff |
+//!
+//! # Algorithm
+//!
+//! The vein sampler uses three noise functions from the router:
+//! - `vein_toggle`: Determines copper (>0) vs iron (<0)
+//! - `vein_ridged`: Must be negative for ore placement
+//! - `vein_gap`: Gaps in the vein where no ore appears
+//!
+//! # Ore Placement
+//!
+//! When a vein is detected:
+//! - 2% chance: Raw ore block (raw copper/iron block)
+//! - 98% chance: Regular ore block
+//! - Filler: Granite (copper veins) or Tuff (iron veins)
 
 use crate::noise::clamped_map;
 use crate::random::{PositionalRandom, Random, RandomSplitter};

@@ -24,8 +24,20 @@ use crate::noise_router::chunk_noise_router::{
 };
 
 /// End island density function for the End dimension.
+///
+/// Generates the characteristic floating island shapes of the End.
+/// Uses simplex noise sampled at 1/8 block resolution with a 25×25
+/// grid search to find nearby islands.
+///
+/// # Algorithm
+///
+/// 1. Calculate base distance from origin: `100 - 8 * dist`
+/// 2. Search 25×25 grid for islands (noise < -0.9)
+/// 3. For each island, calculate influence radius
+/// 4. Return maximum influence value
 #[derive(Clone)]
 pub struct EndIsland {
+    /// Simplex noise sampler.
     sampler: Arc<SimplexNoise>,
 }
 
@@ -92,9 +104,21 @@ impl StaticIndependentChunkNoiseFunctionComponentImpl for EndIsland {
 }
 
 /// Weird scaled noise density function for cave generation.
+///
+/// Scales the sampling frequency based on an input density, creating
+/// caves that vary in size. Uses different mapper types for cheese
+/// caves vs spaghetti caves.
+///
+/// ```text
+/// scaled = mapper.scale(input.sample(pos))
+/// sample(pos) = scaled * |sampler.sample(x/scaled, y/scaled, z/scaled)|
+/// ```
 pub struct WeirdScaled {
+    /// Index of the input component that determines scale.
     pub input_index: usize,
+    /// The noise sampler.
     pub sampler: DoublePerlinNoise,
+    /// Scale mapping function (Type1 or Type2).
     pub mapper: WeirdScaledMapper,
 }
 
@@ -176,8 +200,19 @@ impl NoiseFunctionComponentRange for WeirdScaled {
 }
 
 /// Clamped Y gradient density function.
+///
+/// Creates a linear gradient based on Y coordinate, useful for
+/// smooth transitions between terrain layers (e.g., bedrock depth).
+///
+/// ```text
+/// sample(pos) = clampedMap(y, from_y, to_y, from_value, to_value)
+/// ```
+///
+/// Returns `from_value` when y ≤ `from_y`, `to_value` when y ≥ `to_y`,
+/// and linearly interpolates between.
 #[derive(Clone)]
 pub struct ClampedYGradient {
+    /// Gradient configuration.
     data: &'static ClampedYGradientData,
 }
 
@@ -218,14 +253,26 @@ impl StaticIndependentChunkNoiseFunctionComponentImpl for ClampedYGradient {
     }
 }
 
-/// Range choice density function that selects between two inputs based on a condition.
+/// Range choice density function that selects between two inputs.
+///
+/// Evaluates the input density and chooses between two branches:
+/// - If `min_inclusive <= input < max_exclusive`: return `when_in`
+/// - Otherwise: return `when_out`
+///
+/// This is used for conditional terrain features based on density values.
 #[derive(Clone)]
 pub struct RangeChoice {
+    /// Index of the condition input.
     pub input_index: usize,
+    /// Index of the "in range" result component.
     pub when_in_index: usize,
+    /// Index of the "out of range" result component.
     pub when_out_index: usize,
+    /// Range bounds.
     data: &'static RangeChoiceData,
+    /// Minimum possible output (from either branch).
     min_value: f64,
+    /// Maximum possible output (from either branch).
     max_value: f64,
 }
 

@@ -13,9 +13,14 @@ use crate::noise_router::chunk_noise_router::{
 use crate::noise_router::proto_noise_router::ProtoNoiseFunctionComponent;
 
 /// A spline value that can be either a fixed value or a nested spline.
+///
+/// Splines can be arbitrarily nested, allowing complex terrain curves that
+/// depend on multiple climate parameters.
 #[derive(Clone)]
 pub enum SplineValue {
+    /// A nested spline (recursive evaluation).
     Spline(Spline),
+    /// A constant value (leaf node).
     Fixed(f32),
 }
 
@@ -86,9 +91,11 @@ fn binary_walk(min: usize, max: usize, pred: impl Fn(usize) -> bool) -> usize {
     min
 }
 
-/// The result of finding an index for a location in a spline.
+/// Result of finding an index for a location in a spline.
 pub enum Range {
+    /// The location is within the spline's control points at the given index.
     In(usize),
+    /// The location is below the first control point.
     Below,
 }
 
