@@ -8,10 +8,13 @@ use std::{
     time::Duration,
 };
 
+use crate::chunk::chunk_map::ChunkMapTickTimings;
+
 use sha2::{Digest, Sha256};
 use steel_protocol::packet_traits::{ClientPacket, EncodedPacket};
 use steel_protocol::packets::game::{
-    CBlockDestruction, CPlayerChat, CPlayerInfoUpdate, CSystemChat,
+    CBlockDestruction, CBlockEvent, CLevelEvent, CPlayerChat, CPlayerInfoUpdate, CSound,
+    CSystemChat, SoundSource,
 };
 use steel_protocol::utils::ConnectionProtocol;
 
@@ -22,6 +25,7 @@ use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::Direction;
 use steel_registry::game_rules::{GameRuleRef, GameRuleValue};
 use steel_registry::item_stack::ItemStack;
+use steel_registry::level_events;
 use steel_registry::vanilla_blocks;
 use steel_registry::vanilla_game_rules::RANDOM_TICK_SPEED;
 use steel_registry::{REGISTRY, dimension_type::DimensionTypeRef};
@@ -49,6 +53,15 @@ mod world_entities;
 pub use player_area_map::PlayerAreaMap;
 pub use player_map::PlayerMap;
 pub use tick_scheduler::{ScheduledTick, TickScheduler, TickType};
+
+/// Timing information for a world tick.
+#[derive(Debug)]
+pub struct WorldTickTimings {
+    /// Chunk map tick timings.
+    pub chunk_map: ChunkMapTickTimings,
+    /// Time spent ticking players.
+    pub player_tick: Duration,
+}
 
 /// Interval in ticks between player info broadcasts (600 ticks = 30 seconds).
 /// Matches vanilla `PlayerList.SEND_PLAYER_INFO_INTERVAL`.
@@ -539,16 +552,21 @@ impl World {
     /// * `tick_count` - The current tick number
     /// * `runs_normally` - Whether game elements (random ticks, entities) should run.
     ///   When false (frozen), only essential operations like chunk loading run.
-    pub fn tick_b(&self, tick_count: u64, runs_normally: bool) {
+    ///
+    /// Returns timing information for the world tick.
+    #[tracing::instrument(level = "trace", skip(self), name = "world_tick")]
+    pub fn tick_b(&self, tick_count: u64, runs_normally: bool) -> WorldTickTimings {
+
         // Update the world's stored game time so components (like fluids) can access it
         {
             let mut level_data = self.level_data.write();
             level_data.data_mut().game_time = tick_count as i64;
         }
-
+        
         let random_tick_speed = self.get_game_rule(RANDOM_TICK_SPEED).as_int().unwrap_or(3) as u32;
 
-        self.chunk_map
+        let chunk_map_timings = self
+            .chunk_map
             .tick_b(tick_count, random_tick_speed, runs_normally);
 
         // Process scheduled ticks (blocks and fluids) when running normally
@@ -557,20 +575,25 @@ impl World {
         }
 
         // Tick players (always tick players - they can move when frozen)
-        let start = Instant::now();
-        self.players.iter_players(|_uuid, player| {
-            player.tick();
-
-            true
-        });
-        let player_tick_elapsed = start.elapsed();
-        if player_tick_elapsed >= Duration::from_millis(100) {
-            log::warn!("Player tick slow: {player_tick_elapsed:?}");
-        }
+        let player_tick = {
+            let _span = tracing::trace_span!("player_tick").entered();
+            let start = Instant::now();
+            self.players.iter_players(|_uuid, player| {
+                player.tick();
+                true
+            });
+            start.elapsed()
+        };
 
         // Broadcast player latency updates periodically
         if tick_count.is_multiple_of(SEND_PLAYER_INFO_INTERVAL) {
+            let _span = tracing::trace_span!("broadcast_latency").entered();
             self.broadcast_player_latency_updates();
+        }
+
+        WorldTickTimings {
+            chunk_map: chunk_map_timings,
+            player_tick,
         }
     }
 
@@ -677,6 +700,23 @@ impl World {
             return;
         };
         self.broadcast_to_all_encoded(encoded);
+    }
+
+    /// Broadcasts a packet to all players in the world.
+    ///
+    /// This method handles encoding the packets producced from the function passed
+    pub fn broadcast_to_all_with<P: ClientPacket, F: Fn(&Player) -> P>(&self, packet: F) {
+        self.players.iter_players(|_, player| {
+            let Ok(encoded) = EncodedPacket::from_bare(
+                packet(player),
+                STEEL_CONFIG.compression,
+                ConnectionProtocol::Play,
+            ) else {
+                return false;
+            };
+            player.connection.send_encoded_packet(encoded);
+            true
+        });
     }
 
     /// Broadcasts an already-encoded packet to all players in the world.
@@ -1030,5 +1070,235 @@ impl World {
         }
 
         (None, None)
+    }
+    /// Broadcasts a level event to nearby players within 64 blocks.
+    ///
+    /// Level events trigger sounds, particles, and animations on the client.
+    /// See `steel_registry::level_events` for available event type constants.
+    ///
+    /// # Arguments
+    /// * `event_type` - The event type ID from `steel_registry::level_events`
+    /// * `pos` - The position where the event occurs
+    /// * `data` - Event-specific data (e.g., block state ID for block destruction)
+    /// * `exclude` - Optional entity ID to exclude from receiving the event
+    pub fn level_event(&self, event_type: i32, pos: BlockPos, data: i32, exclude: Option<i32>) {
+        const MAX_DISTANCE_SQ: f64 = 64.0 * 64.0;
+
+        let chunk = ChunkPos::new(
+            SectionPos::block_to_section_coord(pos.x()),
+            SectionPos::block_to_section_coord(pos.z()),
+        );
+        let packet = CLevelEvent::new(event_type, pos, data, false);
+        let Ok(encoded) =
+            EncodedPacket::from_bare(packet, STEEL_CONFIG.compression, ConnectionProtocol::Play)
+        else {
+            log::warn!("Failed to encode level event packet");
+            return;
+        };
+
+        // Get players tracking this chunk, then filter by 64-block distance
+        let event_pos = (
+            f64::from(pos.x()) + 0.5,
+            f64::from(pos.y()) + 0.5,
+            f64::from(pos.z()) + 0.5,
+        );
+
+        for entity_id in self.player_area_map.get_tracking_players(chunk) {
+            // Skip excluded player (they hear the effect client-side)
+            if exclude == Some(entity_id) {
+                continue;
+            }
+            if let Some(player) = self.players.get_by_entity_id(entity_id) {
+                let player_pos = *player.position.lock();
+                let dx = player_pos.x - event_pos.0;
+                let dy = player_pos.y - event_pos.1;
+                let dz = player_pos.z - event_pos.2;
+                let dist_sq = dx * dx + dy * dy + dz * dz;
+
+                if dist_sq <= MAX_DISTANCE_SQ {
+                    player.connection.send_encoded_packet(encoded.clone());
+                }
+            }
+        }
+    }
+
+    /// Broadcasts a global level event to all players in the world.
+    ///
+    /// Unlike `level_event`, this sends the event to all players regardless of distance.
+    /// Used for events like the ender dragon death or wither spawn.
+    ///
+    /// # Arguments
+    /// * `event_type` - The event type ID from `steel_registry::level_events`
+    /// * `pos` - The position where the event occurs
+    /// * `data` - Event-specific data
+    pub fn global_level_event(&self, event_type: i32, pos: BlockPos, data: i32) {
+        let packet = CLevelEvent::new(event_type, pos, data, true);
+        self.players.iter_players(|_, player| {
+            player.connection.send_packet(packet.clone());
+            true
+        });
+    }
+
+    /// Broadcasts block destruction particles and sound for a destroyed block.
+    ///
+    /// This is a convenience method that sends the `PARTICLES_DESTROY_BLOCK` level event.
+    ///
+    /// # Arguments
+    /// * `pos` - The position of the destroyed block
+    /// * `block_state_id` - The block state ID of the destroyed block
+    /// * `exclude` - Optional entity ID to exclude from receiving the event
+    pub fn destroy_block_effect(&self, pos: BlockPos, block_state_id: u32, exclude: Option<i32>) {
+        self.level_event(
+            level_events::PARTICLES_DESTROY_BLOCK,
+            pos,
+            block_state_id as i32,
+            exclude,
+        );
+    }
+
+    /// Broadcasts a block event to nearby players within 64 blocks.
+    ///
+    /// Block events are used for special block behaviors like pistons, note blocks,
+    /// chests, and bells. Each block type interprets the parameters differently.
+    ///
+    /// # Arguments
+    /// * `pos` - The position of the block
+    /// * `block` - The block reference
+    /// * `action_id` - The action ID (block-specific meaning)
+    /// * `action_param` - The action parameter (block-specific meaning)
+    pub fn block_event(&self, pos: BlockPos, block: BlockRef, action_id: u8, action_param: u8) {
+        const MAX_DISTANCE_SQ: f64 = 64.0 * 64.0;
+
+        let block_id = *REGISTRY.blocks.get_id(block) as i32;
+
+        let chunk = ChunkPos::new(
+            SectionPos::block_to_section_coord(pos.x()),
+            SectionPos::block_to_section_coord(pos.z()),
+        );
+        let packet = CBlockEvent::new(pos, action_id, action_param, block_id);
+        let Ok(encoded) =
+            EncodedPacket::from_bare(packet, STEEL_CONFIG.compression, ConnectionProtocol::Play)
+        else {
+            log::warn!("Failed to encode block event packet");
+            return;
+        };
+
+        // Get players tracking this chunk, then filter by 64-block distance
+        let event_pos = (
+            f64::from(pos.x()) + 0.5,
+            f64::from(pos.y()) + 0.5,
+            f64::from(pos.z()) + 0.5,
+        );
+
+        for entity_id in self.player_area_map.get_tracking_players(chunk) {
+            if let Some(player) = self.players.get_by_entity_id(entity_id) {
+                let player_pos = *player.position.lock();
+                let dx = player_pos.x - event_pos.0;
+                let dy = player_pos.y - event_pos.1;
+                let dz = player_pos.z - event_pos.2;
+                let dist_sq = dx * dx + dy * dy + dz * dz;
+
+                if dist_sq <= MAX_DISTANCE_SQ {
+                    player.connection.send_encoded_packet(encoded.clone());
+                }
+            }
+        }
+    }
+
+    /// Plays a sound at a specific position, broadcasting to nearby players.
+    ///
+    /// The sound is sent to all players within 64 blocks of the position,
+    /// except for the excluded player (if any). The excluded player is typically
+    /// the one who triggered the sound, as they hear it client-side.
+    ///
+    /// # Arguments
+    /// * `sound_id` - The sound event registry ID (from `steel_registry::sound_events`)
+    /// * `source` - The sound source category
+    /// * `pos` - The block position (sound plays at center of block)
+    /// * `volume` - Volume multiplier (1.0 = normal)
+    /// * `pitch` - Pitch multiplier (1.0 = normal)
+    /// * `exclude` - Optional entity ID to exclude from receiving the sound
+    pub fn play_sound(
+        &self,
+        sound_id: i32,
+        source: SoundSource,
+        pos: BlockPos,
+        volume: f32,
+        pitch: f32,
+        exclude: Option<i32>,
+    ) {
+        const MAX_DISTANCE_SQ: f64 = 64.0 * 64.0;
+
+        let chunk = ChunkPos::new(
+            SectionPos::block_to_section_coord(pos.x()),
+            SectionPos::block_to_section_coord(pos.z()),
+        );
+
+        // Generate a random seed for sound variations
+        let seed = rand::random::<i64>();
+
+        let packet = CSound::new(
+            sound_id,
+            source,
+            f64::from(pos.x()) + 0.5,
+            f64::from(pos.y()) + 0.5,
+            f64::from(pos.z()) + 0.5,
+            volume,
+            pitch,
+            seed,
+        );
+        let Ok(encoded) =
+            EncodedPacket::from_bare(packet, STEEL_CONFIG.compression, ConnectionProtocol::Play)
+        else {
+            log::warn!("Failed to encode sound packet");
+            return;
+        };
+
+        // Get players tracking this chunk, then filter by 64-block distance
+        let sound_pos = (
+            f64::from(pos.x()) + 0.5,
+            f64::from(pos.y()) + 0.5,
+            f64::from(pos.z()) + 0.5,
+        );
+
+        for entity_id in self.player_area_map.get_tracking_players(chunk) {
+            // Skip excluded player (they hear the sound client-side)
+            if exclude == Some(entity_id) {
+                continue;
+            }
+            if let Some(player) = self.players.get_by_entity_id(entity_id) {
+                let player_pos = *player.position.lock();
+                let dx = player_pos.x - sound_pos.0;
+                let dy = player_pos.y - sound_pos.1;
+                let dz = player_pos.z - sound_pos.2;
+                let dist_sq = dx * dx + dy * dy + dz * dz;
+
+                if dist_sq <= MAX_DISTANCE_SQ {
+                    player.connection.send_encoded_packet(encoded.clone());
+                }
+            }
+        }
+    }
+
+    /// Plays a block sound at a specific position.
+    ///
+    /// Convenience method that uses the BLOCKS sound source and applies
+    /// the sound type's volume and pitch modifiers.
+    ///
+    /// # Arguments
+    /// * `sound_id` - The sound event registry ID
+    /// * `pos` - The block position
+    /// * `volume` - Base volume (typically from `SoundType`)
+    /// * `pitch` - Base pitch (typically from `SoundType`)
+    /// * `exclude` - Optional entity ID to exclude from receiving the sound
+    pub fn play_block_sound(
+        &self,
+        sound_id: i32,
+        pos: BlockPos,
+        volume: f32,
+        pitch: f32,
+        exclude: Option<i32>,
+    ) {
+        self.play_sound(sound_id, SoundSource::Blocks, pos, volume, pitch, exclude);
     }
 }

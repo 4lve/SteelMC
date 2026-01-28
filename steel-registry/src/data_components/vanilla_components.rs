@@ -2,8 +2,8 @@
 //!
 //! This module defines all vanilla Minecraft data components and provides
 //! the registration function to add them to the registry.
-
 use steel_utils::Identifier;
+use text_components::TextComponent;
 
 use super::component_data::ComponentData;
 use super::registry::DataComponentRegistry;
@@ -19,6 +19,12 @@ pub const MAX_STACK_SIZE: DataComponentType<i32> =
 
 pub const MAX_DAMAGE: DataComponentType<i32> =
     DataComponentType::new(Identifier::vanilla_static("max_damage"));
+
+pub const CUSTOM_NAME: DataComponentType<TextComponent> =
+    DataComponentType::new(Identifier::vanilla_static("custom_name"));
+
+pub const ITEM_NAME: DataComponentType<TextComponent> =
+    DataComponentType::new(Identifier::vanilla_static("item_name"));
 
 pub const DAMAGE: DataComponentType<i32> =
     DataComponentType::new(Identifier::vanilla_static("damage"));
@@ -65,12 +71,6 @@ pub const MINIMUM_ATTACK_CHARGE: DataComponentType<()> =
 
 pub const DAMAGE_TYPE: DataComponentType<()> =
     DataComponentType::new(Identifier::vanilla_static("damage_type"));
-
-pub const CUSTOM_NAME: DataComponentType<()> =
-    DataComponentType::new(Identifier::vanilla_static("custom_name"));
-
-pub const ITEM_NAME: DataComponentType<()> =
-    DataComponentType::new(Identifier::vanilla_static("item_name"));
 
 pub const ITEM_MODEL: DataComponentType<()> =
     DataComponentType::new(Identifier::vanilla_static("item_model"));
@@ -421,13 +421,13 @@ pub fn register_vanilla_data_components(registry: &mut DataComponentRegistry) {
     // 5: use_effects
     register_stub!(registry, USE_EFFECTS.key.clone());
     // 6: custom_name
-    register_stub!(registry, CUSTOM_NAME.key.clone());
+    registry.register(CUSTOM_NAME, ComponentDataDiscriminant::TextComponent);
     // 7: minimum_attack_charge
     register_stub!(registry, MINIMUM_ATTACK_CHARGE.key.clone());
     // 8: damage_type
     register_stub!(registry, DAMAGE_TYPE.key.clone());
     // 9: item_name
-    register_stub!(registry, ITEM_NAME.key.clone());
+    registry.register(ITEM_NAME, ComponentDataDiscriminant::TextComponent);
     // 10: item_model
     register_stub!(registry, ITEM_MODEL.key.clone());
     // 11: lore

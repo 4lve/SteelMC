@@ -7,10 +7,6 @@
 )]
 #![allow(internal_features)]
 
-use std::{fmt::Debug, ops::Deref, sync::OnceLock};
-
-use steel_utils::Identifier;
-
 use crate::{
     banner_pattern::BannerPatternRegistry,
     biome::BiomeRegistry,
@@ -24,6 +20,7 @@ use crate::{
     data_components::{DataComponentRegistry, vanilla_components},
     dialog::DialogRegistry,
     dimension_type::DimensionTypeRegistry,
+    entity_data::{EntityDataSerializerRegistry, register_vanilla_entity_data_serializers},
     entity_types::EntityTypeRegistry,
     fluid::FluidRegistry,
     frog_variant::FrogVariantRegistry,
@@ -43,6 +40,9 @@ use crate::{
     wolf_variant::WolfVariantRegistry,
     zombie_nautilus_variant::ZombieNautilusVariantRegistry,
 };
+use std::{fmt::Debug, ops::Deref, sync::OnceLock};
+use steel_utils::Identifier;
+
 pub mod banner_pattern;
 pub mod biome;
 pub mod block_entity_type;
@@ -51,12 +51,13 @@ pub mod cat_variant;
 pub mod chat_type;
 pub mod chicken_variant;
 pub mod cow_variant;
-pub mod fluid;
 pub mod damage_type;
 pub mod data_components;
 pub mod dialog;
 pub mod dimension_type;
+pub mod entity_data;
 pub mod entity_types;
+pub mod fluid;
 pub mod frog_variant;
 pub mod game_rules;
 pub mod instrument;
@@ -74,9 +75,6 @@ pub mod trim_pattern;
 pub mod wolf_sound_variant;
 pub mod wolf_variant;
 pub mod zombie_nautilus_variant;
-
-// Re-export FluidId and fluid constants for convenience
-pub use fluid::{FluidId, FluidEntry};
 
 #[allow(warnings)]
 #[rustfmt::skip]
@@ -157,6 +155,7 @@ pub mod vanilla_cow_variants;
 #[path = "generated/vanilla_chicken_variants.rs"]
 pub mod vanilla_chicken_variants;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_painting_variants.rs"]
 pub mod vanilla_painting_variants;
@@ -222,8 +221,18 @@ pub mod vanilla_entities;
 
 #[allow(warnings)]
 #[rustfmt::skip]
-#[path = "generated/vanilla_entity_data_serializers.rs"]
-pub mod vanilla_entity_data_serializers;
+#[path = "generated/vanilla_entity_data.rs"]
+pub mod vanilla_entity_data;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_fluids.rs"]
+pub mod vanilla_fluids;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_fluid_tags.rs"]
+pub mod vanilla_fluid_tags;
 
 #[allow(warnings)]
 #[rustfmt::skip]
@@ -242,13 +251,23 @@ pub mod vanilla_game_rules;
 
 #[allow(warnings)]
 #[rustfmt::skip]
-#[path = "generated/vanilla_packets.rs"]
-pub mod packets;
+#[path = "generated/vanilla_level_events.rs"]
+pub mod level_events;
 
 #[allow(warnings)]
 #[rustfmt::skip]
-#[path = "generated/vanilla_fluids.rs"]
-pub mod vanilla_fluids;
+#[path = "generated/vanilla_sound_events.rs"]
+pub mod sound_events;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_sound_types.rs"]
+pub mod sound_types;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_packets.rs"]
+pub mod packets;
 
 
 pub struct RegistryLock(OnceLock<Registry>);
@@ -314,6 +333,7 @@ pub struct Registry {
     pub blocks: BlockRegistry,
     pub items: ItemRegistry,
     pub data_components: DataComponentRegistry,
+    pub entity_data_serializers: EntityDataSerializerRegistry,
     pub biomes: BiomeRegistry,
     pub chat_types: ChatTypeRegistry,
     pub trim_patterns: TrimPatternRegistry,
@@ -361,6 +381,8 @@ impl Registry {
 
         vanilla_components::register_vanilla_data_components(&mut registry.data_components);
 
+        register_vanilla_entity_data_serializers(&mut registry.entity_data_serializers);
+
         vanilla_items::register_items(&mut registry.items);
         vanilla_item_tags::register_item_tags(&mut registry.items);
 
@@ -396,7 +418,9 @@ impl Registry {
         vanilla_loot_tables::register_loot_tables(&mut registry.loot_tables);
         vanilla_block_entity_types::register_block_entity_types(&mut registry.block_entity_types);
         vanilla_game_rules::register_game_rules(&mut registry.game_rules);
+
         vanilla_fluids::register_fluids(&mut registry.fluids);
+        vanilla_fluid_tags::register_fluid_tags(&mut registry.fluids);
 
         registry
     }
@@ -404,6 +428,7 @@ impl Registry {
     pub fn freeze(&mut self) {
         self.blocks.freeze();
         self.data_components.freeze();
+        self.entity_data_serializers.freeze();
         self.items.freeze();
         self.biomes.freeze();
         self.chat_types.freeze();
@@ -439,6 +464,7 @@ impl Registry {
         Self {
             blocks: BlockRegistry::new(),
             data_components: DataComponentRegistry::new(),
+            entity_data_serializers: EntityDataSerializerRegistry::new(),
             items: ItemRegistry::new(),
             biomes: BiomeRegistry::new(),
             chat_types: ChatTypeRegistry::new(),

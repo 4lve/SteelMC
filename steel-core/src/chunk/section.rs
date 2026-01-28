@@ -131,20 +131,6 @@ pub struct ChunkSection {
 }
 
 impl ChunkSection {
-    /// Creates a new chunk section with the given block states.
-    ///
-    /// Note: You must call `recalculate_counts()` after creation to initialize
-    /// the cached counters if the states palette contains non-air blocks.
-    #[must_use]
-    pub fn new(states: BlockPalette) -> Self {
-        Self {
-            states,
-            biomes: BiomePalette::Homogeneous(0),
-            non_empty_block_count: 0,
-            ticking_block_count: 0,
-        }
-    }
-
     /// Creates a new chunk section with the given block states and biomes.
     ///
     /// Note: You must call `recalculate_counts()` after creation to initialize
