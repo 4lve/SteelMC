@@ -236,7 +236,7 @@ impl WorldAquiferSampler {
     ///
     /// The aquifer uses a 3D grid with different spacing per axis:
     /// - X: 16 blocks per cell
-    /// - Y: 12 blocks per cell  
+    /// - Y: 12 blocks per cell
     /// - Z: 16 blocks per cell
     #[must_use]
     pub fn new(
