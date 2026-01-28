@@ -95,18 +95,19 @@ pub fn init_behaviors() {
 
     // Register liquid block behaviors for proper de-propagation
     // When a neighbor changes, these blocks schedule a tick for themselves
+    // Water tick delay = 5, Lava tick delay = 30 (vanilla values)
     block_behaviors.set_behavior(
         vanilla_blocks::WATER,
         Box::new(blocks::LiquidBlockBehavior::new(
             vanilla_blocks::WATER,
-            crate::fluid::FluidType::Water,
+            5,
         )),
     );
     block_behaviors.set_behavior(
         vanilla_blocks::LAVA,
         Box::new(blocks::LiquidBlockBehavior::new(
             vanilla_blocks::LAVA,
-            crate::fluid::FluidType::Lava,
+            30,
         )),
     );
 

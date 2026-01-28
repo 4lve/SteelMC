@@ -1,0 +1,431 @@
+[
+  {
+    "id": 0,
+    "name": "empty",
+    "type": "EmptyFluid",
+    "bucket": "air",
+    "properties": [],
+    "states": [
+      {
+        "level": "0",
+        "is_empty": true,
+        "blast_resistance": "0.0",
+        "properties": {}
+      }
+    ]
+  },
+  {
+    "id": 1,
+    "name": "flowing_water",
+    "type": "Flowing",
+    "bucket": "water_bucket",
+    "properties": [
+      {
+        "name": "falling",
+        "values": [
+          "true",
+          "false"
+        ]
+      },
+      {
+        "name": "level",
+        "values": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8"
+        ]
+      }
+    ],
+    "states": [
+      {
+        "level": "1",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "true",
+          "level": "1"
+        }
+      },
+      {
+        "level": "2",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "true",
+          "level": "2"
+        }
+      },
+      {
+        "level": "3",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "true",
+          "level": "3"
+        }
+      },
+      {
+        "level": "4",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "true",
+          "level": "4"
+        }
+      },
+      {
+        "level": "5",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "true",
+          "level": "5"
+        }
+      },
+      {
+        "level": "6",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "true",
+          "level": "6"
+        }
+      },
+      {
+        "level": "7",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "true",
+          "level": "7"
+        }
+      },
+      {
+        "level": "8",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "true",
+          "level": "8"
+        }
+      },
+      {
+        "level": "1",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "false",
+          "level": "1"
+        }
+      },
+      {
+        "level": "2",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "false",
+          "level": "2"
+        }
+      },
+      {
+        "level": "3",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "false",
+          "level": "3"
+        }
+      },
+      {
+        "level": "4",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "false",
+          "level": "4"
+        }
+      },
+      {
+        "level": "5",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "false",
+          "level": "5"
+        }
+      },
+      {
+        "level": "6",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "false",
+          "level": "6"
+        }
+      },
+      {
+        "level": "7",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "false",
+          "level": "7"
+        }
+      },
+      {
+        "level": "8",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "false",
+          "level": "8"
+        }
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "water",
+    "type": "Source",
+    "bucket": "water_bucket",
+    "properties": [
+      {
+        "name": "falling",
+        "values": [
+          "true",
+          "false"
+        ]
+      }
+    ],
+    "states": [
+      {
+        "level": "8",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "true"
+        }
+      },
+      {
+        "level": "8",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "false"
+        }
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "name": "flowing_lava",
+    "type": "Flowing",
+    "bucket": "lava_bucket",
+    "properties": [
+      {
+        "name": "falling",
+        "values": [
+          "true",
+          "false"
+        ]
+      },
+      {
+        "name": "level",
+        "values": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8"
+        ]
+      }
+    ],
+    "states": [
+      {
+        "level": "1",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "true",
+          "level": "1"
+        }
+      },
+      {
+        "level": "2",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "true",
+          "level": "2"
+        }
+      },
+      {
+        "level": "3",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "true",
+          "level": "3"
+        }
+      },
+      {
+        "level": "4",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "true",
+          "level": "4"
+        }
+      },
+      {
+        "level": "5",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "true",
+          "level": "5"
+        }
+      },
+      {
+        "level": "6",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "true",
+          "level": "6"
+        }
+      },
+      {
+        "level": "7",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "true",
+          "level": "7"
+        }
+      },
+      {
+        "level": "8",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "true",
+          "level": "8"
+        }
+      },
+      {
+        "level": "1",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "false",
+          "level": "1"
+        }
+      },
+      {
+        "level": "2",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "false",
+          "level": "2"
+        }
+      },
+      {
+        "level": "3",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "false",
+          "level": "3"
+        }
+      },
+      {
+        "level": "4",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "false",
+          "level": "4"
+        }
+      },
+      {
+        "level": "5",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "false",
+          "level": "5"
+        }
+      },
+      {
+        "level": "6",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "false",
+          "level": "6"
+        }
+      },
+      {
+        "level": "7",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "false",
+          "level": "7"
+        }
+      },
+      {
+        "level": "8",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "false",
+          "level": "8"
+        }
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "name": "lava",
+    "type": "Source",
+    "bucket": "lava_bucket",
+    "properties": [
+      {
+        "name": "falling",
+        "values": [
+          "true",
+          "false"
+        ]
+      }
+    ],
+    "states": [
+      {
+        "level": "8",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "true"
+        }
+      },
+      {
+        "level": "8",
+        "is_empty": false,
+        "blast_resistance": "100.0",
+        "properties": {
+          "falling": "false"
+        }
+      }
+    ]
+  }
+]

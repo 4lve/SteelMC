@@ -25,6 +25,7 @@ use crate::{
     dialog::DialogRegistry,
     dimension_type::DimensionTypeRegistry,
     entity_types::EntityTypeRegistry,
+    fluid::FluidRegistry,
     frog_variant::FrogVariantRegistry,
     game_rules::GameRuleRegistry,
     instrument::InstrumentRegistry,
@@ -49,8 +50,8 @@ pub mod blocks;
 pub mod cat_variant;
 pub mod chat_type;
 pub mod chicken_variant;
-
 pub mod cow_variant;
+pub mod fluid;
 pub mod damage_type;
 pub mod data_components;
 pub mod dialog;
@@ -74,6 +75,8 @@ pub mod wolf_sound_variant;
 pub mod wolf_variant;
 pub mod zombie_nautilus_variant;
 
+// Re-export FluidId and fluid constants for convenience
+pub use fluid::{FluidId, FluidEntry};
 
 #[allow(warnings)]
 #[rustfmt::skip]
@@ -242,6 +245,11 @@ pub mod vanilla_game_rules;
 #[path = "generated/vanilla_packets.rs"]
 pub mod packets;
 
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_fluids.rs"]
+pub mod vanilla_fluids;
+
 
 pub struct RegistryLock(OnceLock<Registry>);
 
@@ -300,6 +308,7 @@ pub const ZOMBIE_NAUTILUS_VARIANT_REGISTRY: Identifier =
 pub const TIMELINE_REGISTRY: Identifier = Identifier::vanilla_static("timeline");
 pub const LOOT_TABLE_REGISTRY: Identifier = Identifier::vanilla_static("loot_table");
 pub const BLOCK_ENTITY_TYPE_REGISTRY: Identifier = Identifier::vanilla_static("block_entity_type");
+pub const FLUID_REGISTRY: Identifier = Identifier::vanilla_static("fluid");
 
 pub struct Registry {
     pub blocks: BlockRegistry,
@@ -331,6 +340,7 @@ pub struct Registry {
     pub loot_tables: LootTableRegistry,
     pub block_entity_types: BlockEntityTypeRegistry,
     pub game_rules: GameRuleRegistry,
+    pub fluids: FluidRegistry,
 }
 
 impl Debug for Registry {
@@ -386,6 +396,7 @@ impl Registry {
         vanilla_loot_tables::register_loot_tables(&mut registry.loot_tables);
         vanilla_block_entity_types::register_block_entity_types(&mut registry.block_entity_types);
         vanilla_game_rules::register_game_rules(&mut registry.game_rules);
+        vanilla_fluids::register_fluids(&mut registry.fluids);
 
         registry
     }
@@ -420,6 +431,7 @@ impl Registry {
         self.loot_tables.freeze();
         self.block_entity_types.freeze();
         self.game_rules.freeze();
+        self.fluids.freeze();
     }
 
     #[must_use]
@@ -454,6 +466,7 @@ impl Registry {
             loot_tables: LootTableRegistry::new(),
             block_entity_types: BlockEntityTypeRegistry::new(),
             game_rules: GameRuleRegistry::new(),
+            fluids: FluidRegistry::new(),
         }
     }
 }

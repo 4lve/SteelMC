@@ -251,7 +251,7 @@ impl World {
     ///
     /// Returns the number of ticks processed.
     fn process_scheduled_ticks(&self, current_tick: u64) -> usize {
-        use crate::fluid::{FluidType, WaterFluid, FluidBehaviour, get_fluid_state};
+        use crate::fluid::{FluidId, WaterFluid, LavaFluid, FluidBehaviour, get_fluid_state};
 
         let due_ticks = self.tick_scheduler.lock().get_due_ticks(current_tick);
         let count = due_ticks.len();
@@ -262,16 +262,18 @@ impl World {
                     // Get the fluid type at this position
                     let fluid_state = get_fluid_state(self, &tick.pos);
                     
-                    match fluid_state.fluid_type {
-                        FluidType::Water => {
+                    match fluid_state.fluid {
+                        FluidId::Water => {
                             WaterFluid.tick(self, tick.pos, current_tick);
                         }
-                        FluidType::Lava => {
-                            // TODO: Implement LavaFluid
-                            log::trace!("Lava tick at {:?} (not implemented)", tick.pos);
+                        FluidId::Lava => {
+                            LavaFluid.tick(self, tick.pos, current_tick);
                         }
-                        FluidType::Empty => {
+                        FluidId::Empty => {
                             // Fluid was removed, nothing to do
+                        }
+                        _ => {
+                            // Unknown fluid type
                         }
                     }
                 }

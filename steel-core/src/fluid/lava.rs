@@ -1,6 +1,6 @@
-//! Water fluid implementation.
+//! Lava fluid implementation.
 //!
-//! Based on vanilla's WaterFluid.java.
+//! Based on vanilla's LavaFluid.java.
 //!
 // TODO: Consider extracting common fluid behavior into a macro or generic implementation
 //       to reduce duplication between WaterFluid and LavaFluid
@@ -20,11 +20,11 @@ use super::flowing::{
 };
 use steel_registry::FluidId;
 
-/// Water fluid behavior.
-pub struct WaterFluid;
+/// Lava fluid behavior.
+pub struct LavaFluid;
 
-impl WaterFluid {
-    /// Checks if water can spread down to the below position.
+impl LavaFluid {
+    /// Checks if lava can spread down to the below position.
     fn can_spread_down(&self, world: &World, pos: &BlockPos) -> bool {
         let below = pos.offset(0, -1, 0);
 
@@ -42,23 +42,56 @@ impl WaterFluid {
 
         // Can flow into same fluid type
         let below_fluid = get_fluid_state(world, &below);
-        if below_fluid.fluid == FluidId::Water && !below_fluid.is_source() {
+        if below_fluid.fluid == FluidId::Lava && !below_fluid.is_source() {
             return true;
         }
 
         false
     }
 
-    /// Spreads water downward.
-    fn spread_down(&self, world: &World, pos: BlockPos, current_tick: u64) -> bool {
+    /// Spreads lava downward.
+    fn spread_down(
+        &self,
+        world: &World,
+        pos: BlockPos,
+        fluid_state: FluidState,
+        current_tick: u64,
+    ) -> bool {
         let below = pos.offset(0, -1, 0);
+
+        if !world.is_in_valid_bounds(&below) {
+            return false;
+        }
+
+        let below_state = world.get_block_state(&below);
+        let below_block = below_state.get_block();
+        let below_fluid = get_fluid_state(world, &below);
+
+        // Lava-water interaction: lava flowing down into water
+        if below_fluid.fluid == FluidId::Water {
+            use steel_registry::vanilla_blocks;
+            use steel_registry::REGISTRY;
+
+            // If lava is source -> obsidian, otherwise -> cobblestone
+            let is_lava_source = fluid_state.is_source();
+            let new_block = if is_lava_source {
+                vanilla_blocks::OBSIDIAN
+            } else {
+                vanilla_blocks::COBBLESTONE
+            };
+
+            let block_state = REGISTRY.blocks.get_default_state_id(new_block);
+            world.set_block(below, block_state, UpdateFlags::UPDATE_ALL_IMMEDIATE);
+            // TODO: Play fizz sound effect (level event 1501)
+            return true;
+        }
 
         if !self.can_spread_down(world, &pos) {
             return false;
         }
 
         // Calculate the correct fluid state for the below position
-        let new_fluid = get_new_liquid(world, below, FluidId::Water, self.drop_off());
+        let new_fluid = get_new_liquid(world, below, FluidId::Lava, self.drop_off());
 
         if new_fluid.is_empty() {
             return false;
@@ -81,7 +114,7 @@ impl WaterFluid {
         for offset in [(1, 0, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1)] {
             let neighbor = pos.offset(offset.0, offset.1, offset.2);
             let fluid = get_fluid_state(world, &neighbor);
-            if fluid.fluid == FluidId::Water && fluid.is_source() {
+            if fluid.fluid == FluidId::Lava && fluid.is_source() {
                 count += 1;
             }
         }
@@ -89,14 +122,19 @@ impl WaterFluid {
         count
     }
 
-    /// Spreads water to sides using vanilla's algorithm.
+    /// Spreads lava to sides using vanilla's algorithm.
     fn spread_to_sides(
         &self,
         world: &World,
         pos: BlockPos,
         fluid_state: FluidState,
         current_tick: u64,
+        slope_find_distance: u8,
     ) {
+        // NOTE: The lava-water interaction for adjacent blocks (cobblestone generator)
+        // is now handled in LiquidBlockBehavior.on_place and handle_neighbor_changed
+        // to match vanilla's shouldSpreadLiquid logic.
+
         // Calculate spread amount - vanilla: fluidState.getAmount() - dropOff
         // Or 7 if falling (like level 1)
         let new_amount = if fluid_state.falling {
@@ -113,9 +151,9 @@ impl WaterFluid {
         let spreads = get_spread(
             world,
             pos,
-            FluidId::Water,
+            FluidId::Lava,
             self.drop_off(),
-            self.slope_find_distance(),
+            slope_find_distance,
         );
 
         for (direction, new_fluid) in spreads {
@@ -129,13 +167,14 @@ impl WaterFluid {
             // Check existing fluid
             let existing = get_fluid_state(world, &neighbor);
 
-            // Lava-water interaction: water flowing into lava creates obsidian/cobblestone
-            if existing.fluid == FluidId::Lava {
+            // Lava-water interaction: lava flowing INTO water creates obsidian/cobblestone
+            // This is different from adjacent interaction - this is when lava spreads into water
+            if existing.fluid == FluidId::Water {
                 use steel_registry::vanilla_blocks;
                 use steel_registry::REGISTRY;
 
                 // If lava is source -> obsidian, otherwise -> cobblestone
-                let is_lava_source = existing.is_source();
+                let is_lava_source = fluid_state.is_source();
                 let new_block = if is_lava_source {
                     vanilla_blocks::OBSIDIAN
                 } else {
@@ -152,26 +191,26 @@ impl WaterFluid {
             if !existing.is_empty() {
                 // Don't overwrite higher amount of same fluid type
                 // For same fluid, we allow replacement if the new amount is higher
-                // (this allows water to "level up" as more sources contribute)
-                if existing.fluid == FluidId::Water {
+                // (this allows lava to "level up" as more sources contribute)
+                if existing.fluid == FluidId::Lava {
                     if existing.amount() >= new_fluid.amount() {
                         continue;
                     }
-                    // Otherwise, allow replacement - water can flow into lower-level water
-                } else if existing.fluid == FluidId::Lava {
-                    // For lava, we need to check if water can replace it
-                    // This is handled by the lava-water interaction above, but let's be safe
-                    if existing.amount() as f32 / 9.0 >= 0.44444445 {
+                    // Otherwise, allow replacement - lava can flow into lower-level lava
+                } else if existing.fluid == FluidId::Water {
+                    // For water, check if lava can replace it
+                    // Lava can replace water if lava height >= 0.44444445
+                    if !(fluid_state.amount() as f32 / 9.0 >= 0.44444445) {
                         continue;
                     }
-                    // Otherwise, obsidian/cobblestone will be created by the interaction check above
+                    // Otherwise, obsidian/cobblestone will be created
                 } else {
                     // For other fluids/empty, check can_be_replaced_with
                     if !self.can_be_replaced_with(
                         existing,
                         world,
                         neighbor,
-                        FluidId::Water,
+                        FluidId::Lava,
                         direction,
                     ) {
                         continue;
@@ -188,62 +227,50 @@ impl WaterFluid {
     }
 }
 
-impl FluidBehaviour for WaterFluid {
+impl FluidBehaviour for LavaFluid {
     fn fluid_type(&self) -> FluidId {
-        FluidId::Water
+        FluidId::Lava
     }
 
     fn tick_delay(&self) -> u32 {
-        5 // Water ticks every 5 ticks
+        30
     }
 
     fn drop_off(&self) -> u8 {
-        1 // Water loses 1 level per block
+        2
     }
 
     fn slope_find_distance(&self) -> u8 {
-        4 // Water searches up to 4 blocks for slope
+        2
     }
 
     fn tick(&self, world: &World, pos: BlockPos, current_tick: u64) {
+        let tick_delay = 30;
+
         let current_fluid = get_fluid_state(world, &pos);
 
-        if current_fluid.is_empty() || current_fluid.fluid != FluidId::Water {
-            return; // No water here anymore
+        if current_fluid.is_empty() || current_fluid.fluid != FluidId::Lava {
+            return; // No lava here anymore
         }
 
-        // For flowing water, recalculate if it should still exist
+        // For flowing lava, recalculate if it should still exist
         if !current_fluid.is_source() {
-            let new_fluid = get_new_liquid(world, pos, FluidId::Water, self.drop_off());
+            let new_fluid = get_new_liquid(world, pos, FluidId::Lava, self.drop_off());
 
             if new_fluid.is_empty() {
-                // No support - remove the water
+                // No support - remove the lava
                 // Note: set_block will trigger neighbor fluid ticks via the world logic
                 let air = fluid_state_to_block(FluidState::empty());
                 world.set_block(pos, air, UpdateFlags::UPDATE_ALL_IMMEDIATE);
                 return;
-            } else if new_fluid != current_fluid {
+            }
+
+            if new_fluid != current_fluid {
                 // Update to new state
                 let block_state = fluid_state_to_block(new_fluid);
                 world.set_block(pos, block_state, UpdateFlags::UPDATE_ALL_IMMEDIATE);
 
-                // IMPORTANT: If we just became a source, re-schedule neighbors so they
-                // can also check if they should become sources (for infinite pool regeneration)
-                if new_fluid.is_source() && !current_fluid.is_source() {
-                    // Schedule ticks for all neighbors so they can check for source conversion
-                    for direction in [
-                        Direction::North,
-                        Direction::South,
-                        Direction::East,
-                        Direction::West,
-                    ] {
-                        let neighbor = direction.relative(&pos);
-                        world.schedule_fluid_tick(neighbor, current_tick, self.tick_delay());
-                    }
-                    return; // Don't spread immediately after becoming a source
-                }
-
-                // If water is shrinking, re-schedule self to continue checking
+                // If lava is shrinking, re-schedule self to continue checking
                 // Don't schedule all neighbors - let natural tick propagation handle it
                 if new_fluid.amount() < current_fluid.amount() {
                     world.schedule_fluid_tick(pos, current_tick, self.tick_delay());
@@ -261,6 +288,8 @@ impl FluidBehaviour for WaterFluid {
             return;
         }
 
+        let slope_find_distance = 2;
+
         // Vanilla spread() logic:
         // 1. Try to spread down
         // 2. If can spread down AND has 3+ source neighbors, also spread to sides
@@ -270,38 +299,45 @@ impl FluidBehaviour for WaterFluid {
 
         if can_spread_down {
             // Try to spread down
-            let did_spread_down = self.spread_down(world, pos, current_tick);
+            let did_spread_down = self.spread_down(world, pos, fluid_state, current_tick);
 
             if did_spread_down {
                 // If we have 3+ source neighbors, also spread to sides (source duplication)
                 if self.source_neighbor_count(world, &pos) >= 3 {
-                    self.spread_to_sides(world, pos, fluid_state, current_tick);
+                    self.spread_to_sides(
+                        world,
+                        pos,
+                        fluid_state,
+                        current_tick,
+                        slope_find_distance,
+                    );
                 }
                 return;
             }
         }
 
-        // If source OR not a water hole below, spread to sides
-        let is_water_hole = is_hole(world, &pos, FluidId::Water);
+        // If source OR not a lava hole below, spread to sides
+        let is_lava_hole = is_hole(world, &pos, FluidId::Lava);
 
-        if fluid_state.is_source() || !is_water_hole {
-            self.spread_to_sides(world, pos, fluid_state, current_tick);
+        if fluid_state.is_source() || !is_lava_hole {
+            self.spread_to_sides(world, pos, fluid_state, current_tick, slope_find_distance);
         }
     }
 
-    /// Returns true if water can be replaced by another fluid.
-    /// Based on vanilla WaterFluid.canBeReplacedWith().
-    /// Water can only be replaced from DOWN direction and only by non-water fluids.
+    /// Returns true if lava can be replaced by another fluid.
+    /// Based on vanilla LavaFluid.canBeReplacedWith().
+    /// Lava can be replaced if its height >= 0.44444445F and the fluid is water.
     fn can_be_replaced_with(
         &self,
-        _fluid_state: FluidState,
+        fluid_state: FluidState,
         _world: &World,
         _pos: BlockPos,
         other_fluid: FluidId,
-        direction: Direction,
+        _direction: Direction,
     ) -> bool {
-        // Water can only be replaced from DOWN direction
-        // and only by non-water fluids
-        direction == Direction::Down && other_fluid != FluidId::Water
+        // Lava can be replaced if its height >= 0.44444445F (4/9 of a block)
+        // and the replacing fluid is water
+        let height = fluid_state.amount() as f32 / 9.0; // Convert amount to height (0-1)
+        height >= 0.44444445 && other_fluid == FluidId::Water
     }
 }
