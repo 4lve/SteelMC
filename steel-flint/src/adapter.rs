@@ -155,7 +155,11 @@ mod tests {
                 }
             }
         }
-        assert_eq!(summary.passed_tests, summary.total_tests, "Not all flint tests passed! {} out of {}", summary.passed_tests, summary.total_tests);
+        assert_eq!(
+            summary.passed_tests, summary.total_tests,
+            "Not all flint tests passed! {} out of {}",
+            summary.passed_tests, summary.total_tests
+        );
     }
 
     #[test]
