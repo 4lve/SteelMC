@@ -51,7 +51,7 @@ impl CommandArgument for EntityArgument {
                 .map(|p| p as Arc<dyn LivingEntity + Send + Sync>)
                 .collect(),
             "@n" | "@p" => {
-                let position = context.position.unwrap_or_default();
+                let position = context.position;
                 let mut near_dist = (f64::MAX, players[0].clone());
                 for player in players {
                     let dist = player.get_position().squared_distance_to_vec(position);
