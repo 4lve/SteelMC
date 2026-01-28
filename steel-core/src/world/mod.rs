@@ -8,6 +8,8 @@ use std::{
     time::Duration,
 };
 
+use crate::chunk::chunk_map::ChunkMapTickTimings;
+
 use sha2::{Digest, Sha256};
 use steel_protocol::packet_traits::{ClientPacket, EncodedPacket};
 use steel_protocol::packets::game::{
@@ -59,6 +61,15 @@ mod world_entities;
 
 pub use player_area_map::PlayerAreaMap;
 pub use player_map::PlayerMap;
+
+/// Timing information for a world tick.
+#[derive(Debug)]
+pub struct WorldTickTimings {
+    /// Chunk map tick timings.
+    pub chunk_map: ChunkMapTickTimings,
+    /// Time spent ticking players.
+    pub player_tick: Duration,
+}
 
 /// Interval in ticks between player info broadcasts (600 ticks = 30 seconds).
 /// Matches vanilla `PlayerList.SEND_PLAYER_INFO_INTERVAL`.
@@ -537,27 +548,36 @@ impl World {
     /// * `tick_count` - The current tick number
     /// * `runs_normally` - Whether game elements (random ticks, entities) should run.
     ///   When false (frozen), only essential operations like chunk loading run.
-    pub fn tick_b(&self, tick_count: u64, runs_normally: bool) {
+    ///
+    /// Returns timing information for the world tick.
+    #[tracing::instrument(level = "trace", skip(self), name = "world_tick")]
+    pub fn tick_b(&self, tick_count: u64, runs_normally: bool) -> WorldTickTimings {
         let random_tick_speed = self.get_game_rule(RANDOM_TICK_SPEED).as_int().unwrap_or(3) as u32;
 
-        self.chunk_map
+        let chunk_map_timings = self
+            .chunk_map
             .tick_b(tick_count, random_tick_speed, runs_normally);
 
         // Tick players (always tick players - they can move when frozen)
-        let start = Instant::now();
-        self.players.iter_players(|_uuid, player| {
-            player.tick();
-
-            true
-        });
-        let player_tick_elapsed = start.elapsed();
-        if player_tick_elapsed >= Duration::from_millis(100) {
-            log::warn!("Player tick slow: {player_tick_elapsed:?}");
-        }
+        let player_tick = {
+            let _span = tracing::trace_span!("player_tick").entered();
+            let start = Instant::now();
+            self.players.iter_players(|_uuid, player| {
+                player.tick();
+                true
+            });
+            start.elapsed()
+        };
 
         // Broadcast player latency updates periodically
         if tick_count.is_multiple_of(SEND_PLAYER_INFO_INTERVAL) {
+            let _span = tracing::trace_span!("broadcast_latency").entered();
             self.broadcast_player_latency_updates();
+        }
+
+        WorldTickTimings {
+            chunk_map: chunk_map_timings,
+            player_tick,
         }
     }
 
@@ -664,6 +684,23 @@ impl World {
             return;
         };
         self.broadcast_to_all_encoded(encoded);
+    }
+
+    /// Broadcasts a packet to all players in the world.
+    ///
+    /// This method handles encoding the packets producced from the function passed
+    pub fn broadcast_to_all_with<P: ClientPacket, F: Fn(&Player) -> P>(&self, packet: F) {
+        self.players.iter_players(|_, player| {
+            let Ok(encoded) = EncodedPacket::from_bare(
+                packet(player),
+                STEEL_CONFIG.compression,
+                ConnectionProtocol::Play,
+            ) else {
+                return false;
+            };
+            player.connection.send_encoded_packet(encoded);
+            true
+        });
     }
 
     /// Broadcasts an already-encoded packet to all players in the world.
@@ -828,7 +865,8 @@ impl World {
     /// * `event_type` - The event type ID from `steel_registry::level_events`
     /// * `pos` - The position where the event occurs
     /// * `data` - Event-specific data (e.g., block state ID for block destruction)
-    pub fn level_event(&self, event_type: i32, pos: BlockPos, data: i32) {
+    /// * `exclude` - Optional entity ID to exclude from receiving the event
+    pub fn level_event(&self, event_type: i32, pos: BlockPos, data: i32, exclude: Option<i32>) {
         const MAX_DISTANCE_SQ: f64 = 64.0 * 64.0;
 
         let chunk = ChunkPos::new(
@@ -851,6 +889,10 @@ impl World {
         );
 
         for entity_id in self.player_area_map.get_tracking_players(chunk) {
+            // Skip excluded player (they hear the effect client-side)
+            if exclude == Some(entity_id) {
+                continue;
+            }
             if let Some(player) = self.players.get_by_entity_id(entity_id) {
                 let player_pos = *player.position.lock();
                 let dx = player_pos.x - event_pos.0;
@@ -889,11 +931,13 @@ impl World {
     /// # Arguments
     /// * `pos` - The position of the destroyed block
     /// * `block_state_id` - The block state ID of the destroyed block
-    pub fn destroy_block_effect(&self, pos: BlockPos, block_state_id: u32) {
+    /// * `exclude` - Optional entity ID to exclude from receiving the event
+    pub fn destroy_block_effect(&self, pos: BlockPos, block_state_id: u32, exclude: Option<i32>) {
         self.level_event(
             level_events::PARTICLES_DESTROY_BLOCK,
             pos,
             block_state_id as i32,
+            exclude,
         );
     }
 
@@ -948,7 +992,9 @@ impl World {
 
     /// Plays a sound at a specific position, broadcasting to nearby players.
     ///
-    /// The sound is sent to all players within 64 blocks of the position.
+    /// The sound is sent to all players within 64 blocks of the position,
+    /// except for the excluded player (if any). The excluded player is typically
+    /// the one who triggered the sound, as they hear it client-side.
     ///
     /// # Arguments
     /// * `sound_id` - The sound event registry ID (from `steel_registry::sound_events`)
@@ -956,6 +1002,7 @@ impl World {
     /// * `pos` - The block position (sound plays at center of block)
     /// * `volume` - Volume multiplier (1.0 = normal)
     /// * `pitch` - Pitch multiplier (1.0 = normal)
+    /// * `exclude` - Optional entity ID to exclude from receiving the sound
     pub fn play_sound(
         &self,
         sound_id: i32,
@@ -963,6 +1010,7 @@ impl World {
         pos: BlockPos,
         volume: f32,
         pitch: f32,
+        exclude: Option<i32>,
     ) {
         const MAX_DISTANCE_SQ: f64 = 64.0 * 64.0;
 
@@ -999,6 +1047,10 @@ impl World {
         );
 
         for entity_id in self.player_area_map.get_tracking_players(chunk) {
+            // Skip excluded player (they hear the sound client-side)
+            if exclude == Some(entity_id) {
+                continue;
+            }
             if let Some(player) = self.players.get_by_entity_id(entity_id) {
                 let player_pos = *player.position.lock();
                 let dx = player_pos.x - sound_pos.0;
@@ -1023,7 +1075,15 @@ impl World {
     /// * `pos` - The block position
     /// * `volume` - Base volume (typically from `SoundType`)
     /// * `pitch` - Base pitch (typically from `SoundType`)
-    pub fn play_block_sound(&self, sound_id: i32, pos: BlockPos, volume: f32, pitch: f32) {
-        self.play_sound(sound_id, SoundSource::Blocks, pos, volume, pitch);
+    /// * `exclude` - Optional entity ID to exclude from receiving the sound
+    pub fn play_block_sound(
+        &self,
+        sound_id: i32,
+        pos: BlockPos,
+        volume: f32,
+        pitch: f32,
+        exclude: Option<i32>,
+    ) {
+        self.play_sound(sound_id, SoundSource::Blocks, pos, volume, pitch, exclude);
     }
 }

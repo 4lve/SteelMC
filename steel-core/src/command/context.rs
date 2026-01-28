@@ -6,6 +6,7 @@ use steel_utils::math::Vector3;
 use crate::command::error::CommandError;
 use crate::command::sender::CommandSender;
 use crate::player::Player;
+use crate::server::Server;
 use crate::world::World;
 
 /// The context of a command.
@@ -17,6 +18,8 @@ pub struct CommandContext {
     pub player: Option<Arc<Player>>,
     /// The world/dimension of the command.
     pub world: Option<Arc<World>>,
+    /// The server where the command has been run.
+    pub server: Arc<Server>,
     /// The position of the command.
     pub position: Option<Vector3<f64>>,
     /// The rotation of the command.
@@ -38,7 +41,7 @@ pub enum EntityAnchor {
 impl CommandContext {
     /// Creates a new command context.
     #[must_use]
-    pub fn new(sender: CommandSender) -> Self {
+    pub fn new(sender: CommandSender, server: Arc<Server>) -> Self {
         let player = sender.get_player().cloned();
         let position = player.as_ref().map(|p| *p.position.lock());
         let world = player.as_ref().map(|p| Arc::clone(&p.world));
@@ -47,6 +50,7 @@ impl CommandContext {
             sender,
             player,
             world,
+            server,
             position,
             rotation: None,
             anchor: EntityAnchor::default(),

@@ -45,10 +45,10 @@ impl ItemBehavior for EnderEyeBehavior {
             return InteractionResult::Pass;
         }
 
-        // Play the end portal frame fill sound effect
+        // Play the end portal frame fill sound effect (no exclusion, all players hear it)
         context
             .world
-            .level_event(level_events::END_PORTAL_FRAME_FILL, clicked_pos, 0);
+            .level_event(level_events::END_PORTAL_FRAME_FILL, clicked_pos, 0, None);
 
         context.item_stack.shrink(1);
 

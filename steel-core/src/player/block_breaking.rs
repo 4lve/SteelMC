@@ -84,7 +84,7 @@ impl BlockBreakingManager {
             let state = world.get_block_state(&self.destroy_pos);
             if is_air(state) {
                 // Block was broken by something else
-                world.broadcast_block_destruction(player.entity_id, self.destroy_pos, -1);
+                world.broadcast_block_destruction(player.id, self.destroy_pos, -1);
                 self.last_sent_state = -1;
                 self.is_destroying_block = false;
             } else {
@@ -114,7 +114,7 @@ impl BlockBreakingManager {
         let state = (progress * 10.0) as i32;
 
         if state != self.last_sent_state {
-            world.broadcast_block_destruction(player.entity_id, pos, state);
+            world.broadcast_block_destruction(player.id, pos, state);
             self.last_sent_state = state;
         }
 
@@ -192,7 +192,7 @@ impl BlockBreakingManager {
                         self.is_destroying_block = true;
                         self.destroy_pos = pos;
                         let state = (progress * 10.0) as i32;
-                        world.broadcast_block_destruction(player.entity_id, pos, state);
+                        world.broadcast_block_destruction(player.id, pos, state);
                         self.last_sent_state = state;
                     }
                 }
@@ -210,7 +210,7 @@ impl BlockBreakingManager {
                         if progress >= 0.7 {
                             // Complete the break
                             self.is_destroying_block = false;
-                            world.broadcast_block_destruction(player.entity_id, pos, -1);
+                            world.broadcast_block_destruction(player.id, pos, -1);
                             self.destroy_and_ack(player, world, pos);
                             return;
                         }
@@ -235,10 +235,10 @@ impl BlockBreakingManager {
                         self.destroy_pos,
                         pos
                     );
-                    world.broadcast_block_destruction(player.entity_id, self.destroy_pos, -1);
+                    world.broadcast_block_destruction(player.id, self.destroy_pos, -1);
                 }
 
-                world.broadcast_block_destruction(player.entity_id, pos, -1);
+                world.broadcast_block_destruction(player.id, pos, -1);
             }
         }
     }
@@ -278,12 +278,13 @@ impl BlockBreakingManager {
 
         if changed {
             // Play block destruction particles and sound (skip for fire blocks like vanilla)
+            // Exclude the breaking player as they see the effect client-side
             let block = REGISTRY.blocks.by_state_id(state);
             let is_fire = block.is_some_and(|b| {
                 b.key == vanilla_blocks::FIRE.key || b.key == vanilla_blocks::SOUL_FIRE.key
             });
             if !is_fire {
-                world.destroy_block_effect(pos, u32::from(state.0));
+                world.destroy_block_effect(pos, u32::from(state.0), Some(player.id));
             }
 
             // Check if player has correct tool for drops

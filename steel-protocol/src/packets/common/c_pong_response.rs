@@ -1,8 +1,8 @@
 use steel_macros::{ClientPacket, WriteTo};
-use steel_registry::packets::status::C_PONG_RESPONSE;
+use steel_registry::packets::{play, status};
 
 #[derive(ClientPacket, WriteTo, Clone, Debug)]
-#[packet_id(Status = C_PONG_RESPONSE)]
+#[packet_id(Status = status::C_PONG_RESPONSE, Play = play::C_PONG_RESPONSE)]
 pub struct CPongResponse {
     pub time: i64,
 }

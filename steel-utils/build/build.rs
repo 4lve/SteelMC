@@ -4,12 +4,15 @@ use std::{fs, path::Path, process::Command};
 
 mod density_function_gen;
 mod noise_params_gen;
+use text_components::build::build_translations;
+
 mod translations;
 
 const FMT: bool = true;
 
-const OUT_DIR: &str = "src/generated";
-const TRANSLATIONS: &str = "vanilla_translations";
+const OUT_DIR: &str = "src/generated/vanilla_translations";
+const IDS: &str = "ids";
+const REGISTRY: &str = "registry";
 const NOISE_PARAMS: &str = "noise_params";
 const DENSITY_FUNCTIONS: &str = "density_functions";
 
@@ -19,10 +22,13 @@ pub fn main() {
         fs::create_dir_all(OUT_DIR).expect("Failed to create output directory");
     }
 
-    // Generate translations
+    let content = build_translations("build_assets/en_us.json");
+    fs::write(format!("{OUT_DIR}/{IDS}.rs"), content.to_string())
+        .expect("Failed to write translations ids file");
+
     let content = translations::build();
-    fs::write(format!("{OUT_DIR}/{TRANSLATIONS}.rs"), content.to_string())
-        .expect("Failed to write translations file");
+    fs::write(format!("{OUT_DIR}/{REGISTRY}.rs"), content.to_string())
+        .expect("Failed to write translations registry file");
 
     // Generate noise parameters
     let content = noise_params_gen::build();

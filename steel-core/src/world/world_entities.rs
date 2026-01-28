@@ -12,7 +12,7 @@ impl World {
     /// Removes a player from the world.
     pub async fn remove_player(self: &Arc<Self>, player: Arc<Player>) {
         let uuid = player.gameprofile.id;
-        let entity_id = player.entity_id;
+        let entity_id = player.id;
 
         if self.players.remove(&uuid).await.is_some() {
             let start = Instant::now();
@@ -70,7 +70,7 @@ impl World {
                 let existing_pos = *existing_player.position.lock();
                 let (existing_yaw, existing_pitch) = existing_player.rotation.load();
                 player.connection.send_packet(CAddEntity::player(
-                    existing_player.entity_id,
+                    existing_player.id,
                     existing_player.gameprofile.id,
                     existing_pos.x,
                     existing_pos.y,
@@ -93,7 +93,7 @@ impl World {
             true, // show_hat
         );
         let spawn_packet = CAddEntity::player(
-            player.entity_id,
+            player.id,
             player.gameprofile.id,
             pos.x,
             pos.y,
