@@ -534,7 +534,11 @@ const NOISE_FIELDS: [&str; 10] = [
 ];
 
 /// Build the main noise stack and collect indices for router fields.
-fn build_noise_stack(env_name: &str, env_name_upper: &str, env_data: &Map<String, Value>) -> NoiseStackResult {
+fn build_noise_stack(
+    env_name: &str,
+    env_name_upper: &str,
+    env_data: &Map<String, Value>,
+) -> NoiseStackResult {
     let mut ctx = FlattenContext::new(env_name);
     let mut indices: FxHashMap<&'static str, usize> = FxHashMap::default();
     for json_name in NOISE_FIELDS {
@@ -586,7 +590,11 @@ fn build_noise_stack(env_name: &str, env_name_upper: &str, env_data: &Map<String
 }
 
 /// Build the surface estimator stack.
-fn build_surface_stack(env_name: &str, env_name_upper: &str, env_data: &Map<String, Value>) -> (FlattenContext, Ident) {
+fn build_surface_stack(
+    env_name: &str,
+    env_name_upper: &str,
+    env_data: &Map<String, Value>,
+) -> (FlattenContext, Ident) {
     let surface_prefix = format!("{env_name}_surface");
     let mut ctx = FlattenContext::new(&surface_prefix);
 
@@ -606,7 +614,10 @@ fn build_surface_stack(env_name: &str, env_name_upper: &str, env_data: &Map<Stri
         }
     }
 
-    let stack_name = Ident::new(&format!("{env_name_upper}_SURFACE_STACK"), Span::call_site());
+    let stack_name = Ident::new(
+        &format!("{env_name_upper}_SURFACE_STACK"),
+        Span::call_site(),
+    );
     (ctx, stack_name)
 }
 
@@ -627,7 +638,11 @@ const MULTI_FIELDS: [&str; 6] = [
 ];
 
 /// Build the multi-noise stack for biome parameters.
-fn build_multi_noise_stack(env_name: &str, env_name_upper: &str, env_data: &Map<String, Value>) -> MultiNoiseStackResult {
+fn build_multi_noise_stack(
+    env_name: &str,
+    env_name_upper: &str,
+    env_data: &Map<String, Value>,
+) -> MultiNoiseStackResult {
     let multi_prefix = format!("{env_name}_multi");
     let mut ctx = FlattenContext::new(&multi_prefix);
     let mut indices: FxHashMap<&'static str, usize> = FxHashMap::default();
@@ -648,7 +663,10 @@ fn build_multi_noise_stack(env_name: &str, env_name_upper: &str, env_data: &Map<
 }
 
 /// Build the surface estimator tokens for the router.
-fn build_surface_estimator_tokens(surface_stream: Option<&TokenStream>, surface_stack_name: &Ident) -> TokenStream {
+fn build_surface_estimator_tokens(
+    surface_stream: Option<&TokenStream>,
+    surface_stack_name: &Ident,
+) -> TokenStream {
     if surface_stream.is_some() {
         quote! {
             surface_estimator: BaseSurfaceEstimator {
@@ -709,7 +727,8 @@ fn generate_environment(env_name: &str, env_data: &Map<String, Value>) -> (Token
 
     // Build all three stacks
     let noise_result = build_noise_stack(env_name, &env_name_upper, env_data);
-    let (surface_ctx, surface_stack_name) = build_surface_stack(env_name, &env_name_upper, env_data);
+    let (surface_ctx, surface_stack_name) =
+        build_surface_stack(env_name, &env_name_upper, env_data);
     let multi_result = build_multi_noise_stack(env_name, &env_name_upper, env_data);
 
     // Emit stack arrays
@@ -718,12 +737,21 @@ fn generate_environment(env_name: &str, env_data: &Map<String, Value>) -> (Token
     let multi_stream = emit_stack(&multi_result.ctx, &multi_result.stack_name);
 
     // Build router tokens
-    let router_name = Ident::new(&format!("{env_name_upper}_BASE_NOISE_ROUTER"), Span::call_site());
+    let router_name = Ident::new(
+        &format!("{env_name_upper}_BASE_NOISE_ROUTER"),
+        Span::call_site(),
+    );
 
     let noise_indices = &noise_result.indices;
     let barrier_noise = noise_indices.get("barrierNoise").copied().unwrap_or(0);
-    let fluid_floodedness = noise_indices.get("fluidLevelFloodednessNoise").copied().unwrap_or(0);
-    let fluid_spread = noise_indices.get("fluidLevelSpreadNoise").copied().unwrap_or(0);
+    let fluid_floodedness = noise_indices
+        .get("fluidLevelFloodednessNoise")
+        .copied()
+        .unwrap_or(0);
+    let fluid_spread = noise_indices
+        .get("fluidLevelSpreadNoise")
+        .copied()
+        .unwrap_or(0);
     let lava_noise = noise_indices.get("lavaNoise").copied().unwrap_or(0);
     let noise_erosion = noise_indices.get("erosion").copied().unwrap_or(0);
     let noise_depth = noise_indices.get("depth").copied().unwrap_or(0);
@@ -732,8 +760,13 @@ fn generate_environment(env_name: &str, env_data: &Map<String, Value>) -> (Token
     let vein_ridged = noise_indices.get("veinRidged").copied().unwrap_or(0);
     let vein_gap = noise_indices.get("veinGap").copied().unwrap_or(0);
 
-    let surface_estimator_tokens = build_surface_estimator_tokens(surface_stream.as_ref(), &surface_stack_name);
-    let multi_noise_tokens = build_multi_noise_tokens(multi_stream.as_ref(), &multi_result.stack_name, &multi_result.indices);
+    let surface_estimator_tokens =
+        build_surface_estimator_tokens(surface_stream.as_ref(), &surface_stack_name);
+    let multi_noise_tokens = build_multi_noise_tokens(
+        multi_stream.as_ref(),
+        &multi_result.stack_name,
+        &multi_result.indices,
+    );
 
     // Assemble final stream
     let mut stream = TokenStream::new();

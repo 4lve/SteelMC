@@ -495,8 +495,10 @@ impl WorldAquiferSampler {
 
         let pos =
             UnblendedNoisePos::new(fluid_level_cell_x, fluid_level_cell_y, fluid_level_cell_z);
-        let fluid_level_spread =
-            ctx.router.fluid_level_spread_noise(&pos, ctx.sample_options) * 10.0;
+        let fluid_level_spread = ctx
+            .router
+            .fluid_level_spread_noise(&pos, ctx.sample_options)
+            * 10.0;
         let fluid_level_spread_quantized = ((fluid_level_spread / 3.0).floor() as i32) * 3;
         let target_fluid_surface_level = fluid_cell_middle_y + fluid_level_spread_quantized;
 

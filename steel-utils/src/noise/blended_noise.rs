@@ -171,15 +171,13 @@ impl BlendedNoise {
             let u = wrap(f * o);
             let v = j * o;
 
-            if !is_max
-                && let Some(min_noise) = self.min_limit_noise.get_octave_noise(r) {
-                    l += min_noise.noise_with_y_params(s, t, u, v, e * o) / o;
-                }
+            if !is_max && let Some(min_noise) = self.min_limit_noise.get_octave_noise(r) {
+                l += min_noise.noise_with_y_params(s, t, u, v, e * o) / o;
+            }
 
-            if !is_min
-                && let Some(max_noise) = self.max_limit_noise.get_octave_noise(r) {
-                    m += max_noise.noise_with_y_params(s, t, u, v, e * o) / o;
-                }
+            if !is_min && let Some(max_noise) = self.max_limit_noise.get_octave_noise(r) {
+                m += max_noise.noise_with_y_params(s, t, u, v, e * o) / o;
+            }
 
             o /= 2.0;
         }

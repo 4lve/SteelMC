@@ -223,7 +223,7 @@ impl<'a> ChunkNoiseGenerator<'a> {
     /// # Returns
     ///
     /// A new `ChunkNoiseGenerator` ready for terrain generation.
-    #[must_use] 
+    #[must_use]
     pub fn new(
         noise_router_base: &'a ProtoNoiseRouter,
         surface_estimator_base: &'a ProtoSurfaceEstimator,
@@ -490,63 +490,63 @@ impl<'a> ChunkNoiseGenerator<'a> {
 
     /// Returns the horizontal cell block count.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn horizontal_cell_block_count(&self) -> u8 {
         self.generation_shape.horizontal_cell_block_count()
     }
 
     /// Returns the vertical cell block count.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn vertical_cell_block_count(&self) -> u8 {
         self.generation_shape.vertical_cell_block_count()
     }
 
     /// Returns the minimum Y.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn min_y(&self) -> i8 {
         self.generation_shape.min_y
     }
 
     /// Returns the height.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn height(&self) -> u16 {
         self.generation_shape.height
     }
 
     /// Returns the blocks configuration.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn blocks(&self) -> &TerrainBlocks {
         self.blocks
     }
 
     /// Returns the vertical cell count.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn vertical_cell_count(&self) -> usize {
         self.vertical_cell_count
     }
 
     /// Returns the minimum cell Y.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn minimum_cell_y(&self) -> i32 {
         self.minimum_cell_y
     }
 
     /// Returns the start cell X position.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn start_cell_pos_x(&self) -> i32 {
         self.start_cell_pos_x
     }
 
     /// Returns the start cell Z position.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub fn start_cell_pos_z(&self) -> i32 {
         self.start_cell_pos_z
     }

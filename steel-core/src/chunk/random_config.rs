@@ -3,8 +3,8 @@
 //! This module provides random number generator derivers for various
 //! terrain generation systems.
 
-use steel_utils::random::{PositionalRandom, Random, RandomSplitter, xoroshiro::Xoroshiro};
 use steel_utils::random::RandomSource;
+use steel_utils::random::{PositionalRandom, Random, RandomSplitter, xoroshiro::Xoroshiro};
 
 /// Random configuration for world generation.
 pub struct WorldRandomConfig {
