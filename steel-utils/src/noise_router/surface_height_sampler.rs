@@ -5,14 +5,14 @@
 
 use std::collections::HashMap;
 
+use super::WrapperType;
 use super::chunk_density_function::{
-    biome_coords, Cache2D, ChunkNoiseFunctionSampleOptions, ChunkSpecificNoiseFunctionComponent,
-    FlatCache, SampleAction,
+    Cache2D, ChunkNoiseFunctionSampleOptions, ChunkSpecificNoiseFunctionComponent, FlatCache,
+    SampleAction, biome_coords,
 };
 use super::chunk_noise_router::ChunkNoiseFunctionComponent;
 use super::density_function::{NoiseFunctionComponentRange, PassThrough, UnblendedNoisePos};
 use super::proto_noise_router::{ProtoNoiseFunctionComponent, ProtoSurfaceEstimator};
-use super::WrapperType;
 
 /// Density cutoff for surface detection.
 ///
@@ -197,13 +197,8 @@ impl<'a> SurfaceHeightEstimateSampler<'a> {
     /// stepping by cellHeight (y_level_step_count), returning the highest Y
     /// where density > threshold.
     fn compute_height(&mut self, x: i32, z: i32) -> i32 {
-        let sample_options = ChunkNoiseFunctionSampleOptions::new(
-            false,
-            SampleAction::SkipCellCaches,
-            0,
-            0,
-            0,
-        );
+        let sample_options =
+            ChunkNoiseFunctionSampleOptions::new(false, SampleAction::SkipCellCaches, 0, 0, 0);
 
         // Align maximum_y to cell boundary (step size)
         let top_y = (self.maximum_y / self.y_level_step_count) * self.y_level_step_count;

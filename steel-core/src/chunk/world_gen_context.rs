@@ -6,8 +6,7 @@ use enum_dispatch::enum_dispatch;
 
 use crate::chunk::{
     chunk_access::ChunkAccess, chunk_generator::ChunkGenerator,
-    flat_chunk_generator::FlatChunkGenerator,
-    vanilla_noise_generator::VanillaNoiseGenerator,
+    flat_chunk_generator::FlatChunkGenerator, vanilla_noise_generator::VanillaNoiseGenerator,
 };
 use crate::world::World;
 

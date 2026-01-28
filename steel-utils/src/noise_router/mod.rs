@@ -4,11 +4,11 @@
 //! which uses pre-generated noise function component stacks to match vanilla Minecraft.
 
 #[allow(missing_docs)]
-pub mod types;
-#[allow(missing_docs)]
 pub mod density_function;
 #[allow(missing_docs)]
 pub mod evaluator;
+#[allow(missing_docs)]
+pub mod types;
 // noise_params is generated at build time from noise_parameters.json
 pub use crate::generated_noise_params as noise_params;
 
@@ -35,9 +35,9 @@ pub mod ore_sampler;
 #[allow(missing_docs)]
 pub mod surface_height_sampler;
 
-pub use types::*;
 pub use evaluator::{NoisePos, NoiseRouterRuntime};
 pub use noise_params::*;
+pub use types::*;
 
 // Re-export chunk noise router types
 pub use chunk_density_function::{
@@ -71,7 +71,9 @@ pub use fluid_level::{
     StaticFluidLevelSampler,
 };
 pub use ore_sampler::{OreBlocks, OreVeinSampler};
-pub use surface_height_sampler::{SurfaceHeightEstimateSampler, SurfaceHeightSamplerBuilderOptions};
+pub use surface_height_sampler::{
+    SurfaceHeightEstimateSampler, SurfaceHeightSamplerBuilderOptions,
+};
 
 #[cfg(test)]
 mod tests {

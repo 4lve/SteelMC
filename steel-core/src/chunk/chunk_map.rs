@@ -20,7 +20,6 @@ use steel_utils::{BlockPos, ChunkPos, SectionPos, locks::SyncMutex};
 use tokio::{runtime::Runtime, time::Instant};
 use tokio_util::task::TaskTracker;
 
-use crate::chunk::{chunk_holder::ChunkHolder, vanilla_noise_generator::VanillaNoiseGenerator};
 use crate::chunk::chunk_ticket_manager::{
     ChunkTicketManager, LevelChange, MAX_VIEW_DISTANCE, is_full,
 };
@@ -32,6 +31,7 @@ use crate::chunk::{
     chunk_noise_generator::TerrainBlocks, flat_chunk_generator::FlatChunkGenerator,
     world_gen_context::WorldGenContext,
 };
+use crate::chunk::{chunk_holder::ChunkHolder, vanilla_noise_generator::VanillaNoiseGenerator};
 use crate::chunk_saver::RegionManager;
 use crate::player::Player;
 use crate::world::World;
@@ -106,20 +106,35 @@ impl ChunkMap {
             water: REGISTRY.blocks.get_default_state_id(vanilla_blocks::WATER),
             lava: REGISTRY.blocks.get_default_state_id(vanilla_blocks::LAVA),
             air: REGISTRY.blocks.get_default_state_id(vanilla_blocks::AIR),
-            bedrock: REGISTRY.blocks.get_default_state_id(vanilla_blocks::BEDROCK),
-            copper_ore: REGISTRY.blocks.get_default_state_id(vanilla_blocks::COPPER_ORE),
-            deepslate_copper_ore: REGISTRY.blocks.get_default_state_id(vanilla_blocks::DEEPSLATE_COPPER_ORE),
-            raw_copper_block: REGISTRY.blocks.get_default_state_id(vanilla_blocks::RAW_COPPER_BLOCK),
-            granite: REGISTRY.blocks.get_default_state_id(vanilla_blocks::GRANITE),
-            iron_ore: REGISTRY.blocks.get_default_state_id(vanilla_blocks::IRON_ORE),
-            deepslate_iron_ore: REGISTRY.blocks.get_default_state_id(vanilla_blocks::DEEPSLATE_IRON_ORE),
-            raw_iron_block: REGISTRY.blocks.get_default_state_id(vanilla_blocks::RAW_IRON_BLOCK),
+            bedrock: REGISTRY
+                .blocks
+                .get_default_state_id(vanilla_blocks::BEDROCK),
+            copper_ore: REGISTRY
+                .blocks
+                .get_default_state_id(vanilla_blocks::COPPER_ORE),
+            deepslate_copper_ore: REGISTRY
+                .blocks
+                .get_default_state_id(vanilla_blocks::DEEPSLATE_COPPER_ORE),
+            raw_copper_block: REGISTRY
+                .blocks
+                .get_default_state_id(vanilla_blocks::RAW_COPPER_BLOCK),
+            granite: REGISTRY
+                .blocks
+                .get_default_state_id(vanilla_blocks::GRANITE),
+            iron_ore: REGISTRY
+                .blocks
+                .get_default_state_id(vanilla_blocks::IRON_ORE),
+            deepslate_iron_ore: REGISTRY
+                .blocks
+                .get_default_state_id(vanilla_blocks::DEEPSLATE_IRON_ORE),
+            raw_iron_block: REGISTRY
+                .blocks
+                .get_default_state_id(vanilla_blocks::RAW_IRON_BLOCK),
             tuff: REGISTRY.blocks.get_default_state_id(vanilla_blocks::TUFF),
         };
 
         let generator = Arc::new(ChunkGeneratorType::Vanilla(VanillaNoiseGenerator::new(
-            seed,
-            blocks,
+            seed, blocks,
         )));
 
         Self::with_generator(chunk_runtime, world, dimension, generator)

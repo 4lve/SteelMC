@@ -704,5 +704,4 @@ impl<'a> ChunkNoiseRouter<'a> {
             density_interpolator.swap_buffers();
         }
     }
-
 }

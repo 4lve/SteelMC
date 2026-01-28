@@ -4,8 +4,13 @@
 //! block state samplers for chunk terrain generation.
 
 // Uses coordinate variables (cell_x, cell_y, cell_z, etc.)
-#![allow(clippy::similar_names, clippy::too_many_lines, clippy::too_many_arguments)]
+#![allow(
+    clippy::similar_names,
+    clippy::too_many_lines,
+    clippy::too_many_arguments
+)]
 
+use steel_utils::BlockStateId;
 use steel_utils::noise::floor_div;
 use steel_utils::noise_router::{
     AquiferBlocks, AquiferSampler, ChainedBlockStateSampler, ChunkNoiseFunctionBuilderOptions,
@@ -14,7 +19,6 @@ use steel_utils::noise_router::{
     ProtoSurfaceEstimator, SampleAction, SeaLevelAquiferSampler, SurfaceHeightEstimateSampler,
     SurfaceHeightSamplerBuilderOptions, UnblendedNoisePos, WorldAquiferSampler, WrapperData,
 };
-use steel_utils::BlockStateId;
 
 use super::random_config::WorldRandomConfig;
 
@@ -240,10 +244,8 @@ impl<'a> ChunkNoiseGenerator<'a> {
 
         let horizontal_biome_end =
             biome_from_block((horizontal_cell_count * h_cell as usize) as i32) as usize;
-        let vertical_cell_count = floor_div(
-            i32::from(generation_shape.height) as i32,
-            i32::from(v_cell),
-        ) as usize;
+        let vertical_cell_count =
+            floor_div(i32::from(generation_shape.height) as i32, i32::from(v_cell)) as usize;
         let minimum_cell_y = floor_div(i32::from(generation_shape.min_y), i32::from(v_cell));
 
         // Build chunk noise router
@@ -362,7 +364,13 @@ impl<'a> ChunkNoiseGenerator<'a> {
 
             let mut options = ChunkNoiseFunctionSampleOptions::new(
                 false,
-                SampleAction::CellCaches(WrapperData::new(0, 0, 0, h_cell as usize, v_cell as usize)),
+                SampleAction::CellCaches(WrapperData::new(
+                    0,
+                    0,
+                    0,
+                    h_cell as usize,
+                    v_cell as usize,
+                )),
                 self.cache_result_unique_id,
                 self.cache_fill_unique_id,
                 0,
@@ -419,12 +427,12 @@ impl<'a> ChunkNoiseGenerator<'a> {
             .on_sampled_cell_corners(cell_y as usize, cell_z as usize);
         self.cache_fill_unique_id += 1;
 
-        let start_x =
-            (self.start_cell_pos_x + cell_x) * self.generation_shape.horizontal_cell_block_count() as i32;
-        let start_y =
-            (cell_y + self.minimum_cell_y) * self.generation_shape.vertical_cell_block_count() as i32;
-        let start_z =
-            (self.start_cell_pos_z + cell_z) * self.generation_shape.horizontal_cell_block_count() as i32;
+        let start_x = (self.start_cell_pos_x + cell_x)
+            * self.generation_shape.horizontal_cell_block_count() as i32;
+        let start_y = (cell_y + self.minimum_cell_y)
+            * self.generation_shape.vertical_cell_block_count() as i32;
+        let start_z = (self.start_cell_pos_z + cell_z)
+            * self.generation_shape.horizontal_cell_block_count() as i32;
 
         let mapper = ChunkIndexMapper {
             start_x,
@@ -532,7 +540,6 @@ impl<'a> ChunkNoiseGenerator<'a> {
     pub fn start_cell_pos_z(&self) -> i32 {
         self.start_cell_pos_z
     }
-
 }
 
 /// Maps indices to noise positions for interpolation buffer filling.

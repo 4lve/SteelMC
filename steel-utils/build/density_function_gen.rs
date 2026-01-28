@@ -573,10 +573,7 @@ fn generate_environment(env_name: &str, env_data: &Map<String, Value>) -> (Token
         noise_indices.insert("finalDensity", cell_cache_idx);
     }
 
-    let noise_stack_name = Ident::new(
-        &format!("{env_name_upper}_NOISE_STACK"),
-        Span::call_site(),
-    );
+    let noise_stack_name = Ident::new(&format!("{env_name_upper}_NOISE_STACK"), Span::call_site());
     let noise_stream = emit_stack(&noise_ctx, &noise_stack_name);
 
     // === Surface estimator stack ===
@@ -626,10 +623,7 @@ fn generate_environment(env_name: &str, env_data: &Map<String, Value>) -> (Token
         }
     }
 
-    let multi_stack_name = Ident::new(
-        &format!("{env_name_upper}_MULTI_STACK"),
-        Span::call_site(),
-    );
+    let multi_stack_name = Ident::new(&format!("{env_name_upper}_MULTI_STACK"), Span::call_site());
     let multi_stream = emit_stack(&multi_ctx, &multi_stack_name);
 
     // === Build the router ===

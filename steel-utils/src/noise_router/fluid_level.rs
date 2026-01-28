@@ -34,11 +34,7 @@ impl FluidLevel {
     /// Returns the fluid block if `y < max_y`, otherwise returns air.
     #[must_use]
     pub fn get_block(&self, y: i32, air: BlockStateId) -> BlockStateId {
-        if y < self.max_y {
-            self.block
-        } else {
-            air
-        }
+        if y < self.max_y { self.block } else { air }
     }
 
     /// Returns the fluid block state.
