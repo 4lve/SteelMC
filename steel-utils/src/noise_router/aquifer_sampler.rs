@@ -53,9 +53,25 @@ use super::density_function::{NoisePos, UnblendedNoisePos};
 use super::fluid_level::{FluidLevel, FluidLevelSampler, FluidLevelSamplerImpl};
 use super::surface_height_sampler::SurfaceHeightEstimateSampler;
 
+/// Context for fluid sampling operations.
+///
+/// This bundles the noise router and sampling options that are passed together
+/// to many internal functions during aquifer sampling.
+///
+/// # Lifetime Parameters
+///
+/// - `'a` - Lifetime of the borrow of the router and sample options
+/// - `'r` - Lifetime of the internal data held by the `ChunkNoiseRouter`
+pub struct FluidSamplingContext<'a, 'r> {
+    /// The chunk noise router for sampling density functions.
+    pub router: &'a mut ChunkNoiseRouter<'r>,
+    /// Options for noise function sampling.
+    pub sample_options: &'a ChunkNoiseFunctionSampleOptions,
+}
+
 /// Minimum Y value marker (way below min Y).
 /// This must be a reasonable value that won't cause integer overflow in barrier calculations.
-/// Matches vanilla's DimensionType.MIN_HEIGHT * 16 = -2032 * 16 = -32512
+/// Matches vanilla's `DimensionType.MIN_HEIGHT` * 16 = -2032 * 16 = -32512
 const WAY_BELOW_MIN_Y: i32 = -32512;
 
 /// 13 chunk position offsets for surface height sampling.
@@ -193,7 +209,7 @@ impl AquiferSamplerImpl for SeaLevelAquiferSampler {
 
 /// Full world aquifer sampler with underground water/lava pockets.
 ///
-/// This implementation matches vanilla Minecraft's NoiseBasedAquifer.
+/// This implementation matches vanilla Minecraft's `NoiseBasedAquifer`.
 pub struct WorldAquiferSampler {
     /// Fluid level sampler for default levels.
     fluid_level_sampler: FluidLevelSampler,
@@ -213,7 +229,7 @@ pub struct WorldAquiferSampler {
     grid_size_z: usize,
     /// Cached aquifer fluid levels (lazily computed).
     aquifer_cache: Box<[Option<FluidLevel>]>,
-    /// Cached random positions (lazily computed, Long.MAX_VALUE = not computed).
+    /// Cached random positions (lazily computed, `Long.MAX_VALUE` = not computed).
     aquifer_location_cache: Box<[i64]>,
 }
 
@@ -316,9 +332,8 @@ impl WorldAquiferSampler {
     fn get_aquifer_status(
         &mut self,
         index: usize,
-        router: &mut ChunkNoiseRouter,
+        ctx: &mut FluidSamplingContext<'_, '_>,
         height_estimator: &mut SurfaceHeightEstimateSampler,
-        sample_options: &ChunkNoiseFunctionSampleOptions,
     ) -> FluidLevel {
         if let Some(ref level) = self.aquifer_cache[index] {
             return level.clone();
@@ -329,7 +344,7 @@ impl WorldAquiferSampler {
         let y = unpack_y(location);
         let z = unpack_z(location);
 
-        let level = self.compute_fluid(x, y, z, router, height_estimator, sample_options);
+        let level = self.compute_fluid(x, y, z, ctx, height_estimator);
         self.aquifer_cache[index] = Some(level.clone());
         level
     }
@@ -340,9 +355,8 @@ impl WorldAquiferSampler {
         x: i32,
         y: i32,
         z: i32,
-        router: &mut ChunkNoiseRouter,
+        ctx: &mut FluidSamplingContext<'_, '_>,
         height_estimator: &mut SurfaceHeightEstimateSampler,
-        sample_options: &ChunkNoiseFunctionSampleOptions,
     ) -> FluidLevel {
         let global_fluid = self.fluid_level_sampler.get_fluid_level(x, y, z);
         let mut lowest_preliminary_surface = i32::MAX;
@@ -384,48 +398,38 @@ impl WorldAquiferSampler {
             lowest_preliminary_surface = lowest_preliminary_surface.min(preliminary_surface_level);
         }
 
-        let fluid_surface_level = self.compute_surface_level(
+        let fluid_surface_level = Self::compute_surface_level(
             x,
             y,
             z,
             &global_fluid,
             lowest_preliminary_surface,
             surface_at_center_is_under_global_fluid_level,
-            router,
-            sample_options,
+            ctx,
         );
 
         FluidLevel::new(
             fluid_surface_level,
-            self.compute_fluid_type(
-                x,
-                y,
-                z,
-                &global_fluid,
-                fluid_surface_level,
-                router,
-                sample_options,
-            ),
+            self.compute_fluid_type(x, y, z, &global_fluid, fluid_surface_level, ctx),
         )
     }
 
     /// Computes the surface level for fluid at a position.
+    #[allow(clippy::too_many_arguments)]
     fn compute_surface_level(
-        &self,
         x: i32,
         y: i32,
         z: i32,
         global_fluid: &FluidLevel,
         lowest_preliminary_surface: i32,
         surface_at_center_is_under_global_fluid_level: bool,
-        router: &mut ChunkNoiseRouter,
-        sample_options: &ChunkNoiseFunctionSampleOptions,
+        ctx: &mut FluidSamplingContext<'_, '_>,
     ) -> i32 {
         let pos = UnblendedNoisePos::new(x, y, z);
 
         // Check for deep dark region (no aquifers there)
-        let erosion = router.erosion(&pos, sample_options);
-        let depth = router.depth(&pos, sample_options);
+        let erosion = ctx.router.erosion(&pos, ctx.sample_options);
+        let depth = ctx.router.depth(&pos, ctx.sample_options);
         // Vanilla uses (double)-0.225F and (double)0.9F — float-to-double cast preserves
         // float precision loss: -0.225f32 as f64 != -0.225f64
         let is_deep_dark = erosion < f64::from(-0.225_f32) && depth > f64::from(0.9_f32);
@@ -440,8 +444,9 @@ impl WorldAquiferSampler {
                 0.0
             };
 
-            let floodedness_noise = router
-                .fluid_level_floodedness_noise(&pos, sample_options)
+            let floodedness_noise = ctx
+                .router
+                .fluid_level_floodedness_noise(&pos, ctx.sample_options)
                 .clamp(-1.0, 1.0);
             // Vanilla uses float literals widened to double: -0.3F, 0.8F, -0.8F, 0.4F
             let fully_flooded_threshold = map(
@@ -468,14 +473,7 @@ impl WorldAquiferSampler {
         if fully_flooded > 0.0 {
             global_fluid.max_y_exclusive()
         } else if partially_flooded > 0.0 {
-            self.compute_randomized_fluid_surface_level(
-                x,
-                y,
-                z,
-                lowest_preliminary_surface,
-                router,
-                sample_options,
-            )
+            Self::compute_randomized_fluid_surface_level(x, y, z, lowest_preliminary_surface, ctx)
         } else {
             WAY_BELOW_MIN_Y
         }
@@ -483,13 +481,11 @@ impl WorldAquiferSampler {
 
     /// Computes a randomized fluid surface level.
     fn compute_randomized_fluid_surface_level(
-        &self,
         x: i32,
         y: i32,
         z: i32,
         lowest_preliminary_surface: i32,
-        router: &mut ChunkNoiseRouter,
-        sample_options: &ChunkNoiseFunctionSampleOptions,
+        ctx: &mut FluidSamplingContext<'_, '_>,
     ) -> i32 {
         let fluid_level_cell_x = floor_div(x, 16);
         let fluid_level_cell_y = floor_div(y, 40);
@@ -499,7 +495,8 @@ impl WorldAquiferSampler {
 
         let pos =
             UnblendedNoisePos::new(fluid_level_cell_x, fluid_level_cell_y, fluid_level_cell_z);
-        let fluid_level_spread = router.fluid_level_spread_noise(&pos, sample_options) * 10.0;
+        let fluid_level_spread =
+            ctx.router.fluid_level_spread_noise(&pos, ctx.sample_options) * 10.0;
         let fluid_level_spread_quantized = ((fluid_level_spread / 3.0).floor() as i32) * 3;
         let target_fluid_surface_level = fluid_cell_middle_y + fluid_level_spread_quantized;
 
@@ -514,8 +511,7 @@ impl WorldAquiferSampler {
         z: i32,
         global_fluid: &FluidLevel,
         fluid_surface_level: i32,
-        router: &mut ChunkNoiseRouter,
-        sample_options: &ChunkNoiseFunctionSampleOptions,
+        ctx: &mut FluidSamplingContext<'_, '_>,
     ) -> BlockStateId {
         if fluid_surface_level <= -10
             && fluid_surface_level != WAY_BELOW_MIN_Y
@@ -527,7 +523,7 @@ impl WorldAquiferSampler {
 
             let pos =
                 UnblendedNoisePos::new(fluid_type_cell_x, fluid_type_cell_y, fluid_type_cell_z);
-            let lava_noise = router.lava_noise(&pos, sample_options);
+            let lava_noise = ctx.router.lava_noise(&pos, ctx.sample_options);
 
             // Vanilla uses (double)0.3F
             if lava_noise.abs() > f64::from(0.3_f32) {
@@ -543,8 +539,7 @@ impl WorldAquiferSampler {
         &self,
         pos: &impl NoisePos,
         barrier_noise_value: &mut Option<f64>,
-        router: &mut ChunkNoiseRouter,
-        sample_options: &ChunkNoiseFunctionSampleOptions,
+        ctx: &mut FluidSamplingContext<'_, '_>,
         status1: &FluidLevel,
         status2: &FluidLevel,
     ) -> f64 {
@@ -587,10 +582,11 @@ impl WorldAquiferSampler {
             }
         };
 
-        let noise_value = if !(-2.0..=2.0).contains(&gradient) {
-            0.0
+        let noise_value = if (-2.0..=2.0).contains(&gradient) {
+            *barrier_noise_value
+                .get_or_insert_with(|| ctx.router.barrier_noise(pos, ctx.sample_options))
         } else {
-            *barrier_noise_value.get_or_insert_with(|| router.barrier_noise(pos, sample_options))
+            0.0
         };
 
         2.0 * (noise_value + gradient)
@@ -647,9 +643,7 @@ impl AquiferSamplerImpl for WorldAquiferSampler {
                     let index = self.get_index(spaced_grid_x, spaced_grid_y, spaced_grid_z);
 
                     // Get or compute random position for this cell
-                    let location = if self.aquifer_location_cache[index] != i64::MAX {
-                        self.aquifer_location_cache[index]
-                    } else {
+                    let location = if self.aquifer_location_cache[index] == i64::MAX {
                         let mut random =
                             self.random_deriver
                                 .at(spaced_grid_x, spaced_grid_y, spaced_grid_z);
@@ -660,6 +654,8 @@ impl AquiferSamplerImpl for WorldAquiferSampler {
                         );
                         self.aquifer_location_cache[index] = loc;
                         loc
+                    } else {
+                        self.aquifer_location_cache[index]
                     };
 
                     let dx = unpack_x(location) - pos_x;
@@ -689,9 +685,14 @@ impl AquiferSamplerImpl for WorldAquiferSampler {
             }
         }
 
+        // Create sampling context for internal calls
+        let mut ctx = FluidSamplingContext {
+            router,
+            sample_options,
+        };
+
         // Get fluid status for closest point
-        let status1 =
-            self.get_aquifer_status(closest_index_1, router, height_estimator, sample_options);
+        let status1 = self.get_aquifer_status(closest_index_1, &mut ctx, height_estimator);
         let similarity_12 = Self::similarity(dist_sq_1, dist_sq_2);
         let fluid_state = status1.get_block(pos_y, self.blocks.air);
 
@@ -712,25 +713,16 @@ impl AquiferSamplerImpl for WorldAquiferSampler {
 
         // Calculate barrier between first two aquifers
         let mut barrier_noise_value = None;
-        let status2 =
-            self.get_aquifer_status(closest_index_2, router, height_estimator, sample_options);
+        let status2 = self.get_aquifer_status(closest_index_2, &mut ctx, height_estimator);
         let barrier_12 = similarity_12
-            * self.calculate_pressure(
-                pos,
-                &mut barrier_noise_value,
-                router,
-                sample_options,
-                &status1,
-                &status2,
-            );
+            * self.calculate_pressure(pos, &mut barrier_noise_value, &mut ctx, &status1, &status2);
 
         if density + barrier_12 > 0.0 {
             return None; // Still solid
         }
 
         // Check third aquifer
-        let status3 =
-            self.get_aquifer_status(closest_index_3, router, height_estimator, sample_options);
+        let status3 = self.get_aquifer_status(closest_index_3, &mut ctx, height_estimator);
         let similarity_13 = Self::similarity(dist_sq_1, dist_sq_3);
         if similarity_13 > 0.0 {
             let barrier_13 = similarity_12
@@ -738,8 +730,7 @@ impl AquiferSamplerImpl for WorldAquiferSampler {
                 * self.calculate_pressure(
                     pos,
                     &mut barrier_noise_value,
-                    router,
-                    sample_options,
+                    &mut ctx,
                     &status1,
                     &status3,
                 );
@@ -755,8 +746,7 @@ impl AquiferSamplerImpl for WorldAquiferSampler {
                 * self.calculate_pressure(
                     pos,
                     &mut barrier_noise_value,
-                    router,
-                    sample_options,
+                    &mut ctx,
                     &status2,
                     &status3,
                 );

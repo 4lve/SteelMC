@@ -17,7 +17,7 @@ fn skip_octave(random: &mut RandomSource) {
 
 /// Constant for coordinate wrapping to prevent floating-point discontinuities.
 /// Vanilla uses 3.3554432E7F (float) cast to double.
-const ROUND_OFF: f64 = 3.3554432E7;
+const ROUND_OFF: f64 = 3.355_443_2E7;
 
 /// Wrap a coordinate to prevent discontinuities in large worlds.
 /// Matches Minecraft's `PerlinNoise.wrap` method exactly:
@@ -296,9 +296,9 @@ impl PerlinNoise {
         d
     }
 
-    /// Sample noise for blended noise (InterpolatedNoiseSampler).
+    /// Sample noise for blended noise (`InterpolatedNoiseSampler`).
     ///
-    /// This uses a fractions-based weighting approach like vanilla Minecraft's BlendedNoise,
+    /// This uses a fractions-based weighting approach like vanilla Minecraft's `BlendedNoise`,
     /// where each octave is sampled with coordinates scaled by a fraction, and the result
     /// is divided by that fraction (amplifying low-frequency octaves).
     #[inline]

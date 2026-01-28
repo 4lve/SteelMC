@@ -3,7 +3,7 @@
 //! This module provides height estimation for the aquifer system to determine
 //! where the surface is relative to underground features.
 
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 use super::WrapperType;
 use super::chunk_density_function::{
@@ -64,7 +64,7 @@ pub struct SurfaceHeightEstimateSampler<'a> {
     /// Component stack for sampling.
     component_stack: Box<[ChunkNoiseFunctionComponent<'a>]>,
     /// Cached height estimates by packed XZ position.
-    cache: HashMap<i64, i32>,
+    cache: FxHashMap<i64, i32>,
     /// Minimum Y level.
     minimum_y: i32,
     /// Maximum Y level.
@@ -83,7 +83,7 @@ impl<'a> SurfaceHeightEstimateSampler<'a> {
         let mut component_stack =
             Vec::<ChunkNoiseFunctionComponent>::with_capacity(base.full_component_stack.len());
 
-        for base_component in base.full_component_stack.iter() {
+        for base_component in &base.full_component_stack {
             let chunk_component = match base_component {
                 ProtoNoiseFunctionComponent::Dependent(dependent) => {
                     ChunkNoiseFunctionComponent::Dependent(dependent)
@@ -163,7 +163,7 @@ impl<'a> SurfaceHeightEstimateSampler<'a> {
 
         Self {
             component_stack: component_stack.into_boxed_slice(),
-            cache: HashMap::new(),
+            cache: FxHashMap::default(),
             minimum_y: options.minimum_y,
             maximum_y: options.maximum_y,
             y_level_step_count: options.y_level_step_count,
@@ -194,7 +194,7 @@ impl<'a> SurfaceHeightEstimateSampler<'a> {
     /// Computes the surface height using top-down linear search.
     ///
     /// This matches vanilla's `FindTopSurface` algorithm: search from top down,
-    /// stepping by cellHeight (y_level_step_count), returning the highest Y
+    /// stepping by cellHeight (`y_level_step_count`), returning the highest Y
     /// where density > threshold.
     fn compute_height(&mut self, x: i32, z: i32) -> i32 {
         let sample_options =

@@ -580,7 +580,7 @@ impl<'a> ChunkNoiseRouter<'a> {
     /// # Arguments
     ///
     /// * `delta` - Interpolation factor from 0.0 (start X) to 1.0 (end X).
-    ///             Typically `local_x / horizontal_cell_block_count`.
+    ///   Typically `local_x / horizontal_cell_block_count`.
     pub fn interpolate_x(&mut self, delta: f64) {
         let indices = &self.interpolator_indices;
         let components = &mut self.component_stack;
@@ -608,7 +608,7 @@ impl<'a> ChunkNoiseRouter<'a> {
     /// # Arguments
     ///
     /// * `delta` - Interpolation factor from 0.0 (bottom Y) to 1.0 (top Y).
-    ///             Typically `local_y / vertical_cell_block_count`.
+    ///   Typically `local_y / vertical_cell_block_count`.
     pub fn interpolate_y(&mut self, delta: f64) {
         let indices = &self.interpolator_indices;
         let components = &mut self.component_stack;
@@ -636,7 +636,7 @@ impl<'a> ChunkNoiseRouter<'a> {
     /// # Arguments
     ///
     /// * `delta` - Interpolation factor from 0.0 (start Z) to 1.0 (end Z).
-    ///             Typically `local_z / horizontal_cell_block_count`.
+    ///   Typically `local_z / horizontal_cell_block_count`.
     pub fn interpolate_z(&mut self, delta: f64) {
         let indices = &self.interpolator_indices;
         let components = &mut self.component_stack;

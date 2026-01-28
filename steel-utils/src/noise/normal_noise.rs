@@ -12,7 +12,7 @@ use super::PerlinNoise;
 /// Input factor for slight variation between the two noise samplers.
 const INPUT_FACTOR: f64 = 1.018_126_888_217_522_7;
 
-/// Value factor numerator — vanilla uses 0.16666666666666666 (1/6), NOT TARGET_DEVIATION (1/3).
+/// Value factor numerator — vanilla uses 0.16666666666666666 (1/6), NOT `TARGET_DEVIATION` (1/3).
 const VALUE_FACTOR_NUMERATOR: f64 = 0.166_666_666_666_666_66;
 
 /// Parameters for creating a `NormalNoise` instance.

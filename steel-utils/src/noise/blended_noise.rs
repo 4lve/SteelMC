@@ -122,7 +122,7 @@ impl BlendedNoise {
     }
 
     /// Compute terrain density at the given block coordinates.
-    /// Matches Pumpkin's InterpolatedNoiseSampler exactly.
+    /// Matches Pumpkin's `InterpolatedNoiseSampler` exactly.
     #[must_use]
     pub fn compute(&self, block_x: i32, block_y: i32, block_z: i32) -> f64 {
         let d = f64::from(block_x) * self.xz_multiplier;
@@ -154,7 +154,7 @@ impl BlendedNoise {
         }
 
         // Compute blend factor q = (n/10 + 1) / 2
-        let q = (n / 10.0 + 1.0) / 2.0;
+        let q = f64::midpoint(n / 10.0, 1.0);
         let is_max = q >= 1.0;
         let is_min = q <= 0.0;
 
@@ -171,17 +171,15 @@ impl BlendedNoise {
             let u = wrap(f * o);
             let v = j * o;
 
-            if !is_max {
-                if let Some(min_noise) = self.min_limit_noise.get_octave_noise(r) {
+            if !is_max
+                && let Some(min_noise) = self.min_limit_noise.get_octave_noise(r) {
                     l += min_noise.noise_with_y_params(s, t, u, v, e * o) / o;
                 }
-            }
 
-            if !is_min {
-                if let Some(max_noise) = self.max_limit_noise.get_octave_noise(r) {
+            if !is_min
+                && let Some(max_noise) = self.max_limit_noise.get_octave_noise(r) {
                     m += max_noise.noise_with_y_params(s, t, u, v, e * o) / o;
                 }
-            }
 
             o /= 2.0;
         }

@@ -78,7 +78,7 @@ impl ChainedBlockStateSampler {
         sample_options: &ChunkNoiseFunctionSampleOptions,
         height_estimator: &mut SurfaceHeightEstimateSampler,
     ) -> Option<BlockStateId> {
-        for sampler in self.samplers.iter_mut() {
+        for sampler in &mut self.samplers {
             if let Some(state) = sampler.sample(router, pos, sample_options, height_estimator) {
                 return Some(state);
             }

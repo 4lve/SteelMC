@@ -88,7 +88,7 @@ pub struct StandardChunkFluidLevelSampler {
     top_fluid: FluidLevel,
     /// The fluid below the threshold (typically lava at depth).
     bottom_fluid: FluidLevel,
-    /// The Y threshold below which bottom_fluid is used.
+    /// The Y threshold below which `bottom_fluid` is used.
     bottom_y: i32,
 }
 
