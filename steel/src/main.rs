@@ -3,7 +3,10 @@
 use std::sync::Arc;
 
 use steel::SteelServer;
-use steel_utils::{text::DisplayResolutor, translations};
+#[cfg(feature = "spawn_chunk_display")]
+use steel::spawn_progress::SwitchableWriter;
+use steel::spawn_progress::generate_spawn_chunks;
+use steel_utils::text::DisplayResolutor;
 use text_components::fmt::set_display_resolutor;
 use tokio::{
     runtime::{Builder, Runtime},
@@ -12,27 +15,19 @@ use tokio::{
 use tokio_util::task::TaskTracker;
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
-#[cfg(not(feature = "jaeger"))]
-fn init_tracing() {
-    tracing_subscriber::registry()
-        .with(fmt::layer().with_timer(fmt::time::uptime()))
-        .with(
-            EnvFilter::builder()
-                .with_default_directive(tracing::Level::INFO.into())
-                .from_env_lossy(),
-        )
-        .init();
+fn default_env_filter() -> EnvFilter {
+    EnvFilter::builder()
+        .with_default_directive(tracing::Level::INFO.into())
+        .from_env_lossy()
 }
 
 #[cfg(feature = "jaeger")]
-fn init_tracing() {
+fn init_jaeger() {
     use opentelemetry::KeyValue;
     use opentelemetry::global;
     use opentelemetry::trace::TracerProvider;
     use opentelemetry_sdk::Resource;
     use opentelemetry_sdk::trace::SdkTracerProvider;
-    use tracing_opentelemetry::OpenTelemetryLayer;
-    use tracing_subscriber::Layer;
 
     let exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_tonic()
@@ -58,22 +53,83 @@ fn init_tracing() {
         .with_batch_exporter(exporter)
         .build();
 
-    let tracer = tracer_provider.tracer("steel");
+    let _tracer = tracer_provider.tracer("steel");
     global::set_tracer_provider(tracer_provider);
+}
 
-    tracing_subscriber::registry()
-        .with(
-            OpenTelemetryLayer::new(tracer)
-                .with_filter(EnvFilter::new("trace,h2=off,hyper=off,tonic=off,tower=off")),
-        )
-        .with(
-            fmt::layer().with_timer(fmt::time::uptime()).with_filter(
-                EnvFilter::builder()
-                    .with_default_directive(tracing::Level::INFO.into())
-                    .from_env_lossy(),
-            ),
-        )
-        .init();
+#[cfg(not(feature = "spawn_chunk_display"))]
+fn init_tracing() {
+    #[cfg(feature = "jaeger")]
+    {
+        use opentelemetry::global;
+        use tracing_opentelemetry::OpenTelemetryLayer;
+        use tracing_subscriber::Layer;
+
+        init_jaeger();
+        let tracer = global::tracer("steel");
+
+        tracing_subscriber::registry()
+            .with(
+                OpenTelemetryLayer::new(tracer)
+                    .with_filter(EnvFilter::new("trace,h2=off,hyper=off,tonic=off,tower=off")),
+            )
+            .with(
+                fmt::layer()
+                    .with_timer(fmt::time::uptime())
+                    .with_filter(default_env_filter()),
+            )
+            .init();
+    }
+
+    #[cfg(not(feature = "jaeger"))]
+    {
+        tracing_subscriber::registry()
+            .with(fmt::layer().with_timer(fmt::time::uptime()))
+            .with(default_env_filter())
+            .init();
+    }
+}
+
+#[cfg(feature = "spawn_chunk_display")]
+fn init_tracing() -> SwitchableWriter {
+    let writer = SwitchableWriter::new();
+
+    #[cfg(feature = "jaeger")]
+    {
+        use opentelemetry::global;
+        use tracing_opentelemetry::OpenTelemetryLayer;
+        use tracing_subscriber::Layer;
+
+        init_jaeger();
+        let tracer = global::tracer("steel");
+
+        tracing_subscriber::registry()
+            .with(
+                OpenTelemetryLayer::new(tracer)
+                    .with_filter(EnvFilter::new("trace,h2=off,hyper=off,tonic=off,tower=off")),
+            )
+            .with(
+                fmt::layer()
+                    .with_timer(fmt::time::uptime())
+                    .with_writer(writer.clone())
+                    .with_filter(default_env_filter()),
+            )
+            .init();
+    }
+
+    #[cfg(not(feature = "jaeger"))]
+    {
+        tracing_subscriber::registry()
+            .with(
+                fmt::layer()
+                    .with_timer(fmt::time::uptime())
+                    .with_writer(writer.clone()),
+            )
+            .with(default_env_filter())
+            .init();
+    }
+
+    writer
 }
 
 #[cfg(feature = "dhat-heap")]
@@ -110,11 +166,22 @@ fn main() {
 }
 
 async fn main_async(chunk_runtime: Arc<Runtime>) {
-    init_tracing();
-    run_server(chunk_runtime).await;
+    #[cfg(feature = "spawn_chunk_display")]
+    {
+        let writer = init_tracing();
+        run_server(chunk_runtime, &writer).await;
+    }
+    #[cfg(not(feature = "spawn_chunk_display"))]
+    {
+        init_tracing();
+        run_server(chunk_runtime).await;
+    }
 }
 
-async fn run_server(chunk_runtime: Arc<Runtime>) {
+async fn run_server(
+    chunk_runtime: Arc<Runtime>,
+    #[cfg(feature = "spawn_chunk_display")] writer: &SwitchableWriter,
+) {
     set_display_resolutor(&DisplayResolutor);
 
     #[cfg(feature = "deadlock_detection")]
@@ -147,12 +214,10 @@ async fn run_server(chunk_runtime: Arc<Runtime>) {
 
     let mut steel = SteelServer::new(chunk_runtime.clone()).await;
 
-    log::info!(
-        "{:p}",
-        translations::DEATH_ATTACK_ANVIL_PLAYER
-            .message(["4LVE", "Borrow Checker"])
-            .component()
-    );
+    #[cfg(feature = "spawn_chunk_display")]
+    generate_spawn_chunks(&steel.server, writer).await;
+    #[cfg(not(feature = "spawn_chunk_display"))]
+    generate_spawn_chunks(&steel.server).await;
 
     let server = steel.server.clone();
     let cancel_token = steel.cancel_token.clone();
