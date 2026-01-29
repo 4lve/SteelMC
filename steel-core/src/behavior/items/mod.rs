@@ -10,7 +10,7 @@ mod ender_eye;
 mod sign_item;
 
 pub use block_item::BlockItemBehavior;
-pub use bucket::{FilledBucketBehavior, EmptyBucketBehavior};
+pub use bucket::{EmptyBucketBehavior, FilledBucketBehavior};
 pub use default::DefaultItemBehavior;
 pub use ender_eye::EnderEyeBehavior;
 pub use sign_item::{HangingSignItemBehavior, SignItemBehavior};

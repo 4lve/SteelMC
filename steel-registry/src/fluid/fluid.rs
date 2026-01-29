@@ -18,20 +18,6 @@ impl FluidId {
     }
 }
 
-/// Vanilla fluid IDs
-pub mod fluid_ids {
-    /// Empty fluid (ID: 0)
-    pub const EMPTY: u8 = 0;
-    /// Flowing water (ID: 1)
-    pub const FLOWING_WATER: u8 = 1;
-    /// Water source (ID: 2)
-    pub const WATER: u8 = 2;
-    /// Flowing lava (ID: 3)
-    pub const FLOWING_LAVA: u8 = 3;
-    /// Lava source (ID: 4)
-    pub const LAVA: u8 = 4;
-}
-
 pub struct FluidEntry {
     pub id: FluidId,
     pub name: &'static str,

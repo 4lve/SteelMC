@@ -119,11 +119,7 @@ pub fn use_item_on(
 /// Handles using an item (general usage like right-clicking air).
 ///
 /// This implements logic similar to `ServerPlayerGameMode.useItem()`.
-pub fn use_item(
-    player: &Player,
-    world: &World,
-    hand: InteractionHand,
-) -> InteractionResult {
+pub fn use_item(player: &Player, world: &World, hand: InteractionHand) -> InteractionResult {
     // Spectator mode: can only open menus
     if player.game_mode.load() == GameType::Spectator {
         return InteractionResult::Pass;
@@ -145,8 +141,11 @@ pub fn use_item(
         // Get behavior registries
         let item_behaviors = &*ITEM_BEHAVIORS;
         let item_behavior = item_behaviors.get_behavior(context.item_stack.item);
-        
-        log::info!("Calling use_item on behavior for item: {}", context.item_stack.item.key);
+
+        log::info!(
+            "Calling use_item on behavior for item: {}",
+            context.item_stack.item.key
+        );
         let result = item_behavior.use_item(&mut context);
         log::info!("use_item result: {:?}", result);
 

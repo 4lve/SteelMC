@@ -9,7 +9,6 @@
 
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::Direction;
-use steel_registry::fluid_ids;
 use steel_registry::level_events;
 use steel_registry::sound_events;
 use steel_registry::vanilla_blocks;
@@ -21,7 +20,7 @@ use crate::world::World;
 
 use super::{
     can_hold_any_fluid, fluid_state_to_block, get_fluid_state, get_new_liquid, get_spread, is_hole,
-    is_lava, is_water, FluidBehaviour, FluidState,
+    is_lava, is_water, lava_id, FluidBehaviour, FluidState,
 };
 
 /// Lava fluid behavior.
@@ -87,7 +86,7 @@ impl LavaFluid {
         }
 
         // Calculate the correct fluid state for the below position
-        let new_fluid = get_new_liquid(world, below, fluid_ids::LAVA, self.drop_off());
+        let new_fluid = get_new_liquid(world, below, lava_id(), self.drop_off());
 
         if new_fluid.is_empty() {
             return false;
@@ -167,13 +166,7 @@ impl LavaFluid {
         }
 
         // Get spread map using slope finding
-        let spreads = get_spread(
-            world,
-            pos,
-            fluid_ids::LAVA,
-            self.drop_off(),
-            slope_find_distance,
-        );
+        let spreads = get_spread(world, pos, lava_id(), self.drop_off(), slope_find_distance);
 
         for (direction, new_fluid) in spreads {
             let neighbor = direction.relative(&pos);
@@ -207,13 +200,7 @@ impl LavaFluid {
                     world.level_event(level_events::LAVA_FIZZ, neighbor, 0, None);
                 } else {
                     // For other fluids/empty, check can_be_replaced_with
-                    if !self.can_be_replaced_with(
-                        existing,
-                        world,
-                        neighbor,
-                        fluid_ids::LAVA,
-                        direction,
-                    ) {
+                    if !self.can_be_replaced_with(existing, world, neighbor, lava_id(), direction) {
                         continue;
                     }
                 }
@@ -230,7 +217,7 @@ impl LavaFluid {
 
 impl FluidBehaviour for LavaFluid {
     fn fluid_type(&self) -> u8 {
-        fluid_ids::LAVA
+        lava_id()
     }
 
     fn tick_delay(&self) -> u32 {
@@ -259,7 +246,7 @@ impl FluidBehaviour for LavaFluid {
 
         // For flowing lava, recalculate if it should still exist
         if !current_fluid.is_source() {
-            let new_fluid = get_new_liquid(world, pos, fluid_ids::LAVA, self.drop_off());
+            let new_fluid = get_new_liquid(world, pos, lava_id(), self.drop_off());
 
             if new_fluid.is_empty() {
                 // No support - remove the lava
@@ -321,7 +308,7 @@ impl FluidBehaviour for LavaFluid {
         }
 
         // If source OR not a lava hole below, spread to sides
-        let is_lava_hole = is_hole(world, &pos, fluid_ids::LAVA);
+        let is_lava_hole = is_hole(world, &pos, lava_id());
 
         if fluid_state.is_source() || !is_lava_hole {
             self.spread_to_sides(world, pos, fluid_state, current_tick, slope_find_distance);

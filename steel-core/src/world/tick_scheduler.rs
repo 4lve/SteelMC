@@ -36,7 +36,13 @@ pub struct ScheduledTick {
 
 impl ScheduledTick {
     /// Creates a new scheduled tick.
-    pub fn new(pos: BlockPos, tick_type: TickType, trigger_tick: u64, priority: i32, sequence: u64) -> Self {
+    pub fn new(
+        pos: BlockPos,
+        tick_type: TickType,
+        trigger_tick: u64,
+        priority: i32,
+        sequence: u64,
+    ) -> Self {
         Self {
             pos,
             tick_type,
@@ -68,7 +74,9 @@ impl Ord for ScheduledTick {
         // Earlier trigger_tick = higher priority (should come first)
         // Lower priority value = higher priority
         // Earlier sequence = higher priority (FIFO for equal)
-        other.trigger_tick.cmp(&self.trigger_tick)
+        other
+            .trigger_tick
+            .cmp(&self.trigger_tick)
             .then_with(|| other.priority.cmp(&self.priority))
             .then_with(|| other.sequence.cmp(&self.sequence))
     }
@@ -123,7 +131,7 @@ impl TickScheduler {
         priority: i32,
     ) {
         let key = (pos, tick_type);
-        
+
         // Don't schedule if already pending
         if self.scheduled.contains(&key) {
             return;
@@ -138,7 +146,10 @@ impl TickScheduler {
 
         log::trace!(
             "Scheduled {:?} tick at {:?} for tick {} (delay={})",
-            tick_type, pos, trigger_tick, delay
+            tick_type,
+            pos,
+            trigger_tick,
+            delay
         );
     }
 
@@ -157,10 +168,14 @@ impl TickScheduler {
     /// This removes the ticks from the scheduler.
     pub fn get_due_ticks(&mut self, current_tick: u64) -> Vec<ScheduledTick> {
         let mut due = Vec::new();
-        
+
         // Log pending count occasionally if needed, or if non-zero
         if !self.pending.is_empty() {
-            log::trace!("Checking due ticks for current={}, pending count={}", current_tick, self.pending.len());
+            log::trace!(
+                "Checking due ticks for current={}, pending count={}",
+                current_tick,
+                self.pending.len()
+            );
         }
 
         while let Some(tick) = self.pending.peek() {

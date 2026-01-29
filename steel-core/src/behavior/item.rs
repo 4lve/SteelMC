@@ -3,8 +3,8 @@
 use steel_registry::REGISTRY;
 use steel_registry::items::ItemRef;
 
-use crate::behavior::{InteractionResult, UseOnContext, UseItemContext};
 use crate::behavior::items::DefaultItemBehavior;
+use crate::behavior::{InteractionResult, UseItemContext, UseOnContext};
 
 /// Trait defining the behavior of an item.
 ///

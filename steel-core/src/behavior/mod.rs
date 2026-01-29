@@ -42,10 +42,15 @@ pub mod item_behaviours;
 
 pub use block::{BlockBehaviorRegistry, BlockBehaviour, DefaultBlockBehaviour};
 use block_behaviours::register_block_behaviors;
-pub use context::{BlockHitResult, BlockPlaceContext, InteractionResult, UseItemContext, UseOnContext};
+pub use context::{
+    BlockHitResult, BlockPlaceContext, InteractionResult, UseItemContext, UseOnContext,
+};
 pub use item::{ItemBehavior, ItemBehaviorRegistry};
 use item_behaviours::register_item_behaviors;
-pub use items::{BlockItemBehavior, DefaultItemBehavior, EnderEyeBehavior, FilledBucketBehavior, EmptyBucketBehavior};
+pub use items::{
+    BlockItemBehavior, DefaultItemBehavior, EmptyBucketBehavior, EnderEyeBehavior,
+    FilledBucketBehavior,
+};
 use std::ops::Deref;
 use std::sync::OnceLock;
 use steel_registry::{vanilla_blocks, vanilla_items};
@@ -98,17 +103,11 @@ pub fn init_behaviors() {
     // Water tick delay = 5, Lava tick delay = 30 (vanilla values)
     block_behaviors.set_behavior(
         vanilla_blocks::WATER,
-        Box::new(blocks::LiquidBlockBehavior::new(
-            vanilla_blocks::WATER,
-            5,
-        )),
+        Box::new(blocks::LiquidBlockBehavior::new(vanilla_blocks::WATER, 5)),
     );
     block_behaviors.set_behavior(
         vanilla_blocks::LAVA,
-        Box::new(blocks::LiquidBlockBehavior::new(
-            vanilla_blocks::LAVA,
-            30,
-        )),
+        Box::new(blocks::LiquidBlockBehavior::new(vanilla_blocks::LAVA, 30)),
     );
 
     assert!(

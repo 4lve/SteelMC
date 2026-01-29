@@ -32,8 +32,8 @@ use steel_registry::{REGISTRY, dimension_type::DimensionTypeRef};
 
 use steel_registry::blocks::shapes::{AABBd, VoxelShape};
 use steel_utils::locks::{SyncMutex, SyncRwLock};
-use steel_utils::{BlockPos, BlockStateId, ChunkPos, SectionPos, types::UpdateFlags};
 use steel_utils::math::Vector3;
+use steel_utils::{BlockPos, BlockStateId, ChunkPos, SectionPos, types::UpdateFlags};
 use tokio::{runtime::Runtime, time::Instant};
 
 use crate::{
@@ -247,24 +247,30 @@ impl World {
     /// * `current_tick` - Current game tick
     /// * `delay` - Ticks to wait before executing
     pub fn schedule_tick(&self, pos: BlockPos, tick_type: TickType, current_tick: u64, delay: u32) {
-        self.tick_scheduler.lock().schedule(pos, tick_type, current_tick, delay, 0);
+        self.tick_scheduler
+            .lock()
+            .schedule(pos, tick_type, current_tick, delay, 0);
     }
 
     /// Schedules a fluid tick with default priority.
     pub fn schedule_fluid_tick(&self, pos: BlockPos, current_tick: u64, delay: u32) {
-        self.tick_scheduler.lock().schedule_fluid(pos, current_tick, delay);
+        self.tick_scheduler
+            .lock()
+            .schedule_fluid(pos, current_tick, delay);
     }
 
     /// Schedules a block tick with default priority.
     pub fn schedule_block_tick(&self, pos: BlockPos, current_tick: u64, delay: u32) {
-        self.tick_scheduler.lock().schedule_block(pos, current_tick, delay);
+        self.tick_scheduler
+            .lock()
+            .schedule_block(pos, current_tick, delay);
     }
 
     /// Processes all scheduled ticks that are due.
     ///
     /// Returns the number of ticks processed.
     fn process_scheduled_ticks(&self, current_tick: u64) -> usize {
-        use crate::fluid::{WaterFluid, LavaFluid, FluidBehaviour, get_fluid_state, fluid_ids};
+        use crate::fluid::{FluidBehaviour, LavaFluid, WaterFluid, get_fluid_state, is_water, is_lava};
 
         let due_ticks = self.tick_scheduler.lock().get_due_ticks(current_tick);
         let count = due_ticks.len();
@@ -274,24 +280,20 @@ impl World {
                 TickType::Fluid => {
                     // Get the fluid type at this position
                     let fluid_state = get_fluid_state(self, &tick.pos);
-                    
-                    match fluid_state.fluid_id {
-                        fluid_ids::WATER => {
-                            WaterFluid.tick(self, tick.pos, current_tick);
-                        }
-                        fluid_ids::LAVA => {
-                            LavaFluid.tick(self, tick.pos, current_tick);
-                        }
-                        fluid_ids::EMPTY => {
-                            // Fluid was removed, nothing to do
-                        }
-                        _ => {
-                            // Unknown fluid type
-                        }
+                    let fluid_id = fluid_state.fluid_id;
+
+                    if is_water(fluid_id) {
+                        WaterFluid.tick(self, tick.pos, current_tick);
+                    } else if is_lava(fluid_id) {
+                        LavaFluid.tick(self, tick.pos, current_tick);
+                    } else if fluid_id == 0 {
+                        // Fluid was removed, nothing to do
+                    } else {
+                        // Unknown fluid type
                     }
                 }
                 TickType::Block => {
-                    // TODO: Call block behavior tick  
+                    // TODO: Call block behavior tick
                     log::trace!("Processing block tick at {:?}", tick.pos);
                 }
             }
@@ -556,13 +558,12 @@ impl World {
     /// Returns timing information for the world tick.
     #[tracing::instrument(level = "trace", skip(self), name = "world_tick")]
     pub fn tick_b(&self, tick_count: u64, runs_normally: bool) -> WorldTickTimings {
-
         // Update the world's stored game time so components (like fluids) can access it
         {
             let mut level_data = self.level_data.write();
             level_data.data_mut().game_time = tick_count as i64;
         }
-        
+
         let random_tick_speed = self.get_game_rule(RANDOM_TICK_SPEED).as_int().unwrap_or(3) as u32;
 
         let chunk_map_timings = self
@@ -884,13 +885,27 @@ impl World {
         let bounding_boxes = state.get_outline_shape();
 
         if bounding_boxes.is_empty() {
-             return (true, None);
+            return (true, None);
         }
 
         for shape in bounding_boxes {
-            let block_vec = Vector3::new(block_pos.x() as f64, block_pos.y() as f64, block_pos.z() as f64);
-            let world_min = Vector3::new(f64::from(shape.min_x), f64::from(shape.min_y), f64::from(shape.min_z)).add(&block_vec);
-            let world_max = Vector3::new(f64::from(shape.max_x), f64::from(shape.max_y), f64::from(shape.max_z)).add(&block_vec);
+            let block_vec = Vector3::new(
+                block_pos.x() as f64,
+                block_pos.y() as f64,
+                block_pos.z() as f64,
+            );
+            let world_min = Vector3::new(
+                f64::from(shape.min_x),
+                f64::from(shape.min_y),
+                f64::from(shape.min_z),
+            )
+            .add(&block_vec);
+            let world_max = Vector3::new(
+                f64::from(shape.max_x),
+                f64::from(shape.max_y),
+                f64::from(shape.max_z),
+            )
+            .add(&block_vec);
 
             let direction = Self::intersects_aabb_with_direction(from, to, world_min, world_max);
             if direction.is_some() {
@@ -946,17 +961,26 @@ impl World {
             }};
         }
 
-        slab!(start.x, dir.x, min.x, max.x, Direction::West,  Direction::East);
-        slab!(start.y, dir.y, min.y, max.y, Direction::Down,  Direction::Up);
-        slab!(start.z, dir.z, min.z, max.z, Direction::North, Direction::South);
+        slab!(
+            start.x,
+            dir.x,
+            min.x,
+            max.x,
+            Direction::West,
+            Direction::East
+        );
+        slab!(start.y, dir.y, min.y, max.y, Direction::Down, Direction::Up);
+        slab!(
+            start.z,
+            dir.z,
+            min.z,
+            max.z,
+            Direction::North,
+            Direction::South
+        );
 
-        if tmax < 0.0 {
-            None
-        } else {
-            hit_dir
-        }
+        if tmax < 0.0 { None } else { hit_dir }
     }
-
 
     /// Performs a raytrace in the world.
     ///
@@ -966,7 +990,7 @@ impl World {
         start_pos: Vector3<f64>,
         end_pos: Vector3<f64>,
         hit_check: F,
-    ) -> (Option<BlockPos>, Option<Direction>) 
+    ) -> (Option<BlockPos>, Option<Direction>)
     where
         F: Fn(&BlockPos, &Self) -> bool,
     {
@@ -978,12 +1002,16 @@ impl World {
         let to = end_pos.lerp(&start_pos, adjust);
         let from = start_pos.lerp(&end_pos, adjust);
 
-        let mut block = BlockPos::new(from.x.floor() as i32, from.y.floor() as i32, from.z.floor() as i32);
+        let mut block = BlockPos::new(
+            from.x.floor() as i32,
+            from.y.floor() as i32,
+            from.z.floor() as i32,
+        );
 
         if hit_check(&block, self) {
             let (hit, face) = self.ray_outline_check(&block, start_pos, end_pos);
             if hit {
-                 return (Some(block), face);
+                return (Some(block), face);
             }
         }
 

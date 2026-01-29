@@ -14,31 +14,14 @@ use std::ptr;
 
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::{BlockStateProperties, Direction};
-use steel_registry::fluid_ids;
+use steel_registry::fluid_tags;
 use steel_registry::vanilla_blocks;
 use steel_registry::FluidState;
 use steel_registry::REGISTRY;
 use steel_utils::BlockPos;
 use steel_utils::BlockStateId;
-use steel_utils::Identifier;
 
 use crate::world::World;
-
-/// Fluid tag identifiers for checking fluid types.
-/// These match vanilla's FluidTags.WATER and FluidTags.LAVA.
-pub mod fluid_tags {
-    use steel_utils::Identifier;
-
-    /// Returns the water fluid tag identifier.
-    pub fn water() -> Identifier {
-        Identifier::vanilla_static("water")
-    }
-
-    /// Returns the lava fluid tag identifier.
-    pub fn lava() -> Identifier {
-        Identifier::vanilla_static("lava")
-    }
-}
 
 /// Checks if a fluid ID is in the water tag (includes water and flowing_water).
 /// This matches vanilla's FluidTags.WATER behavior.
@@ -78,6 +61,32 @@ pub fn is_water_state(fluid_state: FluidState) -> bool {
 #[must_use]
 pub fn is_lava_state(fluid_state: FluidState) -> bool {
     is_lava(fluid_state.fluid_id)
+}
+
+/// Gets the water source fluid ID from the registry.
+/// Returns 0 (empty) if water is not registered.
+#[must_use]
+pub fn water_id() -> u8 {
+    REGISTRY
+        .fluids
+        .by_key(&fluid_tags::water())
+        .and_then(|f| REGISTRY.fluids.get_id(f))
+        .copied()
+        .map(|id| id as u8)
+        .unwrap_or(0)
+}
+
+/// Gets the lava source fluid ID from the registry.
+/// Returns 0 (empty) if lava is not registered.
+#[must_use]
+pub fn lava_id() -> u8 {
+    REGISTRY
+        .fluids
+        .by_key(&fluid_tags::lava())
+        .and_then(|f| REGISTRY.fluids.get_id(f))
+        .copied()
+        .map(|id| id as u8)
+        .unwrap_or(0)
 }
 
 /// Trait for fluid behavior implementations.
@@ -137,16 +146,16 @@ pub fn get_fluid_state_from_block(state: BlockStateId) -> FluidState {
         let level: u8 = state
             .try_get_value(&BlockStateProperties::LEVEL)
             .unwrap_or(0);
-        FluidState::from_block_level(fluid_ids::WATER, level)
+        FluidState::from_block_level(water_id(), level)
     } else if ptr::eq(block, vanilla_blocks::LAVA) {
         let level: u8 = state
             .try_get_value(&BlockStateProperties::LEVEL)
             .unwrap_or(0);
-        FluidState::from_block_level(fluid_ids::LAVA, level)
+        FluidState::from_block_level(lava_id(), level)
     } else {
         // Check waterlogged property
         if let Some(true) = state.try_get_value(&BlockStateProperties::WATERLOGGED) {
-            FluidState::source(fluid_ids::WATER)
+            FluidState::source(water_id())
         } else {
             FluidState::EMPTY
         }
@@ -314,7 +323,7 @@ pub fn get_new_liquid(world: &World, pos: BlockPos, fluid_id: u8, drop_off: u8) 
 
     // Water source conversion: 2+ adjacent sources + solid below = new source
     // Check game rule for water source conversion (vanilla: default true)
-    if fluid_id == fluid_ids::WATER && source_count >= 2 {
+    if is_water(fluid_id) && source_count >= 2 {
         use steel_registry::vanilla_game_rules::WATER_SOURCE_CONVERSION;
         let can_convert = match world.get_game_rule(WATER_SOURCE_CONVERSION.into()) {
             steel_registry::game_rules::GameRuleValue::Bool(val) => val,
@@ -330,14 +339,14 @@ pub fn get_new_liquid(world: &World, pos: BlockPos, fluid_id: u8, drop_off: u8) 
             if (!below_block.config.replaceable && !below_block.config.is_air)
                 || below_fluid.is_source()
             {
-                return FluidState::source(fluid_ids::WATER);
+                return FluidState::source(water_id());
             }
         }
     }
 
     // Lava source conversion: 2+ adjacent sources + solid below = new source
     // Check game rule for lava source conversion (vanilla: default false)
-    if fluid_id == fluid_ids::LAVA && source_count >= 2 {
+    if is_lava(fluid_id) && source_count >= 2 {
         use steel_registry::vanilla_game_rules::LAVA_SOURCE_CONVERSION;
         let can_convert = match world.get_game_rule(LAVA_SOURCE_CONVERSION.into()) {
             steel_registry::game_rules::GameRuleValue::Bool(val) => val,
@@ -353,7 +362,7 @@ pub fn get_new_liquid(world: &World, pos: BlockPos, fluid_id: u8, drop_off: u8) 
             if (!below_block.config.replaceable && !below_block.config.is_air)
                 || below_fluid.is_source()
             {
-                return FluidState::source(fluid_ids::LAVA);
+                return FluidState::source(lava_id());
             }
         }
     }
@@ -376,23 +385,21 @@ pub fn get_new_liquid(world: &World, pos: BlockPos, fluid_id: u8, drop_off: u8) 
 /// - 8 = falling water (from above)
 #[must_use]
 pub fn fluid_state_to_block(fluid_state: FluidState) -> BlockStateId {
-    match fluid_state.fluid_id {
-        0 => REGISTRY.blocks.get_default_state_id(vanilla_blocks::AIR),
-        fluid_ids::WATER | fluid_ids::FLOWING_WATER => {
-            let base = REGISTRY.blocks.get_default_state_id(vanilla_blocks::WATER);
-            // Use FluidState's to_block_level method for proper conversion
-            let level = fluid_state.to_block_level();
-            base.set_value(&BlockStateProperties::LEVEL, level)
-        }
-        fluid_ids::LAVA | fluid_ids::FLOWING_LAVA => {
-            let base = REGISTRY.blocks.get_default_state_id(vanilla_blocks::LAVA);
-            let level = fluid_state.to_block_level();
-            base.set_value(&BlockStateProperties::LEVEL, level)
-        }
-        _ => {
-            // Unknown fluid type - default to air
-            REGISTRY.blocks.get_default_state_id(vanilla_blocks::AIR)
-        }
+    let fluid_id = fluid_state.fluid_id;
+    if fluid_id == 0 {
+        REGISTRY.blocks.get_default_state_id(vanilla_blocks::AIR)
+    } else if is_water(fluid_id) {
+        let base = REGISTRY.blocks.get_default_state_id(vanilla_blocks::WATER);
+        // Use FluidState's to_block_level method for proper conversion
+        let level = fluid_state.to_block_level();
+        base.set_value(&BlockStateProperties::LEVEL, level)
+    } else if is_lava(fluid_id) {
+        let base = REGISTRY.blocks.get_default_state_id(vanilla_blocks::LAVA);
+        let level = fluid_state.to_block_level();
+        base.set_value(&BlockStateProperties::LEVEL, level)
+    } else {
+        // Unknown fluid type - default to air
+        REGISTRY.blocks.get_default_state_id(vanilla_blocks::AIR)
     }
 }
 

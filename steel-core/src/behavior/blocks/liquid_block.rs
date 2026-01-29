@@ -9,14 +9,14 @@
 //       set_block holds chunk locks when calling on_place, and should_spread_liquid
 //       needs to read neighbor block states which requires the same locks -> DEADLOCK
 
+use steel_registry::REGISTRY;
+use steel_registry::blocks::BlockRef;
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::Direction;
-use steel_registry::blocks::BlockRef;
 use steel_registry::vanilla_blocks;
-use steel_registry::REGISTRY;
-use steel_utils::types::UpdateFlags;
 use steel_utils::BlockPos;
 use steel_utils::BlockStateId;
+use steel_utils::types::UpdateFlags;
 
 use crate::behavior::block::BlockBehaviour;
 use crate::behavior::context::BlockPlaceContext;

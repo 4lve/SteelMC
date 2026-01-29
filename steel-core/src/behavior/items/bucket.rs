@@ -10,20 +10,20 @@
 
 use std::ptr;
 
+use steel_registry::REGISTRY;
+use steel_registry::blocks::BlockRef;
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::BlockStateProperties;
-use steel_registry::blocks::BlockRef;
 use steel_registry::items::ItemRef;
 use steel_registry::sound_events;
 use steel_registry::vanilla_blocks;
 use steel_registry::vanilla_items;
-use steel_registry::REGISTRY;
+use steel_utils::BlockStateId;
 use steel_utils::math::Vector3;
 use steel_utils::types::UpdateFlags;
-use steel_utils::BlockStateId;
 
-use crate::behavior::context::InteractionResult;
 use crate::behavior::ItemBehavior;
+use crate::behavior::context::InteractionResult;
 use crate::entity::LivingEntity;
 use crate::player::Player;
 

@@ -27,7 +27,6 @@ text_components.workspace = true
 # NBT
 simdnbt.workspace = true
 
-
 [build-dependencies]
 # Internal crates
 steel-utils.workspace = true

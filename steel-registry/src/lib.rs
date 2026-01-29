@@ -80,162 +80,201 @@ pub mod zombie_nautilus_variant;
 #[rustfmt::skip]
 #[path = "generated/vanilla_blocks.rs"]
 pub mod vanilla_blocks;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_block_tags.rs"]
 pub mod vanilla_block_tags;
-#[allow(warnings)]
-#[rustfmt::skip]
-#[path = "generated/vanilla_items.rs"]
-pub mod vanilla_items;
-#[allow(warnings)]
-#[rustfmt::skip]
-#[path = "generated/vanilla_item_tags.rs"]
-pub mod vanilla_item_tags;
-#[allow(warnings)]
-#[rustfmt::skip]
-#[path = "generated/vanilla_biomes.rs"]
-pub mod vanilla_biomes;
-#[allow(warnings)]
-#[rustfmt::skip]
-#[path = "generated/vanilla_chat_types.rs"]
-pub mod vanilla_chat_types;
-#[allow(warnings)]
-#[rustfmt::skip]
-#[path = "generated/vanilla_trim_patterns.rs"]
-pub mod vanilla_trim_patterns;
-#[allow(warnings)]
-#[rustfmt::skip]
-#[path = "generated/vanilla_trim_materials.rs"]
-pub mod vanilla_trim_materials;
-#[allow(warnings)]
-#[rustfmt::skip]
-#[path = "generated/vanilla_wolf_variants.rs"]
-pub mod vanilla_wolf_variants;
-#[allow(warnings)]
-#[rustfmt::skip]
-#[path = "generated/vanilla_wolf_sound_variants.rs"]
-pub mod vanilla_wolf_sound_variants;
-#[allow(warnings)]
-#[rustfmt::skip]
-#[path = "generated/vanilla_pig_variants.rs"]
-pub mod vanilla_pig_variants;
-#[allow(warnings)]
-#[rustfmt::skip]
-#[path = "generated/vanilla_frog_variants.rs"]
-pub mod vanilla_frog_variants;
-#[allow(warnings)]
-#[rustfmt::skip]
-#[path = "generated/vanilla_cat_variants.rs"]
-pub mod vanilla_cat_variants;
-#[allow(warnings)]
-#[rustfmt::skip]
-#[path = "generated/vanilla_cow_variants.rs"]
-pub mod vanilla_cow_variants;
-#[allow(warnings)]
-#[rustfmt::skip]
-#[path = "generated/vanilla_chicken_variants.rs"]
-pub mod vanilla_chicken_variants;
-#[allow(warnings)]
-#[rustfmt::skip]
-#[path = "generated/vanilla_painting_variants.rs"]
-pub mod vanilla_painting_variants;
-#[allow(warnings)]
-#[rustfmt::skip]
-#[path = "generated/vanilla_dimension_types.rs"]
-pub mod vanilla_dimension_types;
-#[allow(warnings)]
-#[rustfmt::skip]
-#[path = "generated/vanilla_damage_types.rs"]
-pub mod vanilla_damage_types;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_banner_patterns.rs"]
 pub mod vanilla_banner_patterns;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_items.rs"]
+pub mod vanilla_items;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_item_tags.rs"]
+pub mod vanilla_item_tags;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_biomes.rs"]
+pub mod vanilla_biomes;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_chat_types.rs"]
+pub mod vanilla_chat_types;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_trim_patterns.rs"]
+pub mod vanilla_trim_patterns;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_trim_materials.rs"]
+pub mod vanilla_trim_materials;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_wolf_variants.rs"]
+pub mod vanilla_wolf_variants;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_wolf_sound_variants.rs"]
+pub mod vanilla_wolf_sound_variants;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_pig_variants.rs"]
+pub mod vanilla_pig_variants;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_frog_variants.rs"]
+pub mod vanilla_frog_variants;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_cat_variants.rs"]
+pub mod vanilla_cat_variants;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_cow_variants.rs"]
+pub mod vanilla_cow_variants;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_chicken_variants.rs"]
+pub mod vanilla_chicken_variants;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_painting_variants.rs"]
+pub mod vanilla_painting_variants;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_dimension_types.rs"]
+pub mod vanilla_dimension_types;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_damage_types.rs"]
+pub mod vanilla_damage_types;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_jukebox_songs.rs"]
 pub mod vanilla_jukebox_songs;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_instruments.rs"]
 pub mod vanilla_instruments;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_dialogs.rs"]
 pub mod vanilla_dialogs;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_dialog_tags.rs"]
 pub mod vanilla_dialog_tags;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_menu_types.rs"]
 pub mod vanilla_menu_types;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_zombie_nautilus_variants.rs"]
 pub mod vanilla_zombie_nautilus_variants;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_timelines.rs"]
 pub mod vanilla_timelines;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_timeline_tags.rs"]
 pub mod vanilla_timeline_tags;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_recipes.rs"]
 pub mod vanilla_recipes;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_entities.rs"]
 pub mod vanilla_entities;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_entity_data.rs"]
 pub mod vanilla_entity_data;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_fluids.rs"]
 pub mod vanilla_fluids;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_fluid_tags.rs"]
 pub mod vanilla_fluid_tags;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_loot_tables.rs"]
 pub mod vanilla_loot_tables;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_block_entity_types.rs"]
 pub mod vanilla_block_entity_types;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_game_rules.rs"]
 pub mod vanilla_game_rules;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_level_events.rs"]
 pub mod level_events;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_sound_events.rs"]
 pub mod sound_events;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_sound_types.rs"]
 pub mod sound_types;
+
 #[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_packets.rs"]
 pub mod packets;
 
 // Re-export fluid types for convenience
+pub use fluid::fluid::FluidId;
+pub use fluid::fluid_tags;
 pub use fluid::{Fluid, FluidState};
-pub use fluid::fluid::{FluidId, fluid_ids};
 
 pub struct RegistryLock(OnceLock<Registry>);
 
