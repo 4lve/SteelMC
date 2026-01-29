@@ -64,6 +64,7 @@ pub struct FilledBucketBehavior {
 }
 
 impl FilledBucketBehavior {
+    /// Creates a new filled bucket behavior.
     #[must_use]
     pub const fn new(fluid_block: BlockRef, empty_bucket: ItemRef) -> Self {
         Self {
@@ -140,6 +141,7 @@ impl ItemBehavior for FilledBucketBehavior {
         } else {
             30
         };
+
         let current_tick = context.world.game_time();
         context
             .world
@@ -171,6 +173,7 @@ impl ItemBehavior for FilledBucketBehavior {
 pub struct EmptyBucketBehavior;
 
 impl EmptyBucketBehavior {
+    /// Creates a new empty bucket behavior.
     #[must_use]
     pub const fn new() -> Self {
         Self

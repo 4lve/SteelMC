@@ -5,7 +5,6 @@ use steel_utils::Identifier;
 
 use crate::RegistryExt;
 
-pub mod fluid;
 pub mod fluid_tags;
 
 /// A fluid type definition (e.g., water, lava, empty).

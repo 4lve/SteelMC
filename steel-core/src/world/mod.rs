@@ -916,6 +916,13 @@ impl World {
         (false, None)
     }
 
+    /// Checks if a ray intersects with an axis-aligned bounding box (AABB).
+    ///
+    /// # Arguments
+    /// * `start` - The starting point of the ray
+    /// * `end` - The ending point of the ray
+    /// * `min` - The minimum coordinates of the AABB
+    /// * `max` - The maximum coordinates of the AABB
     pub fn intersects_aabb_with_direction(
         start: Vector3<f64>,
         end: Vector3<f64>,

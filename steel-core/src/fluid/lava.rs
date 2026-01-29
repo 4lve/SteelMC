@@ -66,8 +66,6 @@ impl LavaFluid {
             return false;
         }
 
-        let below_state = world.get_block_state(&below);
-        let below_block = below_state.get_block();
         let below_fluid = get_fluid_state(world, &below);
 
         // Lava-water interaction: lava flowing down into water

@@ -272,7 +272,6 @@ pub mod sound_types;
 pub mod packets;
 
 // Re-export fluid types for convenience
-pub use fluid::fluid::FluidId;
 pub use fluid::fluid_tags;
 pub use fluid::{Fluid, FluidState};
 

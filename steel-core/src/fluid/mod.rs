@@ -36,7 +36,7 @@ mod water;
 
 // Re-export fluid types from steel_registry
 pub use steel_registry::fluid_tags;
-pub use steel_registry::{Fluid, FluidId, FluidState};
+pub use steel_registry::{Fluid, FluidState};
 
 pub use empty::EmptyFluid;
 pub use flowing::{
