@@ -45,7 +45,7 @@ pub mod translations_registry;
 pub mod generated_noise_params;
 
 #[rustfmt::skip]
-#[path = "generated/density_functions.rs"]
+#[path = "generated/vanilla_translations/density_functions.rs"]
 #[allow(missing_docs, warnings)]
 pub mod generated_density_functions;
 
