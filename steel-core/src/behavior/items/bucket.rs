@@ -14,6 +14,7 @@ use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::BlockStateProperties;
 use steel_registry::blocks::BlockRef;
 use steel_registry::items::ItemRef;
+use steel_registry::sound_events;
 use steel_registry::vanilla_blocks;
 use steel_registry::vanilla_items;
 use steel_registry::REGISTRY;
@@ -144,6 +145,16 @@ impl ItemBehavior for FilledBucketBehavior {
             .world
             .schedule_fluid_tick(place_pos, current_tick, tick_delay);
 
+        // Play bucket empty sound
+        let sound_id = if ptr::eq(self.fluid_block, vanilla_blocks::WATER) {
+            sound_events::ITEM_BUCKET_EMPTY
+        } else {
+            sound_events::ITEM_BUCKET_EMPTY_LAVA
+        };
+        context
+            .world
+            .play_block_sound(sound_id, place_pos, 1.0, 1.0, None);
+
         // Replace with empty bucket
         if !context.player.has_infinite_materials() {
             context.item_stack.set_item(&self.empty_bucket.key);
@@ -241,6 +252,16 @@ impl ItemBehavior for EmptyBucketBehavior {
                 .world
                 .schedule_fluid_tick(neighbor, current_tick, tick_delay);
         }
+
+        // Play bucket fill sound
+        let sound_id = if ptr::eq(fluid_block, vanilla_blocks::WATER) {
+            sound_events::ITEM_BUCKET_FILL
+        } else {
+            sound_events::ITEM_BUCKET_FILL_LAVA
+        };
+        context
+            .world
+            .play_block_sound(sound_id, hit_pos, 1.0, 1.0, None);
 
         // Give filled bucket
         if !context.player.has_infinite_materials() {

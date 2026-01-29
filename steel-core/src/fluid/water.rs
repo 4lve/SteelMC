@@ -10,6 +10,7 @@
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::Direction;
 use steel_registry::fluid_ids;
+use steel_registry::level_events;
 use steel_registry::sound_events;
 use steel_utils::types::UpdateFlags;
 use steel_utils::BlockPos;
@@ -183,7 +184,8 @@ impl WaterFluid {
 
                 let block_state = REGISTRY.blocks.get_default_state_id(new_block);
                 world.set_block(neighbor, block_state, UpdateFlags::UPDATE_ALL_IMMEDIATE);
-                // TODO: Play fizz sound effect - causes deadlock when called during fluid tick
+                // Play fizz sound effect (level event 1501 - LAVA_FIZZ)
+                world.level_event(level_events::LAVA_FIZZ, neighbor, 0, None);
                 continue;
             }
 

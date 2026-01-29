@@ -10,6 +10,8 @@
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::Direction;
 use steel_registry::fluid_ids;
+use steel_registry::level_events;
+use steel_registry::sound_events;
 use steel_registry::vanilla_blocks;
 use steel_registry::REGISTRY;
 use steel_utils::types::UpdateFlags;
@@ -74,7 +76,9 @@ impl LavaFluid {
         if is_water(below_fluid.fluid_id) {
             let block_state = REGISTRY.blocks.get_default_state_id(vanilla_blocks::STONE);
             world.set_block(below, block_state, UpdateFlags::UPDATE_ALL_IMMEDIATE);
-            // TODO: Play fizz sound effect
+            // Play fizz sound effect (level event 1501 - LAVA_FIZZ)
+            // Using level_event for global sound that all nearby players can hear
+            world.level_event(level_events::LAVA_FIZZ, below, 0, None);
             return true;
         }
 
@@ -112,6 +116,33 @@ impl LavaFluid {
         }
 
         count
+    }
+
+    /// Animates the lava with ambient sounds.
+    /// Based on vanilla's LavaFluid.animateTick().
+    ///
+    /// Plays ambient sounds when air is above the lava.
+    fn animate_tick(&self, world: &World, pos: BlockPos, _fluid_state: FluidState) {
+        // Check if air is above the lava
+        let above_pos = pos.offset(0, 1, 0);
+        let above_state = world.get_block_state(&above_pos);
+        let above_block = above_state.get_block();
+
+        if above_block.config.is_air {
+            // 1/100 chance for lava pop sound
+            if rand::random::<u8>() % 100 == 0 {
+                let volume: f32 = rand::random::<f32>() * 0.2 + 0.9; // 0.9 to 1.1
+                let pitch: f32 = rand::random::<f32>() * 0.2 + 0.9; // 0.9 to 1.1
+                world.play_block_sound(sound_events::BLOCK_LAVA_POP, pos, volume, pitch, None);
+            }
+
+            // 1/200 chance for lava ambient sound
+            if rand::random::<u8>() % 200 == 0 {
+                let volume: f32 = rand::random::<f32>() * 0.2 + 0.9; // 0.9 to 1.1
+                let pitch: f32 = rand::random::<f32>() * 0.2 + 0.9; // 0.9 to 1.1
+                world.play_block_sound(sound_events::BLOCK_LAVA_AMBIENT, pos, volume, pitch, None);
+            }
+        }
     }
 
     /// Spreads lava to sides using vanilla's algorithm.
@@ -172,7 +203,8 @@ impl LavaFluid {
                     if !(fluid_state.amount as f32 / 9.0 >= 0.44444445) {
                         continue;
                     }
-                    // Otherwise, obsidian/cobblestone will be created
+                    // Lava will replace water - play fizz sound
+                    world.level_event(level_events::LAVA_FIZZ, neighbor, 0, None);
                 } else {
                     // For other fluids/empty, check can_be_replaced_with
                     if !self.can_be_replaced_with(
@@ -221,6 +253,9 @@ impl FluidBehaviour for LavaFluid {
         if current_fluid.is_empty() || !is_lava(current_fluid.fluid_id) {
             return; // No lava here anymore
         }
+
+        // Animate with ambient sounds (vanilla animateTick)
+        self.animate_tick(world, pos, current_fluid);
 
         // For flowing lava, recalculate if it should still exist
         if !current_fluid.is_source() {
