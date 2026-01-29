@@ -271,6 +271,7 @@ impl World {
     /// Returns the number of ticks processed.
     fn process_scheduled_ticks(&self, current_tick: u64) -> usize {
         use crate::fluid::{FluidBehaviour, LavaFluid, WaterFluid, get_fluid_state, is_water, is_lava};
+        use steel_registry::fluid_tags;
 
         let due_ticks = self.tick_scheduler.lock().get_due_ticks(current_tick);
         let count = due_ticks.len();
@@ -286,7 +287,7 @@ impl World {
                         WaterFluid.tick(self, tick.pos, current_tick);
                     } else if is_lava(fluid_id) {
                         LavaFluid.tick(self, tick.pos, current_tick);
-                    } else if fluid_id == 0 {
+                    } else if fluid_id == fluid_tags::EMPTY {
                         // Fluid was removed, nothing to do
                     } else {
                         // Unknown fluid type

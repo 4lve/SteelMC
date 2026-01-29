@@ -5,6 +5,7 @@
 // TODO: This file is minimal - consider if EmptyFluid needs more methods when modded fluids are added
 
 use steel_registry::blocks::properties::Direction;
+use steel_registry::fluid_tags;
 use steel_utils::types::BlockPos;
 
 use crate::fluid::FluidBehaviour;
@@ -16,7 +17,7 @@ pub struct EmptyFluid;
 
 impl FluidBehaviour for EmptyFluid {
     fn fluid_type(&self) -> u8 {
-        0
+        fluid_tags::EMPTY
     }
 
     fn tick(&self, _world: &World, _pos: BlockPos, _current_tick: u64) {

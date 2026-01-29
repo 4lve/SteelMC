@@ -2,8 +2,6 @@
 //!
 //! Based on vanilla's LiquidBlock.java.
 //!
-// TODO: Consider moving this to steel-core/src/fluid/block.rs for consistency
-//       (fluid logic should be grouped together)
 // TODO: Add support for cached fluid states when FluidState caching is implemented
 // TODO: Fix deadlock when calling should_spread_liquid from on_place
 //       set_block holds chunk locks when calling on_place, and should_spread_liquid
@@ -44,9 +42,6 @@ impl LiquidBlockBehavior {
     ///
     /// Returns `true` if the liquid should spread (schedule tick),
     /// Returns `false` if the liquid was converted to a block (obsidian/cobblestone/basalt).
-    ///
-    /// WARNING: This method CANNOT be called from on_place because set_block holds
-    /// chunk locks and this method needs to read neighbor blocks -> DEADLOCK
     fn should_spread_liquid(&self, world: &World, pos: BlockPos, _state: BlockStateId) -> bool {
         // Only lava has special interactions with water and blue ice
         if !std::ptr::eq(self.block, vanilla_blocks::LAVA) {

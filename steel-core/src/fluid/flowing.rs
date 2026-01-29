@@ -27,7 +27,7 @@ use crate::world::World;
 /// This matches vanilla's FluidTags.WATER behavior.
 #[must_use]
 pub fn is_water(fluid_id: u8) -> bool {
-    if fluid_id == 0 {
+    if fluid_id == fluid_tags::EMPTY {
         return false;
     }
     REGISTRY
@@ -41,7 +41,7 @@ pub fn is_water(fluid_id: u8) -> bool {
 /// This matches vanilla's FluidTags.LAVA behavior.
 #[must_use]
 pub fn is_lava(fluid_id: u8) -> bool {
-    if fluid_id == 0 {
+    if fluid_id == fluid_tags::EMPTY {
         return false;
     }
     REGISTRY
@@ -386,7 +386,7 @@ pub fn get_new_liquid(world: &World, pos: BlockPos, fluid_id: u8, drop_off: u8) 
 #[must_use]
 pub fn fluid_state_to_block(fluid_state: FluidState) -> BlockStateId {
     let fluid_id = fluid_state.fluid_id;
-    if fluid_id == 0 {
+    if fluid_id == fluid_tags::EMPTY {
         REGISTRY.blocks.get_default_state_id(vanilla_blocks::AIR)
     } else if is_water(fluid_id) {
         let base = REGISTRY.blocks.get_default_state_id(vanilla_blocks::WATER);
