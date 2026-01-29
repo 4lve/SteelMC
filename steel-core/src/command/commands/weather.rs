@@ -45,7 +45,6 @@ impl CommandExecutor<()> for WeatherCommandExecutor {
             WeatherCommandExecutor::Rain => rand::random_range(12_000..=24_000),
             WeatherCommandExecutor::Thunder => rand::random_range(3_600..=15_600),
         };
-        log::info!("PASA");
 
         self.execute(((), duration), context)
     }
