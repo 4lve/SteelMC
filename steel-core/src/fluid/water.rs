@@ -9,16 +9,16 @@
 
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::Direction;
+use steel_registry::fluid_ids;
 use steel_utils::types::UpdateFlags;
 use steel_utils::BlockPos;
 
 use crate::world::World;
 
-use super::flowing::{
+use super::{
     can_hold_any_fluid, fluid_state_to_block, get_fluid_state, get_new_liquid, get_spread, is_hole,
     FluidBehaviour, FluidState,
 };
-use steel_registry::FluidId;
 
 /// Water fluid behavior.
 pub struct WaterFluid;
@@ -42,7 +42,7 @@ impl WaterFluid {
 
         // Can flow into same fluid type
         let below_fluid = get_fluid_state(world, &below);
-        if below_fluid.fluid == FluidId::Water && !below_fluid.is_source() {
+        if below_fluid.fluid_id == fluid_ids::WATER && !below_fluid.is_source() {
             return true;
         }
 
@@ -58,7 +58,7 @@ impl WaterFluid {
         }
 
         // Calculate the correct fluid state for the below position
-        let new_fluid = get_new_liquid(world, below, FluidId::Water, self.drop_off());
+        let new_fluid = get_new_liquid(world, below, fluid_ids::WATER, self.drop_off());
 
         if new_fluid.is_empty() {
             return false;
@@ -81,7 +81,7 @@ impl WaterFluid {
         for offset in [(1, 0, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1)] {
             let neighbor = pos.offset(offset.0, offset.1, offset.2);
             let fluid = get_fluid_state(world, &neighbor);
-            if fluid.fluid == FluidId::Water && fluid.is_source() {
+            if fluid.fluid_id == fluid_ids::WATER && fluid.is_source() {
                 count += 1;
             }
         }
@@ -102,7 +102,7 @@ impl WaterFluid {
         let new_amount = if fluid_state.falling {
             7 // Falling water spreads at amount 7 (= level 1)
         } else {
-            fluid_state.amount().saturating_sub(1)
+            fluid_state.amount.saturating_sub(1)
         };
 
         if new_amount == 0 {
@@ -113,7 +113,7 @@ impl WaterFluid {
         let spreads = get_spread(
             world,
             pos,
-            FluidId::Water,
+            fluid_ids::WATER,
             self.drop_off(),
             self.slope_find_distance(),
         );
@@ -130,7 +130,7 @@ impl WaterFluid {
             let existing = get_fluid_state(world, &neighbor);
 
             // Lava-water interaction: water flowing into lava creates obsidian/cobblestone
-            if existing.fluid == FluidId::Lava {
+            if existing.fluid_id == fluid_ids::LAVA {
                 use steel_registry::vanilla_blocks;
                 use steel_registry::REGISTRY;
 
@@ -144,7 +144,7 @@ impl WaterFluid {
 
                 let block_state = REGISTRY.blocks.get_default_state_id(new_block);
                 world.set_block(neighbor, block_state, UpdateFlags::UPDATE_ALL_IMMEDIATE);
-                // TODO: Play fizz sound effect (level event 1501)
+                // TODO: Play fizz sound effect - causes deadlock when called during fluid tick
                 continue;
             }
 
@@ -153,15 +153,15 @@ impl WaterFluid {
                 // Don't overwrite higher amount of same fluid type
                 // For same fluid, we allow replacement if the new amount is higher
                 // (this allows water to "level up" as more sources contribute)
-                if existing.fluid == FluidId::Water {
-                    if existing.amount() >= new_fluid.amount() {
+                if existing.fluid_id == fluid_ids::WATER {
+                    if existing.amount >= new_fluid.amount {
                         continue;
                     }
                     // Otherwise, allow replacement - water can flow into lower-level water
-                } else if existing.fluid == FluidId::Lava {
+                } else if existing.fluid_id == fluid_ids::LAVA {
                     // For lava, we need to check if water can replace it
                     // This is handled by the lava-water interaction above, but let's be safe
-                    if existing.amount() as f32 / 9.0 >= 0.44444445 {
+                    if existing.amount as f32 / 9.0 >= 0.44444445 {
                         continue;
                     }
                     // Otherwise, obsidian/cobblestone will be created by the interaction check above
@@ -171,7 +171,7 @@ impl WaterFluid {
                         existing,
                         world,
                         neighbor,
-                        FluidId::Water,
+                        fluid_ids::WATER,
                         direction,
                     ) {
                         continue;
@@ -189,8 +189,8 @@ impl WaterFluid {
 }
 
 impl FluidBehaviour for WaterFluid {
-    fn fluid_type(&self) -> FluidId {
-        FluidId::Water
+    fn fluid_type(&self) -> u8 {
+        fluid_ids::WATER
     }
 
     fn tick_delay(&self) -> u32 {
@@ -208,18 +208,18 @@ impl FluidBehaviour for WaterFluid {
     fn tick(&self, world: &World, pos: BlockPos, current_tick: u64) {
         let current_fluid = get_fluid_state(world, &pos);
 
-        if current_fluid.is_empty() || current_fluid.fluid != FluidId::Water {
+        if current_fluid.is_empty() || current_fluid.fluid_id != fluid_ids::WATER {
             return; // No water here anymore
         }
 
         // For flowing water, recalculate if it should still exist
         if !current_fluid.is_source() {
-            let new_fluid = get_new_liquid(world, pos, FluidId::Water, self.drop_off());
+            let new_fluid = get_new_liquid(world, pos, fluid_ids::WATER, self.drop_off());
 
             if new_fluid.is_empty() {
                 // No support - remove the water
                 // Note: set_block will trigger neighbor fluid ticks via the world logic
-                let air = fluid_state_to_block(FluidState::empty());
+                let air = fluid_state_to_block(FluidState::EMPTY);
                 world.set_block(pos, air, UpdateFlags::UPDATE_ALL_IMMEDIATE);
                 return;
             } else if new_fluid != current_fluid {
@@ -245,7 +245,7 @@ impl FluidBehaviour for WaterFluid {
 
                 // If water is shrinking, re-schedule self to continue checking
                 // Don't schedule all neighbors - let natural tick propagation handle it
-                if new_fluid.amount() < current_fluid.amount() {
+                if new_fluid.amount < current_fluid.amount {
                     world.schedule_fluid_tick(pos, current_tick, self.tick_delay());
                     return; // Don't spread when shrinking
                 }
@@ -282,7 +282,7 @@ impl FluidBehaviour for WaterFluid {
         }
 
         // If source OR not a water hole below, spread to sides
-        let is_water_hole = is_hole(world, &pos, FluidId::Water);
+        let is_water_hole = is_hole(world, &pos, fluid_ids::WATER);
 
         if fluid_state.is_source() || !is_water_hole {
             self.spread_to_sides(world, pos, fluid_state, current_tick);
@@ -297,11 +297,11 @@ impl FluidBehaviour for WaterFluid {
         _fluid_state: FluidState,
         _world: &World,
         _pos: BlockPos,
-        other_fluid: FluidId,
+        other_fluid: u8,
         direction: Direction,
     ) -> bool {
         // Water can only be replaced from DOWN direction
         // and only by non-water fluids
-        direction == Direction::Down && other_fluid != FluidId::Water
+        direction == Direction::Down && other_fluid != fluid_ids::WATER
     }
 }

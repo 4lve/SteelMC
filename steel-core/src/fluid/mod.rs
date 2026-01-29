@@ -34,10 +34,14 @@ pub mod flowing;
 mod lava;
 mod water;
 
-// Re-export FluidId from steel_registry for convenience
-pub use steel_registry::FluidId;
+// Re-export fluid types from steel_registry
+pub use steel_registry::fluid_ids;
+pub use steel_registry::{Fluid, FluidId, FluidState};
 
 pub use empty::EmptyFluid;
-pub use flowing::{get_fluid_state, FluidBehaviour, FluidState};
+pub use flowing::{
+    can_hold_any_fluid, can_pass_through_wall, fluid_state_to_block, get_fluid_state,
+    get_new_liquid, get_spread, is_hole, FluidBehaviour,
+};
 pub use lava::LavaFluid;
 pub use water::WaterFluid;

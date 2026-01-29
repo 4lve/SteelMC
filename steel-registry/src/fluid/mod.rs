@@ -5,6 +5,8 @@ use steel_utils::Identifier;
 
 use crate::RegistryExt;
 
+pub mod fluid;
+
 /// A fluid type definition (e.g., water, lava, empty).
 #[derive(Debug, Clone)]
 pub struct Fluid {

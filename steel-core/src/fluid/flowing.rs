@@ -14,89 +14,19 @@ use std::ptr;
 
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::{BlockStateProperties, Direction};
+use steel_registry::fluid_ids;
 use steel_registry::vanilla_blocks;
-use steel_registry::FluidId;
+use steel_registry::FluidState;
 use steel_registry::REGISTRY;
 use steel_utils::BlockPos;
 use steel_utils::BlockStateId;
 
 use crate::world::World;
 
-/// Represents a fluid state at a position.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct FluidState {
-    /// Type of fluid.
-    pub fluid: FluidId,
-    /// Level 0-8. 0 = source, 1-7 = flowing (higher = less water), 8 = falling.
-    pub level: u8,
-    /// Whether the fluid is falling (from above).
-    pub falling: bool,
-}
-
-impl FluidState {
-    /// Creates an empty fluid state.
-    #[must_use]
-    pub const fn empty() -> Self {
-        Self {
-            fluid: FluidId::Empty,
-            level: 0,
-            falling: false,
-        }
-    }
-
-    /// Creates a source block fluid state.
-    #[must_use]
-    pub const fn source(fluid: FluidId) -> Self {
-        Self {
-            fluid,
-            level: 0,
-            falling: false,
-        }
-    }
-
-    /// Creates a flowing fluid state.
-    #[must_use]
-    pub fn flowing(fluid: FluidId, level: u8, falling: bool) -> Self {
-        Self {
-            fluid,
-            level: if level > 8 { 8 } else { level },
-            falling,
-        }
-    }
-
-    /// Returns true if this is a source block (level 0).
-    #[must_use]
-    pub fn is_source(&self) -> bool {
-        self.level == 0 && !self.falling
-    }
-
-    /// Returns true if this is an empty fluid state.
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.fluid == FluidId::Empty
-    }
-
-    /// Returns the "amount" (inverse of level for compatibility).
-    /// Source = 8, level 1 = 7, level 7 = 1.
-    /// For falling fluid, amount equals the level (how much is falling).
-    #[must_use]
-    pub fn amount(&self) -> u8 {
-        if self.is_source() {
-            8
-        } else if self.falling {
-            // Falling fluid: amount equals level (1-8)
-            self.level.clamp(1, 8)
-        } else {
-            // Flowing fluid: amount is inverse of level
-            8u8.saturating_sub(self.level)
-        }
-    }
-}
-
 /// Trait for fluid behavior implementations.
 pub trait FluidBehaviour: Send + Sync {
-    /// Returns the fluid type.
-    fn fluid_type(&self) -> FluidId;
+    /// Returns the fluid type ID (0=empty, 1=flowing_water, 2=water, 3=flowing_lava, 4=lava).
+    fn fluid_type(&self) -> u8;
 
     /// Returns the tick delay for this fluid.
     fn tick_delay(&self) -> u32;
@@ -120,15 +50,15 @@ pub trait FluidBehaviour: Send + Sync {
     /// * `fluid_state` - The current fluid state at the position
     /// * `world` - The world
     /// * `pos` - The position being checked
-    /// * `other_fluid` - The fluid trying to replace this one
+    /// * `other_fluid` - The fluid trying to replace this one (ID)
     /// * `direction` - The direction the other fluid is coming from
     fn can_be_replaced_with(
         &self,
         fluid_state: FluidState,
         world: &World,
         pos: BlockPos,
-        other_fluid: FluidId,
-        direction: Direction,
+        other_fluid: u8,
+        _direction: Direction,
     ) -> bool;
 }
 
@@ -150,27 +80,18 @@ pub fn get_fluid_state_from_block(state: BlockStateId) -> FluidState {
         let level: u8 = state
             .try_get_value(&BlockStateProperties::LEVEL)
             .unwrap_or(0);
-        if level == 0 {
-            FluidState::source(FluidId::Water)
-        } else {
-            // Level 8+ means falling
-            FluidState::flowing(FluidId::Water, level.min(7), level >= 8)
-        }
+        FluidState::from_block_level(fluid_ids::WATER, level)
     } else if ptr::eq(block, vanilla_blocks::LAVA) {
         let level: u8 = state
             .try_get_value(&BlockStateProperties::LEVEL)
             .unwrap_or(0);
-        if level == 0 {
-            FluidState::source(FluidId::Lava)
-        } else {
-            FluidState::flowing(FluidId::Lava, level.min(7), level >= 8)
-        }
+        FluidState::from_block_level(fluid_ids::LAVA, level)
     } else {
         // Check waterlogged property
         if let Some(true) = state.try_get_value(&BlockStateProperties::WATERLOGGED) {
-            FluidState::source(FluidId::Water)
+            FluidState::source(fluid_ids::WATER)
         } else {
-            FluidState::empty()
+            FluidState::EMPTY
         }
     }
 }
@@ -195,7 +116,7 @@ pub fn can_pass_through_wall(
     world: &World,
     from: BlockPos,
     to: BlockPos,
-    direction: Direction,
+    _direction: Direction,
 ) -> bool {
     use steel_registry::blocks::shapes::is_shape_full_block;
 
@@ -297,7 +218,7 @@ pub fn can_hold_any_fluid(world: &World, pos: &BlockPos) -> bool {
 /// - Water directly above (creates falling water with level 8)
 /// - A neighbor with HIGHER amount (lower level) that can flow into this position
 #[must_use]
-pub fn get_new_liquid(world: &World, pos: BlockPos, fluid: FluidId, drop_off: u8) -> FluidState {
+pub fn get_new_liquid(world: &World, pos: BlockPos, fluid_id: u8, drop_off: u8) -> FluidState {
     let mut max_incoming_amount = 0u8;
     let mut source_count = 0u8;
 
@@ -311,7 +232,7 @@ pub fn get_new_liquid(world: &World, pos: BlockPos, fluid: FluidId, drop_off: u8
         let neighbor_pos = direction.relative(&pos);
         let neighbor_fluid = get_fluid_state(world, &neighbor_pos);
 
-        if neighbor_fluid.fluid == fluid {
+        if neighbor_fluid.fluid_id == fluid_id {
             if neighbor_fluid.is_source() {
                 source_count += 1;
                 // Source can provide amount 8, minus drop_off
@@ -320,7 +241,7 @@ pub fn get_new_liquid(world: &World, pos: BlockPos, fluid: FluidId, drop_off: u8
             } else {
                 // Flowing water (including falling): calculate what amount it would provide
                 // Falling water has amount=8, so it provides strong horizontal support
-                let incoming = neighbor_fluid.amount().saturating_sub(drop_off);
+                let incoming = neighbor_fluid.amount.saturating_sub(drop_off);
                 max_incoming_amount = max_incoming_amount.max(incoming);
             }
         }
@@ -329,14 +250,14 @@ pub fn get_new_liquid(world: &World, pos: BlockPos, fluid: FluidId, drop_off: u8
     // Check above for falling fluid - vanilla uses getFlowing(8, true)
     let above_pos = pos.offset(0, 1, 0);
     let above_fluid = get_fluid_state(world, &above_pos);
-    if above_fluid.fluid == fluid {
+    if above_fluid.fluid_id == fluid_id {
         // Water above should create falling water here (level 8, falling=true)
-        return FluidState::flowing(fluid, 8, true);
+        return FluidState::flowing(fluid_id, 8, true);
     }
 
     // Water source conversion: 2+ adjacent sources + solid below = new source
     // Check game rule for water source conversion (vanilla: default true)
-    if fluid == FluidId::Water && source_count >= 2 {
+    if fluid_id == fluid_ids::WATER && source_count >= 2 {
         use steel_registry::vanilla_game_rules::WATER_SOURCE_CONVERSION;
         let can_convert = match world.get_game_rule(WATER_SOURCE_CONVERSION.into()) {
             steel_registry::game_rules::GameRuleValue::Bool(val) => val,
@@ -352,14 +273,14 @@ pub fn get_new_liquid(world: &World, pos: BlockPos, fluid: FluidId, drop_off: u8
             if (!below_block.config.replaceable && !below_block.config.is_air)
                 || below_fluid.is_source()
             {
-                return FluidState::source(FluidId::Water);
+                return FluidState::source(fluid_ids::WATER);
             }
         }
     }
 
     // Lava source conversion: 2+ adjacent sources + solid below = new source
     // Check game rule for lava source conversion (vanilla: default false)
-    if fluid == FluidId::Lava && source_count >= 2 {
+    if fluid_id == fluid_ids::LAVA && source_count >= 2 {
         use steel_registry::vanilla_game_rules::LAVA_SOURCE_CONVERSION;
         let can_convert = match world.get_game_rule(LAVA_SOURCE_CONVERSION.into()) {
             steel_registry::game_rules::GameRuleValue::Bool(val) => val,
@@ -375,18 +296,18 @@ pub fn get_new_liquid(world: &World, pos: BlockPos, fluid: FluidId, drop_off: u8
             if (!below_block.config.replaceable && !below_block.config.is_air)
                 || below_fluid.is_source()
             {
-                return FluidState::source(FluidId::Lava);
+                return FluidState::source(fluid_ids::LAVA);
             }
         }
     }
 
     // If we have incoming flow, calculate new state
     if max_incoming_amount > 0 {
-        let new_level = 8 - max_incoming_amount;
-        FluidState::flowing(fluid, new_level, false)
+        let new_amount = max_incoming_amount;
+        FluidState::flowing(fluid_id, new_amount, false)
     } else {
         // No support = empty
-        FluidState::empty()
+        FluidState::EMPTY
     }
 }
 
@@ -398,25 +319,17 @@ pub fn get_new_liquid(world: &World, pos: BlockPos, fluid: FluidId, drop_off: u8
 /// - 8 = falling water (from above)
 #[must_use]
 pub fn fluid_state_to_block(fluid_state: FluidState) -> BlockStateId {
-    match fluid_state.fluid {
-        FluidId::Empty => REGISTRY.blocks.get_default_state_id(vanilla_blocks::AIR),
-        FluidId::Water => {
+    match fluid_state.fluid_id {
+        0 => REGISTRY.blocks.get_default_state_id(vanilla_blocks::AIR),
+        fluid_ids::WATER | fluid_ids::FLOWING_WATER => {
             let base = REGISTRY.blocks.get_default_state_id(vanilla_blocks::WATER);
-            // Falling water uses LEVEL=8, non-falling uses the actual level
-            let level = if fluid_state.falling {
-                8
-            } else {
-                fluid_state.level
-            };
+            // Use FluidState's to_block_level method for proper conversion
+            let level = fluid_state.to_block_level();
             base.set_value(&BlockStateProperties::LEVEL, level)
         }
-        FluidId::Lava => {
+        fluid_ids::LAVA | fluid_ids::FLOWING_LAVA => {
             let base = REGISTRY.blocks.get_default_state_id(vanilla_blocks::LAVA);
-            let level = if fluid_state.falling {
-                8
-            } else {
-                fluid_state.level
-            };
+            let level = fluid_state.to_block_level();
             base.set_value(&BlockStateProperties::LEVEL, level)
         }
         _ => {
@@ -433,7 +346,7 @@ pub fn fluid_state_to_block(fluid_state: FluidState) -> BlockStateId {
 /// Checks if the given position is a "hole" where water can fall down.
 /// A hole is when the block below is air/replaceable or is the same fluid type.
 #[must_use]
-pub fn is_hole(world: &World, pos: &BlockPos, fluid: FluidId) -> bool {
+pub fn is_hole(world: &World, pos: &BlockPos, fluid_id: u8) -> bool {
     let below = pos.offset(0, -1, 0);
 
     if !world.is_in_valid_bounds(&below) {
@@ -450,7 +363,7 @@ pub fn is_hole(world: &World, pos: &BlockPos, fluid: FluidId) -> bool {
 
     // Check if below is same fluid (water can flow into water)
     let below_fluid = get_fluid_state_from_block(below_state);
-    if below_fluid.fluid == fluid && !below_fluid.is_source() {
+    if below_fluid.fluid_id == fluid_id && !below_fluid.is_source() {
         return true;
     }
 
@@ -460,7 +373,7 @@ pub fn is_hole(world: &World, pos: &BlockPos, fluid: FluidId) -> bool {
 /// Checks if fluid can pass through to a position horizontally.
 /// Based on vanilla's path checking for slope finding.
 #[must_use]
-fn can_pass_horizontally(world: &World, pos: &BlockPos, target_fluid: FluidId) -> bool {
+fn can_pass_horizontally(world: &World, pos: &BlockPos, target_fluid_id: u8) -> bool {
     use steel_registry::blocks::shapes::is_shape_full_block;
 
     if !world.is_in_valid_bounds(pos) {
@@ -477,7 +390,7 @@ fn can_pass_horizontally(world: &World, pos: &BlockPos, target_fluid: FluidId) -
     if is_shape_full_block(shape) {
         // Check if it's the same fluid type (not source) - can still flow through
         let fluid_state = get_fluid_state_from_block(state);
-        if fluid_state.fluid == target_fluid && !fluid_state.is_source() {
+        if fluid_state.fluid_id == target_fluid_id && !fluid_state.is_source() {
             return true;
         }
         return false;
@@ -490,7 +403,7 @@ fn can_pass_horizontally(world: &World, pos: &BlockPos, target_fluid: FluidId) -
 
     // Can flow into same fluid type if not source
     let fluid_state = get_fluid_state_from_block(state);
-    if fluid_state.fluid == target_fluid && !fluid_state.is_source() {
+    if fluid_state.fluid_id == target_fluid_id && !fluid_state.is_source() {
         return true;
     }
 
@@ -513,7 +426,7 @@ fn get_slope_distance(
     pos: BlockPos,
     depth: u8,
     from_direction: Option<Direction>,
-    fluid: FluidId,
+    fluid_id: u8,
     max_depth: u8,
 ) -> u16 {
     let mut min_distance: u16 = 1000;
@@ -535,12 +448,12 @@ fn get_slope_distance(
         let neighbor = direction.relative(&pos);
 
         // Can we pass through to this neighbor?
-        if !can_pass_horizontally(world, &neighbor, fluid) {
+        if !can_pass_horizontally(world, &neighbor, fluid_id) {
             continue;
         }
 
         // Is this position a hole?
-        if is_hole(world, &neighbor, fluid) {
+        if is_hole(world, &neighbor, fluid_id) {
             return depth as u16; // Found a hole at this depth
         }
 
@@ -551,7 +464,7 @@ fn get_slope_distance(
                 neighbor,
                 depth + 1,
                 Some(direction),
-                fluid,
+                fluid_id,
                 max_depth,
             );
             if distance < min_distance {
@@ -572,7 +485,7 @@ fn get_slope_distance(
 pub fn get_spread(
     world: &World,
     pos: BlockPos,
-    fluid: FluidId,
+    fluid_id: u8,
     drop_off: u8,
     slope_find_distance: u8,
 ) -> Vec<(Direction, FluidState)> {
@@ -588,13 +501,13 @@ pub fn get_spread(
         let neighbor = direction.relative(&pos);
 
         // Can we flow there?
-        if !can_pass_horizontally(world, &neighbor, fluid) {
+        if !can_pass_horizontally(world, &neighbor, fluid_id) {
             continue;
         }
 
         // Calculate what fluid should exist at the neighbor position
         // This is the key insight from vanilla - each position calculates its own state
-        let new_fluid = get_new_liquid(world, neighbor, fluid, drop_off);
+        let new_fluid = get_new_liquid(world, neighbor, fluid_id, drop_off);
 
         // Skip if no valid fluid would be placed
         if new_fluid.is_empty() {
@@ -602,10 +515,10 @@ pub fn get_spread(
         }
 
         // Calculate slope distance
-        let distance = if is_hole(world, &neighbor, fluid) {
+        let distance = if is_hole(world, &neighbor, fluid_id) {
             0
         } else if max_depth > 0 {
-            get_slope_distance(world, neighbor, 1, Some(direction), fluid, max_depth)
+            get_slope_distance(world, neighbor, 1, Some(direction), fluid_id, max_depth)
         } else {
             1000
         };
