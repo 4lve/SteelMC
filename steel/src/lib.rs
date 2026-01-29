@@ -14,6 +14,8 @@ use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 /// Server configuration module.
 pub mod config;
+/// Spawn chunk generation with optional terminal progress display.
+pub mod spawn_progress;
 
 pub use config::{MC_VERSION, STEEL_CONFIG};
 

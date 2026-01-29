@@ -24,6 +24,12 @@ impl std::fmt::Debug for Item {
     }
 }
 
+impl PartialEq for Item {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+
 impl Item {
     #[must_use]
     pub fn from_block(block: BlockRef) -> Self {

@@ -9,6 +9,9 @@ build = "build/build.rs"
 steel-utils.workspace = true
 steel-macros.workspace = true
 
+# UUID
+uuid.workspace = true
+
 # Serialization
 serde.workspace = true
 serde_json.workspace = true
@@ -27,6 +30,9 @@ simdnbt.workspace = true
 [build-dependencies]
 # Internal crates
 steel-utils.workspace = true
+
+# UUID
+uuid.workspace = true
 
 # Serialization
 serde.workspace = true

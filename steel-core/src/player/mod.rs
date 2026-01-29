@@ -31,12 +31,14 @@ use std::{
 };
 use steel_protocol::packets::game::CSystemChatMessage;
 use steel_protocol::packets::game::{
-    AnimateAction, CAnimate, CEntityPositionSync, COpenSignEditor, CPlayerPosition, CSetHeldSlot,
-    PlayerAction, SAcceptTeleportation, SPickItemFromBlock, SPlayerAbilities, SPlayerAction,
-    SSetCarriedItem, SUseItem, SUseItemOn,
+    AnimateAction, CAnimate, CEntityPositionSync, COpenSignEditor, CPlayerPosition, CSetEntityData,
+    CSetHeldSlot, PlayerAction, SAcceptTeleportation, SPickItemFromBlock, SPlayerAbilities,
+    SPlayerAction, SSetCarriedItem, SUseItem, SUseItemOn,
 };
 use steel_registry::blocks::block_state_ext::BlockStateExt;
+use steel_registry::entity_data::EntityPose;
 use steel_registry::game_rules::GameRuleValue;
+use steel_registry::vanilla_entity_data::PlayerEntityData;
 use steel_registry::vanilla_game_rules::{ELYTRA_MOVEMENT_CHECK, PLAYER_MOVEMENT_CHECK};
 use steel_registry::{REGISTRY, vanilla_chat_types};
 
@@ -161,11 +163,9 @@ pub struct Player {
     /// The previous rotation for movement broadcasts.
     prev_rotation: AtomicCell<(f32, f32)>,
 
-    // LivingEntity fields
-    /// The player's health (synced with client via entity data).
-    health: AtomicCell<f32>,
-    /// The player's absorption amount (extra health from effects like Absorption).
-    absorption_amount: AtomicCell<f32>,
+    /// Synchronized entity data (health, pose, flags, etc.) for network sync.
+    entity_data: SyncMutex<PlayerEntityData>,
+
     /// The player's movement speed.
     speed: AtomicCell<f32>,
     /// Whether the player is sprinting.
@@ -303,8 +303,7 @@ impl Player {
             rotation: AtomicCell::new((0.0, 0.0)),
             prev_position: SyncMutex::new(pos),
             prev_rotation: AtomicCell::new((0.0, 0.0)),
-            health: AtomicCell::new(20.0), // Default max health
-            absorption_amount: AtomicCell::new(0.0),
+            entity_data: SyncMutex::new(PlayerEntityData::new()),
             speed: AtomicCell::new(0.1), // Default walking speed
             sprinting: AtomicBool::new(false),
             last_chunk_pos: SyncMutex::new(ChunkPos::new(0, 0)),
@@ -389,6 +388,12 @@ impl Player {
         // Tick block breaking
         self.block_breaking.lock().tick(self, &self.world);
 
+        // Update pose based on current state
+        self.update_pose();
+
+        // Sync dirty entity data to nearby players
+        self.sync_entity_data();
+
         self.connection.tick();
 
         // TODO: Implement player ticking logic here
@@ -400,6 +405,15 @@ impl Player {
         // - Managing game mode specific logic
         // - Updating advancements
         // - Handling falling
+    }
+
+    /// Syncs dirty entity data to nearby players.
+    fn sync_entity_data(&self) {
+        if let Some(dirty_values) = self.entity_data.lock().pack_dirty() {
+            let packet = CSetEntityData::new(self.id, dirty_values);
+            let chunk_pos = *self.last_chunk_pos.lock();
+            self.world.broadcast_to_nearby(chunk_pos, packet, None);
+        }
     }
 
     /// Handles a custom payload packet.
@@ -1431,6 +1445,29 @@ impl Player {
         self.on_ground.load(Ordering::Relaxed)
     }
 
+    /// Determines the desired pose based on current player state.
+    /// Priority: `Sleeping` > `FallFlying` > `Sneaking` > `Standing`
+    // TODO: Add Swimming pose (requires water detection)
+    // TODO: Add SpinAttack pose (requires riptide trident)
+    // TODO: Add pose collision checks (force crouch in low ceilings)
+    fn get_desired_pose(&self) -> EntityPose {
+        if self.sleeping.load(Ordering::Relaxed) {
+            EntityPose::Sleeping
+        } else if self.fall_flying.load(Ordering::Relaxed) {
+            EntityPose::FallFlying
+        } else if self.shift_key_down.load(Ordering::Relaxed) && !self.abilities.lock().flying {
+            EntityPose::Sneaking
+        } else {
+            EntityPose::Standing
+        }
+    }
+
+    /// Updates the player's pose in entity data based on current state.
+    fn update_pose(&self) {
+        let desired_pose = self.get_desired_pose();
+        self.entity_data.lock().pose.set(desired_pose);
+    }
+
     /// Returns the player's client information settings.
     #[must_use]
     pub fn client_information(&self) -> ClientInformation {
@@ -2112,14 +2149,14 @@ impl Entity for Player {
 
 impl LivingEntity for Player {
     fn get_health(&self) -> f32 {
-        self.health.load()
+        *self.entity_data.lock().health.get()
     }
 
     fn set_health(&mut self, health: f32) {
         let max_health = self.get_max_health();
         let clamped = health.clamp(0.0, max_health);
-        self.health.store(clamped);
-        // TODO: Sync health to client via entity data
+        self.entity_data.lock().health.set(clamped);
+        // Dirty flag set automatically, will sync on next tick
     }
 
     fn get_max_health(&self) -> f32 {
@@ -2132,12 +2169,15 @@ impl LivingEntity for Player {
     }
 
     fn get_absorption_amount(&self) -> f32 {
-        self.absorption_amount.load()
+        *self.entity_data.lock().player_absorption.get()
     }
 
     fn set_absorption_amount(&mut self, amount: f32) {
-        self.absorption_amount.store(amount.max(0.0));
-        // TODO: Sync to client
+        self.entity_data
+            .lock()
+            .player_absorption
+            .set(amount.max(0.0));
+        // Dirty flag set automatically, will sync on next tick
     }
 
     fn get_armor_value(&self) -> i32 {

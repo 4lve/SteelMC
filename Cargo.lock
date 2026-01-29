@@ -2753,6 +2753,7 @@ dependencies = [
  "steel-macros",
  "steel-utils",
  "text_components",
+ "uuid",
 ]
 
 [[package]]

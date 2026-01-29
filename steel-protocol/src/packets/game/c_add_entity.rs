@@ -52,11 +52,21 @@ impl WriteTo for CAddEntity {
 impl CAddEntity {
     /// Creates a new CAddEntity packet for spawning a player.
     #[must_use]
-    pub fn player(id: i32, uuid: Uuid, x: f64, y: f64, z: f64, yaw: f32, pitch: f32) -> Self {
+    #[allow(clippy::too_many_arguments)]
+    pub fn player(
+        id: i32,
+        uuid: Uuid,
+        entity_type_id: i32,
+        x: f64,
+        y: f64,
+        z: f64,
+        yaw: f32,
+        pitch: f32,
+    ) -> Self {
         Self {
             id,
             uuid,
-            entity_type: steel_registry::vanilla_entities::PLAYER.id,
+            entity_type: entity_type_id,
             x,
             y,
             z,
