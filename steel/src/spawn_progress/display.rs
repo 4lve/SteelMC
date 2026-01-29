@@ -155,7 +155,7 @@ impl SpawnProgressDisplay {
         if !self.rendered {
             return;
         }
-        let term_lines = (DISPLAY_DIAMETER + 1) / 2;
+        let term_lines = DISPLAY_DIAMETER.div_ceil(2);
         for _ in 0..term_lines {
             let _ = write!(out, "\x1b[1A\x1b[2K");
         }
@@ -183,7 +183,7 @@ impl SpawnProgressDisplay {
     /// Overwrites the grid in-place (moves cursor up, rewrites each line).
     /// Uses half-block characters to render 2 rows per terminal line.
     fn render_overwrite(&self, out: &mut impl Write) {
-        let term_lines = (DISPLAY_DIAMETER + 1) / 2;
+        let term_lines = DISPLAY_DIAMETER.div_ceil(2);
         let _ = write!(out, "\x1b[{term_lines}A");
         for z in (0..DISPLAY_DIAMETER).step_by(2) {
             let _ = write!(out, "\r");

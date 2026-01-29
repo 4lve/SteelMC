@@ -14,6 +14,7 @@ use tokio::time::sleep;
 use steel_core::chunk::chunk_access::ChunkStatus;
 use steel_core::chunk::chunk_ticket_manager::MAX_VIEW_DISTANCE;
 use steel_core::server::Server;
+use steel_core::world::World;
 use steel_utils::{ChunkPos, SectionPos};
 
 #[cfg(feature = "spawn_chunk_display")]
@@ -21,9 +22,6 @@ mod display;
 
 #[cfg(feature = "spawn_chunk_display")]
 pub use display::SwitchableWriter;
-
-#[cfg(feature = "spawn_chunk_display")]
-use std::io::IsTerminal;
 
 #[cfg(feature = "slow_chunk_gen")]
 use std::sync::atomic::Ordering;
@@ -109,13 +107,15 @@ pub async fn generate_spawn_chunks(
 /// Returns the elapsed generation time (excluding the final display delay).
 #[cfg(feature = "spawn_chunk_display")]
 async fn generate_with_display(
-    world: &steel_core::world::World,
+    world: &World,
     center_chunk: ChunkPos,
     writer: &SwitchableWriter,
 ) -> Duration {
+    use std::io::{self, IsTerminal};
+
     use crate::spawn_progress::{DISPLAY_DIAMETER, DISPLAY_RADIUS};
 
-    let use_display = std::io::stderr().is_terminal();
+    let use_display = io::stderr().is_terminal();
     if use_display {
         writer.activate();
     }
@@ -186,7 +186,7 @@ async fn generate_with_display(
 
 /// Counts how many chunks in the spawn area have reached Full status.
 #[cfg(not(feature = "spawn_chunk_display"))]
-fn count_full_spawn_chunks(world: &steel_core::world::World, center_chunk: ChunkPos) -> usize {
+fn count_full_spawn_chunks(world: &World, center_chunk: ChunkPos) -> usize {
     let mut completed = 0;
     for dz in -SPAWN_RADIUS..=SPAWN_RADIUS {
         for dx in -SPAWN_RADIUS..=SPAWN_RADIUS {
@@ -205,7 +205,7 @@ fn count_full_spawn_chunks(world: &steel_core::world::World, center_chunk: Chunk
 }
 
 #[cfg(not(feature = "spawn_chunk_display"))]
-async fn generate_without_display(world: &steel_core::world::World, center_chunk: ChunkPos) {
+async fn generate_without_display(world: &World, center_chunk: ChunkPos) {
     let mut tick_count: u64 = 1;
 
     loop {

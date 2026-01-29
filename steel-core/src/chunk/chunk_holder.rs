@@ -412,7 +412,6 @@ impl ChunkHolder {
                                 }
                             }
                         });
-                        //log::info!("Task completed for {:?}", target_status);
                         #[cfg(feature = "slow_chunk_gen")]
                         if SLOW_CHUNK_GEN.load(Ordering::Relaxed) {
                             sleep(Duration::from_millis(200)).await;

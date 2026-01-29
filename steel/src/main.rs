@@ -6,7 +6,7 @@ use steel::SteelServer;
 #[cfg(feature = "spawn_chunk_display")]
 use steel::spawn_progress::SwitchableWriter;
 use steel::spawn_progress::generate_spawn_chunks;
-use steel_utils::{text::DisplayResolutor, translations};
+use steel_utils::text::DisplayResolutor;
 use text_components::fmt::set_display_resolutor;
 use tokio::{
     runtime::{Builder, Runtime},
@@ -53,7 +53,7 @@ fn init_jaeger() {
         .with_batch_exporter(exporter)
         .build();
 
-    let tracer = tracer_provider.tracer("steel");
+    let _tracer = tracer_provider.tracer("steel");
     global::set_tracer_provider(tracer_provider);
 }
 
@@ -61,11 +61,12 @@ fn init_jaeger() {
 fn init_tracing() {
     #[cfg(feature = "jaeger")]
     {
+        use opentelemetry::global;
         use tracing_opentelemetry::OpenTelemetryLayer;
         use tracing_subscriber::Layer;
 
         init_jaeger();
-        let tracer = opentelemetry::global::tracer("steel");
+        let tracer = global::tracer("steel");
 
         tracing_subscriber::registry()
             .with(
@@ -95,11 +96,12 @@ fn init_tracing() -> SwitchableWriter {
 
     #[cfg(feature = "jaeger")]
     {
+        use opentelemetry::global;
         use tracing_opentelemetry::OpenTelemetryLayer;
         use tracing_subscriber::Layer;
 
         init_jaeger();
-        let tracer = opentelemetry::global::tracer("steel");
+        let tracer = global::tracer("steel");
 
         tracing_subscriber::registry()
             .with(
@@ -211,13 +213,6 @@ async fn run_server(
     }
 
     let mut steel = SteelServer::new(chunk_runtime.clone()).await;
-
-    log::info!(
-        "{:p}",
-        translations::DEATH_ATTACK_ANVIL_PLAYER
-            .message(["4LVE", "Borrow Checker"])
-            .component()
-    );
 
     #[cfg(feature = "spawn_chunk_display")]
     generate_spawn_chunks(&steel.server, writer).await;
