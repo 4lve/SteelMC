@@ -115,3 +115,48 @@ pub fn use_item_on(
 
     InteractionResult::Pass
 }
+
+/// Handles using an item (general usage like right-clicking air).
+///
+/// This implements logic similar to `ServerPlayerGameMode.useItem()`.
+pub fn use_item(
+    player: &Player,
+    world: &World,
+    hand: InteractionHand,
+) -> InteractionResult {
+    // Spectator mode: can only open menus
+    if player.game_mode.load() == GameType::Spectator {
+        return InteractionResult::Pass;
+    }
+
+    let mut inv = player.inventory.lock();
+    let item_stack = inv.get_item_in_hand_mut(hand);
+
+    if !item_stack.is_empty() {
+        let original_count = item_stack.count;
+
+        let mut context = crate::behavior::UseItemContext {
+            player,
+            hand,
+            world,
+            item_stack,
+        };
+
+        // Get behavior registries
+        let item_behaviors = &*ITEM_BEHAVIORS;
+        let item_behavior = item_behaviors.get_behavior(context.item_stack.item);
+        
+        log::info!("Calling use_item on behavior for item: {}", context.item_stack.item.key);
+        let result = item_behavior.use_item(&mut context);
+        log::info!("use_item result: {:?}", result);
+
+        // Restore count for creative mode (infinite materials)
+        if player.has_infinite_materials() && context.item_stack.count < original_count {
+            context.item_stack.count = original_count;
+        }
+
+        return result;
+    }
+
+    InteractionResult::Pass
+}

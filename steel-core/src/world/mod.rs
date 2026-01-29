@@ -31,8 +31,9 @@ use steel_registry::vanilla_game_rules::RANDOM_TICK_SPEED;
 use steel_registry::{REGISTRY, dimension_type::DimensionTypeRef};
 
 use steel_registry::blocks::shapes::{AABBd, VoxelShape};
-use steel_utils::locks::SyncRwLock;
+use steel_utils::locks::{SyncMutex, SyncRwLock};
 use steel_utils::{BlockPos, BlockStateId, ChunkPos, SectionPos, types::UpdateFlags};
+use steel_utils::math::Vector3;
 use tokio::{runtime::Runtime, time::Instant};
 
 use crate::{
@@ -46,10 +47,12 @@ use crate::{
 
 mod player_area_map;
 mod player_map;
+mod tick_scheduler;
 mod world_entities;
 
 pub use player_area_map::PlayerAreaMap;
 pub use player_map::PlayerMap;
+pub use tick_scheduler::{ScheduledTick, TickScheduler, TickType};
 
 /// Timing information for a world tick.
 #[derive(Debug)]
@@ -79,6 +82,8 @@ pub struct World {
     /// Whether the tick rate is running normally (not frozen/paused).
     /// When false, movement validation checks are skipped.
     tick_runs_normally: AtomicBool,
+    /// Scheduled tick scheduler for blocks and fluids.
+    tick_scheduler: SyncMutex<TickScheduler>,
 }
 
 impl World {
@@ -102,6 +107,7 @@ impl World {
             dimension,
             level_data: SyncRwLock::new(level_data),
             tick_runs_normally: AtomicBool::new(true),
+            tick_scheduler: SyncMutex::new(TickScheduler::new()),
         }))
     }
 
@@ -233,6 +239,67 @@ impl World {
             .store(runs_normally, Ordering::Relaxed);
     }
 
+    /// Schedules a tick at the given position.
+    ///
+    /// # Arguments
+    /// * `pos` - Block position
+    /// * `tick_type` - Type of tick (Block or Fluid)
+    /// * `current_tick` - Current game tick
+    /// * `delay` - Ticks to wait before executing
+    pub fn schedule_tick(&self, pos: BlockPos, tick_type: TickType, current_tick: u64, delay: u32) {
+        self.tick_scheduler.lock().schedule(pos, tick_type, current_tick, delay, 0);
+    }
+
+    /// Schedules a fluid tick with default priority.
+    pub fn schedule_fluid_tick(&self, pos: BlockPos, current_tick: u64, delay: u32) {
+        self.tick_scheduler.lock().schedule_fluid(pos, current_tick, delay);
+    }
+
+    /// Schedules a block tick with default priority.
+    pub fn schedule_block_tick(&self, pos: BlockPos, current_tick: u64, delay: u32) {
+        self.tick_scheduler.lock().schedule_block(pos, current_tick, delay);
+    }
+
+    /// Processes all scheduled ticks that are due.
+    ///
+    /// Returns the number of ticks processed.
+    fn process_scheduled_ticks(&self, current_tick: u64) -> usize {
+        use crate::fluid::{WaterFluid, LavaFluid, FluidBehaviour, get_fluid_state, fluid_ids};
+
+        let due_ticks = self.tick_scheduler.lock().get_due_ticks(current_tick);
+        let count = due_ticks.len();
+
+        for tick in due_ticks {
+            match tick.tick_type {
+                TickType::Fluid => {
+                    // Get the fluid type at this position
+                    let fluid_state = get_fluid_state(self, &tick.pos);
+                    
+                    match fluid_state.fluid_id {
+                        fluid_ids::WATER => {
+                            WaterFluid.tick(self, tick.pos, current_tick);
+                        }
+                        fluid_ids::LAVA => {
+                            LavaFluid.tick(self, tick.pos, current_tick);
+                        }
+                        fluid_ids::EMPTY => {
+                            // Fluid was removed, nothing to do
+                        }
+                        _ => {
+                            // Unknown fluid type
+                        }
+                    }
+                }
+                TickType::Block => {
+                    // TODO: Call block behavior tick  
+                    log::trace!("Processing block tick at {:?}", tick.pos);
+                }
+            }
+        }
+
+        count
+    }
+
     /// Gets the value of a game rule.
     #[must_use]
     pub fn get_game_rule(&self, rule: GameRuleRef) -> GameRuleValue {
@@ -256,6 +323,12 @@ impl World {
     #[must_use]
     pub fn seed(&self) -> i64 {
         self.level_data.read().data().seed
+    }
+
+    /// Gets the current game time (tick count).
+    #[must_use]
+    pub fn game_time(&self) -> u64 {
+        self.level_data.read().data().game_time as u64
     }
 
     /// Gets the obfuscated seed for sending to clients.
@@ -362,7 +435,6 @@ impl World {
                 );
             }
         }
-
         true
     }
 
@@ -484,11 +556,23 @@ impl World {
     /// Returns timing information for the world tick.
     #[tracing::instrument(level = "trace", skip(self), name = "world_tick")]
     pub fn tick_b(&self, tick_count: u64, runs_normally: bool) -> WorldTickTimings {
+
+        // Update the world's stored game time so components (like fluids) can access it
+        {
+            let mut level_data = self.level_data.write();
+            level_data.data_mut().game_time = tick_count as i64;
+        }
+        
         let random_tick_speed = self.get_game_rule(RANDOM_TICK_SPEED).as_int().unwrap_or(3) as u32;
 
         let chunk_map_timings = self
             .chunk_map
             .tick_b(tick_count, random_tick_speed, runs_normally);
+
+        // Process scheduled ticks (blocks and fluids) when running normally
+        if runs_normally {
+            self.process_scheduled_ticks(tick_count);
+        }
 
         // Tick players (always tick players - they can move when frozen)
         let player_tick = {
@@ -774,6 +858,7 @@ impl World {
     /// # Arguments
     /// * `pos` - The block position to drop the item at
     /// * `item` - The item stack to drop
+
     pub fn drop_item_stack(&self, pos: BlockPos, item: ItemStack) {
         if item.is_empty() {
             return;
@@ -788,6 +873,204 @@ impl World {
         );
     }
 
+    /// Checks if a ray intersects with a block's selection box.
+    pub fn ray_outline_check(
+        &self,
+        block_pos: &BlockPos,
+        from: Vector3<f64>,
+        to: Vector3<f64>,
+    ) -> (bool, Option<steel_registry::blocks::properties::Direction>) {
+        let state = self.get_block_state(block_pos);
+        let bounding_boxes = state.get_outline_shape();
+
+        if bounding_boxes.is_empty() {
+             return (true, None);
+        }
+
+        for shape in bounding_boxes {
+            let block_vec = Vector3::new(block_pos.x() as f64, block_pos.y() as f64, block_pos.z() as f64);
+            let world_min = Vector3::new(f64::from(shape.min_x), f64::from(shape.min_y), f64::from(shape.min_z)).add(&block_vec);
+            let world_max = Vector3::new(f64::from(shape.max_x), f64::from(shape.max_y), f64::from(shape.max_z)).add(&block_vec);
+
+            let direction = Self::intersects_aabb_with_direction(from, to, world_min, world_max);
+            if direction.is_some() {
+                return (true, direction);
+            }
+        }
+
+        (false, None)
+    }
+
+    pub fn intersects_aabb_with_direction(
+        start: Vector3<f64>,
+        end: Vector3<f64>,
+        min: Vector3<f64>,
+        max: Vector3<f64>,
+    ) -> Option<steel_registry::blocks::properties::Direction> {
+        use steel_registry::blocks::properties::Direction;
+
+        let dir = end - start;
+
+        let mut tmin = f64::NEG_INFINITY;
+        let mut tmax = f64::INFINITY;
+        let mut hit_dir = None;
+
+        macro_rules! slab {
+            ($start:expr, $dir:expr, $min:expr, $max:expr, $neg:expr, $pos:expr) => {{
+                if $dir.abs() < 1e-8 {
+                    if $start < $min || $start > $max {
+                        return None;
+                    }
+                } else {
+                    let inv = 1.0 / $dir;
+                    let mut t1 = ($min - $start) * inv;
+                    let mut t2 = ($max - $start) * inv;
+
+                    let dir_hit = if t1 > t2 {
+                        std::mem::swap(&mut t1, &mut t2);
+                        $pos
+                    } else {
+                        $neg
+                    };
+
+                    if t1 > tmin {
+                        tmin = t1;
+                        hit_dir = Some(dir_hit);
+                    }
+
+                    tmax = tmax.min(t2);
+                    if tmin > tmax {
+                        return None;
+                    }
+                }
+            }};
+        }
+
+        slab!(start.x, dir.x, min.x, max.x, Direction::West,  Direction::East);
+        slab!(start.y, dir.y, min.y, max.y, Direction::Down,  Direction::Up);
+        slab!(start.z, dir.z, min.z, max.z, Direction::North, Direction::South);
+
+        if tmax < 0.0 {
+            None
+        } else {
+            hit_dir
+        }
+    }
+
+
+    /// Performs a raytrace in the world.
+    ///
+    /// Adapted from Pumpkin project.
+    pub fn raytrace<F>(
+        &self,
+        start_pos: Vector3<f64>,
+        end_pos: Vector3<f64>,
+        hit_check: F,
+    ) -> (Option<BlockPos>, Option<Direction>) 
+    where
+        F: Fn(&BlockPos, &Self) -> bool,
+    {
+        if start_pos == end_pos {
+            return (None, None);
+        }
+
+        let adjust = -1.0e-7f64;
+        let to = end_pos.lerp(&start_pos, adjust);
+        let from = start_pos.lerp(&end_pos, adjust);
+
+        let mut block = BlockPos::new(from.x.floor() as i32, from.y.floor() as i32, from.z.floor() as i32);
+
+        if hit_check(&block, self) {
+            let (hit, face) = self.ray_outline_check(&block, start_pos, end_pos);
+            if hit {
+                 return (Some(block), face);
+            }
+        }
+
+        let difference = to.sub(&from);
+
+        let step = difference.sign();
+
+        let delta = Vector3::new(
+            if step.x == 0 {
+                f64::MAX
+            } else {
+                (f64::from(step.x)) / difference.x
+            },
+            if step.y == 0 {
+                f64::MAX
+            } else {
+                (f64::from(step.y)) / difference.y
+            },
+            if step.z == 0 {
+                f64::MAX
+            } else {
+                (f64::from(step.z)) / difference.z
+            },
+        );
+
+        let mut next = Vector3::new(
+            delta.x
+                * (if step.x > 0 {
+                    1.0 - (from.x - from.x.floor())
+                } else {
+                    from.x - from.x.floor()
+                }),
+            delta.y
+                * (if step.y > 0 {
+                    1.0 - (from.y - from.y.floor())
+                } else {
+                    from.y - from.y.floor()
+                }),
+            delta.z
+                * (if step.z > 0 {
+                    1.0 - (from.z - from.z.floor())
+                } else {
+                    from.z - from.z.floor()
+                }),
+        );
+
+        while next.x <= 1.0 || next.y <= 1.0 || next.z <= 1.0 {
+            let block_direction = match (next.x, next.y, next.z) {
+                (x, y, z) if x < y && x < z => {
+                    block.0.x += step.x;
+                    next.x += delta.x;
+                    if step.x > 0 {
+                        Direction::West
+                    } else {
+                        Direction::East
+                    }
+                }
+                (_, y, z) if y < z => {
+                    block.0.y += step.y;
+                    next.y += delta.y;
+                    if step.y > 0 {
+                        Direction::Down
+                    } else {
+                        Direction::Up
+                    }
+                }
+                _ => {
+                    block.0.z += step.z;
+                    next.z += delta.z;
+                    if step.z > 0 {
+                        Direction::North
+                    } else {
+                        Direction::South
+                    }
+                }
+            };
+
+            if hit_check(&block, self) {
+                let (hit, face) = self.ray_outline_check(&block, start_pos, end_pos);
+                if hit {
+                    return (Some(block), face.or(Some(block_direction)));
+                }
+            }
+        }
+
+        (None, None)
+    }
     /// Broadcasts a level event to nearby players within 64 blocks.
     ///
     /// Level events trigger sounds, particles, and animations on the client.
