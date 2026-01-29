@@ -111,17 +111,94 @@ pub enum DependentProtoNoiseFunctionComponent {
 
 /// Proto noise function component (seed-initialized).
 ///
-/// This is the second stage of the router architecture. Proto components
-/// have initialized noise samplers but no chunk-specific caches.
+/// This enum represents the **second stage (Stage 2)** of the three-stage noise router
+/// architecture. Proto components have:
+/// - Initialized noise samplers seeded with the world seed
+/// - Computed min/max value ranges for optimization
+/// - No chunk-specific caches or interpolation data
+///
+/// # Architecture Overview
+///
+/// The noise router uses a three-stage architecture to efficiently generate terrain:
+///
+/// | Stage | Type | Scope | Purpose |
+/// |-------|------|-------|---------|
+/// | 1 | [`BaseNoiseFunctionComponent`] | Global (constant) | Static compile-time data |
+/// | 2 | **`ProtoNoiseFunctionComponent`** | **Per-world** | **Seed-initialized samplers** |
+/// | 3 | [`ChunkNoiseFunctionComponent`] | Per-chunk | Cached/interpolated values |
+///
+/// Proto components are built once per world from base components using
+/// [`ProtoNoiseRouters::generate_proto_stack`]. They serve as templates for
+/// creating chunk-specific routers.
+///
+/// # Variants
+///
+/// - [`Independent`](ProtoNoiseFunctionComponent::Independent) - Components that can be sampled
+///   directly at any position without depending on other components. Examples: constants, raw
+///   noise, Y-gradients.
+///
+/// - [`Dependent`](ProtoNoiseFunctionComponent::Dependent) - Components that reference other
+///   components by index and require recursive sampling. Examples: math operations, splines,
+///   range choices.
+///
+/// - [`Wrapper`](ProtoNoiseFunctionComponent::Wrapper) - Special components that wrap an input
+///   and mark it for chunk-level caching. At proto stage, these just pass through; at chunk
+///   stage, they become 2D/3D interpolation caches.
+///
+/// - [`PassThrough`](ProtoNoiseFunctionComponent::PassThrough) - Placeholder components for
+///   features not yet implemented (e.g., blend density). These forward sampling to their
+///   input with custom min/max bounds.
+///
+/// # Sampling Flow
+///
+/// When a chunk router samples a proto component:
+///
+/// 1. Proto components provide the base sampling logic via trait implementations
+/// 2. Chunk components may add caching/interpolation on top
+/// 3. Dependent components recursively sample their inputs from the component stack
+/// 4. Final values are used for terrain density decisions
+///
+/// # Example
+///
+/// ```ignore
+/// // Proto components are typically accessed through ProtoNoiseRouter
+/// let proto_routers = ProtoNoiseRouters::generate(&base_routers, world_seed);
+///
+/// // Access a specific component
+/// let final_density = &proto_routers.noise.full_component_stack[proto_routers.noise.final_density];
+///
+/// // Check the component's range
+/// let (min, max) = (final_density.min(), final_density.max());
+/// ```
+///
+/// [`BaseNoiseFunctionComponent`]: crate::noise_router::BaseNoiseFunctionComponent
+/// [`ChunkNoiseFunctionComponent`]: super::chunk_noise_router::ChunkNoiseFunctionComponent
+/// [`ProtoNoiseRouters::generate_proto_stack`]: ProtoNoiseRouters::generate_proto_stack
 #[enum_dispatch(NoiseFunctionComponentRange)]
 pub enum ProtoNoiseFunctionComponent {
-    /// Independent component (no dependencies).
+    /// Independent component that can be sampled directly without dependencies.
+    ///
+    /// These components (constants, noise samplers, gradients) don't reference other
+    /// components and can compute their value from just the position.
     Independent(IndependentProtoNoiseFunctionComponent),
-    /// Dependent component (requires recursive sampling).
+
+    /// Dependent component that requires recursive sampling of other components.
+    ///
+    /// These components (math operations, splines, conditionals) reference other
+    /// components by index and build complex density functions through composition.
     Dependent(DependentProtoNoiseFunctionComponent),
-    /// Placeholder for chunk-specific wrappers.
+
+    /// Cache wrapper that marks an input for chunk-level caching.
+    ///
+    /// At proto stage, this just passes through to its input. At chunk stage,
+    /// it becomes a 2D (flat cache) or 3D (interpolated) cache depending on
+    /// the wrapper type.
     Wrapper(Wrapper),
-    /// Pass-through for blending placeholders.
+
+    /// Pass-through placeholder for unimplemented features.
+    ///
+    /// Used for blend density and similar components that are not yet implemented.
+    /// Forwards sampling to the input component with custom min/max bounds.
     PassThrough(PassThrough),
 }
 
@@ -132,7 +209,7 @@ pub enum ProtoNoiseFunctionComponent {
 /// random states from the world seed for consistent generation.
 pub struct DoublePerlinNoiseBuilder {
     /// Random deriver for creating noise-specific random states.
-    base_random_deriver: RandomSplitter,
+    pub base_random_deriver: RandomSplitter,
 }
 
 impl DoublePerlinNoiseBuilder {
