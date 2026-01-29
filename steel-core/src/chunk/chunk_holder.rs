@@ -9,6 +9,16 @@ use std::sync::{Arc, Weak};
 use steel_utils::locks::SyncRwLock;
 use steel_utils::{BlockPos, ChunkPos, SectionPos, locks::SyncMutex};
 use tokio::sync::{oneshot, watch};
+#[cfg(feature = "slow_chunk_gen")]
+use tokio::time::sleep;
+
+#[cfg(feature = "slow_chunk_gen")]
+use std::time::Duration;
+
+/// When `true`, each chunk generation stage sleeps 200 ms after completing.
+/// Set by the spawn progress display to make the terminal grid visible.
+#[cfg(feature = "slow_chunk_gen")]
+pub static SLOW_CHUNK_GEN: AtomicBool = AtomicBool::new(false);
 
 use crate::chunk::chunk_generation_task::{NeighborReady, StaticCache2D};
 use crate::chunk::chunk_ticket_manager::generation_status;
@@ -293,6 +303,7 @@ impl ChunkHolder {
     ///
     /// # Panics
     /// Panics if the target status is not Empty and has no parent, or if the chunk status is invalid during generation.
+    #[allow(clippy::too_many_lines)]
     pub fn apply_step(
         self: &Arc<Self>,
         step: &'static ChunkStep,
@@ -361,6 +372,10 @@ impl ChunkHolder {
                     .expect("Should never fail creating an empty chunk");
                     holder_for_notify.notify_status(target_status);
                 }
+                #[cfg(feature = "slow_chunk_gen")]
+                if SLOW_CHUNK_GEN.load(Ordering::Relaxed) {
+                    sleep(Duration::from_millis(200)).await;
+                }
                 Some(())
             } else {
                 let parent_status = target_status
@@ -397,7 +412,10 @@ impl ChunkHolder {
                                 }
                             }
                         });
-                        //log::info!("Task completed for {:?}", target_status);
+                        #[cfg(feature = "slow_chunk_gen")]
+                        if SLOW_CHUNK_GEN.load(Ordering::Relaxed) {
+                            sleep(Duration::from_millis(200)).await;
+                        }
                         Some(())
                     }
                     Err(e) => {
