@@ -198,30 +198,45 @@ impl SpawnProgressDisplay {
         if !self.rendered {
             return;
         }
-        for _ in 0..DISPLAY_DIAMETER {
+        let term_lines = (DISPLAY_DIAMETER + 1) / 2;
+        for _ in 0..term_lines {
             let _ = write!(out, "\x1b[1A\x1b[2K");
         }
     }
 
     /// Renders the grid to the given writer (appends new lines).
+    /// Uses half-block characters to render 2 rows per terminal line.
     fn render(&self, out: &mut impl Write) {
-        for z in 0..DISPLAY_DIAMETER {
+        for z in (0..DISPLAY_DIAMETER).step_by(2) {
             for x in 0..DISPLAY_DIAMETER {
-                let (r, g, b) = status_color(self.grid[z][x]);
-                let _ = write!(out, "\x1b[48;2;{r};{g};{b}m  ");
+                let (tr, tg, tb) = status_color(self.grid[z][x]);
+                let (br, bg, bb) = if z + 1 < DISPLAY_DIAMETER {
+                    status_color(self.grid[z + 1][x])
+                } else {
+                    (0, 0, 0)
+                };
+                // ▀ = upper half block: foreground is top row, background is bottom row
+                let _ = write!(out, "\x1b[38;2;{tr};{tg};{tb}m\x1b[48;2;{br};{bg};{bb}m▀");
             }
             let _ = writeln!(out, "\x1b[0m");
         }
     }
 
     /// Overwrites the grid in-place (moves cursor up, rewrites each line).
+    /// Uses half-block characters to render 2 rows per terminal line.
     fn render_overwrite(&self, out: &mut impl Write) {
-        let _ = write!(out, "\x1b[{DISPLAY_DIAMETER}A");
-        for z in 0..DISPLAY_DIAMETER {
+        let term_lines = (DISPLAY_DIAMETER + 1) / 2;
+        let _ = write!(out, "\x1b[{term_lines}A");
+        for z in (0..DISPLAY_DIAMETER).step_by(2) {
             let _ = write!(out, "\r");
             for x in 0..DISPLAY_DIAMETER {
-                let (r, g, b) = status_color(self.grid[z][x]);
-                let _ = write!(out, "\x1b[48;2;{r};{g};{b}m  ");
+                let (tr, tg, tb) = status_color(self.grid[z][x]);
+                let (br, bg, bb) = if z + 1 < DISPLAY_DIAMETER {
+                    status_color(self.grid[z + 1][x])
+                } else {
+                    (0, 0, 0)
+                };
+                let _ = write!(out, "\x1b[38;2;{tr};{tg};{tb}m\x1b[48;2;{br};{bg};{bb}m▀");
             }
             let _ = writeln!(out, "\x1b[0m\x1b[K");
         }
@@ -323,6 +338,8 @@ pub async fn generate_spawn_chunks(
 
     #[cfg(feature = "spawn_chunk_display")]
     let mut prev_grid = [[None; DISPLAY_DIAMETER]; DISPLAY_DIAMETER];
+    #[cfg(feature = "spawn_chunk_display")]
+    let mut last_render = Instant::now();
 
     loop {
         // Drive chunk ticket propagation and generation task scheduling
@@ -358,11 +375,13 @@ pub async fn generate_spawn_chunks(
                 }
             }
 
+            // Throttle display updates to ~20fps to avoid terminal glitching
             if use_display && grid != prev_grid {
-                writer.update_grid(&grid);
                 prev_grid = grid;
-                // Brief visual delay so the eye can follow the progression
-                sleep(Duration::from_millis(150)).await;
+                if last_render.elapsed() >= Duration::from_millis(50) {
+                    writer.update_grid(&grid);
+                    last_render = Instant::now();
+                }
             }
         }
 
@@ -400,6 +419,8 @@ pub async fn generate_spawn_chunks(
 
     #[cfg(feature = "spawn_chunk_display")]
     if use_display {
+        // Render final state in case the last update was throttled
+        writer.update_grid(&prev_grid);
         writer.deactivate_display();
     }
 
