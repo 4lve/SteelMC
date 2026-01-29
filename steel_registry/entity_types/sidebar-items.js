@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["EntityType","EntityTypeRegistry"],"type":["EntityTypeRef"]};
+window.SIDEBAR_ITEMS = {"enum":["MobCategory"],"struct":["EntityDimensions","EntityFlags","EntityType","EntityTypeRegistry"],"type":["EntityTypeRef"]};

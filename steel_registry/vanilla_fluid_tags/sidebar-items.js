@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["register_fluid_tags"],"static":["LAVA_TAG","WATER_TAG"]};

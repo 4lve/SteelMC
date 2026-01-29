@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["EntityPhysicsState"]};
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_MAX_UP_STEP"],"struct":["EntityPhysicsState"]};
