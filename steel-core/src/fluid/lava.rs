@@ -19,7 +19,7 @@ use crate::world::World;
 
 use super::{
     can_hold_any_fluid, fluid_state_to_block, get_fluid_state, get_new_liquid, get_spread, is_hole,
-    FluidBehaviour, FluidState,
+    is_lava, is_water, FluidBehaviour, FluidState,
 };
 
 /// Lava fluid behavior.
@@ -42,9 +42,9 @@ impl LavaFluid {
             return true;
         }
 
-        // Can flow into same fluid type
+        // Can flow into same fluid type (using tag check for mod support)
         let below_fluid = get_fluid_state(world, &below);
-        if below_fluid.fluid_id == fluid_ids::LAVA && !below_fluid.is_source() {
+        if is_lava(below_fluid.fluid_id) && !below_fluid.is_source() {
             return true;
         }
 
@@ -70,8 +70,8 @@ impl LavaFluid {
         let below_fluid = get_fluid_state(world, &below);
 
         // Lava-water interaction: lava flowing down into water
-        // this means that you create stone
-        if below_fluid.fluid_id == fluid_ids::WATER {
+        // this means that you create stone (using tag check for mod support)
+        if is_water(below_fluid.fluid_id) {
             let block_state = REGISTRY.blocks.get_default_state_id(vanilla_blocks::STONE);
             world.set_block(below, block_state, UpdateFlags::UPDATE_ALL_IMMEDIATE);
             // TODO: Play fizz sound effect
@@ -106,7 +106,7 @@ impl LavaFluid {
         for offset in [(1, 0, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1)] {
             let neighbor = pos.offset(offset.0, offset.1, offset.2);
             let fluid = get_fluid_state(world, &neighbor);
-            if fluid.fluid_id == fluid_ids::LAVA && fluid.is_source() {
+            if is_lava(fluid.fluid_id) && fluid.is_source() {
                 count += 1;
             }
         }
@@ -160,12 +160,13 @@ impl LavaFluid {
                 // Don't overwrite higher amount of same fluid type
                 // For same fluid, we allow replacement if the new amount is higher
                 // (this allows lava to "level up" as more sources contribute)
-                if existing.fluid_id == fluid_ids::LAVA {
+                // Using tag checks to support modded fluids
+                if is_lava(existing.fluid_id) {
                     if existing.amount >= new_fluid.amount {
                         continue;
                     }
                     // Otherwise, allow replacement - lava can flow into lower-level lava
-                } else if existing.fluid_id == fluid_ids::WATER {
+                } else if is_water(existing.fluid_id) {
                     // For water, check if lava can replace it
                     // Lava can replace water if lava height >= 0.44444445
                     if !(fluid_state.amount as f32 / 9.0 >= 0.44444445) {
@@ -217,7 +218,7 @@ impl FluidBehaviour for LavaFluid {
 
         let current_fluid = get_fluid_state(world, &pos);
 
-        if current_fluid.is_empty() || current_fluid.fluid_id != fluid_ids::LAVA {
+        if current_fluid.is_empty() || !is_lava(current_fluid.fluid_id) {
             return; // No lava here anymore
         }
 
@@ -304,8 +305,8 @@ impl FluidBehaviour for LavaFluid {
         _direction: Direction,
     ) -> bool {
         // Lava can be replaced if its height >= 0.44444445F (4/9 of a block)
-        // and the replacing fluid is water
+        // and the replacing fluid is water (using tag check for mod support)
         let height = fluid_state.amount as f32 / 9.0; // Convert amount to height (0-1)
-        height >= 0.44444445 && other_fluid == fluid_ids::WATER
+        height >= 0.44444445 && is_water(other_fluid)
     }
 }

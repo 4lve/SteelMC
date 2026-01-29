@@ -17,7 +17,7 @@ use crate::world::World;
 
 use super::{
     can_hold_any_fluid, fluid_state_to_block, get_fluid_state, get_new_liquid, get_spread, is_hole,
-    FluidBehaviour, FluidState,
+    is_lava, is_water, FluidBehaviour, FluidState,
 };
 
 /// Water fluid behavior.
@@ -40,9 +40,9 @@ impl WaterFluid {
             return true;
         }
 
-        // Can flow into same fluid type
+        // Can flow into same fluid type (using tag check for mod support)
         let below_fluid = get_fluid_state(world, &below);
-        if below_fluid.fluid_id == fluid_ids::WATER && !below_fluid.is_source() {
+        if is_water(below_fluid.fluid_id) && !below_fluid.is_source() {
             return true;
         }
 
@@ -81,7 +81,7 @@ impl WaterFluid {
         for offset in [(1, 0, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1)] {
             let neighbor = pos.offset(offset.0, offset.1, offset.2);
             let fluid = get_fluid_state(world, &neighbor);
-            if fluid.fluid_id == fluid_ids::WATER && fluid.is_source() {
+            if is_water(fluid.fluid_id) && fluid.is_source() {
                 count += 1;
             }
         }
@@ -130,7 +130,8 @@ impl WaterFluid {
             let existing = get_fluid_state(world, &neighbor);
 
             // Lava-water interaction: water flowing into lava creates obsidian/cobblestone
-            if existing.fluid_id == fluid_ids::LAVA {
+            // Using tag check to support modded fluids in the lava tag
+            if is_lava(existing.fluid_id) {
                 use steel_registry::vanilla_blocks;
                 use steel_registry::REGISTRY;
 
@@ -153,12 +154,13 @@ impl WaterFluid {
                 // Don't overwrite higher amount of same fluid type
                 // For same fluid, we allow replacement if the new amount is higher
                 // (this allows water to "level up" as more sources contribute)
-                if existing.fluid_id == fluid_ids::WATER {
+                // Using tag checks to support modded fluids
+                if is_water(existing.fluid_id) {
                     if existing.amount >= new_fluid.amount {
                         continue;
                     }
                     // Otherwise, allow replacement - water can flow into lower-level water
-                } else if existing.fluid_id == fluid_ids::LAVA {
+                } else if is_lava(existing.fluid_id) {
                     // For lava, we need to check if water can replace it
                     // This is handled by the lava-water interaction above, but let's be safe
                     if existing.amount as f32 / 9.0 >= 0.44444445 {
@@ -208,7 +210,7 @@ impl FluidBehaviour for WaterFluid {
     fn tick(&self, world: &World, pos: BlockPos, current_tick: u64) {
         let current_fluid = get_fluid_state(world, &pos);
 
-        if current_fluid.is_empty() || current_fluid.fluid_id != fluid_ids::WATER {
+        if current_fluid.is_empty() || !is_water(current_fluid.fluid_id) {
             return; // No water here anymore
         }
 
@@ -301,7 +303,7 @@ impl FluidBehaviour for WaterFluid {
         direction: Direction,
     ) -> bool {
         // Water can only be replaced from DOWN direction
-        // and only by non-water fluids
-        direction == Direction::Down && other_fluid != fluid_ids::WATER
+        // and only by non-water fluids (using tag check for mod support)
+        direction == Direction::Down && !is_water(other_fluid)
     }
 }

@@ -20,8 +20,65 @@ use steel_registry::FluidState;
 use steel_registry::REGISTRY;
 use steel_utils::BlockPos;
 use steel_utils::BlockStateId;
+use steel_utils::Identifier;
 
 use crate::world::World;
+
+/// Fluid tag identifiers for checking fluid types.
+/// These match vanilla's FluidTags.WATER and FluidTags.LAVA.
+pub mod fluid_tags {
+    use steel_utils::Identifier;
+
+    /// Returns the water fluid tag identifier.
+    pub fn water() -> Identifier {
+        Identifier::vanilla_static("water")
+    }
+
+    /// Returns the lava fluid tag identifier.
+    pub fn lava() -> Identifier {
+        Identifier::vanilla_static("lava")
+    }
+}
+
+/// Checks if a fluid ID is in the water tag (includes water and flowing_water).
+/// This matches vanilla's FluidTags.WATER behavior.
+#[must_use]
+pub fn is_water(fluid_id: u8) -> bool {
+    if fluid_id == 0 {
+        return false;
+    }
+    REGISTRY
+        .fluids
+        .by_id(fluid_id as usize)
+        .map(|fluid| REGISTRY.fluids.is_in_tag(fluid, &fluid_tags::water()))
+        .unwrap_or(false)
+}
+
+/// Checks if a fluid ID is in the lava tag (includes lava and flowing_lava).
+/// This matches vanilla's FluidTags.LAVA behavior.
+#[must_use]
+pub fn is_lava(fluid_id: u8) -> bool {
+    if fluid_id == 0 {
+        return false;
+    }
+    REGISTRY
+        .fluids
+        .by_id(fluid_id as usize)
+        .map(|fluid| REGISTRY.fluids.is_in_tag(fluid, &fluid_tags::lava()))
+        .unwrap_or(false)
+}
+
+/// Checks if a fluid state contains water (including flowing water and waterlogged blocks).
+#[must_use]
+pub fn is_water_state(fluid_state: FluidState) -> bool {
+    is_water(fluid_state.fluid_id)
+}
+
+/// Checks if a fluid state contains lava (including flowing lava).
+#[must_use]
+pub fn is_lava_state(fluid_state: FluidState) -> bool {
+    is_lava(fluid_state.fluid_id)
+}
 
 /// Trait for fluid behavior implementations.
 pub trait FluidBehaviour: Send + Sync {

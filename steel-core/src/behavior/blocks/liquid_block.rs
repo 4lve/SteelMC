@@ -12,7 +12,6 @@
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::Direction;
 use steel_registry::blocks::BlockRef;
-use steel_registry::fluid_ids;
 use steel_registry::vanilla_blocks;
 use steel_registry::REGISTRY;
 use steel_utils::types::UpdateFlags;
@@ -21,7 +20,7 @@ use steel_utils::BlockStateId;
 
 use crate::behavior::block::BlockBehaviour;
 use crate::behavior::context::BlockPlaceContext;
-use crate::fluid::get_fluid_state;
+use crate::fluid::{get_fluid_state, is_water_state};
 use crate::world::World;
 
 /// Behavior for liquid blocks (water, lava).
@@ -72,8 +71,9 @@ impl LiquidBlockBehavior {
             let neighbor_pos = direction.opposite().relative(&pos);
             let neighbor_fluid = get_fluid_state(world, &neighbor_pos);
 
-            // Check for water (including waterlogged blocks)
-            if neighbor_fluid.fluid_id == fluid_ids::WATER {
+            // Check for water (including flowing_water and waterlogged blocks)
+            // Using fluid tag check to support modded fluids registered in the water tag
+            if is_water_state(neighbor_fluid) {
                 // Lava + Water = Obsidian (if source) or Cobblestone (if flowing)
                 let new_block = if fluid_state.is_source() {
                     vanilla_blocks::OBSIDIAN
