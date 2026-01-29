@@ -86,7 +86,7 @@ impl CommandExecutor<(((), GameType), Vec<Arc<Player>>)> for GameModeTargetComma
 
                 // Send feedback to sender if sender is not the target
                 let sender_is_target = if let Some(sender_player) = context.sender.get_player() {
-                    sender_player.entity_id == target.entity_id
+                    sender_player.id == target.id
                 } else {
                     false
                 };

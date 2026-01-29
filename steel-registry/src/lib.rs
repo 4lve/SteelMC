@@ -237,6 +237,21 @@ pub mod vanilla_game_rules;
 
 #[allow(warnings)]
 #[rustfmt::skip]
+#[path = "generated/vanilla_level_events.rs"]
+pub mod level_events;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_sound_events.rs"]
+pub mod sound_events;
+
+#[allow(warnings)]
+#[rustfmt::skip]
+#[path = "generated/vanilla_sound_types.rs"]
+pub mod sound_types;
+
+#[allow(warnings)]
+#[rustfmt::skip]
 #[path = "generated/vanilla_packets.rs"]
 pub mod packets;
 
