@@ -1,31 +1,26 @@
 //! Main entry point for the Steel Minecraft server.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
-use steel::SteelServer;
+use steel::{SERVER, SteelServer, logger::CommandLogger};
 use steel_utils::{text::DisplayResolutor, translations};
 use text_components::fmt::set_display_resolutor;
 use tokio::{
     runtime::{Builder, Runtime},
-    signal,
+    time::sleep,
 };
-use tokio_util::task::TaskTracker;
-use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
-
-#[cfg(not(feature = "jaeger"))]
-fn init_tracing() {
-    tracing_subscriber::registry()
-        .with(fmt::layer().with_timer(fmt::time::uptime()))
-        .with(
-            EnvFilter::builder()
-                .with_default_directive(tracing::Level::INFO.into())
-                .from_env_lossy(),
-        )
-        .init();
-}
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
+#[cfg(feature = "jaeger")]
+use tracing::Subscriber;
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
+#[cfg(feature = "jaeger")]
+use tracing_subscriber::{Layer, registry::LookupSpan};
 
 #[cfg(feature = "jaeger")]
-fn init_tracing() {
+fn init_jaeger<S>() -> impl Layer<S> + Send + Sync
+where
+    S: Subscriber + for<'span> LookupSpan<'span> + Send + Sync,
+{
     use opentelemetry::KeyValue;
     use opentelemetry::global;
     use opentelemetry::trace::TracerProvider;
@@ -60,20 +55,27 @@ fn init_tracing() {
 
     let tracer = tracer_provider.tracer("steel");
     global::set_tracer_provider(tracer_provider);
+    OpenTelemetryLayer::new(tracer)
+        .with_filter(EnvFilter::new("trace,h2=off,hyper=off,tonic=off,tower=off"))
+}
 
-    tracing_subscriber::registry()
-        .with(
-            OpenTelemetryLayer::new(tracer)
-                .with_filter(EnvFilter::new("trace,h2=off,hyper=off,tonic=off,tower=off")),
-        )
-        .with(
-            fmt::layer().with_timer(fmt::time::uptime()).with_filter(
-                EnvFilter::builder()
-                    .with_default_directive(tracing::Level::INFO.into())
-                    .from_env_lossy(),
-            ),
-        )
-        .init();
+async fn init_tracing(cancel_token: CancellationToken, log_cancel_token: CancellationToken) {
+    let tracing = tracing_subscriber::registry().with(
+        CommandLogger::new("./.temp", cancel_token, log_cancel_token)
+            .await
+            .expect("Couldn't initialize the logger"),
+    );
+
+    #[cfg(feature = "jaeger")]
+    let tracing = tracing.with(init_jaeger());
+
+    let tracing = tracing.with(
+        EnvFilter::builder()
+            .with_default_directive(tracing::Level::INFO.into())
+            .from_env_lossy(),
+    );
+
+    tracing.init();
 }
 
 #[cfg(feature = "dhat-heap")]
@@ -110,11 +112,15 @@ fn main() {
 }
 
 async fn main_async(chunk_runtime: Arc<Runtime>) {
-    init_tracing();
-    run_server(chunk_runtime).await;
+    let log_cancel_token = CancellationToken::new();
+    let cancel_token = CancellationToken::new();
+    init_tracing(cancel_token.clone(), log_cancel_token.clone()).await;
+    run_server(chunk_runtime, cancel_token).await;
+    log_cancel_token.cancel();
+    sleep(Duration::from_millis(10)).await;
 }
 
-async fn run_server(chunk_runtime: Arc<Runtime>) {
+async fn run_server(chunk_runtime: Arc<Runtime>, cancel_token: CancellationToken) {
     set_display_resolutor(&DisplayResolutor);
 
     #[cfg(feature = "deadlock_detection")]
@@ -145,7 +151,7 @@ async fn run_server(chunk_runtime: Arc<Runtime>) {
         });
     }
 
-    let mut steel = SteelServer::new(chunk_runtime.clone()).await;
+    let mut steel = SteelServer::new(chunk_runtime.clone(), cancel_token.clone()).await;
 
     log::info!(
         "{:p}",
@@ -154,15 +160,15 @@ async fn run_server(chunk_runtime: Arc<Runtime>) {
             .component()
     );
 
+    SERVER.set(steel.server.clone()).ok();
     let server = steel.server.clone();
-    let cancel_token = steel.cancel_token.clone();
 
-    tokio::spawn(async move {
-        if signal::ctrl_c().await.is_ok() {
-            log::info!("Shutdown signal received");
-            cancel_token.cancel();
-        }
-    });
+    // tokio::spawn(async move {
+    //     if signal::ctrl_c().await.is_ok() {
+    //         log::info!("Shutdown signal received");
+    //         cancel_token.cancel();
+    //     }
+    // });
 
     let task_tracker = TaskTracker::new();
 

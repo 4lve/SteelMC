@@ -595,7 +595,7 @@ impl Player {
                     LastSeen::default()
                 };
 
-                log::info!("<{}> {}", player.gameprofile.name, chat_message);
+                steel_utils::chat!(player.gameprofile.name.clone(), "{}", chat_message);
                 self.world.broadcast_chat(
                     chat_packet,
                     Arc::clone(&player),
