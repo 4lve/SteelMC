@@ -34,6 +34,10 @@ pub struct BlockConfig {
     pub replaceable: bool,
     #[serde(default, rename = "sound_type")]
     pub sound_type: Option<Cow<'static, str>>,
+    #[serde(default, rename = "igniteOdds")]
+    pub ignite_odds: u8,
+    #[serde(default, rename = "burnOdds")]
+    pub burn_odds: u8,
 }
 
 impl BlockConfig {
@@ -59,6 +63,8 @@ impl BlockConfig {
             instrument: Cow::Borrowed("HARP"),
             replaceable: false,
             sound_type: None,
+            ignite_odds: 0,
+            burn_odds: 0,
         }
     }
 }
@@ -225,6 +231,14 @@ fn generate_builder_calls(bp: &BlockConfig, default_props: &BlockConfig) -> Vec<
     if let Some(ref sound_type) = bp.sound_type {
         let sound_type_ident = Ident::new(sound_type, Span::call_site());
         builder_calls.push(quote! { .sound_type(crate::sound_types::#sound_type_ident) });
+    }
+    if bp.ignite_odds != default_props.ignite_odds {
+        let val = bp.ignite_odds;
+        builder_calls.push(quote! { .ignite_odds(#val) });
+    }
+    if bp.burn_odds != default_props.burn_odds {
+        let val = bp.burn_odds;
+        builder_calls.push(quote! { .burn_odds(#val) });
     }
 
     builder_calls

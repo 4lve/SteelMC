@@ -41,6 +41,10 @@ pub struct BlockConfig {
     pub instrument: NoteBlockInstrument,
     pub replaceable: bool,
     pub sound_type: SoundType,
+    /// How likely this block is to catch fire (0 = not flammable).
+    pub ignite_odds: u8,
+    /// How fast this block burns once on fire (0 = not flammable).
+    pub burn_odds: u8,
 }
 
 impl BlockConfig {
@@ -67,6 +71,8 @@ impl BlockConfig {
             instrument: NoteBlockInstrument::Harp,
             replaceable: false,
             sound_type: crate::sound_types::STONE,
+            ignite_odds: 0,
+            burn_odds: 0,
         }
     }
 
@@ -181,6 +187,18 @@ impl BlockConfig {
     #[must_use]
     pub const fn sound_type(mut self, sound_type: SoundType) -> Self {
         self.sound_type = sound_type;
+        self
+    }
+
+    #[must_use]
+    pub const fn ignite_odds(mut self, odds: u8) -> Self {
+        self.ignite_odds = odds;
+        self
+    }
+
+    #[must_use]
+    pub const fn burn_odds(mut self, odds: u8) -> Self {
+        self.burn_odds = odds;
         self
     }
 }

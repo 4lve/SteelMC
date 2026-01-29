@@ -45,7 +45,10 @@ use block_behaviours::register_block_behaviors;
 pub use context::{BlockHitResult, BlockPlaceContext, InteractionResult, UseOnContext};
 pub use item::{ItemBehavior, ItemBehaviorRegistry};
 use item_behaviours::register_item_behaviors;
-pub use items::{BlockItemBehavior, DefaultItemBehavior, EnderEyeBehavior, FilledBucketBehavior};
+pub use items::{
+    BlockItemBehavior, DefaultItemBehavior, EnderEyeBehavior, FilledBucketBehavior,
+    FlintAndSteelBehavior,
+};
 use std::ops::Deref;
 use std::sync::OnceLock;
 use steel_registry::{vanilla_blocks, vanilla_items};
@@ -93,6 +96,12 @@ pub fn init_behaviors() {
     let mut block_behaviors = BlockBehaviorRegistry::new();
     register_block_behaviors(&mut block_behaviors);
 
+    // Register fire behavior (uses scheduled ticks for spreading)
+    block_behaviors.set_behavior(
+        vanilla_blocks::FIRE,
+        Box::new(blocks::FireBlock::new(vanilla_blocks::FIRE)),
+    );
+
     assert!(
         BLOCK_BEHAVIORS.0.set(block_behaviors).is_ok(),
         "Block behavior registry already initialized"
@@ -115,6 +124,12 @@ pub fn init_behaviors() {
             vanilla_blocks::LAVA,
             &vanilla_items::ITEMS.bucket,
         )),
+    );
+
+    // Register flint and steel behavior
+    item_behaviors.set_behavior(
+        &vanilla_items::ITEMS.flint_and_steel,
+        Box::new(FlintAndSteelBehavior),
     );
 
     assert!(

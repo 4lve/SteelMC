@@ -16,4 +16,5 @@ pub mod level_data;
 pub mod physics;
 pub mod player;
 pub mod server;
+pub mod ticks;
 pub mod world;

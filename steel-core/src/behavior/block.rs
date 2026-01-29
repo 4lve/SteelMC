@@ -1,6 +1,6 @@
 //! Block behavior trait and registry.
 
-use std::sync::Weak;
+use std::sync::{Arc, Weak};
 
 use steel_registry::REGISTRY;
 use steel_registry::blocks::BlockRef;
@@ -57,6 +57,35 @@ pub trait BlockBehaviour: Send + Sync {
         moved_by_piston: bool,
     ) {
         // Default: no-op
+    }
+
+    /// Called when a player is about to destroy this block.
+    ///
+    /// This is called BEFORE the block is removed. Use this to play custom
+    /// destruction effects (e.g., fire plays extinguish sound instead of break sound).
+    ///
+    /// The default implementation plays the standard break particles and sound
+    /// via level event 2001.
+    ///
+    /// # Arguments
+    /// * `state` - The block state being destroyed
+    /// * `world` - The world the block is in
+    /// * `pos` - The position of the block
+    /// * `player` - The player destroying the block
+    ///
+    /// # Returns
+    /// `true` if this method handled the destroy effect (skip default),
+    /// `false` to use the default destroy effect.
+    #[allow(unused_variables)]
+    fn player_will_destroy(
+        &self,
+        state: BlockStateId,
+        world: &World,
+        pos: BlockPos,
+        player: &Player,
+    ) -> bool {
+        // Default: don't handle, let caller play standard effect
+        false
     }
 
     /// Called after this block is removed from the world, to affect neighbors.
@@ -181,6 +210,21 @@ pub trait BlockBehaviour: Send + Sync {
     /// * `pos` - The position of the block
     #[allow(unused_variables)]
     fn random_tick(&self, state: BlockStateId, world: &World, pos: BlockPos) {
+        // Default: no-op
+    }
+
+    /// Called when a scheduled tick fires for this block.
+    ///
+    /// Scheduled ticks are used by blocks like fire, redstone repeaters,
+    /// and other blocks that need to update after a specific delay.
+    /// Use `world.schedule_tick()` to schedule a tick.
+    ///
+    /// # Arguments
+    /// * `state` - The current block state
+    /// * `world` - The world the block is in
+    /// * `pos` - The position of the block
+    #[allow(unused_variables)]
+    fn scheduled_tick(&self, state: BlockStateId, world: &Arc<World>, pos: BlockPos) {
         // Default: no-op
     }
 
