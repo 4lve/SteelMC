@@ -44,6 +44,8 @@ impl CommandContext {
         let player = sender.get_player().cloned();
         let position = player
             .as_ref()
+            // TODO: The default position is a place around the surface
+            // of player spawn positions, needs further inverstigation
             .map_or(Vector3::new(0., 63., 0.), |p| *p.position.lock());
         let world = player
             .as_ref()
