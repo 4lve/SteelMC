@@ -98,6 +98,12 @@ pub async fn generate_spawn_chunks(
     #[cfg(feature = "slow_chunk_gen")]
     SLOW_CHUNK_GEN.store(false, Ordering::Relaxed);
 
+    // Remove the ticket now that generation is complete (spawn chunks no longer stay loaded)
+    {
+        let mut tickets = world.chunk_map.chunk_tickets.lock();
+        tickets.remove_ticket(center_chunk, ticket_level);
+    }
+
     log::info!(
         "Spawn area prepared: {TOTAL_SPAWN_CHUNKS} chunks in {:.2}s",
         elapsed.as_secs_f64(),
