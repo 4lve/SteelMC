@@ -576,16 +576,18 @@ impl LevelChunk {
     /// Extracts the light data for sending to the client.
     #[must_use]
     pub fn extract_light_data(&self) -> LightUpdatePacketData {
-        let section_count = self.sections.sections.len();
-        let mut sky_y_mask = BitSet(vec![0; section_count.div_ceil(64)].into_boxed_slice());
-        let mut block_y_mask = BitSet(vec![0; section_count.div_ceil(64)].into_boxed_slice());
-        let empty_sky_y_mask = BitSet(vec![0; section_count.div_ceil(64)].into_boxed_slice());
-        let empty_block_y_mask = BitSet(vec![0; section_count.div_ceil(64)].into_boxed_slice());
+        // Vanilla's light section count is sectionsCount + 2 (one below and one above the world)
+        let light_section_count = self.sections.sections.len() + 2;
+        let mut sky_y_mask = BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
+        let mut block_y_mask = BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
+        let empty_sky_y_mask = BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
+        let empty_block_y_mask =
+            BitSet(vec![0; light_section_count.div_ceil(64)].into_boxed_slice());
 
         let mut sky_updates = Vec::new();
         let mut block_updates = Vec::new();
 
-        for i in 0..section_count {
+        for i in 0..light_section_count {
             sky_y_mask.set(i, true);
             block_y_mask.set(i, true);
             sky_updates.push(vec![0xFF; 2048]);

@@ -410,6 +410,7 @@ mod tests {
     use crate::physics::collision::CollisionWorld;
     use steel_registry::REGISTRY;
     use steel_registry::vanilla_blocks;
+    use steel_registry::vanilla_entities;
     use steel_utils::BlockPos;
 
     /// Mock collision world for testing
@@ -452,7 +453,8 @@ mod tests {
 
     #[test]
     fn test_move_entity_free_fall() {
-        let mut state = EntityPhysicsState::new_player(Vector3::new(0.0, 10.0, 0.0));
+        let mut state =
+            EntityPhysicsState::new(Vector3::new(0.0, 10.0, 0.0), vanilla_entities::PLAYER);
         state.on_ground = false;
 
         let world = MockWorld { has_floor: true };
@@ -469,7 +471,8 @@ mod tests {
 
     #[test]
     fn test_move_entity_land_on_ground() {
-        let mut state = EntityPhysicsState::new_player(Vector3::new(0.0, 5.0, 0.0));
+        let mut state =
+            EntityPhysicsState::new(Vector3::new(0.0, 5.0, 0.0), vanilla_entities::PLAYER);
         state.on_ground = false;
 
         let world = MockWorld { has_floor: true };
@@ -493,7 +496,7 @@ mod tests {
 
     #[test]
     fn test_move_entity_no_collision_in_air() {
-        let state = EntityPhysicsState::new_player(Vector3::new(0.0, 10.0, 0.0));
+        let state = EntityPhysicsState::new(Vector3::new(0.0, 10.0, 0.0), vanilla_entities::PLAYER);
 
         let world = MockWorld { has_floor: false };
         let movement = Vector3::new(1.0, 0.0, 1.0);

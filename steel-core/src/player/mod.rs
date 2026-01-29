@@ -1,4 +1,5 @@
 //! This module contains all things player-related.
+mod abilities;
 pub mod block_breaking;
 pub mod chunk_sender;
 mod game_mode;
@@ -11,6 +12,8 @@ pub mod networking;
 pub mod player_inventory;
 pub mod profile_key;
 mod signature_cache;
+
+pub use abilities::Abilities;
 
 use block_breaking::BlockBreakingManager;
 use crossbeam::atomic::AtomicCell;
@@ -28,12 +31,14 @@ use std::{
 };
 use steel_protocol::packets::game::CSystemChatMessage;
 use steel_protocol::packets::game::{
-    AnimateAction, CAnimate, CEntityPositionSync, COpenSignEditor, CPlayerPosition, CSetHeldSlot,
-    PlayerAction, SAcceptTeleportation, SPickItemFromBlock, SPlayerAction, SSetCarriedItem,
-    SUseItem, SUseItemOn,
+    AnimateAction, CAnimate, CEntityPositionSync, COpenSignEditor, CPlayerPosition, CSetEntityData,
+    CSetHeldSlot, PlayerAction, SAcceptTeleportation, SPickItemFromBlock, SPlayerAbilities,
+    SPlayerAction, SSetCarriedItem, SUseItem, SUseItemOn,
 };
 use steel_registry::blocks::block_state_ext::BlockStateExt;
+use steel_registry::entity_data::EntityPose;
 use steel_registry::game_rules::GameRuleValue;
+use steel_registry::vanilla_entity_data::PlayerEntityData;
 use steel_registry::vanilla_game_rules::{ELYTRA_MOVEMENT_CHECK, PLAYER_MOVEMENT_CHECK};
 use steel_registry::{REGISTRY, vanilla_chat_types};
 
@@ -144,7 +149,7 @@ pub struct Player {
     pub world: Arc<World>,
 
     /// The entity ID assigned to this player.
-    pub entity_id: i32,
+    pub id: i32,
 
     /// Whether the player has finished loading the client.
     pub client_loaded: AtomicBool,
@@ -158,11 +163,9 @@ pub struct Player {
     /// The previous rotation for movement broadcasts.
     prev_rotation: AtomicCell<(f32, f32)>,
 
-    // LivingEntity fields
-    /// The player's health (synced with client via entity data).
-    health: AtomicCell<f32>,
-    /// The player's absorption amount (extra health from effects like Absorption).
-    absorption_amount: AtomicCell<f32>,
+    /// Synchronized entity data (health, pose, flags, etc.) for network sync.
+    entity_data: SyncMutex<PlayerEntityData>,
+
     /// The player's movement speed.
     speed: AtomicCell<f32>,
     /// Whether the player is sprinting.
@@ -251,6 +254,9 @@ pub struct Player {
     /// Whether the player is currently sleeping in a bed.
     sleeping: AtomicBool,
 
+    /// Player abilities (flight, invulnerability, build permissions, speeds, etc.)
+    abilities: SyncMutex<Abilities>,
+
     /// Whether the player is currently fall flying (elytra gliding).
     fall_flying: AtomicBool,
 
@@ -291,14 +297,13 @@ impl Player {
             connection,
 
             world,
-            entity_id,
+            id: entity_id,
             client_loaded: AtomicBool::new(false),
             position: SyncMutex::new(pos),
             rotation: AtomicCell::new((0.0, 0.0)),
             prev_position: SyncMutex::new(pos),
             prev_rotation: AtomicCell::new((0.0, 0.0)),
-            health: AtomicCell::new(20.0), // Default max health
-            absorption_amount: AtomicCell::new(0.0),
+            entity_data: SyncMutex::new(PlayerEntityData::new()),
             speed: AtomicCell::new(0.1), // Default walking speed
             sprinting: AtomicBool::new(false),
             last_chunk_pos: SyncMutex::new(ChunkPos::new(0, 0)),
@@ -328,6 +333,7 @@ impl Player {
             known_move_packet_count: AtomicI32::new(0),
             delta_movement: SyncMutex::new(Vector3::default()),
             sleeping: AtomicBool::new(false),
+            abilities: SyncMutex::new(Abilities::default()),
             fall_flying: AtomicBool::new(false),
             on_ground: AtomicBool::new(false),
             last_impulse_tick: AtomicI32::new(0),
@@ -382,6 +388,12 @@ impl Player {
         // Tick block breaking
         self.block_breaking.lock().tick(self, &self.world);
 
+        // Update pose based on current state
+        self.update_pose();
+
+        // Sync dirty entity data to nearby players
+        self.sync_entity_data();
+
         self.connection.tick();
 
         // TODO: Implement player ticking logic here
@@ -393,6 +405,15 @@ impl Player {
         // - Managing game mode specific logic
         // - Updating advancements
         // - Handling falling
+    }
+
+    /// Syncs dirty entity data to nearby players.
+    fn sync_entity_data(&self) {
+        if let Some(dirty_values) = self.entity_data.lock().pack_dirty() {
+            let packet = CSetEntityData::new(self.id, dirty_values);
+            let chunk_pos = *self.last_chunk_pos.lock();
+            self.world.broadcast_to_nearby(chunk_pos, packet, None);
+        }
     }
 
     /// Handles a custom payload packet.
@@ -870,7 +891,7 @@ impl Player {
 
                         let delta = self.get_delta_movement();
                         let sync_packet = CEntityPositionSync {
-                            entity_id: self.entity_id,
+                            entity_id: self.id,
                             x: pos.x,
                             y: pos.y,
                             z: pos.z,
@@ -881,14 +902,11 @@ impl Player {
                             pitch,
                             on_ground: packet.on_ground,
                         };
-                        self.world.broadcast_to_nearby(
-                            new_chunk,
-                            sync_packet,
-                            Some(self.entity_id),
-                        );
+                        self.world
+                            .broadcast_to_nearby(new_chunk, sync_packet, Some(self.id));
                     } else {
                         let move_packet = CMoveEntityPosRot {
-                            entity_id: self.entity_id,
+                            entity_id: self.id,
                             dx,
                             dy,
                             dz,
@@ -896,11 +914,8 @@ impl Player {
                             x_rot: to_angle_byte(pitch),
                             on_ground: packet.on_ground,
                         };
-                        self.world.broadcast_to_nearby(
-                            new_chunk,
-                            move_packet,
-                            Some(self.entity_id),
-                        );
+                        self.world
+                            .broadcast_to_nearby(new_chunk, move_packet, Some(self.id));
                     }
                 } else {
                     // Send absolute position sync (delta too big)
@@ -910,7 +925,7 @@ impl Player {
 
                     let delta = self.get_delta_movement();
                     let sync_packet = CEntityPositionSync {
-                        entity_id: self.entity_id,
+                        entity_id: self.id,
                         x: pos.x,
                         y: pos.y,
                         z: pos.z,
@@ -922,26 +937,26 @@ impl Player {
                         on_ground: packet.on_ground,
                     };
                     self.world
-                        .broadcast_to_nearby(new_chunk, sync_packet, Some(self.entity_id));
+                        .broadcast_to_nearby(new_chunk, sync_packet, Some(self.id));
                 }
             } else {
                 let rot_packet = CMoveEntityRot {
-                    entity_id: self.entity_id,
+                    entity_id: self.id,
                     y_rot: to_angle_byte(yaw),
                     x_rot: to_angle_byte(pitch),
                     on_ground: packet.on_ground,
                 };
                 self.world
-                    .broadcast_to_nearby(new_chunk, rot_packet, Some(self.entity_id));
+                    .broadcast_to_nearby(new_chunk, rot_packet, Some(self.id));
             }
 
             if packet.has_rot {
                 let head_packet = CRotateHead {
-                    entity_id: self.entity_id,
+                    entity_id: self.id,
                     head_y_rot: to_angle_byte(yaw),
                 };
                 self.world
-                    .broadcast_to_nearby(new_chunk, head_packet, Some(self.entity_id));
+                    .broadcast_to_nearby(new_chunk, head_packet, Some(self.id));
             }
 
             *self.prev_position.lock() = pos;
@@ -1098,12 +1113,31 @@ impl Player {
 
         self.game_mode.store(gamemode);
 
+        // Update abilities based on new game mode (mirrors vanilla GameType.updatePlayerAbilities)
+        self.abilities.lock().update_for_game_mode(gamemode);
+
+        // Send abilities first (vanilla sends this before game event)
+        self.send_abilities();
+
         self.connection.send_packet(CGameEvent {
             event: GameEventType::ChangeGameMode,
             data: gamemode.into(),
         });
 
+        // Broadcast game mode update to all players (including self)
+        // This updates PlayerInfo on clients, which is used for isSpectator() checks
+        let update_packet =
+            CPlayerInfoUpdate::update_game_mode(self.gameprofile.id, gamemode as i32);
+        self.world.broadcast_to_all(update_packet);
+
         true
+    }
+
+    /// Sends the player abilities packet to the client.
+    /// This tells the client about flight, invulnerability, speeds, etc.
+    pub fn send_abilities(&self) {
+        let packet = self.abilities.lock().to_packet();
+        self.connection.send_packet(packet);
     }
 
     /// Handles a container button click packet (e.g., enchanting table buttons).
@@ -1363,10 +1397,75 @@ impl Player {
         self.fall_flying.store(fall_flying, Ordering::Relaxed);
     }
 
+    /// Returns true if the player is flying (creative/spectator flight).
+    #[must_use]
+    pub fn is_flying(&self) -> bool {
+        self.abilities.lock().flying
+    }
+
+    /// Sets the player's flying state.
+    pub fn set_flying(&self, flying: bool) {
+        self.abilities.lock().flying = flying;
+    }
+
+    /// Returns the player's flying speed.
+    #[must_use]
+    pub fn get_flying_speed(&self) -> f32 {
+        self.abilities.lock().flying_speed
+    }
+
+    /// Sets the player's flying speed.
+    pub fn set_flying_speed(&self, speed: f32) {
+        self.abilities.lock().flying_speed = speed;
+    }
+
+    /// Returns a copy of the player's abilities.
+    #[must_use]
+    pub fn get_abilities(&self) -> Abilities {
+        self.abilities.lock().clone()
+    }
+
+    /// Handles the player abilities packet from the client.
+    /// This is sent when the player starts or stops flying.
+    pub fn handle_player_abilities(&self, packet: SPlayerAbilities) {
+        let mut abilities = self.abilities.lock();
+
+        if abilities.may_fly {
+            abilities.flying = packet.is_flying();
+        } else if packet.is_flying() {
+            // Client tried to fly but isn't allowed - resync abilities
+            drop(abilities);
+            self.send_abilities();
+        }
+    }
+
     /// Returns true if the player is on the ground.
     #[must_use]
     pub fn is_on_ground(&self) -> bool {
         self.on_ground.load(Ordering::Relaxed)
+    }
+
+    /// Determines the desired pose based on current player state.
+    /// Priority: `Sleeping` > `FallFlying` > `Sneaking` > `Standing`
+    // TODO: Add Swimming pose (requires water detection)
+    // TODO: Add SpinAttack pose (requires riptide trident)
+    // TODO: Add pose collision checks (force crouch in low ceilings)
+    fn get_desired_pose(&self) -> EntityPose {
+        if self.sleeping.load(Ordering::Relaxed) {
+            EntityPose::Sleeping
+        } else if self.fall_flying.load(Ordering::Relaxed) {
+            EntityPose::FallFlying
+        } else if self.shift_key_down.load(Ordering::Relaxed) && !self.abilities.lock().flying {
+            EntityPose::Sneaking
+        } else {
+            EntityPose::Standing
+        }
+    }
+
+    /// Updates the player's pose in entity data based on current state.
+    fn update_pose(&self) {
+        let desired_pose = self.get_desired_pose();
+        self.entity_data.lock().pose.set(desired_pose);
     }
 
     /// Returns the player's client information settings.
@@ -1525,14 +1624,10 @@ impl Player {
             InteractionHand::MainHand => AnimateAction::SwingMainHand,
             InteractionHand::OffHand => AnimateAction::SwingOffHand,
         };
-        let packet = CAnimate::new(self.entity_id, action);
+        let packet = CAnimate::new(self.id, action);
 
         let chunk = *self.last_chunk_pos.lock();
-        let exclude = if update_self {
-            None
-        } else {
-            Some(self.entity_id)
-        };
+        let exclude = if update_self { None } else { Some(self.id) };
         self.world.broadcast_to_nearby(chunk, packet, exclude);
     }
 
@@ -2054,14 +2149,14 @@ impl Entity for Player {
 
 impl LivingEntity for Player {
     fn get_health(&self) -> f32 {
-        self.health.load()
+        *self.entity_data.lock().health.get()
     }
 
     fn set_health(&mut self, health: f32) {
         let max_health = self.get_max_health();
         let clamped = health.clamp(0.0, max_health);
-        self.health.store(clamped);
-        // TODO: Sync health to client via entity data
+        self.entity_data.lock().health.set(clamped);
+        // Dirty flag set automatically, will sync on next tick
     }
 
     fn get_max_health(&self) -> f32 {
@@ -2074,12 +2169,15 @@ impl LivingEntity for Player {
     }
 
     fn get_absorption_amount(&self) -> f32 {
-        self.absorption_amount.load()
+        *self.entity_data.lock().player_absorption.get()
     }
 
     fn set_absorption_amount(&mut self, amount: f32) {
-        self.absorption_amount.store(amount.max(0.0));
-        // TODO: Sync to client
+        self.entity_data
+            .lock()
+            .player_absorption
+            .set(amount.max(0.0));
+        // Dirty flag set automatically, will sync on next tick
     }
 
     fn get_armor_value(&self) -> i32 {

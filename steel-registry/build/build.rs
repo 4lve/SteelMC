@@ -14,19 +14,25 @@ mod dialog_tags;
 mod dialogs;
 mod dimension_types;
 mod entities;
-mod entity_data_serializers;
+mod entity_data;
+mod fluid_tags;
+mod fluids;
+
 mod frog_variants;
 mod game_rules;
 mod instruments;
 mod item_tags;
 mod items;
 mod jukebox_songs;
+mod level_events;
 mod loot_tables;
 mod menu_types;
 mod packets;
 mod painting_variants;
 mod pig_variants;
 mod recipes;
+mod sound_events;
+mod sound_types;
 mod timeline_tags;
 mod timelines;
 mod trim_materials;
@@ -69,15 +75,22 @@ const TIMELINE_TAGS: &str = "timeline_tags";
 const ZOMBIE_NAUTILUS_VARIANTS: &str = "zombie_nautilus_variants";
 const RECIPES: &str = "recipes";
 const VANILLA_ENTITIES: &str = "entities";
-const ENTITY_DATA_SERIALIZERS: &str = "entity_data_serializers";
+const ENTITY_DATA: &str = "entity_data";
+const FLUIDS: &str = "fluids";
+const FLUID_TAGS: &str = "fluid_tags";
+
 const LOOT_TABLES: &str = "loot_tables";
 const BLOCK_ENTITY_TYPES: &str = "block_entity_types";
 const GAME_RULES: &str = "game_rules";
+const LEVEL_EVENTS: &str = "level_events";
+const SOUND_EVENTS: &str = "sound_events";
+const SOUND_TYPES: &str = "sound_types";
 
 pub fn main() {
     // Rerun build script when any file in the build/ directory changes
     println!("cargo:rerun-if-changed=build/");
 
+    // Create the generated directory if it doesn't exist
     if !Path::new(OUT_DIR).exists() {
         fs::create_dir(OUT_DIR).unwrap();
     }
@@ -113,18 +126,44 @@ pub fn main() {
         (zombie_nautilus_variants::build(), ZOMBIE_NAUTILUS_VARIANTS),
         (recipes::build(), RECIPES),
         (entities::build(), VANILLA_ENTITIES),
-        (entity_data_serializers::build(), ENTITY_DATA_SERIALIZERS),
+        (entity_data::build(), ENTITY_DATA),
+        (fluids::build(), FLUIDS),
+        (fluid_tags::build(), FLUID_TAGS),
         (loot_tables::build(), LOOT_TABLES),
         (block_entity_types::build(), BLOCK_ENTITY_TYPES),
         (game_rules::build(), GAME_RULES),
+        (level_events::build(), LEVEL_EVENTS),
+        (sound_events::build(), SOUND_EVENTS),
+        (sound_types::build(), SOUND_TYPES),
     ];
 
+    // Track which files we're generating this run
+    let mut generated_files = Vec::new();
+
     for (content, file_name) in vanilla_builds {
-        fs::write(
-            format!("{OUT_DIR}/vanilla_{file_name}.rs"),
-            content.to_string(),
-        )
-        .unwrap();
+        let path = format!("{OUT_DIR}/vanilla_{file_name}.rs");
+        let content = content.to_string();
+        generated_files.push(path.clone());
+
+        // Only write if content changed
+        if let Ok(existing) = fs::read_to_string(&path)
+            && existing == content
+        {
+            continue;
+        }
+        fs::write(&path, content).unwrap();
+    }
+
+    // Remove any stale files not generated this run
+    if let Ok(entries) = fs::read_dir(OUT_DIR) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if let Some(path_str) = path.to_str()
+                && !generated_files.contains(&path_str.to_string())
+            {
+                let _ = fs::remove_file(&path);
+            }
+        }
     }
 
     if FMT && let Ok(entries) = fs::read_dir(OUT_DIR) {

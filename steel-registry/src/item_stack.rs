@@ -23,7 +23,7 @@ use crate::{
 };
 
 /// A stack of items with a count and component modifications.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ItemStack {
     /// The item type. AIR represents an empty stack.
     pub item: ItemRef,

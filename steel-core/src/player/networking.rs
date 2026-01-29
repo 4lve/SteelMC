@@ -15,8 +15,8 @@ use steel_protocol::packets::game::{
     SAcceptTeleportation, SChat, SChatAck, SChatCommand, SChatSessionUpdate, SChunkBatchReceived,
     SClientTickEnd, SCommandSuggestion, SContainerButtonClick, SContainerClick, SContainerClose,
     SContainerSlotStateChanged, SMovePlayerPos, SMovePlayerPosRot, SMovePlayerRot,
-    SMovePlayerStatusOnly, SPickItemFromBlock, SPlayerAction, SPlayerInput, SPlayerLoad,
-    SSetCarriedItem, SSetCreativeModeSlot, SSignUpdate, SSwing, SUseItem, SUseItemOn,
+    SMovePlayerStatusOnly, SPickItemFromBlock, SPlayerAbilities, SPlayerAction, SPlayerInput,
+    SPlayerLoad, SSetCarriedItem, SSetCreativeModeSlot, SSignUpdate, SSwing, SUseItem, SUseItemOn,
 };
 use steel_protocol::utils::{ConnectionProtocol, PacketError, RawPacket};
 use steel_registry::packets::play;
@@ -275,6 +275,9 @@ impl JavaConnection {
             }
             play::S_PLAYER_INPUT => {
                 player.handle_player_input(SPlayerInput::read_packet(data)?);
+            }
+            play::S_PLAYER_ABILITIES => {
+                player.handle_player_abilities(SPlayerAbilities::read_packet(data)?);
             }
             play::S_USE_ITEM_ON => {
                 player.handle_use_item_on(SUseItemOn::read_packet(data)?);
