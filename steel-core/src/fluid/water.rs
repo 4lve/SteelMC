@@ -10,6 +10,7 @@
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::Direction;
 use steel_registry::fluid_ids;
+use steel_registry::sound_events;
 use steel_utils::types::UpdateFlags;
 use steel_utils::BlockPos;
 
@@ -87,6 +88,43 @@ impl WaterFluid {
         }
 
         count
+    }
+
+    /// Animates the water with ambient sounds and particles.
+    /// Based on vanilla's WaterFluid.animateTick().
+    ///
+    /// For flowing water (not source, not falling): plays ambient sound with 1/64 chance
+    /// For source water: spawns underwater particles with 1/10 chance
+    fn animate_tick(&self, world: &World, pos: BlockPos, fluid_state: FluidState) {
+        // Check if this is flowing water (not source AND not falling)
+        if !fluid_state.is_source() && !fluid_state.falling {
+            // 1/64 chance to play ambient water sound (for flowing water)
+            if rand::random::<u8>() % 64 == 0 {
+                // Play water ambient sound
+                // SoundSource::AMBIENT for environmental ambient sounds
+                let volume: f32 = rand::random::<f32>() * 0.25 + 0.75; // 0.75 to 1.0
+                let pitch: f32 = rand::random::<f32>() + 0.5; // 0.5 to 1.5
+                world.play_block_sound(sound_events::BLOCK_WATER_AMBIENT, pos, volume, pitch, None);
+            }
+        } else {
+            // For source water: 1/10 chance to spawn underwater particles
+            if rand::random::<u8>() % 10 == 0 {
+                // TODO: Spawn UNDERWATER particles
+                // This requires:
+                // 1. CLevelParticles packet implementation
+                // 2. Particle type registry (ParticleTypes.UNDERWATER)
+                // 3. World.spawn_particle() method
+                //
+                // Vanilla code:
+                // level.addParticle(
+                //     ParticleTypes.UNDERWATER,
+                //     pos.x + random.nextDouble(),
+                //     pos.y + random.nextDouble(),
+                //     pos.z + random.nextDouble(),
+                //     0.0, 0.0, 0.0
+                // );
+            }
+        }
     }
 
     /// Spreads water to sides using vanilla's algorithm.
@@ -213,6 +251,9 @@ impl FluidBehaviour for WaterFluid {
         if current_fluid.is_empty() || !is_water(current_fluid.fluid_id) {
             return; // No water here anymore
         }
+
+        // Animate with ambient sounds and particles (vanilla animateTick)
+        self.animate_tick(world, pos, current_fluid);
 
         // For flowing water, recalculate if it should still exist
         if !current_fluid.is_source() {
