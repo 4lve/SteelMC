@@ -3,14 +3,14 @@
     pub players: <a class="struct" href="struct.PlayerMap.html" title="struct steel_core::world::PlayerMap">PlayerMap</a>,
     pub player_area_map: <a class="struct" href="struct.PlayerAreaMap.html" title="struct steel_core::world::PlayerAreaMap">PlayerAreaMap</a>,
     pub dimension: DimensionTypeRef,
-    pub level_data: <a class="type" href="../../steel_utils/locks/type.SyncRwLock.html" title="type steel_utils::locks::SyncRwLock">SyncRwLock</a>&lt;<a class="struct" href="../level_data/struct.LevelDataManager.html" title="struct steel_core::level_data::LevelDataManager">LevelDataManager</a>&gt;,
+    pub level_data: SyncRwLock&lt;<a class="struct" href="../level_data/struct.LevelDataManager.html" title="struct steel_core::level_data::LevelDataManager">LevelDataManager</a>&gt;,
     tick_runs_normally: <a class="struct" href="https://doc.rust-lang.org/nightly/core/sync/atomic/struct.AtomicBool.html" title="struct core::sync::atomic::AtomicBool">AtomicBool</a>,
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A struct that represents a world.</p>
 </div></details><h2 id="fields" class="fields section-header">Fields<a href="#fields" class="anchor">§</a></h2><span id="structfield.chunk_map" class="structfield section-header"><a href="#structfield.chunk_map" class="anchor field">§</a><code>chunk_map: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;<a class="struct" href="../chunk/chunk_map/struct.ChunkMap.html" title="struct steel_core::chunk::chunk_map::ChunkMap">ChunkMap</a>&gt;</code></span><div class="docblock"><p>The chunk map of the world.</p>
 </div><span id="structfield.players" class="structfield section-header"><a href="#structfield.players" class="anchor field">§</a><code>players: <a class="struct" href="struct.PlayerMap.html" title="struct steel_core::world::PlayerMap">PlayerMap</a></code></span><div class="docblock"><p>All players in the world with dual indexing by UUID and entity ID.</p>
 </div><span id="structfield.player_area_map" class="structfield section-header"><a href="#structfield.player_area_map" class="anchor field">§</a><code>player_area_map: <a class="struct" href="struct.PlayerAreaMap.html" title="struct steel_core::world::PlayerAreaMap">PlayerAreaMap</a></code></span><div class="docblock"><p>Spatial index for player proximity queries.</p>
 </div><span id="structfield.dimension" class="structfield section-header"><a href="#structfield.dimension" class="anchor field">§</a><code>dimension: DimensionTypeRef</code></span><div class="docblock"><p>The dimension of the world.</p>
-</div><span id="structfield.level_data" class="structfield section-header"><a href="#structfield.level_data" class="anchor field">§</a><code>level_data: <a class="type" href="../../steel_utils/locks/type.SyncRwLock.html" title="type steel_utils::locks::SyncRwLock">SyncRwLock</a>&lt;<a class="struct" href="../level_data/struct.LevelDataManager.html" title="struct steel_core::level_data::LevelDataManager">LevelDataManager</a>&gt;</code></span><div class="docblock"><p>Level data manager for persistent world state.</p>
+</div><span id="structfield.level_data" class="structfield section-header"><a href="#structfield.level_data" class="anchor field">§</a><code>level_data: SyncRwLock&lt;<a class="struct" href="../level_data/struct.LevelDataManager.html" title="struct steel_core::level_data::LevelDataManager">LevelDataManager</a>&gt;</code></span><div class="docblock"><p>Level data manager for persistent world state.</p>
 </div><span id="structfield.tick_runs_normally" class="structfield section-header"><a href="#structfield.tick_runs_normally" class="anchor field">§</a><code>tick_runs_normally: <a class="struct" href="https://doc.rust-lang.org/nightly/core/sync/atomic/struct.AtomicBool.html" title="struct core::sync::atomic::AtomicBool">AtomicBool</a></code></span><div class="docblock"><p>Whether the tick rate is running normally (not frozen/paused).
 When false, movement validation checks are skipped.</p>
 </div><h2 id="implementations" class="section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-World" class="impl"><a class="src rightside" href="../../src/steel_core/world/world_entities.rs.html#12-129">Source</a><a href="#impl-World" class="anchor">§</a><h3 class="code-header">impl <a class="struct" href="struct.World.html" title="struct steel_core::world::World">World</a></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.remove_player" class="method"><a class="src rightside" href="../../src/steel_core/world/world_entities.rs.html#14-29">Source</a><h4 class="code-header">pub async fn <a href="#method.remove_player" class="fn">remove_player</a>(self: &amp;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Self&gt;, player: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;<a class="struct" href="../player/struct.Player.html" title="struct steel_core::player::Player">Player</a>&gt;)</h4></section></summary><div class="docblock"><p>Removes a player from the world.</p>
@@ -30,16 +30,16 @@ the World and its <code>ChunkMap</code>’s <code>WorldGenContext</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.get_min_y" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#132-134">Source</a><h4 class="code-header">pub fn <a href="#method.get_min_y" class="fn">get_min_y</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a></h4></section></summary><div class="docblock"><p>Returns the minimum Y coordinate of the world.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.get_max_y" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#137-139">Source</a><h4 class="code-header">pub fn <a href="#method.get_max_y" class="fn">get_max_y</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a></h4></section></summary><div class="docblock"><p>Returns the maximum Y coordinate of the world.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.is_outside_build_height" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#142-144">Source</a><h4 class="code-header">pub fn <a href="#method.is_outside_build_height" class="fn">is_outside_build_height</a>(&amp;self, block_y: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns whether the given Y coordinate is outside the build height.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.is_in_valid_bounds_horizontal" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#147-151">Source</a><h4 class="code-header">pub fn <a href="#method.is_in_valid_bounds_horizontal" class="fn">is_in_valid_bounds_horizontal</a>(&amp;self, block_pos: &amp;<a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns whether the block position is within valid horizontal bounds.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.is_in_valid_bounds" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#154-157">Source</a><h4 class="code-header">pub fn <a href="#method.is_in_valid_bounds" class="fn">is_in_valid_bounds</a>(&amp;self, block_pos: &amp;<a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns whether the block position is within valid world bounds.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.is_in_valid_bounds_horizontal" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#147-151">Source</a><h4 class="code-header">pub fn <a href="#method.is_in_valid_bounds_horizontal" class="fn">is_in_valid_bounds_horizontal</a>(&amp;self, block_pos: &amp;BlockPos) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns whether the block position is within valid horizontal bounds.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.is_in_valid_bounds" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#154-157">Source</a><h4 class="code-header">pub fn <a href="#method.is_in_valid_bounds" class="fn">is_in_valid_bounds</a>(&amp;self, block_pos: &amp;BlockPos) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns whether the block position is within valid world bounds.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.max_build_height" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#162-164">Source</a><h4 class="code-header">pub fn <a href="#method.max_build_height" class="fn">max_build_height</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a></h4></section></summary><div class="docblock"><p>Returns the maximum build height (one above the highest placeable block).
 This is <code>min_y + height</code>.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.may_interact" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#169-171">Source</a><h4 class="code-header">pub fn <a href="#method.may_interact" class="fn">may_interact</a>(&amp;self, _player: &amp;<a class="struct" href="../player/struct.Player.html" title="struct steel_core::player::Player">Player</a>, pos: &amp;<a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Checks if a player may interact with the world at the given position.
+</div></details><details class="toggle method-toggle" open><summary><section id="method.may_interact" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#169-171">Source</a><h4 class="code-header">pub fn <a href="#method.may_interact" class="fn">may_interact</a>(&amp;self, _player: &amp;<a class="struct" href="../player/struct.Player.html" title="struct steel_core::player::Player">Player</a>, pos: &amp;BlockPos) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Checks if a player may interact with the world at the given position.
 Currently only checks if position is within world bounds.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.is_unobstructed" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#185-217">Source</a><h4 class="code-header">pub fn <a href="#method.is_unobstructed" class="fn">is_unobstructed</a>(
     &amp;self,
     collision_shape: VoxelShape,
-    pos: &amp;<a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+    pos: &amp;BlockPos,
 ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Checks if a block’s collision shape at the given position is unobstructed by entities.</p>
 <p>This is the Rust equivalent of vanilla’s <code>Level.isUnobstructed(BlockState, BlockPos, CollisionContext)</code>.
 In vanilla, this checks all entities with <code>blocksBuilding=true</code> (players, mobs, boats, etc.).
@@ -56,48 +56,48 @@ Matches vanilla’s <code>level.tickRateManager().runsNormally()</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.obfuscated_seed" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#267-275">Source</a><h4 class="code-header">pub fn <a href="#method.obfuscated_seed" class="fn">obfuscated_seed</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i64.html">i64</a></h4></section></summary><div class="docblock"><p>Gets the obfuscated seed for sending to clients.</p>
 <p>This uses SHA-256 hashing to prevent clients from easily extracting
 the actual world seed, matching vanilla’s <code>BiomeManager.obfuscateSeed()</code>.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.get_block_state" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#281-290">Source</a><h4 class="code-header">pub fn <a href="#method.get_block_state" class="fn">get_block_state</a>(&amp;self, pos: &amp;<a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>) -&gt; <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a></h4></section></summary><div class="docblock"><p>Gets the block state at the given position.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.get_block_state" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#281-290">Source</a><h4 class="code-header">pub fn <a href="#method.get_block_state" class="fn">get_block_state</a>(&amp;self, pos: &amp;BlockPos) -&gt; BlockStateId</h4></section></summary><div class="docblock"><p>Gets the block state at the given position.</p>
 <p>Returns the default block state (void air) if the position is out of bounds or the chunk is not loaded.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.set_block" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#296-298">Source</a><h4 class="code-header">pub fn <a href="#method.set_block" class="fn">set_block</a>(
     &amp;self,
-    pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
-    block_state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
-    flags: <a class="struct" href="../../steel_utils/types/struct.UpdateFlags.html" title="struct steel_utils::types::UpdateFlags">UpdateFlags</a>,
+    pos: BlockPos,
+    block_state: BlockStateId,
+    flags: UpdateFlags,
 ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Sets a block at the given position.</p>
 <p>Returns <code>true</code> if the block was successfully set, <code>false</code> otherwise.
 Uses the default update limit of 512 (matching vanilla).</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.set_block_with_limit" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#306-367">Source</a><h4 class="code-header">pub fn <a href="#method.set_block_with_limit" class="fn">set_block_with_limit</a>(
     &amp;self,
-    pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
-    block_state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
-    flags: <a class="struct" href="../../steel_utils/types/struct.UpdateFlags.html" title="struct steel_utils::types::UpdateFlags">UpdateFlags</a>,
+    pos: BlockPos,
+    block_state: BlockStateId,
+    flags: UpdateFlags,
     update_limit: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>,
 ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Sets a block at the given position with a custom update limit.</p>
 <p>The update limit prevents infinite recursion when shape updates trigger
 further block changes. Each recursive call decrements the limit.</p>
 <p>Returns <code>true</code> if the block was successfully set, <code>false</code> otherwise.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.update_neighbors_at" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#382-388">Source</a><h4 class="code-header">fn <a href="#method.update_neighbors_at" class="fn">update_neighbors_at</a>(&amp;self, pos: &amp;<a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>, source_block: BlockRef)</h4></section></summary><div class="docblock"><p>Updates all neighbors of the given position about a block change.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.update_neighbors_at" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#382-388">Source</a><h4 class="code-header">fn <a href="#method.update_neighbors_at" class="fn">update_neighbors_at</a>(&amp;self, pos: &amp;BlockPos, source_block: BlockRef)</h4></section></summary><div class="docblock"><p>Updates all neighbors of the given position about a block change.</p>
 <p>This is the Rust equivalent of vanilla’s <code>Level.updateNeighborsAt()</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.neighbor_shape_changed" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#393-430">Source</a><h4 class="code-header">fn <a href="#method.neighbor_shape_changed" class="fn">neighbor_shape_changed</a>(
     &amp;self,
     direction: Direction,
-    pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
-    neighbor_pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
-    neighbor_state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
-    flags: <a class="struct" href="../../steel_utils/types/struct.UpdateFlags.html" title="struct steel_utils::types::UpdateFlags">UpdateFlags</a>,
+    pos: BlockPos,
+    neighbor_pos: BlockPos,
+    neighbor_state: BlockStateId,
+    flags: UpdateFlags,
     update_limit: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>,
 )</h4></section></summary><div class="docblock"><p>Called when a neighbor’s shape changes, to update this block’s state.</p>
 <p>This is the Rust equivalent of vanilla’s <code>NeighborUpdater.executeShapeUpdate()</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.neighbor_changed" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#435-444">Source</a><h4 class="code-header">fn <a href="#method.neighbor_changed" class="fn">neighbor_changed</a>(
     &amp;self,
-    pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+    pos: BlockPos,
     source_block: BlockRef,
     moved_by_piston: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>,
 )</h4></section></summary><div class="docblock"><p>Notifies a block that one of its neighbors changed.</p>
 <p>This is the Rust equivalent of vanilla’s <code>Level.neighborChanged()</code>.</p>
-</div></details><section id="method.chunk_pos_for_block" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#446-451">Source</a><h4 class="code-header">fn <a href="#method.chunk_pos_for_block" class="fn">chunk_pos_for_block</a>(pos: &amp;<a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>) -&gt; <a class="struct" href="../../steel_utils/types/struct.ChunkPos.html" title="struct steel_utils::types::ChunkPos">ChunkPos</a></h4></section><details class="toggle method-toggle" open><summary><section id="method.get_block_entity" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#457-464">Source</a><h4 class="code-header">pub fn <a href="#method.get_block_entity" class="fn">get_block_entity</a>(&amp;self, pos: &amp;<a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="type" href="../block_entity/type.SharedBlockEntity.html" title="type steel_core::block_entity::SharedBlockEntity">SharedBlockEntity</a>&gt;</h4></section></summary><div class="docblock"><p>Gets a block entity at the given position.</p>
+</div></details><section id="method.chunk_pos_for_block" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#446-451">Source</a><h4 class="code-header">fn <a href="#method.chunk_pos_for_block" class="fn">chunk_pos_for_block</a>(pos: &amp;BlockPos) -&gt; ChunkPos</h4></section><details class="toggle method-toggle" open><summary><section id="method.get_block_entity" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#457-464">Source</a><h4 class="code-header">pub fn <a href="#method.get_block_entity" class="fn">get_block_entity</a>(&amp;self, pos: &amp;BlockPos) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="type" href="../block_entity/type.SharedBlockEntity.html" title="type steel_core::block_entity::SharedBlockEntity">SharedBlockEntity</a>&gt;</h4></section></summary><div class="docblock"><p>Gets a block entity at the given position.</p>
 <p>Returns <code>None</code> if the chunk is not loaded or there is no block entity at the position.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.block_entity_changed" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#469-476">Source</a><h4 class="code-header">pub fn <a href="#method.block_entity_changed" class="fn">block_entity_changed</a>(&amp;self, pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>)</h4></section></summary><div class="docblock"><p>Called when a block entity’s data changes.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.block_entity_changed" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#469-476">Source</a><h4 class="code-header">pub fn <a href="#method.block_entity_changed" class="fn">block_entity_changed</a>(&amp;self, pos: BlockPos)</h4></section></summary><div class="docblock"><p>Called when a block entity’s data changes.</p>
 <p>Marks the containing chunk as unsaved so it will be persisted to disk.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.tick_b" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#486-514">Source</a><h4 class="code-header">pub fn <a href="#method.tick_b" class="fn">tick_b</a>(&amp;self, tick_count: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u64.html">u64</a>, runs_normally: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>) -&gt; <a class="struct" href="struct.WorldTickTimings.html" title="struct steel_core::world::WorldTickTimings">WorldTickTimings</a></h4></section></summary><div class="docblock"><p>Ticks the world.</p>
 <ul>
@@ -136,7 +136,7 @@ avoiding repeated cloning of unencoded packets.</p>
 )</h4></section></summary><div class="docblock"><p>Broadcasts an unsigned player chat message to all players.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.broadcast_to_nearby" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#670-682">Source</a><h4 class="code-header">pub fn <a href="#method.broadcast_to_nearby" class="fn">broadcast_to_nearby</a>&lt;P: <a class="trait" href="../../steel_protocol/packet_traits/trait.ClientPacket.html" title="trait steel_protocol::packet_traits::ClientPacket">ClientPacket</a>&gt;(
     &amp;self,
-    chunk: <a class="struct" href="../../steel_utils/types/struct.ChunkPos.html" title="struct steel_utils::types::ChunkPos">ChunkPos</a>,
+    chunk: ChunkPos,
     packet: P,
     exclude: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>&gt;,
 )</h4></section></summary><div class="docblock"><p>Broadcasts a packet to all players tracking the given chunk.</p>
@@ -144,7 +144,7 @@ avoiding repeated cloning of unencoded packets.</p>
 If encoding fails, the broadcast is silently skipped.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.broadcast_to_nearby_encoded" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#687-702">Source</a><h4 class="code-header">pub fn <a href="#method.broadcast_to_nearby_encoded" class="fn">broadcast_to_nearby_encoded</a>(
     &amp;self,
-    chunk: <a class="struct" href="../../steel_utils/types/struct.ChunkPos.html" title="struct steel_utils::types::ChunkPos">ChunkPos</a>,
+    chunk: ChunkPos,
     packet: <a class="struct" href="../../steel_protocol/packet_traits/struct.EncodedPacket.html" title="struct steel_protocol::packet_traits::EncodedPacket">EncodedPacket</a>,
     exclude: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>&gt;,
 )</h4></section></summary><div class="docblock"><p>Broadcasts an already-encoded packet to all players tracking the given chunk.</p>
@@ -155,7 +155,7 @@ Returns the number of chunks saved.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.broadcast_block_destruction" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#722-733">Source</a><h4 class="code-header">pub fn <a href="#method.broadcast_block_destruction" class="fn">broadcast_block_destruction</a>(
     &amp;self,
     entity_id: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>,
-    pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+    pos: BlockPos,
     progress: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>,
 )</h4></section></summary><div class="docblock"><p>Broadcasts block destruction progress to nearby players.</p>
 <p>Note: The packet is NOT sent to the player doing the breaking (matching vanilla).
@@ -168,7 +168,7 @@ The breaking player sees progress through client-side prediction.</p>
 </ul>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.broadcast_block_entity_update" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#743-767">Source</a><h4 class="code-header">pub fn <a href="#method.broadcast_block_entity_update" class="fn">broadcast_block_entity_update</a>(
     &amp;self,
-    pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+    pos: BlockPos,
     block_entity_type: BlockEntityTypeRef,
     nbt: NbtCompound,
 )</h4></section></summary><div class="docblock"><p>Broadcasts a block entity update to all players tracking the chunk.</p>
@@ -179,7 +179,7 @@ The breaking player sees progress through client-side prediction.</p>
 <li><code>block_entity_type</code> - The type of block entity</li>
 <li><code>nbt</code> - The NBT data to send</li>
 </ul>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.drop_item_stack" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#777-789">Source</a><h4 class="code-header">pub fn <a href="#method.drop_item_stack" class="fn">drop_item_stack</a>(&amp;self, pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>, item: ItemStack)</h4></section></summary><div class="docblock"><p>Drops an item stack at the given position.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.drop_item_stack" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#777-789">Source</a><h4 class="code-header">pub fn <a href="#method.drop_item_stack" class="fn">drop_item_stack</a>(&amp;self, pos: BlockPos, item: ItemStack)</h4></section></summary><div class="docblock"><p>Drops an item stack at the given position.</p>
 <p>This spawns an item entity at the specified location with random velocity.
 Based on Java’s <code>Containers.dropItemStack</code>.</p>
 <h5 id="arguments-2"><a class="doc-anchor" href="#arguments-2">§</a>Arguments</h5>
@@ -190,7 +190,7 @@ Based on Java’s <code>Containers.dropItemStack</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.level_event" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#801-840">Source</a><h4 class="code-header">pub fn <a href="#method.level_event" class="fn">level_event</a>(
     &amp;self,
     event_type: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>,
-    pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+    pos: BlockPos,
     data: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>,
     exclude: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>&gt;,
 )</h4></section></summary><div class="docblock"><p>Broadcasts a level event to nearby players within 64 blocks.</p>
@@ -203,7 +203,7 @@ See <code>steel_registry::level_events</code> for available event type constants
 <li><code>data</code> - Event-specific data (e.g., block state ID for block destruction)</li>
 <li><code>exclude</code> - Optional entity ID to exclude from receiving the event</li>
 </ul>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.global_level_event" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#851-857">Source</a><h4 class="code-header">pub fn <a href="#method.global_level_event" class="fn">global_level_event</a>(&amp;self, event_type: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>, pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>, data: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>)</h4></section></summary><div class="docblock"><p>Broadcasts a global level event to all players in the world.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.global_level_event" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#851-857">Source</a><h4 class="code-header">pub fn <a href="#method.global_level_event" class="fn">global_level_event</a>(&amp;self, event_type: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>, pos: BlockPos, data: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>)</h4></section></summary><div class="docblock"><p>Broadcasts a global level event to all players in the world.</p>
 <p>Unlike <code>level_event</code>, this sends the event to all players regardless of distance.
 Used for events like the ender dragon death or wither spawn.</p>
 <h5 id="arguments-4"><a class="doc-anchor" href="#arguments-4">§</a>Arguments</h5>
@@ -214,7 +214,7 @@ Used for events like the ender dragon death or wither spawn.</p>
 </ul>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.destroy_block_effect" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#867-874">Source</a><h4 class="code-header">pub fn <a href="#method.destroy_block_effect" class="fn">destroy_block_effect</a>(
     &amp;self,
-    pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+    pos: BlockPos,
     block_state_id: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u32.html">u32</a>,
     exclude: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>&gt;,
 )</h4></section></summary><div class="docblock"><p>Broadcasts block destruction particles and sound for a destroyed block.</p>
@@ -227,7 +227,7 @@ Used for events like the ender dragon death or wither spawn.</p>
 </ul>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.block_event" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#886-923">Source</a><h4 class="code-header">pub fn <a href="#method.block_event" class="fn">block_event</a>(
     &amp;self,
-    pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+    pos: BlockPos,
     block: BlockRef,
     action_id: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u8.html">u8</a>,
     action_param: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u8.html">u8</a>,
@@ -245,7 +245,7 @@ chests, and bells. Each block type interprets the parameters differently.</p>
     &amp;self,
     sound_id: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>,
     source: <a class="enum" href="../../steel_protocol/packets/game/c_sound/enum.SoundSource.html" title="enum steel_protocol::packets::game::c_sound::SoundSource">SoundSource</a>,
-    pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+    pos: BlockPos,
     volume: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.f32.html">f32</a>,
     pitch: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.f32.html">f32</a>,
     exclude: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>&gt;,
@@ -265,7 +265,7 @@ the one who triggered the sound, as they hear it client-side.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.play_block_sound" class="method"><a class="src rightside" href="../../src/steel_core/world/mod.rs.html#1011-1020">Source</a><h4 class="code-header">pub fn <a href="#method.play_block_sound" class="fn">play_block_sound</a>(
     &amp;self,
     sound_id: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>,
-    pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+    pos: BlockPos,
     volume: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.f32.html">f32</a>,
     pitch: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.f32.html">f32</a>,
     exclude: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>&gt;,

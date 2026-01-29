@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["STATUS_NONE"],"enum":["ChunkResult"],"fn":["rayon_spawn"],"struct":["ChunkGuard","ChunkHolder"]};
+window.SIDEBAR_ITEMS = {"constant":["STATUS_NONE"],"enum":["ChunkResult"],"fn":["rayon_spawn"],"static":["SLOW_CHUNK_GEN"],"struct":["ChunkGuard","ChunkHolder"]};

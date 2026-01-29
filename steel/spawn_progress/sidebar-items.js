@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEPENDENCY_MARGIN","DISPLAY_DIAMETER","DISPLAY_RADIUS","SPAWN_RADIUS","TOTAL_SPAWN_CHUNKS"],"fn":["generate_spawn_chunks","generate_with_display"],"mod":["display"],"struct":["SwitchableWriter"]};

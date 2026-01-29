@@ -33,8 +33,8 @@ the counters. It requires the block behavior registry to be initialized.</p>
     x: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
     y: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
     z: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
-    new_state: <a class="struct" href="../../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
-) -&gt; <a class="struct" href="../../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a></h4></section></summary><div class="docblock"><p>Sets a block state and updates the cached counters.</p>
+    new_state: BlockStateId,
+) -&gt; BlockStateId</h4></section></summary><div class="docblock"><p>Sets a block state and updates the cached counters.</p>
 <p>Returns the old block state.</p>
 <h5 id="panics-1"><a class="doc-anchor" href="#panics-1">§</a>Panics</h5>
 <p>Panics if the block behavior registry has not been initialized.</p>
@@ -43,9 +43,9 @@ the counters. It requires the block behavior registry to be initialized.</p>
     x: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
     y: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
     z: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
-    new_state: <a class="struct" href="../../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+    new_state: BlockStateId,
     block_behaviors: &amp;<a class="struct" href="../../behavior/struct.BlockBehaviorRegistry.html" title="struct steel_core::behavior::BlockBehaviorRegistry">BlockBehaviorRegistry</a>,
-) -&gt; <a class="struct" href="../../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a></h4></section></summary><div class="docblock"><p>Sets a block state and updates the cached counters using the provided behavior registry.</p>
+) -&gt; BlockStateId</h4></section></summary><div class="docblock"><p>Sets a block state and updates the cached counters using the provided behavior registry.</p>
 <p>Returns the old block state.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.write" class="method"><a class="src rightside" href="../../../src/steel_core/chunk/section.rs.html#283-292">Source</a><h4 class="code-header">pub fn <a href="#method.write" class="fn">write</a>(&amp;self, writer: &amp;mut <a class="struct" href="https://doc.rust-lang.org/nightly/std/io/cursor/struct.Cursor.html" title="struct std::io::cursor::Cursor">Cursor</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u8.html">u8</a>&gt;&gt;)</h4></section></summary><div class="docblock"><p>Writes the chunk section to a writer.</p>
 <h5 id="panics-2"><a class="doc-anchor" href="#panics-2">§</a>Panics</h5>

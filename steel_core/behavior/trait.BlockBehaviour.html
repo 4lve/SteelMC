@@ -3,85 +3,85 @@
     fn <a href="#tymethod.get_state_for_placement" class="fn">get_state_for_placement</a>(
         &amp;self,
         context: &amp;<a class="struct" href="struct.BlockPlaceContext.html" title="struct steel_core::behavior::BlockPlaceContext">BlockPlaceContext</a>&lt;'_&gt;,
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>&gt;;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BlockStateId&gt;;
 
     // Provided methods
     fn <a href="#method.update_shape" class="fn">update_shape</a>(
         &amp;self,
-        state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+        state: BlockStateId,
         _world: &amp;<a class="struct" href="../world/struct.World.html" title="struct steel_core::world::World">World</a>,
-        _pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+        _pos: BlockPos,
         _direction: Direction,
-        _neighbor_pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
-        _neighbor_state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
-    ) -&gt; <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a> { ... }
+        _neighbor_pos: BlockPos,
+        _neighbor_state: BlockStateId,
+    ) -&gt; BlockStateId { ... }
 <span class="item-spacer"></span>    fn <a href="#method.on_place" class="fn">on_place</a>(
         &amp;self,
-        state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+        state: BlockStateId,
         world: &amp;<a class="struct" href="../world/struct.World.html" title="struct steel_core::world::World">World</a>,
-        pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
-        old_state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+        pos: BlockPos,
+        old_state: BlockStateId,
         moved_by_piston: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>,
     ) { ... }
 <span class="item-spacer"></span>    fn <a href="#method.affect_neighbors_after_removal" class="fn">affect_neighbors_after_removal</a>(
         &amp;self,
-        state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+        state: BlockStateId,
         world: &amp;<a class="struct" href="../world/struct.World.html" title="struct steel_core::world::World">World</a>,
-        pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+        pos: BlockPos,
         moved_by_piston: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>,
     ) { ... }
 <span class="item-spacer"></span>    fn <a href="#method.use_item_on" class="fn">use_item_on</a>(
         &amp;self,
         item_stack: &amp;ItemStack,
-        state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+        state: BlockStateId,
         world: &amp;<a class="struct" href="../world/struct.World.html" title="struct steel_core::world::World">World</a>,
-        pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+        pos: BlockPos,
         player: &amp;<a class="struct" href="../player/struct.Player.html" title="struct steel_core::player::Player">Player</a>,
-        hand: <a class="enum" href="../../steel_utils/types/enum.InteractionHand.html" title="enum steel_utils::types::InteractionHand">InteractionHand</a>,
+        hand: InteractionHand,
         hit_result: &amp;<a class="struct" href="struct.BlockHitResult.html" title="struct steel_core::behavior::BlockHitResult">BlockHitResult</a>,
     ) -&gt; <a class="enum" href="enum.InteractionResult.html" title="enum steel_core::behavior::InteractionResult">InteractionResult</a> { ... }
 <span class="item-spacer"></span>    fn <a href="#method.use_without_item" class="fn">use_without_item</a>(
         &amp;self,
-        state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+        state: BlockStateId,
         world: &amp;<a class="struct" href="../world/struct.World.html" title="struct steel_core::world::World">World</a>,
-        pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+        pos: BlockPos,
         player: &amp;<a class="struct" href="../player/struct.Player.html" title="struct steel_core::player::Player">Player</a>,
         hit_result: &amp;<a class="struct" href="struct.BlockHitResult.html" title="struct steel_core::behavior::BlockHitResult">BlockHitResult</a>,
     ) -&gt; <a class="enum" href="enum.InteractionResult.html" title="enum steel_core::behavior::InteractionResult">InteractionResult</a> { ... }
 <span class="item-spacer"></span>    fn <a href="#method.handle_neighbor_changed" class="fn">handle_neighbor_changed</a>(
         &amp;self,
-        state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+        state: BlockStateId,
         world: &amp;<a class="struct" href="../world/struct.World.html" title="struct steel_core::world::World">World</a>,
-        pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+        pos: BlockPos,
         source_block: BlockRef,
         moved_by_piston: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>,
     ) { ... }
 <span class="item-spacer"></span>    fn <a href="#method.get_clone_item_stack" class="fn">get_clone_item_stack</a>(
         &amp;self,
         block: BlockRef,
-        state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+        state: BlockStateId,
         include_data: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>,
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;ItemStack&gt; { ... }
-<span class="item-spacer"></span>    fn <a href="#method.is_randomly_ticking" class="fn">is_randomly_ticking</a>(&amp;self, state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a> { ... }
-<span class="item-spacer"></span>    fn <a href="#method.random_tick" class="fn">random_tick</a>(&amp;self, state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>, world: &amp;<a class="struct" href="../world/struct.World.html" title="struct steel_core::world::World">World</a>, pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.is_randomly_ticking" class="fn">is_randomly_ticking</a>(&amp;self, state: BlockStateId) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.random_tick" class="fn">random_tick</a>(&amp;self, state: BlockStateId, world: &amp;<a class="struct" href="../world/struct.World.html" title="struct steel_core::world::World">World</a>, pos: BlockPos) { ... }
 <span class="item-spacer"></span>    fn <a href="#method.has_block_entity" class="fn">has_block_entity</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a> { ... }
 <span class="item-spacer"></span>    fn <a href="#method.new_block_entity" class="fn">new_block_entity</a>(
         &amp;self,
         level: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Weak.html" title="struct alloc::sync::Weak">Weak</a>&lt;<a class="struct" href="../world/struct.World.html" title="struct steel_core::world::World">World</a>&gt;,
-        pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
-        state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+        pos: BlockPos,
+        state: BlockStateId,
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="type" href="../block_entity/type.SharedBlockEntity.html" title="type steel_core::block_entity::SharedBlockEntity">SharedBlockEntity</a>&gt; { ... }
 <span class="item-spacer"></span>    fn <a href="#method.should_keep_block_entity" class="fn">should_keep_block_entity</a>(
         &amp;self,
-        old_state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
-        new_state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+        old_state: BlockStateId,
+        new_state: BlockStateId,
     ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a> { ... }
-<span class="item-spacer"></span>    fn <a href="#method.has_analog_output_signal" class="fn">has_analog_output_signal</a>(&amp;self, state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.has_analog_output_signal" class="fn">has_analog_output_signal</a>(&amp;self, state: BlockStateId) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a> { ... }
 <span class="item-spacer"></span>    fn <a href="#method.get_analog_output_signal" class="fn">get_analog_output_signal</a>(
         &amp;self,
-        state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+        state: BlockStateId,
         world: &amp;<a class="struct" href="../world/struct.World.html" title="struct steel_core::world::World">World</a>,
-        pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+        pos: BlockPos,
     ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a> { ... }
 </details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Trait defining the behavior of a block.</p>
 <p>This trait handles all dynamic/functional aspects of blocks:</p>
@@ -94,23 +94,23 @@
 </div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.get_state_for_placement" class="method"><a class="src rightside" href="../../src/steel_core/behavior/block.rs.html#40">Source</a><h4 class="code-header">fn <a href="#tymethod.get_state_for_placement" class="fn">get_state_for_placement</a>(
     &amp;self,
     context: &amp;<a class="struct" href="struct.BlockPlaceContext.html" title="struct steel_core::behavior::BlockPlaceContext">BlockPlaceContext</a>&lt;'_&gt;,
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the block state to use when placing this block.</p>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BlockStateId&gt;</h4></section></summary><div class="docblock"><p>Returns the block state to use when placing this block.</p>
 </div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.update_shape" class="method"><a class="src rightside" href="../../src/steel_core/behavior/block.rs.html#27-37">Source</a><h4 class="code-header">fn <a href="#method.update_shape" class="fn">update_shape</a>(
     &amp;self,
-    state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+    state: BlockStateId,
     _world: &amp;<a class="struct" href="../world/struct.World.html" title="struct steel_core::world::World">World</a>,
-    _pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+    _pos: BlockPos,
     _direction: Direction,
-    _neighbor_pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
-    _neighbor_state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
-) -&gt; <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a></h4></section></summary><div class="docblock"><p>Called when a neighboring block changes shape.
+    _neighbor_pos: BlockPos,
+    _neighbor_state: BlockStateId,
+) -&gt; BlockStateId</h4></section></summary><div class="docblock"><p>Called when a neighboring block changes shape.
 Returns the new state for this block after considering the neighbor change.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.on_place" class="method"><a class="src rightside" href="../../src/steel_core/behavior/block.rs.html#51-60">Source</a><h4 class="code-header">fn <a href="#method.on_place" class="fn">on_place</a>(
     &amp;self,
-    state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+    state: BlockStateId,
     world: &amp;<a class="struct" href="../world/struct.World.html" title="struct steel_core::world::World">World</a>,
-    pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
-    old_state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+    pos: BlockPos,
+    old_state: BlockStateId,
     moved_by_piston: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>,
 )</h4></section></summary><div class="docblock"><p>Called when this block is placed in the world.</p>
 <h5 id="arguments"><a class="doc-anchor" href="#arguments">§</a>Arguments</h5>
@@ -123,9 +123,9 @@ Returns the new state for this block after considering the neighbor change.</p>
 </ul>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.affect_neighbors_after_removal" class="method"><a class="src rightside" href="../../src/steel_core/behavior/block.rs.html#72-80">Source</a><h4 class="code-header">fn <a href="#method.affect_neighbors_after_removal" class="fn">affect_neighbors_after_removal</a>(
     &amp;self,
-    state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+    state: BlockStateId,
     world: &amp;<a class="struct" href="../world/struct.World.html" title="struct steel_core::world::World">World</a>,
-    pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+    pos: BlockPos,
     moved_by_piston: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>,
 )</h4></section></summary><div class="docblock"><p>Called after this block is removed from the world, to affect neighbors.</p>
 <p>This is used for things like rails notifying neighbors when removed.</p>
@@ -139,11 +139,11 @@ Returns the new state for this block after considering the neighbor change.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.use_item_on" class="method"><a class="src rightside" href="../../src/steel_core/behavior/block.rs.html#88-99">Source</a><h4 class="code-header">fn <a href="#method.use_item_on" class="fn">use_item_on</a>(
     &amp;self,
     item_stack: &amp;ItemStack,
-    state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+    state: BlockStateId,
     world: &amp;<a class="struct" href="../world/struct.World.html" title="struct steel_core::world::World">World</a>,
-    pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+    pos: BlockPos,
     player: &amp;<a class="struct" href="../player/struct.Player.html" title="struct steel_core::player::Player">Player</a>,
-    hand: <a class="enum" href="../../steel_utils/types/enum.InteractionHand.html" title="enum steel_utils::types::InteractionHand">InteractionHand</a>,
+    hand: InteractionHand,
     hit_result: &amp;<a class="struct" href="struct.BlockHitResult.html" title="struct steel_core::behavior::BlockHitResult">BlockHitResult</a>,
 ) -&gt; <a class="enum" href="enum.InteractionResult.html" title="enum steel_core::behavior::InteractionResult">InteractionResult</a></h4></section></summary><div class="docblock"><p>Called when a player uses an item on this block.</p>
 <p>Returns <code>TryEmptyHandInteraction</code> by default to fall through to item use.
@@ -151,9 +151,9 @@ Override this to handle block-specific interactions (e.g., opening chests,
 using buttons, etc.).</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.use_without_item" class="method"><a class="src rightside" href="../../src/steel_core/behavior/block.rs.html#107-116">Source</a><h4 class="code-header">fn <a href="#method.use_without_item" class="fn">use_without_item</a>(
     &amp;self,
-    state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+    state: BlockStateId,
     world: &amp;<a class="struct" href="../world/struct.World.html" title="struct steel_core::world::World">World</a>,
-    pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+    pos: BlockPos,
     player: &amp;<a class="struct" href="../player/struct.Player.html" title="struct steel_core::player::Player">Player</a>,
     hit_result: &amp;<a class="struct" href="struct.BlockHitResult.html" title="struct steel_core::behavior::BlockHitResult">BlockHitResult</a>,
 ) -&gt; <a class="enum" href="enum.InteractionResult.html" title="enum steel_core::behavior::InteractionResult">InteractionResult</a></h4></section></summary><div class="docblock"><p>Called when a player uses this block without an item (or as a fallback
@@ -162,9 +162,9 @@ when <code>use_item_on</code> returns <code>TryEmptyHandInteraction</code>).</p>
 without needing an item (e.g., buttons, levers, repeaters).</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.handle_neighbor_changed" class="method"><a class="src rightside" href="../../src/steel_core/behavior/block.rs.html#130-140">Source</a><h4 class="code-header">fn <a href="#method.handle_neighbor_changed" class="fn">handle_neighbor_changed</a>(
     &amp;self,
-    state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+    state: BlockStateId,
     world: &amp;<a class="struct" href="../world/struct.World.html" title="struct steel_core::world::World">World</a>,
-    pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+    pos: BlockPos,
     source_block: BlockRef,
     moved_by_piston: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>,
 )</h4></section></summary><div class="docblock"><p>Called when a neighboring block changes (not shape-related).</p>
@@ -181,7 +181,7 @@ Used by redstone components, doors, and other blocks that react to neighbor chan
 </div></details><details class="toggle method-toggle" open><summary><section id="method.get_clone_item_stack" class="method"><a class="src rightside" href="../../src/steel_core/behavior/block.rs.html#153-161">Source</a><h4 class="code-header">fn <a href="#method.get_clone_item_stack" class="fn">get_clone_item_stack</a>(
     &amp;self,
     block: BlockRef,
-    state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+    state: BlockStateId,
     include_data: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>,
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;ItemStack&gt;</h4></section></summary><div class="docblock"><p>Returns the item stack to give when a player picks this block (middle click).</p>
 <p>The default implementation looks up an item with the same key as the block.
@@ -193,11 +193,11 @@ Override this for blocks where the pick item differs from the block key
 <li><code>_state</code> - The block state (some blocks vary pick item based on state)</li>
 <li><code>_include_data</code> - Whether to include block entity data (creative + Ctrl)</li>
 </ul>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.is_randomly_ticking" class="method"><a class="src rightside" href="../../src/steel_core/behavior/block.rs.html#169-171">Source</a><h4 class="code-header">fn <a href="#method.is_randomly_ticking" class="fn">is_randomly_ticking</a>(&amp;self, state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns whether this block should receive random ticks.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.is_randomly_ticking" class="method"><a class="src rightside" href="../../src/steel_core/behavior/block.rs.html#169-171">Source</a><h4 class="code-header">fn <a href="#method.is_randomly_ticking" class="fn">is_randomly_ticking</a>(&amp;self, state: BlockStateId) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns whether this block should receive random ticks.</p>
 <p>Override to return true for blocks like crops, grass, ice, fire, etc.
 This is used to optimize chunk ticking by skipping sections with no
 randomly-ticking blocks.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.random_tick" class="method"><a class="src rightside" href="../../src/steel_core/behavior/block.rs.html#183-185">Source</a><h4 class="code-header">fn <a href="#method.random_tick" class="fn">random_tick</a>(&amp;self, state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>, world: &amp;<a class="struct" href="../world/struct.World.html" title="struct steel_core::world::World">World</a>, pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>)</h4></section></summary><div class="docblock"><p>Called on random tick for blocks that support random ticking.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.random_tick" class="method"><a class="src rightside" href="../../src/steel_core/behavior/block.rs.html#183-185">Source</a><h4 class="code-header">fn <a href="#method.random_tick" class="fn">random_tick</a>(&amp;self, state: BlockStateId, world: &amp;<a class="struct" href="../world/struct.World.html" title="struct steel_core::world::World">World</a>, pos: BlockPos)</h4></section></summary><div class="docblock"><p>Called on random tick for blocks that support random ticking.</p>
 <p>This is only called if <code>is_randomly_ticking()</code> returns true.
 Used for crop growth, grass spread, ice melting, fire behavior, etc.</p>
 <h5 id="arguments-4"><a class="doc-anchor" href="#arguments-4">§</a>Arguments</h5>
@@ -211,8 +211,8 @@ Used for crop growth, grass spread, ice melting, fire behavior, etc.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.new_block_entity" class="method"><a class="src rightside" href="../../src/steel_core/behavior/block.rs.html#205-212">Source</a><h4 class="code-header">fn <a href="#method.new_block_entity" class="fn">new_block_entity</a>(
     &amp;self,
     level: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Weak.html" title="struct alloc::sync::Weak">Weak</a>&lt;<a class="struct" href="../world/struct.World.html" title="struct steel_core::world::World">World</a>&gt;,
-    pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
-    state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+    pos: BlockPos,
+    state: BlockStateId,
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="type" href="../block_entity/type.SharedBlockEntity.html" title="type steel_core::block_entity::SharedBlockEntity">SharedBlockEntity</a>&gt;</h4></section></summary><div class="docblock"><p>Creates a new block entity for this block.</p>
 <p>Only called if <code>has_block_entity()</code> returns <code>true</code>.</p>
 <h5 id="arguments-5"><a class="doc-anchor" href="#arguments-5">§</a>Arguments</h5>
@@ -223,8 +223,8 @@ Used for crop growth, grass spread, ice melting, fire behavior, etc.</p>
 </ul>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.should_keep_block_entity" class="method"><a class="src rightside" href="../../src/steel_core/behavior/block.rs.html#223-225">Source</a><h4 class="code-header">fn <a href="#method.should_keep_block_entity" class="fn">should_keep_block_entity</a>(
     &amp;self,
-    old_state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
-    new_state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+    old_state: BlockStateId,
+    new_state: BlockStateId,
 ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns whether the block entity should be kept when the block state changes.</p>
 <p>This is used when a block changes to a different block type that shares
 the same block entity type (e.g., different chest variants).</p>
@@ -233,14 +233,14 @@ the same block entity type (e.g., different chest variants).</p>
 <li><code>old_state</code> - The previous block state</li>
 <li><code>new_state</code> - The new block state</li>
 </ul>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.has_analog_output_signal" class="method"><a class="src rightside" href="../../src/steel_core/behavior/block.rs.html#234-236">Source</a><h4 class="code-header">fn <a href="#method.has_analog_output_signal" class="fn">has_analog_output_signal</a>(&amp;self, state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns whether this block can provide an analog output signal to comparators.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.has_analog_output_signal" class="method"><a class="src rightside" href="../../src/steel_core/behavior/block.rs.html#234-236">Source</a><h4 class="code-header">fn <a href="#method.has_analog_output_signal" class="fn">has_analog_output_signal</a>(&amp;self, state: BlockStateId) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns whether this block can provide an analog output signal to comparators.</p>
 <p>Override to return <code>true</code> for containers (chests, barrels, hoppers, etc.)
 and other blocks that comparators can read (composters, beehives, etc.).</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.get_analog_output_signal" class="method"><a class="src rightside" href="../../src/steel_core/behavior/block.rs.html#248-250">Source</a><h4 class="code-header">fn <a href="#method.get_analog_output_signal" class="fn">get_analog_output_signal</a>(
     &amp;self,
-    state: <a class="struct" href="../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+    state: BlockStateId,
     world: &amp;<a class="struct" href="../world/struct.World.html" title="struct steel_core::world::World">World</a>,
-    pos: <a class="struct" href="../../steel_utils/types/struct.BlockPos.html" title="struct steel_utils::types::BlockPos">BlockPos</a>,
+    pos: BlockPos,
 ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a></h4></section></summary><div class="docblock"><p>Returns the analog output signal strength (0-15) for comparators.</p>
 <p>Only called if <code>has_analog_output_signal()</code> returns <code>true</code>.
 For containers, this is typically based on how full they are.</p>

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["config"],"struct":["SteelServer"]};
+window.SIDEBAR_ITEMS = {"mod":["config","spawn_progress"],"struct":["SteelServer"]};

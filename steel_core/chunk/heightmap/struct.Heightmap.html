@@ -22,10 +22,10 @@ Each entry stores the height relative to <code>min_y</code>.</p>
     local_x: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
     y: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>,
     local_z: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>,
-    state: <a class="struct" href="../../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,
+    state: BlockStateId,
     get_block: F,
 ) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a><div class="where">where
-    F: <a class="trait" href="https://doc.rust-lang.org/nightly/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>, <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>, <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>) -&gt; <a class="struct" href="../../../steel_utils/types/struct.BlockStateId.html" title="struct steel_utils::types::BlockStateId">BlockStateId</a>,</div></h4></section></summary><div class="docblock"><p>Updates the heightmap when a block changes.</p>
+    F: <a class="trait" href="https://doc.rust-lang.org/nightly/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>, <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>, <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>) -&gt; BlockStateId,</div></h4></section></summary><div class="docblock"><p>Updates the heightmap when a block changes.</p>
 <p>Returns <code>true</code> if the heightmap was modified.</p>
 <h5 id="arguments"><a class="doc-anchor" href="#arguments">§</a>Arguments</h5>
 <ul>
