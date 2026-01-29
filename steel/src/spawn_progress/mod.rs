@@ -87,30 +87,32 @@ pub async fn generate_spawn_chunks(
     #[cfg(feature = "slow_chunk_gen")]
     SLOW_CHUNK_GEN.store(true, Ordering::Relaxed);
 
-    let start = Instant::now();
-
     #[cfg(feature = "spawn_chunk_display")]
-    generate_with_display(world, center_chunk, writer).await;
+    let elapsed = generate_with_display(world, center_chunk, writer).await;
 
     #[cfg(not(feature = "spawn_chunk_display"))]
-    generate_without_display(world, center_chunk).await;
+    let elapsed = {
+        let start = Instant::now();
+        generate_without_display(world, center_chunk).await;
+        start.elapsed()
+    };
 
     #[cfg(feature = "slow_chunk_gen")]
     SLOW_CHUNK_GEN.store(false, Ordering::Relaxed);
 
-    let elapsed = start.elapsed();
     log::info!(
         "Spawn area prepared: {TOTAL_SPAWN_CHUNKS} chunks in {:.2}s",
         elapsed.as_secs_f64(),
     );
 }
 
+/// Returns the elapsed generation time (excluding the final display delay).
 #[cfg(feature = "spawn_chunk_display")]
 async fn generate_with_display(
     world: &steel_core::world::World,
     center_chunk: ChunkPos,
     writer: &SwitchableWriter,
-) {
+) -> Duration {
     use crate::spawn_progress::{DISPLAY_DIAMETER, DISPLAY_RADIUS};
 
     let use_display = std::io::stderr().is_terminal();
@@ -118,6 +120,7 @@ async fn generate_with_display(
         writer.activate();
     }
 
+    let start = Instant::now();
     let mut tick_count: u64 = 1;
     let mut grid = [[None; DISPLAY_DIAMETER]; DISPLAY_DIAMETER];
     let mut last_render = Instant::now();
@@ -141,14 +144,10 @@ async fn generate_with_display(
                 let gz = (dz + DISPLAY_RADIUS) as usize;
                 grid[gz][gx] = status;
 
-                if (dx.abs() as i32) <= SPAWN_RADIUS
-                    && (dz.abs() as i32) <= SPAWN_RADIUS
-                    && status == Some(ChunkStatus::Full)
-                {
+                let in_spawn_area = dx.abs() <= SPAWN_RADIUS && dz.abs() <= SPAWN_RADIUS;
+                if in_spawn_area && status == Some(ChunkStatus::Full) {
                     completed += 1;
-                } else if ((dx.abs() as i32) > SPAWN_RADIUS || (dz.abs() as i32) > SPAWN_RADIUS)
-                    && status.is_none()
-                {
+                } else if !in_spawn_area && status.is_none() {
                     pending_dependencies = true;
                 }
             }
@@ -171,13 +170,38 @@ async fn generate_with_display(
         tick_count += 1;
     }
 
+    let elapsed = start.elapsed();
+
     if use_display {
         // Render final state
         writer.update_grid(&grid, true);
         // Show completed grid briefly before clearing
+        #[cfg(feature = "slow_chunk_gen")]
         sleep(Duration::from_secs(1)).await;
         writer.deactivate();
     }
+
+    elapsed
+}
+
+/// Counts how many chunks in the spawn area have reached Full status.
+#[cfg(not(feature = "spawn_chunk_display"))]
+fn count_full_spawn_chunks(world: &steel_core::world::World, center_chunk: ChunkPos) -> usize {
+    let mut completed = 0;
+    for dz in -SPAWN_RADIUS..=SPAWN_RADIUS {
+        for dx in -SPAWN_RADIUS..=SPAWN_RADIUS {
+            let pos = ChunkPos::new(center_chunk.0.x + dx, center_chunk.0.y + dz);
+            let status = world
+                .chunk_map
+                .chunks
+                .read_sync(&pos, |_, holder| holder.persisted_status())
+                .flatten();
+            if status == Some(ChunkStatus::Full) {
+                completed += 1;
+            }
+        }
+    }
+    completed
 }
 
 #[cfg(not(feature = "spawn_chunk_display"))]
@@ -187,24 +211,7 @@ async fn generate_without_display(world: &steel_core::world::World, center_chunk
     loop {
         world.chunk_map.tick_b(tick_count, 0, false);
 
-        let mut completed = 0;
-
-        for dz in -SPAWN_RADIUS..=SPAWN_RADIUS {
-            for dx in -SPAWN_RADIUS..=SPAWN_RADIUS {
-                let pos = ChunkPos::new(center_chunk.0.x + dx, center_chunk.0.y + dz);
-                let status = world
-                    .chunk_map
-                    .chunks
-                    .read_sync(&pos, |_, holder| holder.persisted_status())
-                    .flatten();
-
-                if status == Some(ChunkStatus::Full) {
-                    completed += 1;
-                }
-            }
-        }
-
-        if completed == TOTAL_SPAWN_CHUNKS {
+        if count_full_spawn_chunks(world, center_chunk) == TOTAL_SPAWN_CHUNKS {
             break;
         }
 

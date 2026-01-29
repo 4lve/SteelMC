@@ -15,45 +15,19 @@ use tokio::{
 use tokio_util::task::TaskTracker;
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
-#[cfg(all(not(feature = "jaeger"), not(feature = "spawn_chunk_display")))]
-fn init_tracing() {
-    tracing_subscriber::registry()
-        .with(fmt::layer().with_timer(fmt::time::uptime()))
-        .with(
-            EnvFilter::builder()
-                .with_default_directive(tracing::Level::INFO.into())
-                .from_env_lossy(),
-        )
-        .init();
+fn default_env_filter() -> EnvFilter {
+    EnvFilter::builder()
+        .with_default_directive(tracing::Level::INFO.into())
+        .from_env_lossy()
 }
 
-#[cfg(all(not(feature = "jaeger"), feature = "spawn_chunk_display"))]
-fn init_tracing() -> SwitchableWriter {
-    let writer = SwitchableWriter::new();
-    tracing_subscriber::registry()
-        .with(
-            fmt::layer()
-                .with_timer(fmt::time::uptime())
-                .with_writer(writer.clone()),
-        )
-        .with(
-            EnvFilter::builder()
-                .with_default_directive(tracing::Level::INFO.into())
-                .from_env_lossy(),
-        )
-        .init();
-    writer
-}
-
-#[cfg(all(feature = "jaeger", not(feature = "spawn_chunk_display")))]
-fn init_tracing() {
+#[cfg(feature = "jaeger")]
+fn init_jaeger() {
     use opentelemetry::KeyValue;
     use opentelemetry::global;
     use opentelemetry::trace::TracerProvider;
     use opentelemetry_sdk::Resource;
     use opentelemetry_sdk::trace::SdkTracerProvider;
-    use tracing_opentelemetry::OpenTelemetryLayer;
-    use tracing_subscriber::Layer;
 
     let exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_tonic()
@@ -81,72 +55,77 @@ fn init_tracing() {
 
     let tracer = tracer_provider.tracer("steel");
     global::set_tracer_provider(tracer_provider);
-
-    tracing_subscriber::registry()
-        .with(
-            OpenTelemetryLayer::new(tracer)
-                .with_filter(EnvFilter::new("trace,h2=off,hyper=off,tonic=off,tower=off")),
-        )
-        .with(
-            fmt::layer().with_timer(fmt::time::uptime()).with_filter(
-                EnvFilter::builder()
-                    .with_default_directive(tracing::Level::INFO.into())
-                    .from_env_lossy(),
-            ),
-        )
-        .init();
 }
 
-#[cfg(all(feature = "jaeger", feature = "spawn_chunk_display"))]
-fn init_tracing() -> SwitchableWriter {
-    use opentelemetry::KeyValue;
-    use opentelemetry::global;
-    use opentelemetry::trace::TracerProvider;
-    use opentelemetry_sdk::Resource;
-    use opentelemetry_sdk::trace::SdkTracerProvider;
-    use tracing_opentelemetry::OpenTelemetryLayer;
-    use tracing_subscriber::Layer;
+#[cfg(not(feature = "spawn_chunk_display"))]
+fn init_tracing() {
+    #[cfg(feature = "jaeger")]
+    {
+        use tracing_opentelemetry::OpenTelemetryLayer;
+        use tracing_subscriber::Layer;
 
+        init_jaeger();
+        let tracer = opentelemetry::global::tracer("steel");
+
+        tracing_subscriber::registry()
+            .with(
+                OpenTelemetryLayer::new(tracer)
+                    .with_filter(EnvFilter::new("trace,h2=off,hyper=off,tonic=off,tower=off")),
+            )
+            .with(
+                fmt::layer()
+                    .with_timer(fmt::time::uptime())
+                    .with_filter(default_env_filter()),
+            )
+            .init();
+    }
+
+    #[cfg(not(feature = "jaeger"))]
+    {
+        tracing_subscriber::registry()
+            .with(fmt::layer().with_timer(fmt::time::uptime()))
+            .with(default_env_filter())
+            .init();
+    }
+}
+
+#[cfg(feature = "spawn_chunk_display")]
+fn init_tracing() -> SwitchableWriter {
     let writer = SwitchableWriter::new();
 
-    let exporter = opentelemetry_otlp::SpanExporter::builder()
-        .with_tonic()
-        .build()
-        .expect("Failed to create OTLP span exporter");
+    #[cfg(feature = "jaeger")]
+    {
+        use tracing_opentelemetry::OpenTelemetryLayer;
+        use tracing_subscriber::Layer;
 
-    let tracer_provider = SdkTracerProvider::builder()
-        .with_resource(
-            Resource::builder()
-                .with_attributes([
-                    KeyValue::new("service.name", "steel"),
-                    KeyValue::new(
-                        "service.build",
-                        if cfg!(debug_assertions) {
-                            "debug"
-                        } else {
-                            "release"
-                        },
-                    ),
-                ])
-                .build(),
-        )
-        .with_batch_exporter(exporter)
-        .build();
+        init_jaeger();
+        let tracer = opentelemetry::global::tracer("steel");
 
-    let tracer = tracer_provider.tracer("steel");
-    global::set_tracer_provider(tracer_provider);
+        tracing_subscriber::registry()
+            .with(
+                OpenTelemetryLayer::new(tracer)
+                    .with_filter(EnvFilter::new("trace,h2=off,hyper=off,tonic=off,tower=off")),
+            )
+            .with(
+                fmt::layer()
+                    .with_timer(fmt::time::uptime())
+                    .with_writer(writer.clone())
+                    .with_filter(default_env_filter()),
+            )
+            .init();
+    }
 
-    tracing_subscriber::registry()
-        .with(
-            OpenTelemetryLayer::new(tracer)
-                .with_filter(EnvFilter::new("trace,h2=off,hyper=off,tonic=off,tower=off")),
-        )
-        .with(
-            fmt::layer()
-                .with_timer(fmt::time::uptime())
-                .with_writer(writer.clone()),
-        )
-        .init();
+    #[cfg(not(feature = "jaeger"))]
+    {
+        tracing_subscriber::registry()
+            .with(
+                fmt::layer()
+                    .with_timer(fmt::time::uptime())
+                    .with_writer(writer.clone()),
+            )
+            .with(default_env_filter())
+            .init();
+    }
 
     writer
 }
