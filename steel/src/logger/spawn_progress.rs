@@ -74,7 +74,7 @@ impl Input {
             0
         };
         for z in (0..DISPLAY_DIAMETER).step_by(2) {
-            writeln!(self.out)?;
+            write!(self.out, "\r")?;
             if w != 0 {
                 write!(self.out, "{}", MoveRight(w))?;
             }
