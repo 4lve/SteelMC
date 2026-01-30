@@ -27,9 +27,7 @@ use steel_utils::types::UpdateFlags;
 use crate::behavior::ItemBehavior;
 use crate::behavior::context::InteractionResult;
 use crate::entity::LivingEntity;
-use crate::fluid::flowing::{
-    self, get_fluid_state_from_block, is_lava, is_lava_state, is_water, is_water_state,
-};
+use crate::fluid::flowing::{get_fluid_state_from_block, is_lava_state, is_water_state};
 use crate::player::Player;
 
 /// Computes the start (eye position) and end positions for a raytrace.
@@ -119,7 +117,7 @@ impl ItemBehavior for FilledBucketBehavior {
             }
 
             let state = context.world.get_block_state(&pos);
-            let block = state.get_block();
+            let _block = state.get_block();
             let fluid_state = get_fluid_state_from_block(state);
 
             // 1. Try Waterlogging (only if Water bucket)
@@ -283,21 +281,21 @@ impl ItemBehavior for EmptyBucketBehavior {
         let fluid_block = fluid_state.get_block();
         log::info!("Fluid block: {}", fluid_block.key);
         // Determine filled bucket type
-        let (filled_bucket,waterloggable) = if ptr::eq(fluid_block, vanilla_blocks::WATER)
+        let (filled_bucket, waterloggable) = if ptr::eq(fluid_block, vanilla_blocks::WATER)
             && is_source_fluid(fluid_state, fluid_block)
         {
-            (&vanilla_items::ITEMS.water_bucket,false)
+            (&vanilla_items::ITEMS.water_bucket, false)
         } else if ptr::eq(fluid_block, vanilla_blocks::LAVA)
             && is_source_fluid(fluid_state, fluid_block)
         {
-            (&vanilla_items::ITEMS.lava_bucket,false)
+            (&vanilla_items::ITEMS.lava_bucket, false)
         } else if fluid_state
             .try_get_value(&BlockStateProperties::WATERLOGGED)
             .is_some()
         {
             log::info!("Water bucket on waterlogged block");
-            (&vanilla_items::ITEMS.water_bucket,true)
-        } else {    
+            (&vanilla_items::ITEMS.water_bucket, true)
+        } else {
             log::info!("Other bucket");
             return InteractionResult::Fail;
         };
@@ -310,7 +308,9 @@ impl ItemBehavior for EmptyBucketBehavior {
 
         if waterloggable {
             let new_state = fluid_state.set_value(&BlockStateProperties::WATERLOGGED, false);
-            context.world.set_block(hit_pos, new_state, UpdateFlags::UPDATE_ALL_IMMEDIATE);
+            context
+                .world
+                .set_block(hit_pos, new_state, UpdateFlags::UPDATE_ALL_IMMEDIATE);
         } else {
             // Remove fluid
             let air_state = REGISTRY.blocks.get_default_state_id(vanilla_blocks::AIR);
@@ -321,7 +321,7 @@ impl ItemBehavior for EmptyBucketBehavior {
                 return InteractionResult::Fail;
             }
         }
-        
+
         // Schedule ticks for de-propagation
         let current_tick = context.world.game_time();
 

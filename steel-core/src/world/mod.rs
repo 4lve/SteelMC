@@ -30,6 +30,7 @@ use steel_registry::vanilla_blocks;
 use steel_registry::vanilla_game_rules::RANDOM_TICK_SPEED;
 use steel_registry::{REGISTRY, dimension_type::DimensionTypeRef};
 
+use crate::fluid::get_fluid_state_from_block;
 use steel_registry::blocks::shapes::{AABBd, VoxelShape};
 use steel_utils::locks::{SyncMutex, SyncRwLock};
 use steel_utils::math::Vector3;
@@ -1116,12 +1117,12 @@ impl World {
             };
 
             let state = self.get_block_state(&block);
-            let block_ref = state.get_block();
 
-            // fluid test
-            if block_ref.is_fluid() {
-                if is_source_fluid(state, block_ref) {
-                    return (Some(block), None);
+            // Check if it's a fluid block
+            let fluid_state = get_fluid_state_from_block(state);
+            if !fluid_state.is_empty() {
+                if fluid_state.is_source() {
+                    return (Some(block), Some(block_direction));
                 }
             }
 
@@ -1132,7 +1133,6 @@ impl World {
                     return (Some(block), face);
                 }
             }
-
         }
 
         (None, None)

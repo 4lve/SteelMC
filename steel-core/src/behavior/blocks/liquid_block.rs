@@ -104,7 +104,7 @@ impl BlockBehaviour for LiquidBlockBehavior {
     /// Called when the block is placed.
     fn on_place(
         &self,
-        state: BlockStateId,
+        _state: BlockStateId,
         world: &World,
         pos: BlockPos,
         _old_state: BlockStateId,

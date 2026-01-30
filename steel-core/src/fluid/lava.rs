@@ -57,7 +57,7 @@ impl LavaFluid {
         &self,
         world: &World,
         pos: BlockPos,
-        fluid_state: FluidState,
+        _fluid_state: FluidState,
         current_tick: u64,
     ) -> bool {
         let below = pos.offset(0, -1, 0);
