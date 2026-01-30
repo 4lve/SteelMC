@@ -112,7 +112,7 @@ async fn generate_with_display(
 ) -> Duration {
     use crate::spawn_progress::{DISPLAY_DIAMETER, DISPLAY_RADIUS};
 
-    logger.activate_spawn_display().await;
+    let _ = logger.activate_spawn_display().await;
     let start = Instant::now();
     let mut tick_count: u64 = 1;
     let mut grid = [[None; DISPLAY_DIAMETER]; DISPLAY_DIAMETER];

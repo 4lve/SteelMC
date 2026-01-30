@@ -2,9 +2,19 @@ use crate::STEEL_CONFIG;
 use crate::logger::selection::Selection;
 #[cfg(feature = "spawn_chunk_display")]
 use crate::logger::spawn_progress::{Grid, SpawnProgressDisplay};
-#[cfg(feature = "spawn_chunk_display")]
 use crate::{SERVER, logger::history::History};
 use chrono::Utc;
+use crossterm::{
+    cursor::{
+        MoveLeft, MoveRight, MoveUp,
+        SetCursorStyle::{BlinkingBar, BlinkingBlock},
+    },
+    style::{
+        Color::{Grey, Yellow},
+        ResetColor, SetForegroundColor,
+    },
+    terminal::{self, Clear, ClearType},
+};
 use std::time;
 use std::{
     io::{Result, Stdout, Write, stdout},
@@ -13,10 +23,6 @@ use std::{
 use steel_core::command::sender::CommandSender;
 use steel_utils::locks::AsyncRwLock;
 use steel_utils::logger::{Level, LogData, STEEL_LOGGER, SteelLogger};
-use termion::color::{self, LightBlack, Yellow};
-use termion::cursor::{BlinkingBar, BlinkingBlock, Left, Right, Up};
-use termion::raw::{IntoRawMode, RawTerminal};
-use termion::{clear, style};
 use tokio::{sync::mpsc, task};
 use tokio_util::sync::CancellationToken;
 use tracing::Subscriber;
@@ -39,7 +45,7 @@ struct Input {
     pub selection: Selection,
     #[cfg(feature = "spawn_chunk_display")]
     pub spawn_display: SpawnProgressDisplay,
-    pub out: RawTerminal<Stdout>,
+    pub out: Stdout,
     pub cancel_token: CancellationToken,
 }
 impl Input {
@@ -53,23 +59,13 @@ impl Input {
             history: History::new(path).await,
             #[cfg(feature = "spawn_chunk_display")]
             spawn_display: SpawnProgressDisplay::new(),
-            out: stdout()
-                .into_raw_mode()
-                .expect("Couldn't get the stdout into raw mode"),
+            out: stdout(),
             selection: Selection::new(),
             cancel_token,
         }
     }
-    fn push(&mut self, mut string: String) -> Result<()> {
-        let mut string_len = string.chars().count();
-        if string_len + self.length > 2048 {
-            let slice = string
-                .char_indices()
-                .nth(2048usize.saturating_sub(self.length))
-                .expect("Couldn't got the 2048 character.");
-            string = string[..slice.0].to_string();
-            string_len = string.chars().count();
-        }
+    fn push(&mut self, string: String) -> Result<()> {
+        let string_len = string.chars().count();
         if self.pos == 0 {
             self.text.insert_str(0, &string);
         } else {
@@ -84,18 +80,8 @@ impl Input {
         self.rewrite_input(length, pos)?;
         Ok(())
     }
-    fn replace(&mut self, mut string: String) -> Result<()> {
-        let mut string_len = string.chars().count();
-        if (self.is_at_end() && string_len + self.length > 2048)
-            || (!self.is_at_end() && string_len - 1 + self.length > 2048)
-        {
-            let slice = string
-                .char_indices()
-                .nth(2048usize.saturating_sub(self.length))
-                .expect("Couldn't got the 2048 character.");
-            string = string[..slice.0].to_string();
-            string_len = string.chars().count();
-        }
+    fn replace(&mut self, string: String) -> Result<()> {
+        let string_len = string.chars().count();
         if self.pos == 0 {
             if self.is_empty() {
                 self.text = string;
@@ -204,7 +190,7 @@ impl Input {
 
 impl Input {
     fn get_pos(pos: usize) -> (usize, usize) {
-        if let Ok((w, _)) = termion::terminal_size() {
+        if let Ok((w, _)) = terminal::size() {
             let w = w as usize;
             let absolute_pos = pos + 2;
             let x = absolute_pos % w;
@@ -311,7 +297,7 @@ impl Input {
             } else {
                 (self.completion.selected + update as usize) % self.completion.suggestions.len()
             };
-            let width = if let Ok((width, _)) = termion::terminal_size() {
+            let width = if let Ok((width, _)) = terminal::size() {
                 width as usize / 20
             } else {
                 1
@@ -328,37 +314,37 @@ impl Input {
 
                     write!(self.out, "\n\r")?;
                     if w != 0 {
-                        write!(self.out, "{}", Right(w as u16 * 20))?;
+                        write!(self.out, "{}", MoveRight(w as u16 * 20))?;
                     }
 
                     let color = if pos == self.completion.selected {
-                        Yellow.fg_str()
+                        Yellow
                     } else {
-                        LightBlack.fg_str()
+                        Grey
                     };
 
                     write!(
                         self.out,
                         "{}{:<20}{}",
-                        color,
+                        SetForegroundColor(color),
                         if self.completion.suggestions[pos].len() > 20 {
                             format!("{}...", &self.completion.suggestions[pos][..17])
                         } else {
                             self.completion.suggestions[pos].clone()
                         },
-                        style::Reset
+                        ResetColor
                     )?;
                     height += 1;
                 }
-                write!(self.out, "{}", Up(3))?;
+                write!(self.out, "{}", MoveUp(3))?;
                 height = 0;
             }
             let y = height + self.get_end().0 as u16;
             let x = self.get_current_pos().1;
             if y != 0 {
-                write!(self.out, "{}", Up(y))?;
+                write!(self.out, "{}", MoveUp(y))?;
             }
-            write!(self.out, "\r{}", Right(x as u16))?;
+            write!(self.out, "\r{}", MoveRight(x as u16))?;
 
             if let Some(text) = self.text[..self.pos].split_whitespace().last()
                 && let Some(striped) =
@@ -378,7 +364,7 @@ impl Input {
         write!(
             self.out,
             "\x1b[s{}{}\x1b[u",
-            LightBlack.fg_str(),
+            SetForegroundColor(Grey),
             &self.completion.completed
         )?;
         self.out.flush()?;
@@ -436,10 +422,10 @@ impl Input {
                 ""
             },
             output,
-            if let Ok((w, _)) = termion::terminal_size()
+            if let Ok((w, _)) = terminal::size()
                 && (length + 2).is_multiple_of(w as usize)
             {
-                format!(" {}", Left(1))
+                format!(" {}", MoveLeft(1))
             } else {
                 String::new()
             }
@@ -462,7 +448,7 @@ pub struct CommandLogger {
     cancel_token: CancellationToken,
 }
 impl CommandLogger {
-    /// Initializes the ´CommandLogger´
+    /// Initializes the `CommandLogger`
     pub async fn init(
         history_path: &'static str,
         cancel_token: CancellationToken,
@@ -488,13 +474,13 @@ impl CommandLogger {
     }
     async fn log_loop(self: Arc<Self>, mut receiver: mpsc::UnboundedReceiver<(Level, LogData)>) {
         loop {
-            #[cfg(feature = "spawn_chunk_display")]
-            if self.input.read().await.spawn_display.rendered {
-                continue;
-            }
             tokio::select! {
                 biased;
                 Some((lvl, data)) = receiver.recv() => {
+                    #[cfg(feature = "spawn_chunk_display")]
+                    if self.input.read().await.spawn_display.rendered {
+                        continue;
+                    }
                     let mut input = self.input.write().await;
                     let pos = input.get_current_pos();
                     if let Err(err) = input.cursor_to(pos, (0, 0)) {
@@ -511,9 +497,9 @@ impl CommandLogger {
                         lvl,
                         if STEEL_CONFIG.log.as_ref().is_some_and(|l| l.module_path) {
                             format!(" {}{}{}",
-                                LightBlack.fg_str(),
+                                SetForegroundColor(Grey),
                                 data.module_path,
-                                color::Reset.fg_str()
+                                ResetColor
                             )
                         } else {
                             String::new()
@@ -521,9 +507,9 @@ impl CommandLogger {
                         data.message,
                         if STEEL_CONFIG.log.as_ref().is_some_and(|l| l.extra) {
                             format!("{}{}{}",
-                                LightBlack.fg_str(),
+                                SetForegroundColor(Grey),
                                 data.extra,
-                                color::Reset.fg_str()
+                                ResetColor
                             )
                         } else {
                             String::new()
@@ -563,38 +549,44 @@ impl LoggerLayer {
 }
 #[cfg(feature = "spawn_chunk_display")]
 impl CommandLogger {
-    pub async fn activate_spawn_display(&self) {
+    /// Initializes the display of the spawn chunks
+    pub async fn activate_spawn_display(&self) -> Result<()> {
         use crate::spawn_progress::DISPLAY_RADIUS;
 
         let mut input = self.input.write().await;
         input.spawn_display.rendered = true;
         let pos = input.get_current_pos();
-        input.cursor_to(pos, (0, 0));
-        write!(input.out, "\r{}", termion::clear::AfterCursor);
-        for i in 0..DISPLAY_RADIUS - 1 {
-            write!(input.out, "\n");
+        input.cursor_to(pos, (0, 0))?;
+        write!(input.out, "\r{}", Clear(ClearType::FromCursorDown))?;
+        for _ in 0..=DISPLAY_RADIUS {
+            writeln!(input.out)?;
         }
-        input.cursor_to((0, 0), pos);
+        input.cursor_to((0, 0), pos)?;
+        input.out.flush()?;
+        input.rewrite_current_input()?;
+        Ok(())
     }
+    /// Ends the spawn display cleaning the screen
     pub async fn deactivate_spawn_display(&self) {
         use crate::spawn_progress::DISPLAY_RADIUS;
 
         let mut input = self.input.write().await;
         write!(
             input.out,
-            "{}{}",
-            Up(DISPLAY_RADIUS as u16),
-            clear::AfterCursor
+            "{}\n{}",
+            MoveUp(DISPLAY_RADIUS as u16 + 2),
+            Clear(ClearType::FromCursorDown)
         )
         .ok();
         input.rewrite_current_input().ok();
         input.spawn_display.rendered = false;
     }
+    /// Updates the spawn grid, and displays it if required
     pub async fn update_spawn_grid(&self, grid: &Grid, should_render: bool) {
         let mut input = self.input.write().await;
         input.spawn_display.set_grid(grid);
         if should_render {
-            input.render_current_spawn();
+            let _ = input.render_current_spawn();
         }
     }
 }
