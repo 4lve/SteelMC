@@ -49,7 +49,10 @@ const TOTAL_SPAWN_CHUNKS: usize = ((SPAWN_RADIUS * 2 + 1) * (SPAWN_RADIUS * 2 + 
 /// reaches `Full` status. The generation system is pumped in a loop until
 /// completion. With the `spawn_chunk_display` feature, progress is shown as
 /// a colored terminal grid that includes the surrounding dependency chunks.
-pub async fn generate_spawn_chunks(server: &Arc<Server>, logger: &Arc<CommandLogger>) {
+pub async fn generate_spawn_chunks(
+    server: &Arc<Server>,
+    #[allow(unused)] logger: &Arc<CommandLogger>,
+) {
     let world = &server.worlds[0];
 
     let spawn_pos = world.level_data.read().data().spawn_pos();

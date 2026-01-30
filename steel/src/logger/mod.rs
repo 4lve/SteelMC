@@ -13,7 +13,7 @@ use crossterm::{
         Color::{Grey, Yellow},
         ResetColor, SetForegroundColor,
     },
-    terminal::{self, Clear, ClearType},
+    terminal,
 };
 use std::time;
 use std::{
@@ -552,6 +552,7 @@ impl CommandLogger {
     /// Initializes the display of the spawn chunks
     pub async fn activate_spawn_display(&self) -> Result<()> {
         use crate::spawn_progress::DISPLAY_RADIUS;
+        use crossterm::terminal::{Clear, ClearType};
 
         let mut input = self.input.write().await;
         input.spawn_display.rendered = true;
@@ -569,6 +570,7 @@ impl CommandLogger {
     /// Ends the spawn display cleaning the screen
     pub async fn deactivate_spawn_display(&self) {
         use crate::spawn_progress::DISPLAY_RADIUS;
+        use crossterm::terminal::{Clear, ClearType};
 
         let mut input = self.input.write().await;
         write!(
