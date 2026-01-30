@@ -7,9 +7,9 @@
 //! the recursive slope-finding algorithm.
 
 use rustc_hash::FxHashMap;
+use steel_registry::blocks::BlockRef;
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::shapes::is_shape_full_block;
-use steel_registry::blocks::BlockRef;
 use steel_utils::BlockPos;
 use steel_utils::BlockStateId;
 

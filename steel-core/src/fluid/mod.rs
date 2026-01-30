@@ -41,9 +41,9 @@ pub use steel_registry::{Fluid, FluidState};
 
 pub use empty::EmptyFluid;
 pub use flowing::{
-    can_hold_any_fluid, can_pass_through_wall, fluid_state_to_block, get_fluid_state,
-    get_fluid_state_from_block, get_new_liquid, get_spread, is_hole, is_lava, is_lava_state,
-    is_water, is_water_state, lava_id, water_id, FluidBehaviour,
+    FluidBehaviour, can_hold_any_fluid, can_pass_through_wall, fluid_state_to_block,
+    get_fluid_state, get_fluid_state_from_block, get_new_liquid, get_spread, is_hole, is_lava,
+    is_lava_state, is_water, is_water_state, lava_id, water_id,
 };
 pub use lava::LavaFluid;
 pub use water::WaterFluid;

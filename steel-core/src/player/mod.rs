@@ -278,6 +278,11 @@ pub struct Player {
 }
 
 impl Player {
+    /// Returns true if the player is shifting (sneaking).
+    pub fn is_shifting(&self) -> bool {
+        self.shift_key_down.load(Ordering::Relaxed)
+    }
+
     /// Creates a new player.
     pub fn new(
         gameprofile: GameProfile,

@@ -22,7 +22,7 @@ use simdnbt::owned::NbtCompound;
 use steel_registry::block_entity_type::BlockEntityTypeRef;
 use steel_registry::blocks::BlockRef;
 use steel_registry::blocks::block_state_ext::BlockStateExt;
-use steel_registry::blocks::properties::Direction;
+use steel_registry::blocks::properties::{BlockStateProperties, Direction};
 use steel_registry::game_rules::{GameRuleRef, GameRuleValue};
 use steel_registry::item_stack::ItemStack;
 use steel_registry::level_events;
@@ -270,7 +270,9 @@ impl World {
     ///
     /// Returns the number of ticks processed.
     fn process_scheduled_ticks(&self, current_tick: u64) -> usize {
-        use crate::fluid::{FluidBehaviour, LavaFluid, WaterFluid, get_fluid_state, is_water, is_lava};
+        use crate::fluid::{
+            FluidBehaviour, LavaFluid, WaterFluid, get_fluid_state, is_lava, is_water,
+        };
         use steel_registry::fluid_tags;
 
         let due_ticks = self.tick_scheduler.lock().get_due_ticks(current_tick);
@@ -393,6 +395,22 @@ impl World {
         if !self.is_in_valid_bounds(&pos) {
             return false;
         }
+
+        // Waterlogging support: If setting to AIR, check if current block is waterlogged
+        // If so, replace with WATER source instead of AIR
+        #[allow(clippy::cmp_null)]
+        let block_state = if std::ptr::eq(block_state.get_block(), vanilla_blocks::AIR) {
+            let current_state = self.get_block_state(&pos);
+            if let Some(true) = current_state.try_get_value(&BlockStateProperties::WATERLOGGED) {
+                // Restore water source
+                // Level 0 is source
+                REGISTRY.blocks.get_default_state_id(vanilla_blocks::WATER)
+            } else {
+                block_state
+            }
+        } else {
+            block_state
+        };
 
         let chunk_pos = Self::chunk_pos_for_block(&pos);
         let Some(old_state) = self
@@ -1097,12 +1115,24 @@ impl World {
                 }
             };
 
+            let state = self.get_block_state(&block);
+            let block_ref = state.get_block();
+
+            // fluid test
+            if block_ref.is_fluid() {
+                if is_source_fluid(state, block_ref) {
+                    return (Some(block), None);
+                }
+            }
+
+            // normal block test
             if hit_check(&block, self) {
                 let (hit, face) = self.ray_outline_check(&block, start_pos, end_pos);
                 if hit {
-                    return (Some(block), face.or(Some(block_direction)));
+                    return (Some(block), face);
                 }
             }
+
         }
 
         (None, None)

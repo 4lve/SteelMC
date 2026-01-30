@@ -11,14 +11,14 @@ use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::Direction;
 use steel_registry::level_events;
 use steel_registry::sound_events;
-use steel_utils::types::UpdateFlags;
 use steel_utils::BlockPos;
+use steel_utils::types::UpdateFlags;
 
 use crate::world::World;
 
 use super::{
-    can_hold_any_fluid, fluid_state_to_block, get_fluid_state, get_new_liquid, get_spread, is_hole,
-    is_lava, is_water, water_id, FluidBehaviour, FluidState,
+    FluidBehaviour, FluidState, can_hold_any_fluid, fluid_state_to_block, get_fluid_state,
+    get_new_liquid, get_spread, is_hole, is_lava, is_water, water_id,
 };
 
 /// Water fluid behavior.
@@ -170,8 +170,8 @@ impl WaterFluid {
             // Lava-water interaction: water flowing into lava creates obsidian/cobblestone
             // Using tag check to support modded fluids in the lava tag
             if is_lava(existing.fluid_id) {
-                use steel_registry::vanilla_blocks;
                 use steel_registry::REGISTRY;
+                use steel_registry::vanilla_blocks;
 
                 // If lava is source -> obsidian, otherwise -> cobblestone
                 let is_lava_source = existing.is_source();

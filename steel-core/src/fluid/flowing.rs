@@ -12,13 +12,13 @@
 
 use std::ptr;
 
+use steel_registry::FluidState;
+use steel_registry::REGISTRY;
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::{BlockStateProperties, Direction};
 use steel_registry::blocks::shapes::is_shape_full_block;
 use steel_registry::fluid_tags;
 use steel_registry::vanilla_blocks;
-use steel_registry::FluidState;
-use steel_registry::REGISTRY;
 use steel_utils::BlockPos;
 use steel_utils::BlockStateId;
 
@@ -614,7 +614,14 @@ pub fn get_spread(
             0
         } else if max_depth > 0 {
             let mut ctx = SpreadContext::new(world);
-            get_slope_distance_with_context(&mut ctx, neighbor, 1, Some(direction), fluid_id, max_depth)
+            get_slope_distance_with_context(
+                &mut ctx,
+                neighbor,
+                1,
+                Some(direction),
+                fluid_id,
+                max_depth,
+            )
         } else {
             1000
         };
