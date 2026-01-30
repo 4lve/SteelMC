@@ -1620,39 +1620,6 @@ impl Player {
         });
     }
 
-    /// Sends block update packets for a position, its neighbor, and an additional placement position.
-    /// This is used when an item places a block at a position different from clicked_pos or neighbor_pos.
-    fn send_block_updates_with_placement(
-        &self,
-        clicked_pos: &BlockPos,
-        direction: Direction,
-        place_pos: &BlockPos,
-    ) {
-        // Send update for clicked position
-        let clicked_state = self.world.get_block_state(clicked_pos);
-        self.connection.send_packet(CBlockUpdate {
-            pos: *clicked_pos,
-            block_state: clicked_state,
-        });
-
-        // Send update for neighbor position
-        let neighbor_pos = direction.relative(clicked_pos);
-        let neighbor_state = self.world.get_block_state(&neighbor_pos);
-        self.connection.send_packet(CBlockUpdate {
-            pos: neighbor_pos,
-            block_state: neighbor_state,
-        });
-
-        // Send update for placement position if it's different from both clicked and neighbor
-        if place_pos != clicked_pos && place_pos != &neighbor_pos {
-            let placed_state = self.world.get_block_state(place_pos);
-            self.connection.send_packet(CBlockUpdate {
-                pos: *place_pos,
-                block_state: placed_state,
-            });
-        }
-    }
-
     /// Triggers arm swing animation and broadcasts it to nearby players.
     pub fn swing(&self, hand: InteractionHand, update_self: bool) {
         let action = match hand {

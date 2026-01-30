@@ -14,6 +14,7 @@ use std::ptr;
 
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::{BlockStateProperties, Direction};
+use steel_registry::blocks::shapes::is_shape_full_block;
 use steel_registry::fluid_tags;
 use steel_registry::vanilla_blocks;
 use steel_registry::FluidState;
@@ -21,7 +22,10 @@ use steel_registry::REGISTRY;
 use steel_utils::BlockPos;
 use steel_utils::BlockStateId;
 
+// get_fluid_state_from_block is defined in this file
 use crate::world::World;
+
+use super::spread_context::SpreadContext;
 
 /// Checks if a fluid ID is in the water tag (includes water and flowing_water).
 /// This matches vanilla's FluidTags.WATER behavior.
@@ -474,19 +478,46 @@ fn can_pass_horizontally(world: &World, pos: &BlockPos, target_fluid_id: u8) -> 
     false
 }
 
-/// Recursively calculates the distance to the nearest hole in a given direction.
-///
-/// Returns the distance (depth) at which a hole was found, or 1000 if no hole found.
-///
-/// # Arguments
-/// * `world` - The world to search in
-/// * `pos` - Current position to check from
-/// * `depth` - Current search depth
-/// * `from_direction` - Direction we came from (to avoid going back)
-/// * `fluid_type` - Type of fluid we're searching for
-/// * `max_depth` - Maximum search depth (slope_find_distance)
-fn get_slope_distance(
-    world: &World,
+/// Internal version of can_pass_horizontally for use by SpreadContext.
+/// This takes individual components rather than querying the world.
+pub fn can_pass_horizontally_internal(state: BlockStateId, target_fluid_id: u8) -> bool {
+    let block = state.get_block();
+
+    // Can always pass through air and replaceable blocks
+    if block.config.is_air || block.config.replaceable {
+        return true;
+    }
+
+    // Check collision shape
+    let shape = state.get_collision_shape();
+
+    // If shape is a full block, can't pass through (unless same fluid)
+    if is_shape_full_block(shape) {
+        let fluid_state = get_fluid_state_from_block(state);
+        if fluid_state.fluid_id == target_fluid_id && !fluid_state.is_source() {
+            return true;
+        }
+        return false;
+    }
+
+    // If shape is empty, can pass through
+    if shape.is_empty() {
+        return true;
+    }
+
+    // Can flow into same fluid type if not source
+    let fluid_state = get_fluid_state_from_block(state);
+    if fluid_state.fluid_id == target_fluid_id && !fluid_state.is_source() {
+        return true;
+    }
+
+    false
+}
+
+/// Context-aware version of get_slope_distance for use with SpreadContext.
+/// Avoids redundant world lookups by caching block states and hole checks.
+fn get_slope_distance_with_context(
+    ctx: &mut SpreadContext,
     pos: BlockPos,
     depth: u8,
     from_direction: Option<Direction>,
@@ -512,19 +543,19 @@ fn get_slope_distance(
         let neighbor = direction.relative(&pos);
 
         // Can we pass through to this neighbor?
-        if !can_pass_horizontally(world, &neighbor, fluid_id) {
+        if !ctx.can_pass_horizontally(neighbor, fluid_id) {
             continue;
         }
 
         // Is this position a hole?
-        if is_hole(world, &neighbor, fluid_id) {
+        if ctx.is_hole(neighbor, fluid_id) {
             return depth as u16; // Found a hole at this depth
         }
 
         // If we haven't reached max depth, continue searching
         if depth < max_depth {
-            let distance = get_slope_distance(
-                world,
+            let distance = get_slope_distance_with_context(
+                ctx,
                 neighbor,
                 depth + 1,
                 Some(direction),
@@ -582,7 +613,8 @@ pub fn get_spread(
         let distance = if is_hole(world, &neighbor, fluid_id) {
             0
         } else if max_depth > 0 {
-            get_slope_distance(world, neighbor, 1, Some(direction), fluid_id, max_depth)
+            let mut ctx = SpreadContext::new(world);
+            get_slope_distance_with_context(&mut ctx, neighbor, 1, Some(direction), fluid_id, max_depth)
         } else {
             1000
         };
