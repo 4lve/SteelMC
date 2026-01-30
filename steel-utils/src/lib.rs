@@ -40,7 +40,7 @@ pub mod translations;
 pub mod translations_registry;
 
 #[rustfmt::skip]
-#[path = "generated/noise_params.rs"]
+#[path = "generated/vanilla_translations/noise_params.rs"]
 #[allow(missing_docs, warnings)]
 pub mod generated_noise_params;
 

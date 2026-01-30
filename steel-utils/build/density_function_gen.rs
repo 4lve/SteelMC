@@ -6,7 +6,7 @@
 
 use std::fs;
 
-use crate::density_function_type::{FlattenContext, DensityFunctionNode, DensityFunction};
+use crate::density_function_type::{DensityFunction, DensityFunctionNode, FlattenContext};
 use crate::density_function_utils::DATAPACK_BASE;
 use heck::ToShoutySnakeCase;
 use proc_macro2::{Ident, Span, TokenStream};
