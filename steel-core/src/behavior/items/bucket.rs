@@ -193,8 +193,14 @@ impl ItemBehavior for EmptyBucketBehavior {
                 return false;
             }
 
+            // Check for direct fluid blocks
             if ptr::eq(block, vanilla_blocks::WATER) || ptr::eq(block, vanilla_blocks::LAVA) {
                 return is_source_fluid(state, block);
+            }
+
+            // Check for waterlogged blocks
+            if let Some(true) = state.try_get_value(&BlockStateProperties::WATERLOGGED) {
+                return true;
             }
 
             true
@@ -209,30 +215,38 @@ impl ItemBehavior for EmptyBucketBehavior {
         let fluid_block = fluid_state.get_block();
 
         // Determine filled bucket type
-        let filled_bucket = if ptr::eq(fluid_block, vanilla_blocks::WATER)
+        let (filled_bucket, is_waterlogged) = if ptr::eq(fluid_block, vanilla_blocks::WATER)
             && is_source_fluid(fluid_state, fluid_block)
         {
-            &vanilla_items::ITEMS.water_bucket
+            (&vanilla_items::ITEMS.water_bucket, false)
         } else if ptr::eq(fluid_block, vanilla_blocks::LAVA)
             && is_source_fluid(fluid_state, fluid_block)
         {
-            &vanilla_items::ITEMS.lava_bucket
+            (&vanilla_items::ITEMS.lava_bucket, false)
+        } else if let Some(true) = fluid_state.try_get_value(&BlockStateProperties::WATERLOGGED) {
+            (&vanilla_items::ITEMS.water_bucket, true)
         } else {
             return InteractionResult::Fail;
         };
 
-        let tick_delay = if ptr::eq(fluid_block, vanilla_blocks::WATER) {
-            5
-        } else {
-            30
-        };
+        let tick_delay = 5; // Default water delay
 
         // Remove fluid
-        let air_state = REGISTRY.blocks.get_default_state_id(vanilla_blocks::AIR);
-        if !context
-            .world
-            .set_block(hit_pos, air_state, UpdateFlags::UPDATE_ALL_IMMEDIATE)
-        {
+        let success = if is_waterlogged {
+            // Un-waterlog the block
+            let new_state = fluid_state.set_value(&BlockStateProperties::WATERLOGGED, false);
+            context
+                .world
+                .set_block(hit_pos, new_state, UpdateFlags::UPDATE_ALL_IMMEDIATE)
+        } else {
+            // Remove liquid block
+            let air_state = REGISTRY.blocks.get_default_state_id(vanilla_blocks::AIR);
+            context
+                .world
+                .set_block(hit_pos, air_state, UpdateFlags::UPDATE_ALL_IMMEDIATE)
+        };
+
+        if !success {
             return InteractionResult::Fail;
         }
 

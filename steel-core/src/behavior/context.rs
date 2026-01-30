@@ -1,16 +1,17 @@
 //! Context types and results for block and item interactions.
 
-use steel_registry::blocks::properties::Direction;
+use std::ptr;
+use steel_registry::blocks::block_state_ext::BlockStateExt;
+use steel_registry::blocks::properties::{BlockStateProperties, Direction};
 use steel_registry::item_stack::ItemStack;
 use steel_utils::BlockPos;
 use steel_utils::math::Vector3;
 use steel_utils::types::InteractionHand;
 
-// Re-export BlockHitResult from steel-registry since it's also used by steel-protocol
-pub use steel_registry::items::item::BlockHitResult;
-
 use crate::player::Player;
 use crate::world::World;
+pub use steel_registry::items::item::BlockHitResult;
+use steel_registry::vanilla_blocks;
 
 /// Result of an interaction (item use, block use, etc.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -110,6 +111,16 @@ impl BlockPlaceContext<'_> {
         } else {
             axis_z
         }
+    }
+}
+
+
+impl BlockPlaceContext<'_> {
+    /// Returns true if the block at the relative position is a water source
+    pub fn is_water_source(&self) -> bool {
+        use crate::fluid::get_fluid_state;
+        let fluid_state = get_fluid_state(self.world, &self.relative_pos);
+        fluid_state.is_source() && crate::fluid::is_water(fluid_state.fluid_id)
     }
 }
 
