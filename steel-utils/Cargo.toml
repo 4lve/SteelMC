@@ -44,6 +44,7 @@ criterion.workspace = true
 # Serialization
 serde_json.workspace = true
 serde.workspace = true
+enum_dispatch.workspace = true
 # Proc macros
 proc-macro2.workspace = true
 quote.workspace = true
