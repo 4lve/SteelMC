@@ -1,7 +1,7 @@
 //! Bucket item behavior implementations.
 //!
 //! Handles water buckets, lava buckets, and empty buckets.
-//! Based on vanilla Minecraft's BucketItem.
+//! Based on vanilla Minecraft's `BucketItem`.
 //!
 // TODO: Add support for bucket stacks (count > 1) without deadlocks
 // TODO: Play bucket sounds (fill/empty)
@@ -52,9 +52,7 @@ fn is_source_fluid(state: BlockStateId, block: BlockRef) -> bool {
         return false;
     }
 
-    state
-        .try_get_value(&BlockStateProperties::LEVEL)
-        .map_or(false, |level: u8| level == 0)
+    state.try_get_value(&BlockStateProperties::LEVEL) == Some(0)
 }
 
 /// Behavior for filled bucket items (water bucket, lava bucket)
@@ -99,9 +97,8 @@ impl ItemBehavior for FilledBucketBehavior {
             true
         });
 
-        let (clicked_pos, direction) = match (ray_block, ray_dir) {
-            (Some(pos), Some(dir)) => (pos, dir),
-            _ => return InteractionResult::Fail,
+        let (Some(clicked_pos), Some(direction)) = (ray_block, ray_dir) else {
+            return InteractionResult::Fail;
         };
 
         if !context.world.is_in_valid_bounds(&clicked_pos) {
@@ -117,7 +114,6 @@ impl ItemBehavior for FilledBucketBehavior {
             }
 
             let state = context.world.get_block_state(&pos);
-            let _block = state.get_block();
             let fluid_state = get_fluid_state_from_block(state);
 
             // 1. Try Waterlogging (only if Water bucket)
@@ -126,33 +122,34 @@ impl ItemBehavior for FilledBucketBehavior {
             // Determine if strict water bucket check - fluid_block is reliable for FilledBucket
             let is_water_bucket = ptr::eq(self.fluid_block, vanilla_blocks::WATER);
 
-            if is_water_bucket && !is_sneaking {
-                if let Some(false) = state.try_get_value(&BlockStateProperties::WATERLOGGED) {
-                    let new_state = state.set_value(&BlockStateProperties::WATERLOGGED, true);
-                    if context
+            if is_water_bucket
+                && !is_sneaking
+                && let Some(false) = state.try_get_value(&BlockStateProperties::WATERLOGGED)
+            {
+                let new_state = state.set_value(&BlockStateProperties::WATERLOGGED, true);
+                if context
+                    .world
+                    .set_block(pos, new_state, UpdateFlags::UPDATE_ALL_IMMEDIATE)
+                {
+                    // Play bucket empty sound
+                    context.world.play_block_sound(
+                        sound_events::ITEM_BUCKET_EMPTY,
+                        pos,
+                        1.0,
+                        1.0,
+                        None,
+                    );
+
+                    // Schedule tick for fluid spread
+                    context
                         .world
-                        .set_block(pos, new_state, UpdateFlags::UPDATE_ALL_IMMEDIATE)
-                    {
-                        // Play bucket empty sound
-                        context.world.play_block_sound(
-                            sound_events::ITEM_BUCKET_EMPTY,
-                            pos,
-                            1.0,
-                            1.0,
-                            None,
-                        );
+                        .schedule_fluid_tick(pos, context.world.game_time(), 5);
 
-                        // Schedule tick for fluid spread
-                        context
-                            .world
-                            .schedule_fluid_tick(pos, context.world.game_time(), 5);
-
-                        // Consume bucket
-                        if !context.player.has_infinite_materials() {
-                            context.item_stack.set_item(&self.empty_bucket.key);
-                        }
-                        return Some(InteractionResult::Success);
+                    // Consume bucket
+                    if !context.player.has_infinite_materials() {
+                        context.item_stack.set_item(&self.empty_bucket.key);
                     }
+                    return Some(InteractionResult::Success);
                 }
             }
 
@@ -244,6 +241,12 @@ impl ItemBehavior for FilledBucketBehavior {
 /// NOTE: Stack support (count > 1) is not yet implemented to avoid deadlocks.
 pub struct EmptyBucketBehavior;
 
+impl Default for EmptyBucketBehavior {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EmptyBucketBehavior {
     /// Creates a new empty bucket behavior.
     #[must_use]
@@ -272,9 +275,8 @@ impl ItemBehavior for EmptyBucketBehavior {
             true
         });
 
-        let (hit_pos, _) = match (hit_block, hit_dir) {
-            (Some(pos), Some(dir)) => (pos, dir),
-            _ => return InteractionResult::Fail,
+        let (Some(hit_pos), Some(_)) = (hit_block, hit_dir) else {
+            return InteractionResult::Fail;
         };
 
         let fluid_state = context.world.get_block_state(&hit_pos);

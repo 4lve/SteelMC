@@ -41,7 +41,7 @@ impl FluidBehaviour for EmptyFluid {
     }
 
     /// Returns true if empty can be replaced by another fluid.
-    /// Based on vanilla EmptyFluid.canBeReplacedWith().
+    /// Based on vanilla `EmptyFluid.canBeReplacedWith()`.
     /// Empty can always be replaced.
     fn can_be_replaced_with(
         &self,

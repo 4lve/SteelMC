@@ -18,6 +18,7 @@ use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::{BlockStateProperties, Direction};
 use steel_registry::blocks::shapes::is_shape_full_block;
 use steel_registry::fluid_tags;
+use steel_registry::game_rules::GameRuleValue;
 use steel_registry::vanilla_blocks;
 use steel_utils::BlockPos;
 use steel_utils::BlockStateId;
@@ -27,7 +28,7 @@ use crate::world::World;
 
 use super::spread_context::SpreadContext;
 
-/// Checks if a fluid ID is in the water tag (includes water and flowing_water).
+/// Checks if a fluid ID is in the water tag (includes water and `flowing_water`).
 /// This matches vanilla's FluidTags.WATER behavior.
 #[must_use]
 pub fn is_water(fluid_id: u8) -> bool {
@@ -37,11 +38,10 @@ pub fn is_water(fluid_id: u8) -> bool {
     REGISTRY
         .fluids
         .by_id(fluid_id as usize)
-        .map(|fluid| REGISTRY.fluids.is_in_tag(fluid, &fluid_tags::water()))
-        .unwrap_or(false)
+        .is_some_and(|fluid| REGISTRY.fluids.is_in_tag(fluid, &fluid_tags::water()))
 }
 
-/// Checks if a fluid ID is in the lava tag (includes lava and flowing_lava).
+/// Checks if a fluid ID is in the lava tag (includes lava and `flowing_lava`).
 /// This matches vanilla's FluidTags.LAVA behavior.
 #[must_use]
 pub fn is_lava(fluid_id: u8) -> bool {
@@ -51,8 +51,7 @@ pub fn is_lava(fluid_id: u8) -> bool {
     REGISTRY
         .fluids
         .by_id(fluid_id as usize)
-        .map(|fluid| REGISTRY.fluids.is_in_tag(fluid, &fluid_tags::lava()))
-        .unwrap_or(false)
+        .is_some_and(|fluid| REGISTRY.fluids.is_in_tag(fluid, &fluid_tags::lava()))
 }
 
 /// Checks if a fluid state contains water (including flowing water and waterlogged blocks).
@@ -76,8 +75,7 @@ pub fn water_id() -> u8 {
         .by_key(&fluid_tags::water())
         .and_then(|f| REGISTRY.fluids.get_id(f))
         .copied()
-        .map(|id| id as u8)
-        .unwrap_or(0)
+        .map_or(0, |id| id as u8)
 }
 
 /// Gets the lava source fluid ID from the registry.
@@ -89,13 +87,12 @@ pub fn lava_id() -> u8 {
         .by_key(&fluid_tags::lava())
         .and_then(|f| REGISTRY.fluids.get_id(f))
         .copied()
-        .map(|id| id as u8)
-        .unwrap_or(0)
+        .map_or(0, |id| id as u8)
 }
 
 /// Trait for fluid behavior implementations.
 pub trait FluidBehaviour: Send + Sync {
-    /// Returns the fluid type ID (0=empty, 1=flowing_water, 2=water, 3=flowing_lava, 4=lava).
+    /// Returns the fluid type ID (0=empty, `1=flowing_water`, 2=water, `3=flowing_lava`, 4=lava).
     fn fluid_type(&self) -> u8;
 
     /// Returns the tick delay for this fluid.
@@ -114,7 +111,7 @@ pub trait FluidBehaviour: Send + Sync {
     fn spread(&self, world: &World, pos: BlockPos, fluid_state: FluidState, current_tick: u64);
 
     /// Returns true if this fluid can be replaced by another fluid from a direction.
-    /// Based on vanilla's Fluid.canBeReplacedWith().
+    /// Based on vanilla's `Fluid.canBeReplacedWith()`.
     ///
     /// # Arguments
     /// * `fluid_state` - The current fluid state at the position
@@ -134,7 +131,7 @@ pub trait FluidBehaviour: Send + Sync {
 
 /// Gets the fluid state at a block position.
 ///
-/// This derives FluidState from BlockState (Option A approach for simplicity).
+/// This derives `FluidState` from `BlockState` (Option A approach for simplicity).
 #[must_use]
 pub fn get_fluid_state(world: &World, pos: &BlockPos) -> FluidState {
     let state = world.get_block_state(pos);
@@ -177,7 +174,7 @@ pub fn can_be_replaced_by_fluid(world: &World, pos: &BlockPos) -> bool {
 }
 
 /// Checks if fluid can pass through a wall between two positions.
-/// Based on vanilla's FlowingFluid.canPassThroughWall().
+/// Based on vanilla's `FlowingFluid.canPassThroughWall()`.
 ///
 /// Returns true if fluid can flow from `from` to `to` in the given direction,
 /// considering collision shapes of both blocks.
@@ -230,7 +227,7 @@ pub fn can_pass_through_wall(
 }
 
 /// Checks if a block can hold any fluid.
-/// Based on vanilla's FlowingFluid.canHoldAnyFluid().
+/// Based on vanilla's `FlowingFluid.canHoldAnyFluid()`.
 ///
 /// Returns false for blocks that shouldn't contain fluid:
 /// - Doors
@@ -280,7 +277,7 @@ pub fn can_hold_any_fluid(world: &World, pos: &BlockPos) -> bool {
 }
 
 /// Calculates the new fluid state for a position based on neighbors.
-/// This is vanilla's getNewLiquid() function.
+/// This is vanilla's `getNewLiquid()` function.
 ///
 /// Returns the fluid state that should exist at this position.
 /// A fluid block can only be supported by:
@@ -329,9 +326,9 @@ pub fn get_new_liquid(world: &World, pos: BlockPos, fluid_id: u8, drop_off: u8) 
     // Check game rule for water source conversion (vanilla: default true)
     if is_water(fluid_id) && source_count >= 2 {
         use steel_registry::vanilla_game_rules::WATER_SOURCE_CONVERSION;
-        let can_convert = match world.get_game_rule(WATER_SOURCE_CONVERSION.into()) {
-            steel_registry::game_rules::GameRuleValue::Bool(val) => val,
-            _ => true, // Default to true if game rule not found
+        let can_convert = match world.get_game_rule(WATER_SOURCE_CONVERSION) {
+            GameRuleValue::Bool(val) => val,
+            GameRuleValue::Int(_) => true, // Default to true if game rule not found
         };
 
         if can_convert {
@@ -352,9 +349,9 @@ pub fn get_new_liquid(world: &World, pos: BlockPos, fluid_id: u8, drop_off: u8) 
     // Check game rule for lava source conversion (vanilla: default false)
     if is_lava(fluid_id) && source_count >= 2 {
         use steel_registry::vanilla_game_rules::LAVA_SOURCE_CONVERSION;
-        let can_convert = match world.get_game_rule(LAVA_SOURCE_CONVERSION.into()) {
-            steel_registry::game_rules::GameRuleValue::Bool(val) => val,
-            _ => false, // Default to false if game rule not found
+        let can_convert = match world.get_game_rule(LAVA_SOURCE_CONVERSION) {
+            GameRuleValue::Bool(val) => val,
+            GameRuleValue::Int(_) => false, // Default to false if game rule not found
         };
 
         if can_convert {
@@ -381,7 +378,7 @@ pub fn get_new_liquid(world: &World, pos: BlockPos, fluid_id: u8, drop_off: u8) 
     }
 }
 
-/// Converts a FluidState to a BlockStateId for the corresponding fluid block.
+/// Converts a `FluidState` to a `BlockStateId` for the corresponding fluid block.
 ///
 /// Block state LEVEL property:
 /// - 0 = source
@@ -478,8 +475,9 @@ fn can_pass_horizontally(world: &World, pos: &BlockPos, target_fluid_id: u8) -> 
     false
 }
 
-/// Internal version of can_pass_horizontally for use by SpreadContext.
+/// Internal version of `can_pass_horizontally` for use by `SpreadContext`.
 /// This takes individual components rather than querying the world.
+#[must_use]
 pub fn can_pass_horizontally_internal(state: BlockStateId, target_fluid_id: u8) -> bool {
     let block = state.get_block();
 
@@ -514,7 +512,7 @@ pub fn can_pass_horizontally_internal(state: BlockStateId, target_fluid_id: u8) 
     false
 }
 
-/// Context-aware version of get_slope_distance for use with SpreadContext.
+/// Context-aware version of `get_slope_distance` for use with `SpreadContext`.
 /// Avoids redundant world lookups by caching block states and hole checks.
 fn get_slope_distance_with_context(
     ctx: &mut SpreadContext,
@@ -534,10 +532,10 @@ fn get_slope_distance_with_context(
         Direction::West,
     ] {
         // Skip the direction we came from
-        if let Some(from) = from_direction {
-            if direction == from.opposite() {
-                continue;
-            }
+        if let Some(from) = from_direction
+            && direction == from.opposite()
+        {
+            continue;
         }
 
         let neighbor = direction.relative(&pos);
@@ -549,7 +547,7 @@ fn get_slope_distance_with_context(
 
         // Is this position a hole?
         if ctx.is_hole(neighbor, fluid_id) {
-            return depth as u16; // Found a hole at this depth
+            return u16::from(depth); // Found a hole at this depth
         }
 
         // If we haven't reached max depth, continue searching
@@ -571,11 +569,11 @@ fn get_slope_distance_with_context(
     min_distance
 }
 
-/// Gets the spread map for water, like vanilla's getSpread().
+/// Gets the spread map for water, like vanilla's `getSpread()`.
 ///
-/// Returns a list of (Direction, FluidState) pairs to spread to.
+/// Returns a list of (Direction, `FluidState`) pairs to spread to.
 /// Uses slope finding to prioritize directions toward holes.
-/// For each direction, calculates the correct FluidState using get_new_liquid.
+/// For each direction, calculates the correct `FluidState` using `get_new_liquid`.
 #[must_use]
 pub fn get_spread(
     world: &World,

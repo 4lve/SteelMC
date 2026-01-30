@@ -36,6 +36,7 @@ pub struct ScheduledTick {
 
 impl ScheduledTick {
     /// Creates a new scheduled tick.
+    #[must_use]
     pub fn new(
         pos: BlockPos,
         tick_type: TickType,
@@ -95,7 +96,7 @@ impl PartialOrd for ScheduledTick {
 pub struct TickScheduler {
     /// Priority queue of pending ticks.
     pending: BinaryHeap<ScheduledTick>,
-    /// Set of (pos, tick_type) pairs to prevent duplicates.
+    /// Set of (pos, `tick_type`) pairs to prevent duplicates.
     scheduled: HashSet<(BlockPos, TickType)>,
     /// Sequence counter for tie-breaking.
     next_sequence: u64,
@@ -121,7 +122,7 @@ impl TickScheduler {
     /// * `tick_type` - Block or Fluid tick
     /// * `current_tick` - Current game tick
     /// * `delay` - Number of ticks to wait before triggering
-    /// * `priority` - Priority (lower = sooner for same trigger_tick)
+    /// * `priority` - Priority (lower = sooner for same `trigger_tick`)
     pub fn schedule(
         &mut self,
         pos: BlockPos,
@@ -145,11 +146,7 @@ impl TickScheduler {
         self.scheduled.insert(key);
 
         log::trace!(
-            "Scheduled {:?} tick at {:?} for tick {} (delay={})",
-            tick_type,
-            pos,
-            trigger_tick,
-            delay
+            "Scheduled {tick_type:?} tick at {pos:?} for tick {trigger_tick} (delay={delay})"
         );
     }
 

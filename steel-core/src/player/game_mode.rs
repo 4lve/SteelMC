@@ -147,7 +147,7 @@ pub fn use_item(player: &Player, world: &World, hand: InteractionHand) -> Intera
             context.item_stack.item.key
         );
         let result = item_behavior.use_item(&mut context);
-        log::info!("use_item result: {:?}", result);
+        log::info!("use_item result: {result:?}");
 
         // Restore count for creative mode (infinite materials)
         if player.has_infinite_materials() && context.item_stack.count < original_count {

@@ -122,10 +122,10 @@ impl FluidReplaceableExt for BlockStateId {
             return false;
         }
 
-        if std::ptr::eq(fluid, vanilla_blocks::WATER) {
-            if let Some(false) = self.try_get_value(&BlockStateProperties::WATERLOGGED) {
-                return true;
-            }
+        if std::ptr::eq(fluid, vanilla_blocks::WATER)
+            && let Some(false) = self.try_get_value(&BlockStateProperties::WATERLOGGED)
+        {
+            return true;
         }
 
         block.config.replaceable

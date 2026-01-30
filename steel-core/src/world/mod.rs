@@ -1,6 +1,6 @@
 //! This module contains the `World` struct, which represents a world.
 use std::{
-    io,
+    io, ptr,
     sync::{
         Arc, Weak,
         atomic::{AtomicBool, Ordering},
@@ -400,7 +400,7 @@ impl World {
         // Waterlogging support: If setting to AIR, check if current block is waterlogged
         // If so, replace with WATER source instead of AIR
         #[allow(clippy::cmp_null)]
-        let block_state = if std::ptr::eq(block_state.get_block(), vanilla_blocks::AIR) {
+        let block_state = if ptr::eq(block_state.get_block(), vanilla_blocks::AIR) {
             let current_state = self.get_block_state(&pos);
             if let Some(true) = current_state.try_get_value(&BlockStateProperties::WATERLOGGED) {
                 // Restore water source
@@ -879,7 +879,6 @@ impl World {
     /// # Arguments
     /// * `pos` - The block position to drop the item at
     /// * `item` - The item stack to drop
-
     pub fn drop_item_stack(&self, pos: BlockPos, item: ItemStack) {
         if item.is_empty() {
             return;
@@ -900,7 +899,7 @@ impl World {
         block_pos: &BlockPos,
         from: Vector3<f64>,
         to: Vector3<f64>,
-    ) -> (bool, Option<steel_registry::blocks::properties::Direction>) {
+    ) -> (bool, Option<Direction>) {
         let state = self.get_block_state(block_pos);
         let bounding_boxes = state.get_outline_shape();
 
@@ -910,9 +909,9 @@ impl World {
 
         for shape in bounding_boxes {
             let block_vec = Vector3::new(
-                block_pos.x() as f64,
-                block_pos.y() as f64,
-                block_pos.z() as f64,
+                f64::from(block_pos.x()),
+                f64::from(block_pos.y()),
+                f64::from(block_pos.z()),
             );
             let world_min = Vector3::new(
                 f64::from(shape.min_x),
@@ -943,12 +942,13 @@ impl World {
     /// * `end` - The ending point of the ray
     /// * `min` - The minimum coordinates of the AABB
     /// * `max` - The maximum coordinates of the AABB
+    #[must_use]
     pub fn intersects_aabb_with_direction(
         start: Vector3<f64>,
         end: Vector3<f64>,
         min: Vector3<f64>,
         max: Vector3<f64>,
-    ) -> Option<steel_registry::blocks::properties::Direction> {
+    ) -> Option<Direction> {
         use steel_registry::blocks::properties::Direction;
 
         let dir = end - start;
@@ -1120,10 +1120,8 @@ impl World {
 
             // Check if it's a fluid block
             let fluid_state = get_fluid_state_from_block(state);
-            if !fluid_state.is_empty() {
-                if fluid_state.is_source() {
-                    return (Some(block), Some(block_direction));
-                }
+            if !fluid_state.is_empty() && fluid_state.is_source() {
+                return (Some(block), Some(block_direction));
             }
 
             // normal block test

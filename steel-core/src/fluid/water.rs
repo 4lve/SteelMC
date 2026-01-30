@@ -26,7 +26,7 @@ pub struct WaterFluid;
 
 impl WaterFluid {
     /// Checks if water can spread down to the below position.
-    fn can_spread_down(&self, world: &World, pos: &BlockPos) -> bool {
+    fn can_spread_down(world: &World, pos: &BlockPos) -> bool {
         let below = pos.offset(0, -1, 0);
 
         if !world.is_in_valid_bounds(&below) {
@@ -54,7 +54,7 @@ impl WaterFluid {
     fn spread_down(&self, world: &World, pos: BlockPos, current_tick: u64) -> bool {
         let below = pos.offset(0, -1, 0);
 
-        if !self.can_spread_down(world, &pos) {
+        if !Self::can_spread_down(world, &pos) {
             return false;
         }
 
@@ -76,7 +76,7 @@ impl WaterFluid {
     }
 
     /// Counts adjacent source blocks.
-    fn source_neighbor_count(&self, world: &World, pos: &BlockPos) -> u8 {
+    fn source_neighbor_count(world: &World, pos: &BlockPos) -> u8 {
         let mut count = 0u8;
 
         for offset in [(1, 0, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1)] {
@@ -91,15 +91,15 @@ impl WaterFluid {
     }
 
     /// Animates the water with ambient sounds and particles.
-    /// Based on vanilla's WaterFluid.animateTick().
+    /// Based on vanilla's `WaterFluid.animateTick()`.
     ///
     /// For flowing water (not source, not falling): plays ambient sound with 1/64 chance
     /// For source water: spawns underwater particles with 1/10 chance
-    fn animate_tick(&self, world: &World, pos: BlockPos, fluid_state: FluidState) {
+    fn animate_tick(world: &World, pos: BlockPos, fluid_state: FluidState) {
         // Check if this is flowing water (not source AND not falling)
         if !fluid_state.is_source() && !fluid_state.falling {
             // 1/64 chance to play ambient water sound (for flowing water)
-            if rand::random::<u8>() % 64 == 0 {
+            if rand::random::<u8>().is_multiple_of(64) {
                 // Play water ambient sound
                 // SoundSource::AMBIENT for environmental ambient sounds
                 let volume: f32 = rand::random::<f32>() * 0.25 + 0.75; // 0.75 to 1.0
@@ -108,7 +108,7 @@ impl WaterFluid {
             }
         } else {
             // For source water: 1/10 chance to spawn underwater particles
-            if rand::random::<u8>() % 10 == 0 {
+            if rand::random::<u8>().is_multiple_of(10) {
                 // TODO: Spawn UNDERWATER particles
                 // This requires:
                 // 1. CLevelParticles packet implementation
@@ -202,7 +202,7 @@ impl WaterFluid {
                 } else if is_lava(existing.fluid_id) {
                     // For lava, we need to check if water can replace it
                     // This is handled by the lava-water interaction above, but let's be safe
-                    if existing.amount as f32 / 9.0 >= 0.44444445 {
+                    if f32::from(existing.amount) / 9.0 >= 0.444_444_45 {
                         continue;
                     }
                     // Otherwise, obsidian/cobblestone will be created by the interaction check above
@@ -249,7 +249,7 @@ impl FluidBehaviour for WaterFluid {
         }
 
         // Animate with ambient sounds and particles (vanilla animateTick)
-        self.animate_tick(world, pos, current_fluid);
+        Self::animate_tick(world, pos, current_fluid);
 
         // For flowing water, recalculate if it should still exist
         if !current_fluid.is_source() {
@@ -305,7 +305,7 @@ impl FluidBehaviour for WaterFluid {
         // 2. If can spread down AND has 3+ source neighbors, also spread to sides
         // 3. Otherwise if source OR not a water hole below, spread to sides
 
-        let can_spread_down = self.can_spread_down(world, &pos);
+        let can_spread_down = Self::can_spread_down(world, &pos);
 
         if can_spread_down {
             // Try to spread down
@@ -313,7 +313,7 @@ impl FluidBehaviour for WaterFluid {
 
             if did_spread_down {
                 // If we have 3+ source neighbors, also spread to sides (source duplication)
-                if self.source_neighbor_count(world, &pos) >= 3 {
+                if Self::source_neighbor_count(world, &pos) >= 3 {
                     self.spread_to_sides(world, pos, fluid_state, current_tick);
                 }
                 return;
@@ -329,7 +329,7 @@ impl FluidBehaviour for WaterFluid {
     }
 
     /// Returns true if water can be replaced by another fluid.
-    /// Based on vanilla WaterFluid.canBeReplacedWith().
+    /// Based on vanilla `WaterFluid.canBeReplacedWith()`.
     /// Water can only be replaced from DOWN direction and only by non-water fluids.
     fn can_be_replaced_with(
         &self,

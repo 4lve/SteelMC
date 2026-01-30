@@ -28,7 +28,7 @@ pub struct LavaFluid;
 
 impl LavaFluid {
     /// Checks if lava can spread down to the below position.
-    fn can_spread_down(&self, world: &World, pos: &BlockPos) -> bool {
+    fn can_spread_down(world: &World, pos: &BlockPos) -> bool {
         let below = pos.offset(0, -1, 0);
 
         if !world.is_in_valid_bounds(&below) {
@@ -79,7 +79,7 @@ impl LavaFluid {
             return true;
         }
 
-        if !self.can_spread_down(world, &pos) {
+        if !Self::can_spread_down(world, &pos) {
             return false;
         }
 
@@ -101,7 +101,7 @@ impl LavaFluid {
     }
 
     /// Counts adjacent source blocks.
-    fn source_neighbor_count(&self, world: &World, pos: &BlockPos) -> u8 {
+    fn source_neighbor_count(world: &World, pos: &BlockPos) -> u8 {
         let mut count = 0u8;
 
         for offset in [(1, 0, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1)] {
@@ -116,10 +116,10 @@ impl LavaFluid {
     }
 
     /// Animates the lava with ambient sounds.
-    /// Based on vanilla's LavaFluid.animateTick().
+    /// Based on vanilla's `LavaFluid.animateTick()`.
     ///
     /// Plays ambient sounds when air is above the lava.
-    fn animate_tick(&self, world: &World, pos: BlockPos, _fluid_state: FluidState) {
+    fn animate_tick(world: &World, pos: BlockPos, _fluid_state: FluidState) {
         // Check if air is above the lava
         let above_pos = pos.offset(0, 1, 0);
         let above_state = world.get_block_state(&above_pos);
@@ -127,14 +127,14 @@ impl LavaFluid {
 
         if above_block.config.is_air {
             // 1/100 chance for lava pop sound
-            if rand::random::<u8>() % 100 == 0 {
+            if rand::random::<u8>().is_multiple_of(100) {
                 let volume: f32 = rand::random::<f32>() * 0.2 + 0.9; // 0.9 to 1.1
                 let pitch: f32 = rand::random::<f32>() * 0.2 + 0.9; // 0.9 to 1.1
                 world.play_block_sound(sound_events::BLOCK_LAVA_POP, pos, volume, pitch, None);
             }
 
             // 1/200 chance for lava ambient sound
-            if rand::random::<u8>() % 200 == 0 {
+            if rand::random::<u8>().is_multiple_of(200) {
                 let volume: f32 = rand::random::<f32>() * 0.2 + 0.9; // 0.9 to 1.1
                 let pitch: f32 = rand::random::<f32>() * 0.2 + 0.9; // 0.9 to 1.1
                 world.play_block_sound(sound_events::BLOCK_LAVA_AMBIENT, pos, volume, pitch, None);
@@ -191,7 +191,7 @@ impl LavaFluid {
                 } else if is_water(existing.fluid_id) {
                     // For water, check if lava can replace it
                     // Lava can replace water if lava height >= 0.44444445
-                    if !(fluid_state.amount as f32 / 9.0 >= 0.44444445) {
+                    if f32::from(fluid_state.amount) / 9.0 < 0.444_444_45 {
                         continue;
                     }
                     // Lava will replace water - play fizz sound
@@ -240,7 +240,7 @@ impl FluidBehaviour for LavaFluid {
         }
 
         // Animate with ambient sounds (vanilla animateTick)
-        self.animate_tick(world, pos, current_fluid);
+        Self::animate_tick(world, pos, current_fluid);
 
         // For flowing lava, recalculate if it should still exist
         if !current_fluid.is_source() {
@@ -284,7 +284,7 @@ impl FluidBehaviour for LavaFluid {
         // 2. If can spread down AND has 3+ source neighbors, also spread to sides
         // 3. Otherwise if source OR not a water hole below, spread to sides
 
-        let can_spread_down = self.can_spread_down(world, &pos);
+        let can_spread_down = Self::can_spread_down(world, &pos);
 
         if can_spread_down {
             // Try to spread down
@@ -292,7 +292,7 @@ impl FluidBehaviour for LavaFluid {
 
             if did_spread_down {
                 // If we have 3+ source neighbors, also spread to sides (source duplication)
-                if self.source_neighbor_count(world, &pos) >= 3 {
+                if Self::source_neighbor_count(world, &pos) >= 3 {
                     self.spread_to_sides(
                         world,
                         pos,
@@ -314,7 +314,7 @@ impl FluidBehaviour for LavaFluid {
     }
 
     /// Returns true if lava can be replaced by another fluid.
-    /// Based on vanilla LavaFluid.canBeReplacedWith().
+    /// Based on vanilla `LavaFluid.canBeReplacedWith()`.
     /// Lava can be replaced if its height >= 0.44444445F and the fluid is water.
     fn can_be_replaced_with(
         &self,
@@ -326,7 +326,7 @@ impl FluidBehaviour for LavaFluid {
     ) -> bool {
         // Lava can be replaced if its height >= 0.44444445F (4/9 of a block)
         // and the replacing fluid is water (using tag check for mod support)
-        let height = fluid_state.amount as f32 / 9.0; // Convert amount to height (0-1)
-        height >= 0.44444445 && is_water(other_fluid)
+        let height = f32::from(fluid_state.amount) / 9.0; // Convert amount to height (0-1)
+        height >= 0.444_444_45 && is_water(other_fluid)
     }
 }

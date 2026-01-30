@@ -7,6 +7,7 @@
 //       set_block holds chunk locks when calling on_place, and should_spread_liquid
 //       needs to read neighbor block states which requires the same locks -> DEADLOCK
 
+use std::ptr;
 use steel_registry::REGISTRY;
 use steel_registry::blocks::BlockRef;
 use steel_registry::blocks::block_state_ext::BlockStateExt;
@@ -38,20 +39,20 @@ impl LiquidBlockBehavior {
     }
 
     /// Checks if this liquid should spread and handles lava-water interactions.
-    /// Based on vanilla's LiquidBlock.shouldSpreadLiquid().
+    /// Based on vanilla's `LiquidBlock.shouldSpreadLiquid()`.
     ///
     /// Returns `true` if the liquid should spread (schedule tick),
     /// Returns `false` if the liquid was converted to a block (obsidian/cobblestone/basalt).
     fn should_spread_liquid(&self, world: &World, pos: BlockPos, _state: BlockStateId) -> bool {
         // Only lava has special interactions with water and blue ice
-        if !std::ptr::eq(self.block, vanilla_blocks::LAVA) {
+        if !ptr::eq(self.block, vanilla_blocks::LAVA) {
             return true;
         }
 
         // Check if there's soul soil below (for basalt generation)
         let below_pos = pos.offset(0, -1, 0);
         let below_state = world.get_block_state(&below_pos);
-        let has_soul_soil_below = std::ptr::eq(below_state.get_block(), vanilla_blocks::SOUL_SOIL);
+        let has_soul_soil_below = ptr::eq(below_state.get_block(), vanilla_blocks::SOUL_SOIL);
 
         // Get fluid state to check if this is a source
         let fluid_state = get_fluid_state(world, &pos);
@@ -84,7 +85,7 @@ impl LiquidBlockBehavior {
             // Check for basalt generation: soul soil below + blue ice adjacent
             if has_soul_soil_below {
                 let neighbor_state = world.get_block_state(&neighbor_pos);
-                if std::ptr::eq(neighbor_state.get_block(), vanilla_blocks::BLUE_ICE) {
+                if ptr::eq(neighbor_state.get_block(), vanilla_blocks::BLUE_ICE) {
                     let new_state = REGISTRY.blocks.get_default_state_id(vanilla_blocks::BASALT);
                     world.set_block(pos, new_state, UpdateFlags::UPDATE_IMMEDIATE);
                     return false; // Don't schedule fluid tick - block was converted
@@ -126,8 +127,8 @@ impl BlockBehaviour for LiquidBlockBehavior {
 
     /// Called when a neighboring block changes.
     ///
-    /// This is safe to call should_spread_liquid here because handle_neighbor_changed
-    /// is called outside of set_block locks (after the block is already placed).
+    /// This is safe to call `should_spread_liquid` here because `handle_neighbor_changed`
+    /// is called outside of `set_block` locks (after the block is already placed).
     fn handle_neighbor_changed(
         &self,
         state: BlockStateId,

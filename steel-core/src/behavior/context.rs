@@ -6,6 +6,7 @@ use steel_utils::BlockPos;
 use steel_utils::math::Vector3;
 use steel_utils::types::InteractionHand;
 
+use crate::fluid::is_water;
 use crate::player::Player;
 use crate::world::World;
 pub use steel_registry::items::item::BlockHitResult;
@@ -113,10 +114,11 @@ impl BlockPlaceContext<'_> {
 
 impl BlockPlaceContext<'_> {
     /// Returns true if the block at the relative position is a water source
+    #[must_use]
     pub fn is_water_source(&self) -> bool {
         use crate::fluid::get_fluid_state;
         let fluid_state = get_fluid_state(self.world, &self.relative_pos);
-        fluid_state.is_source() && crate::fluid::is_water(fluid_state.fluid_id)
+        fluid_state.is_source() && is_water(fluid_state.fluid_id)
     }
 }
 

@@ -14,7 +14,6 @@ use crate::behavior::{InteractionResult, UseItemContext, UseOnContext};
 /// - etc.
 pub trait ItemBehavior: Send + Sync {
     /// Called when this item is used on a block.
-
     fn use_on(&self, _context: &mut UseOnContext) -> InteractionResult {
         InteractionResult::Pass
     }

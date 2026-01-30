@@ -19,7 +19,7 @@ use crate::world::World;
 /// Context for fluid spread calculations with local caching.
 ///
 /// This is created fresh for each `get_spread()` call and caches:
-/// - BlockState lookups by relative position
+/// - `BlockState` lookups by relative position
 /// - Hole check results by relative position
 ///
 /// # Performance
@@ -35,7 +35,7 @@ pub struct SpreadContext<'a> {
 }
 
 impl<'a> SpreadContext<'a> {
-    /// Creates a new SpreadContext for the given world.
+    /// Creates a new `SpreadContext` for the given world.
     #[must_use]
     pub fn new(world: &'a World) -> Self {
         Self {
@@ -50,7 +50,7 @@ impl<'a> SpreadContext<'a> {
     /// Uses vanilla's encoding: `(dx + 128) << 8 | (dz + 128)`
     /// This allows encoding positions from -128 to +127 in each axis.
     fn encode_key(dx: i8, dz: i8) -> i16 {
-        ((dx as i16 + 128) << 8) | (dz as i16 + 128)
+        ((i16::from(dx) + 128) << 8) | (i16::from(dz) + 128)
     }
 
     /// Gets the cached block state at the given position, querying the world if not cached.
@@ -132,7 +132,7 @@ impl<'a> SpreadContext<'a> {
 }
 
 /// Internal helper for hole check that doesn't use caching.
-/// This is used by SpreadContext for cache misses.
+/// This is used by `SpreadContext` for cache misses.
 pub fn is_hole_internal(world: &World, pos: BlockPos, fluid_id: u8) -> bool {
     let below_pos = pos.offset(0, -1, 0);
 
