@@ -49,7 +49,7 @@ mod tests {
     use crate::init_test_registries;
     use crate::{TestLoader, TestRunner};
     use dotenvy::dotenv;
-    use flint_core::results::TestSummary;
+    use flint_core::results::{AssertionResult, TestSummary};
     use flint_core::test_spec;
     use flint_core::utils::get_test_path;
     use std::env::var;
@@ -145,12 +145,8 @@ mod tests {
 
             if !result.success {
                 for assertion in &result.assertions {
-                    if !assertion.success {
-                        println!(
-                            "    -> tick {}: {}",
-                            assertion.tick,
-                            assertion.error_message.as_deref().unwrap_or("")
-                        );
+                    if let AssertionResult::Failure(failure) = assertion {
+                        println!("    -> tick {}: {}", failure.tick, failure.error_message);
                     }
                 }
             }
@@ -169,16 +165,11 @@ mod tests {
 
         // Load the fence test
         let test_path = PathBuf::from(get_test_path());
-        let paths;
-        match TestLoader::new(&test_path, true) {
-            Ok(loader) => {
-                paths = collect_filtered_paths(&loader);
-            }
-            Err(err) => {
-                println!("error while loading test files: {}", err);
-                return;
-            }
-        }
+        let Ok(loader) = TestLoader::new(&test_path, true) else {
+            println!("error while loading test files");
+            return;
+        };
+        let paths = collect_filtered_paths(&loader);
         let specs: Vec<TestSpec> = generate_test_specs(paths);
 
         // Create adapter and runner
@@ -187,6 +178,10 @@ mod tests {
 
         // Run the test
         generate_output(runner.run_tests(&specs));
+        for res in runner.run_tests(&specs).results
+        {
+
+        }
     }
 
     #[test]
@@ -200,22 +195,14 @@ mod tests {
             return;
         }
 
-        let paths;
-        match TestLoader::new(&test_dir, true) {
-            Ok(loader) => match loader.collect_all_test_files() {
-                Ok(_test_paths) => {
-                    paths = _test_paths;
-                }
-                Err(err) => {
-                    println!("error while loading test files: {}", err);
-                    return;
-                }
-            },
-            Err(err) => {
-                println!("error while loading test files: {}", err);
-                return;
-            }
-        }
+        let Ok(loader) = TestLoader::new(&test_dir, true) else {
+            println!("error while loading test files");
+            return;
+        };
+        let Ok(paths) = loader.collect_all_test_files() else {
+            println!("error while loading test files");
+            return;
+        };
 
         if paths.is_empty() {
             println!("No test files matched the filter criteria");

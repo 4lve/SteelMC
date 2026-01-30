@@ -16,7 +16,7 @@
 //!
 //! ```ignore
 //! use steel_flint::SteelAdapter;
-//! use flint_steel::{TestRunner, TestRunConfig, TestLoader};
+//! use flint_steel::{TestRunner, TestSelector, TestFilter};
 //!
 //! // Initialize registry and behaviors (required before creating adapter)
 //! steel_flint::init();
@@ -25,10 +25,10 @@
 //! let adapter = SteelAdapter::new();
 //!
 //! // Load and run tests
-//! let loader = TestLoader::new("./tests", true).unwrap();
-//! let specs = loader.collect_all_test_files();
+//! let selector = TestSelector::new("./tests".as_ref()).unwrap();
+//! let specs = selector.load_tests(&TestFilter::all()).unwrap();
 //!
-//! let runner = TestRunner::new(&adapter, TestRunConfig::default());
+//! let runner = TestRunner::new(&adapter);
 //! let summary = runner.run_tests(&specs);
 //! ```
 
@@ -42,7 +42,7 @@ pub use player::SteelTestPlayer;
 pub use world::SteelTestWorld;
 
 /// Re-export flint types for convenience
-pub use flint_steel::{TestLoader, TestRunConfig, TestRunner};
+pub use flint_steel::{TestFilter, TestLoader, TestRunner, TestSelector};
 
 use std::sync::{Arc, LazyLock, OnceLock};
 use steel_core::config::WordGeneratorTypes;
