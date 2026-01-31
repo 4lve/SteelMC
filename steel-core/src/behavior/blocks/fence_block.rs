@@ -2,19 +2,13 @@
 //!
 //! Fences connect to adjacent fences, fence gates, and solid blocks.
 
-use std::ptr;
-use crate::behavior::InteractionResult;
 use crate::behavior::block::BlockBehaviour;
 use crate::behavior::context::BlockPlaceContext;
-use crate::player::Player;
 use crate::world::World;
 use steel_registry::REGISTRY;
 use steel_registry::blocks::BlockRef;
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::{BlockStateProperties, BoolProperty, Direction};
-use steel_registry::item_stack::ItemStack;
-use steel_registry::items::item::BlockHitResult;
-use steel_utils::types::{InteractionHand, UpdateFlags};
 use steel_utils::{BlockPos, BlockStateId, Identifier};
 
 /// Behavior for fence blocks.

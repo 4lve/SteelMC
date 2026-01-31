@@ -178,7 +178,8 @@ mod tests {
 
         // Run the test
         let summary = runner.run_tests(&specs);
-        summary.print_concise_summary()
+        summary.print_concise_summary();
+        assert_eq!(summary.failed_tests, 0, "Not all flint tests passed!");
     }
 
     #[test]
