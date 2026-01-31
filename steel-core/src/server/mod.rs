@@ -33,7 +33,7 @@ use crate::command::CommandDispatcher;
 use crate::config::{ConfigWorldType, STEEL_CONFIG};
 use crate::player::Player;
 use crate::server::registry_cache::RegistryCache;
-use crate::world::{World, WorldType, WorldTickTimings};
+use crate::world::{World, WorldTickTimings, WorldType};
 
 /// Interval in ticks between tab list updates (20 ticks = 1 second).
 const TAB_LIST_UPDATE_INTERVAL: u64 = 20;

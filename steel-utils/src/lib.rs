@@ -40,12 +40,12 @@ pub mod translations;
 pub mod translations_registry;
 
 #[rustfmt::skip]
-#[path = "generated/noise_params.rs"]
+#[path = "generated/vanilla_translations/noise_params.rs"]
 #[allow(missing_docs, warnings)]
 pub mod generated_noise_params;
 
 #[rustfmt::skip]
-#[path = "generated/density_functions.rs"]
+#[path = "generated/vanilla_translations/density_functions.rs"]
 #[allow(missing_docs, warnings)]
 pub mod generated_density_functions;
 

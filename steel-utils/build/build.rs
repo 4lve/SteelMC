@@ -3,6 +3,8 @@
 use std::{fs, path::Path, process::Command};
 
 mod density_function_gen;
+mod density_function_type;
+mod density_function_utils;
 mod noise_params_gen;
 use text_components::build::build_translations;
 
