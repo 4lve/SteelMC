@@ -2,15 +2,14 @@
 //!
 //! Shows a colored ANSI grid with real-time chunk generation progress.
 
-use std::io::{Result, Write};
-
-use crate::logger::Input;
+use crate::logger::output::Output;
 use crate::spawn_progress::{DISPLAY_DIAMETER, DISPLAY_RADIUS};
 use crossterm::{
     cursor::{MoveRight, MoveUp},
     style::{Color::Rgb, ResetColor, SetBackgroundColor, SetForegroundColor},
     terminal::{self, Clear, ClearType},
 };
+use std::io::{Result, Write};
 use steel_core::chunk::chunk_access::ChunkStatus;
 
 /// Grid type alias for convenience.
@@ -59,11 +58,10 @@ impl SpawnProgressDisplay {
     pub fn set_grid(&mut self, new_grid: &Grid) {
         self.grid = *new_grid;
     }
-}
-impl Input {
-    pub fn render_current_spawn(&mut self) -> Result<()> {
+
+    pub fn rewrite(&self, out: &mut Output) -> Result<()> {
         write!(
-            self.out,
+            out,
             "{}\n{}",
             MoveUp(DISPLAY_RADIUS as u16 + 2),
             Clear(ClearType::FromCursorDown)
@@ -74,16 +72,16 @@ impl Input {
             0
         };
         for z in (0..DISPLAY_DIAMETER).step_by(2) {
-            write!(self.out, "\r")?;
+            write!(out, "\r")?;
             if w != 0 {
-                write!(self.out, "{}", MoveRight(w))?;
+                write!(out, "{}", MoveRight(w))?;
             }
             for x in 0..DISPLAY_DIAMETER {
-                let (tr, tg, tb) = status_color(self.spawn_display.grid[z][x]);
+                let (tr, tg, tb) = status_color(self.grid[z][x]);
                 if z + 1 < DISPLAY_DIAMETER {
-                    let (br, bg, bb) = status_color(self.spawn_display.grid[z + 1][x]);
+                    let (br, bg, bb) = status_color(self.grid[z + 1][x]);
                     write!(
-                        self.out,
+                        out,
                         "{}{}▀",
                         SetForegroundColor(Rgb {
                             r: tr,
@@ -98,7 +96,7 @@ impl Input {
                     )?;
                 } else {
                     write!(
-                        self.out,
+                        out,
                         "{}▀",
                         SetForegroundColor(Rgb {
                             r: tr,
@@ -108,13 +106,11 @@ impl Input {
                     )?;
                 }
             }
-            writeln!(self.out, "{ResetColor}")?;
-            self.out.flush()?;
+            writeln!(out, "{ResetColor}")?;
+            out.flush()?;
         }
-        write!(self.out, "\r")?;
-        let pos = self.get_current_pos();
-        self.cursor_to((0, 0), pos)?;
-        self.rewrite_current_input()?;
-        Ok(())
+        write!(out, "\r")?;
+        let pos = out.get_current_pos();
+        out.cursor_to((0, 0), pos)
     }
 }

@@ -151,7 +151,7 @@ async fn generate_with_display(
 
         // Always update grid state; throttle rendering to ~10fps
         let should_render = last_render.elapsed() >= Duration::from_millis(100);
-        logger.update_spawn_grid(&grid, should_render).await;
+        let _ = logger.update_spawn_grid(&grid, should_render).await;
         if should_render {
             last_render = Instant::now();
         }
@@ -167,7 +167,7 @@ async fn generate_with_display(
     let elapsed = start.elapsed();
 
     // Render final state
-    logger.update_spawn_grid(&grid, true).await;
+    let _ = logger.update_spawn_grid(&grid, true).await;
     // Show completed grid briefly before clearing
     #[cfg(feature = "slow_chunk_gen")]
     sleep(Duration::from_secs(1)).await;

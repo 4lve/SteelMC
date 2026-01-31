@@ -1,26 +1,24 @@
-use crate::STEEL_CONFIG;
+use crate::logger::history::History;
 use crate::logger::selection::Selection;
 #[cfg(feature = "spawn_chunk_display")]
 use crate::logger::spawn_progress::{Grid, SpawnProgressDisplay};
-use crate::{SERVER, logger::history::History};
+use crate::logger::suggestions::Completer;
+use crate::{STEEL_CONFIG, logger::output::Output};
 use chrono::Utc;
 use crossterm::{
-    cursor::{
-        MoveLeft, MoveRight, MoveUp,
-        SetCursorStyle::{BlinkingBar, BlinkingBlock},
-    },
+    cursor::{MoveLeft, MoveUp},
     style::{
-        Color::{DarkGrey, Yellow},
-        ResetColor, SetForegroundColor,
+        Attribute,
+        Color::{self, DarkGrey},
+        ResetColor, SetAttribute, SetForegroundColor,
     },
-    terminal,
+    terminal::{self, Clear, ClearType},
 };
 use std::time;
 use std::{
-    io::{Result, Stdout, Write, stdout},
+    io::{Result, Write},
     sync::Arc,
 };
-use steel_core::command::sender::CommandSender;
 use steel_utils::locks::AsyncRwLock;
 use steel_utils::logger::{Level, LogData, STEEL_LOGGER, SteelLogger};
 use tokio::{sync::mpsc, task};
@@ -31,128 +29,112 @@ use tracing_subscriber::layer::Context;
 
 mod history;
 mod input;
+mod output;
 mod selection;
 #[cfg(feature = "spawn_chunk_display")]
 mod spawn_progress;
+mod suggestions;
 
-struct Input {
-    pub text: String,
-    pub length: usize,
-    pub pos: usize,
-    pub replace: bool,
+struct LogState {
+    pub out: Output,
     pub completion: Completer,
     pub history: History,
     pub selection: Selection,
     #[cfg(feature = "spawn_chunk_display")]
     pub spawn_display: SpawnProgressDisplay,
-    pub out: Stdout,
     pub cancel_token: CancellationToken,
 }
-impl Input {
+impl LogState {
     async fn new(path: &'static str, cancel_token: CancellationToken) -> Self {
-        Input {
-            text: String::new(),
-            length: 0,
-            pos: 0,
-            replace: false,
+        LogState {
+            out: Output::new(),
             completion: Completer::new(),
             history: History::new(path).await,
             #[cfg(feature = "spawn_chunk_display")]
             spawn_display: SpawnProgressDisplay::new(),
-            out: stdout(),
             selection: Selection::new(),
             cancel_token,
         }
     }
+}
+
+/// Modify input
+impl LogState {
     fn push(&mut self, string: String) -> Result<()> {
         let string_len = string.chars().count();
-        if self.pos == 0 {
-            self.text.insert_str(0, &string);
+        if self.out.pos == 0 {
+            self.out.text.insert_str(0, &string);
         } else {
-            let Some((pos, char)) = self.text.char_indices().nth(self.pos - 1) else {
+            let Some((pos, char)) = self.out.text.char_indices().nth(self.out.pos - 1) else {
                 return Ok(());
             };
-            self.text.insert_str(pos + char.len_utf8(), &string);
+            self.out.text.insert_str(pos + char.len_utf8(), &string);
         }
-        let length = self.length + string_len;
-        let pos = self.pos + string_len;
-        self.update_suggestion_list(pos);
+        let length = self.out.length + string_len;
+        let pos = self.out.pos + string_len;
+        self.completion.update(&mut self.out, pos);
         self.rewrite_input(length, pos)?;
         Ok(())
     }
     fn replace(&mut self, string: String) -> Result<()> {
         let string_len = string.chars().count();
-        if self.pos == 0 {
-            if self.is_empty() {
-                self.text = string;
+        if self.out.pos == 0 {
+            if self.out.is_empty() {
+                self.out.text = string;
             } else {
-                self.text = format!("{}{}", string, &self.text[1..]);
+                self.out.text = format!("{}{}", string, &self.out.text[1..]);
             }
         } else {
-            let Some((pos, char)) = self.text.char_indices().nth(self.pos - 1) else {
+            let Some((pos, char)) = self.out.text.char_indices().nth(self.out.pos - 1) else {
                 return Ok(());
             };
-            if self.is_at_end() {
-                self.text.insert_str(pos + char.len_utf8(), &string);
+            if self.out.is_at_end() {
+                self.out.text.insert_str(pos + char.len_utf8(), &string);
             } else {
-                self.text
+                self.out
+                    .text
                     .replace_range(pos + char.len_utf8()..=pos + char.len_utf8(), &string);
             }
         }
-        let length = if self.is_at_end() {
-            self.length + string_len
+        let length = if self.out.is_at_end() {
+            self.out.length + string_len
         } else {
-            self.length + string_len.saturating_sub(1)
+            self.out.length + string_len.saturating_sub(1)
         };
-        let pos = self.pos + string_len;
-        self.update_suggestion_list(pos);
+        let pos = self.out.pos + string_len;
+        self.completion.update(&mut self.out, pos);
         self.rewrite_input(length, pos)?;
         Ok(())
     }
     fn pop_back(&mut self) -> Result<()> {
-        if !self.is_at_start() {
-            let Some((pos, _)) = self.text.char_indices().nth(self.pos - 1) else {
-                return Ok(());
-            };
-            self.text.remove(pos);
-            let length = self.length - 1;
-            let pos = self.pos - 1;
-            self.update_suggestion_list(pos);
-            self.rewrite_input(length, pos)?;
+        if self.out.is_at_start() {
+            return Ok(());
         }
-        Ok(())
+        let Some((pos, _)) = self.out.text.char_indices().nth(self.out.pos - 1) else {
+            return Ok(());
+        };
+        self.out.text.remove(pos);
+        let length = self.out.length - 1;
+        let pos = self.out.pos - 1;
+        self.completion.update(&mut self.out, pos);
+        self.rewrite_input(length, pos)
     }
     fn pop_front(&mut self) -> Result<()> {
-        if !self.is_at_end() {
-            if self.pos == 0 {
-                self.text.remove(0);
-            } else {
-                let Some((pos, char)) = self.text.char_indices().nth(self.pos - 1) else {
-                    return Ok(());
-                };
-                self.text.remove(pos + char.len_utf8());
-            }
-            let length = self.length - 1;
-            let pos = self.pos;
-            self.update_suggestion_list(pos);
-            self.rewrite_input(length, pos)?;
+        if self.out.is_at_end() {
+            return Ok(());
         }
-        Ok(())
-    }
-    fn is_empty(&self) -> bool {
-        self.length == 0
-    }
-    fn is_at_start(&self) -> bool {
-        self.pos == 0
-    }
-    fn is_at_end(&self) -> bool {
-        self.pos == self.length
-    }
-    fn reset(&mut self) -> Result<()> {
-        self.text = String::new();
-        self.rewrite_input(0, 0)?;
-        self.completion.enabled = false;
-        Ok(())
+        if self.out.pos == 0 {
+            self.out.text.remove(0);
+        } else {
+            let Some((pos, char)) = self.out.text.char_indices().nth(self.out.pos - 1) else {
+                return Ok(());
+            };
+            self.out.text.remove(pos + char.len_utf8());
+        }
+        let length = self.out.length - 1;
+        let pos = self.out.pos;
+        self.completion.update(&mut self.out, pos);
+        self.rewrite_input(length, pos)
     }
     fn delete_selection(&mut self) -> Result<()> {
         if !self.selection.is_active() {
@@ -163,227 +145,44 @@ impl Input {
         let end = range.end;
 
         // Find byte positions for the character indices
-        let char_indices: Vec<(usize, char)> = self.text.char_indices().collect();
+        let char_indices: Vec<(usize, char)> = self.out.text.char_indices().collect();
 
         let byte_start = char_indices[start].0;
         let byte_end = if end < char_indices.len() {
             char_indices[end].0
         } else {
-            self.text.len()
+            self.out.text.len()
         };
 
         // Remove the selected text
-        self.text.replace_range(byte_start..byte_end, "");
+        self.out.text.replace_range(byte_start..byte_end, "");
 
         // Update position and length
-        let new_length = self.length - (end - start);
+        let new_length = self.out.length - (end - start);
         let new_pos = start;
 
         // Update suggestions
-        self.update_suggestion_list(new_pos);
+        self.completion.update(&mut self.out, new_pos);
 
         self.selection.clear();
-        self.rewrite_input(new_length, new_pos)?;
-        Ok(())
+        self.rewrite_input(new_length, new_pos)
+    }
+    fn reset(&mut self) -> Result<()> {
+        self.out.text = String::new();
+        self.completion.enabled = false;
+        self.completion.selected = 0;
+        self.rewrite_input(0, 0)
     }
 }
 
-impl Input {
-    fn get_pos(pos: usize) -> (usize, usize) {
-        if let Ok((w, _)) = terminal::size() {
-            let w = w as usize;
-            let absolute_pos = pos + 2;
-            let x = absolute_pos % w;
-            let y = absolute_pos / w;
-            // When x is at 0, we're actually at the last position of the previous y
-            // if x == 0 {
-            //     return (y - 1, w);
-            // }
-            return (y, x);
-        }
-        (0, pos + 2)
-    }
-    fn get_current_pos(&self) -> (usize, usize) {
-        Self::get_pos(self.pos)
-    }
-    fn get_end(&self) -> (usize, usize) {
-        Self::get_pos(self.length)
-    }
-    fn cursor_to(&mut self, from: (usize, usize), to: (usize, usize)) -> Result<()> {
-        if from.0 > to.0 {
-            write!(self.out, "\x1b[{}A", from.0 - to.0)?;
-        } else if to.0 > from.0 {
-            write!(self.out, "\x1b[{}B", to.0 - from.0)?;
-        }
-        if from.1 > to.1 {
-            write!(self.out, "\x1b[{}D", from.1 - to.1)?;
-        } else if to.1 > from.1 {
-            write!(self.out, "\x1b[{}C", to.1 - from.1)?;
-        }
-        Ok(())
-    }
-}
-
-struct Completer {
-    pub enabled: bool,
-    pub error: bool,
-    pub selected: usize,
-    pub completed: String,
-    pub suggestions: Vec<String>,
-}
-impl Completer {
-    fn new() -> Self {
-        Completer {
-            enabled: false,
-            error: false,
-            selected: 0,
-            completed: String::new(),
-            suggestions: vec![],
-        }
-    }
-}
-impl Input {
-    pub fn update_suggestion_list(&mut self, pos: usize) {
-        let char_start = if self.text.is_empty() {
-            0
-        } else {
-            let (start, size) = self
-                .text
-                .char_indices()
-                .nth(pos.saturating_sub(1))
-                .expect("Input position out of range!");
-            start + size.len_utf8()
-        };
-        // Gets the right chars
-        let command = &self.text[..char_start];
-
-        let Some(server) = SERVER.get() else {
-            self.completion.completed = String::new();
-            self.completion.selected = 0;
-            self.completion.error = true;
-            return;
-        };
-        // Gets the suggested commands
-        self.completion.suggestions = server
-            .command_dispatcher
-            .read()
-            .handle_suggestions(CommandSender::Console, command, server.clone())
-            .0
-            .into_iter()
-            .map(|suggestion| suggestion.text)
-            .collect();
-        if self.completion.suggestions.is_empty() {
-            self.completion.completed = String::new();
-            self.completion.selected = 0;
-            self.completion.error = true;
-        } else {
-            self.completion.error = false;
-        }
-    }
-    fn update_completion(&mut self, update: i8) -> Result<()> {
-        // Goes to the end
-        self.cursor_to(self.get_current_pos(), self.get_end())?;
-        // Clears
-        write!(self.out, "\x1b[J")?;
-        let text = if self.completion.suggestions.is_empty() {
-            self.cursor_to(self.get_end(), self.get_current_pos())?;
-            self.out.flush()?;
-            return Ok(());
-        } else {
-            // Updates completion position
-            self.completion.selected = if update < 0 {
-                (self.completion.selected + self.completion.suggestions.len() - (-update) as usize)
-                    % self.completion.suggestions.len()
-            } else {
-                (self.completion.selected + update as usize) % self.completion.suggestions.len()
-            };
-            let width = if let Ok((width, _)) = terminal::size() {
-                width as usize / 20
-            } else {
-                1
-            };
-            let grid_size = width * 3;
-            let start = (self.completion.selected / grid_size) * grid_size;
-            let mut height = 0u16;
-            'outer: for w in 0..width {
-                for h in 0..3 {
-                    let pos = start + w * 3 + h;
-                    if pos >= self.completion.suggestions.len() {
-                        break 'outer;
-                    }
-
-                    write!(self.out, "\n\r")?;
-                    if w != 0 {
-                        write!(self.out, "{}", MoveRight(w as u16 * 20))?;
-                    }
-
-                    let color = if pos == self.completion.selected {
-                        Yellow
-                    } else {
-                        DarkGrey
-                    };
-
-                    write!(
-                        self.out,
-                        "{}{:<20}{}",
-                        SetForegroundColor(color),
-                        if self.completion.suggestions[pos].len() > 20 {
-                            format!("{}...", &self.completion.suggestions[pos][..17])
-                        } else {
-                            self.completion.suggestions[pos].clone()
-                        },
-                        ResetColor
-                    )?;
-                    height += 1;
-                }
-                write!(self.out, "{}", MoveUp(3))?;
-                height = 0;
-            }
-            let y = height + self.get_end().0 as u16;
-            let x = self.get_current_pos().1;
-            if y != 0 {
-                write!(self.out, "{}", MoveUp(y))?;
-            }
-            write!(self.out, "\r{}", MoveRight(x as u16))?;
-
-            if let Some(text) = self.text[..self.pos].split_whitespace().last()
-                && let Some(striped) =
-                    self.completion.suggestions[self.completion.selected].strip_prefix(text)
-            {
-                striped
-            } else {
-                &self.completion.suggestions[self.completion.selected]
-            }
-        };
-        self.completion.completed = text.to_string();
-        self.out.flush()?;
-
-        if !self.is_at_end() {
-            return Ok(());
-        }
-        write!(
-            self.out,
-            "\x1b[s{}{}\x1b[u",
-            SetForegroundColor(DarkGrey),
-            &self.completion.completed
-        )?;
-        self.out.flush()?;
-        Ok(())
-    }
-
+impl LogState {
     pub fn rewrite_current_input(&mut self) -> Result<()> {
-        let length = self.length;
-        let pos = self.pos;
+        let length = self.out.length;
+        let pos = self.out.pos;
         self.rewrite_input(length, pos)
     }
-
     pub fn rewrite_input(&mut self, length: usize, pos: usize) -> Result<()> {
-        self.cursor_to(self.get_current_pos(), (0, 0))?;
-        if self.replace {
-            write!(self.out, "{BlinkingBlock}")?;
-        } else {
-            write!(self.out, "{BlinkingBar}")?;
-        }
+        self.out.cursor_to(self.out.get_current_pos(), (0, 0))?;
 
         // Build the output string with selection highlighting
         let output = if self.selection.is_active() {
@@ -391,51 +190,53 @@ impl Input {
             let start = range.start;
             let end = range.end;
 
-            let chars: Vec<char> = self.text.chars().collect();
             let mut result = String::new();
             let mut ended = false;
-
-            for (i, ch) in chars.iter().enumerate() {
+            for (i, ch) in self.out.text.chars().enumerate() {
                 if i == start {
-                    result.push_str("\x1b[7m"); // Start inverse video
+                    result.push_str(&format!("{}", SetAttribute(Attribute::Reverse)));
                 }
                 if i == end {
                     ended = true;
-                    result.push_str("\x1b[27m"); // End inverse video
+                    result.push_str(&format!("{}", SetAttribute(Attribute::NoReverse)));
                 }
-                result.push(*ch);
+                result.push(ch);
             }
             if !ended {
-                result.push_str("\x1b[27m"); // End inverse video
+                result.push_str(&format!("{}", SetAttribute(Attribute::NoReverse)));
             }
             result
         } else {
-            self.text.clone()
+            self.out.text.clone()
         };
 
+        let end_correction = if let Ok((w, _)) = terminal::size()
+            && (length + 2).is_multiple_of(w as usize)
+        {
+            format!(" {}", MoveLeft(1))
+        } else {
+            String::new()
+        };
+        let input_color = if self.completion.error {
+            SetForegroundColor(Color::Red)
+        } else {
+            SetForegroundColor(Color::White)
+        };
         write!(
             self.out,
-            "\x1b[J\x1b[27m> {}{}{}\x1b[0m",
-            if self.completion.error {
-                "\x1b[0;31m"
-            } else {
-                ""
-            },
+            "{}{}> {input_color}{}{end_correction}{ResetColor}",
+            Clear(ClearType::FromCursorDown),
+            SetAttribute(Attribute::NoReverse),
             output,
-            if let Ok((w, _)) = terminal::size()
-                && (length + 2).is_multiple_of(w as usize)
-            {
-                format!(" {}", MoveLeft(1))
-            } else {
-                String::new()
-            }
         )?;
-        self.length = length;
-        self.pos = pos;
-        self.cursor_to(self.get_end(), self.get_current_pos())?;
+
+        self.out.length = length;
+        self.out.pos = pos;
+        self.out
+            .cursor_to(self.out.get_end(), self.out.get_current_pos())?;
         self.out.flush()?;
         if self.completion.enabled {
-            self.update_completion(0)?;
+            self.completion.rewrite(&mut self.out, 0)?;
         }
         Ok(())
     }
@@ -443,7 +244,7 @@ impl Input {
 
 /// A logger implementation with commands suggestions
 pub struct CommandLogger {
-    input: Arc<AsyncRwLock<Input>>,
+    input: Arc<AsyncRwLock<LogState>>,
     sender: mpsc::UnboundedSender<(Level, LogData)>,
     cancel_token: CancellationToken,
 }
@@ -458,7 +259,7 @@ impl CommandLogger {
 
         let log = Arc::new(Self {
             input: Arc::new(AsyncRwLock::const_new(
-                Input::new(history_path, cancel_token).await,
+                LogState::new(history_path, cancel_token).await,
             )),
             sender,
             cancel_token: log_cancel_token.clone(),
@@ -482,8 +283,8 @@ impl CommandLogger {
                         continue;
                     }
                     let mut input = self.input.write().await;
-                    let pos = input.get_current_pos();
-                    if let Err(err) = input.cursor_to(pos, (0, 0)) {
+                    let pos = input.out.get_current_pos();
+                    if let Err(err) = input.out.cursor_to(pos, (0, 0)) {
                         log::error!("{err}");
                     }
                     if let Err(err) = write!(input.out,
@@ -517,11 +318,11 @@ impl CommandLogger {
                     ) {
                         log::error!("{err}");
                     }
-                    if let Err(err) = input.cursor_to((0, 0), pos) {
+                    if let Err(err) = input.out.cursor_to((0, 0), pos) {
                         log::error!("{err}");
                     }
-                    let length = input.length;
-                    let pos = input.pos;
+                    let length = input.out.length;
+                    let pos = input.out.pos;
                     if let Err(err) = input.rewrite_input(length, pos) {
                         log::error!("{err}");
                     }
@@ -552,17 +353,16 @@ impl CommandLogger {
     /// Initializes the display of the spawn chunks
     pub async fn activate_spawn_display(&self) -> Result<()> {
         use crate::spawn_progress::DISPLAY_RADIUS;
-        use crossterm::terminal::{Clear, ClearType};
 
         let mut input = self.input.write().await;
         input.spawn_display.rendered = true;
-        let pos = input.get_current_pos();
-        input.cursor_to(pos, (0, 0))?;
+        let pos = input.out.get_current_pos();
+        input.out.cursor_to(pos, (0, 0))?;
         write!(input.out, "\r{}", Clear(ClearType::FromCursorDown))?;
         for _ in 0..=DISPLAY_RADIUS {
             writeln!(input.out)?;
         }
-        input.cursor_to((0, 0), pos)?;
+        input.out.cursor_to((0, 0), pos)?;
         input.out.flush()?;
         input.rewrite_current_input()?;
         Ok(())
@@ -570,7 +370,6 @@ impl CommandLogger {
     /// Ends the spawn display cleaning the screen
     pub async fn deactivate_spawn_display(&self) {
         use crate::spawn_progress::DISPLAY_RADIUS;
-        use crossterm::terminal::{Clear, ClearType};
 
         let mut input = self.input.write().await;
         write!(
@@ -584,12 +383,17 @@ impl CommandLogger {
         input.spawn_display.rendered = false;
     }
     /// Updates the spawn grid, and displays it if required
-    pub async fn update_spawn_grid(&self, grid: &Grid, should_render: bool) {
-        let mut input = self.input.write().await;
-        input.spawn_display.set_grid(grid);
-        if should_render {
-            let _ = input.render_current_spawn();
+    pub async fn update_spawn_grid(&self, grid: &Grid, should_render: bool) -> Result<()> {
+        let mut state = self.input.write().await;
+        state.spawn_display.set_grid(grid);
+        if !should_render {
+            return Ok(());
         }
+        {
+            let state = &mut state as &mut LogState;
+            state.spawn_display.rewrite(&mut state.out)?;
+        }
+        state.rewrite_current_input()
     }
 }
 

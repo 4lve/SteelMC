@@ -1,4 +1,4 @@
-use crate::logger::Input;
+use crate::logger::{LogState, output::Output};
 use std::{borrow::Cow, collections::VecDeque, io::Result};
 use tokio::{fs, io::AsyncWriteExt};
 
@@ -29,45 +29,42 @@ impl History {
         }
     }
 }
-impl Input {
-    pub fn add_history(&mut self) {
-        if !self.history.values.is_empty() && self.history.values[0] == self.text {
+impl History {
+    pub fn push(&mut self, out: &Output) {
+        if !self.values.is_empty() && self.values[0] == out.text {
             return;
         }
-        self.history
-            .values
-            .push_front(Cow::Owned(self.text.clone()));
+        self.values.push_front(Cow::Owned(out.text.clone()));
     }
-    pub fn move_history(&mut self, dir: i8) -> Result<()> {
-        self.history.pos = if dir < 0 && self.history.pos != 0 {
-            self.history.pos - (-dir as usize)
-        } else if dir > 0 && self.history.pos != self.history.values.len() {
-            self.history.pos + dir as usize
+    pub fn update(state: &mut LogState, dir: i8) -> Result<()> {
+        state.history.pos = if dir < 0 && state.history.pos != 0 {
+            state.history.pos - (-dir as usize)
+        } else if dir > 0 && state.history.pos != state.history.values.len() {
+            state.history.pos + dir as usize
         } else {
-            self.history.pos
+            state.history.pos
         };
-        if self.history.pos == 0 {
-            self.reset()?;
+        if state.history.pos == 0 {
+            state.reset()?;
             return Ok(());
         }
-        let text = self.history.values[self.history.pos - 1].clone();
-        self.text = text.to_string();
+        let text = state.history.values[state.history.pos - 1].clone();
+        state.out.text = text.to_string();
         let length = text.chars().count();
-        self.update_suggestion_list(length);
-        self.rewrite_input(length, length)?;
+        state.completion.update(&mut state.out, length);
+        state.rewrite_input(length, length)?;
         Ok(())
     }
-    pub async fn save_history(&self) -> Result<()> {
-        fs::create_dir_all(self.history.path).await?;
-        let path = format!("{}/history.txt", self.history.path);
+    pub async fn save(&self) -> Result<()> {
+        fs::create_dir_all(self.path).await?;
+        let path = format!("{}/history.txt", self.path);
         if let Ok(true) = fs::try_exists(&path).await {
             fs::remove_file(&path).await?;
         }
         let mut file = fs::File::create_new(&path).await?;
-        for line in &self.history.values {
+        for line in &self.values {
             file.write_all(format!("{line}\n").as_bytes()).await?;
         }
-        file.set_len(file.metadata().await?.len() - 1).await?;
-        Ok(())
+        file.set_len(file.metadata().await?.len() - 1).await
     }
 }

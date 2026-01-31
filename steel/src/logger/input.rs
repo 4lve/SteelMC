@@ -1,11 +1,13 @@
 use crate::SERVER;
-use crate::logger::{CommandLogger, Input};
+use crate::logger::history::History;
+use crate::logger::output::Output;
+use crate::logger::{CommandLogger, LogState};
 use crossterm::{
     clipboard::CopyToClipboard,
     cursor::SetCursorStyle::{BlinkingBar, BlinkingBlock, DefaultUserShape},
     event::{Event, KeyCode, KeyEvent, KeyModifiers, poll, read},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode},
+    terminal::{Clear, ClearType, disable_raw_mode, enable_raw_mode},
 };
 use std::time::Duration;
 use std::{
@@ -18,7 +20,7 @@ use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::task::spawn_blocking;
 use tokio_util::sync::CancellationToken;
 
-pub enum ExtendedKey {
+enum ExtendedKey {
     Generic(KeyEvent),
     Ctrl(char),
     String(String),
@@ -73,18 +75,19 @@ impl CommandLogger {
         loop {
             tokio::select! {
                 Some(key) = rx.recv() => {
-                    let mut input = self.input.write().await;
+                    let mut lock = self.input.write().await;
+                    let mut state = &mut lock as &mut LogState;
                     match key {
                         ExtendedKey::Generic(key) => match key.code {
                             KeyCode::Enter => {
-                                if input.is_empty() {
+                                if state.out.is_empty() {
                                     continue;
                                 }
-                                let message = input.text.clone();
-                                input.add_history();
-                                input.reset()?;
-                                input.history.pos = 0;
-                                drop(input);
+                                let message = state.out.text.clone();
+                                state.history.push(&mut state.out);
+                                state.reset()?;
+                                state.history.pos = 0;
+                                drop(lock);
                                 steel_utils::console!("{}", message);
                                 if let Some(server) = SERVER.get() {
                                     server.command_dispatcher.read().handle_command(
@@ -96,223 +99,227 @@ impl CommandLogger {
                                 continue;
                             }
                             KeyCode::Tab => {
-                                if input.completion.enabled {
-                                    input.completion.enabled = false;
-                                    input.completion.selected = 0;
-                                    let completion = input.completion.completed.clone();
-                                    if input.replace {
-                                        input.replace(completion)?;
+                                if state.completion.enabled {
+                                    state.completion.enabled = false;
+                                    state.completion.selected = 0;
+                                    let completion = state.completion.completed.clone();
+                                    if state.out.replace {
+                                        state.replace(completion)?;
                                     } else {
-                                        input.push(completion)?;
+                                        state.push(completion)?;
                                     }
-                                    input.completion.completed = String::new();
+                                    state.completion.completed = String::new();
                                 } else {
-                                    input.completion.enabled = true;
-                                    let pos = input.pos;
-                                    input.update_suggestion_list(pos);
-                                    input.rewrite_current_input()?;
+                                    state.completion.enabled = true;
+                                    let pos = state.out.pos;
+                                    state.completion.update(&mut state.out, pos);
+                                    state.rewrite_current_input()?;
                                 }
                                 continue;
                             }
                             KeyCode::Backspace => {
-                                if input.selection.is_active() {
-                                    input.delete_selection()?;
+                                if state.selection.is_active() {
+                                    state.delete_selection()?;
                                     continue;
                                 }
-                                input.pop_back()?;
+                                state.pop_back()?;
                             }
                             KeyCode::Delete => {
-                                if input.selection.is_active() {
-                                    input.delete_selection()?;
+                                if state.selection.is_active() {
+                                    state.delete_selection()?;
                                     continue;
                                 }
-                                input.pop_front()?;
+                                state.pop_front()?;
                             }
                             KeyCode::Left if key.modifiers.contains(KeyModifiers::SHIFT) => {
-                                if !input.is_at_start() {
-                                    if !input.selection.is_active() {
-                                        let current_pos = input.pos;
-                                        input.selection.start_at(current_pos);
+                                if !state.out.is_at_start() {
+                                    if !state.selection.is_active() {
+                                        let current_pos = state.out.pos;
+                                        state.selection.start_at(current_pos);
                                     }
-                                    let from = input.get_current_pos();
-                                    let to = Input::get_pos(input.pos - 1);
-                                    input.cursor_to(from, to)?;
-                                    input.pos -= 1;
-                                    let new_pos = input.pos;
-                                    input.selection.extend(new_pos);
-                                    let length = input.length;
-                                    input.update_suggestion_list(new_pos);
-                                    input.rewrite_input(length, new_pos)?;
+                                    let from = state.out.get_current_pos();
+                                    let to = Output::get_pos(state.out.pos - 1);
+                                    state.out.cursor_to(from, to)?;
+                                    state.out.pos -= 1;
+                                    let new_pos = state.out.pos;
+                                    state.selection.extend(new_pos);
+                                    let length = state.out.length;
+                                    state.completion.update(&mut state.out, new_pos);
+                                    state.rewrite_input(length, new_pos)?;
                                 }
                                 continue;
                             }
                             KeyCode::Left => {
-                                if input.selection.is_active() {
-                                    let length = input.length;
-                                    let pos = input.selection.get_range().start;
-                                    input.selection.clear();
-                                    input.update_suggestion_list(pos);
-                                    input.rewrite_input(length, pos)?;
+                                if state.selection.is_active() {
+                                    let length = state.out.length;
+                                    let pos = state.selection.get_range().start;
+                                    state.selection.clear();
+                                    state.completion.update(&mut state.out, pos);
+                                    state.rewrite_input(length, pos)?;
                                     continue;
                                 }
-                                if !input.is_at_start() {
-                                    let from = input.get_current_pos();
-                                    let pos = input.pos - 1;
-                                    let to = Input::get_pos(pos);
-                                    input.cursor_to(from, to)?;
-                                    input.pos -= 1;
-                                    input.update_suggestion_list(pos);
+                                if !state.out.is_at_start() {
+                                    let from = state.out.get_current_pos();
+                                    let pos = state.out.pos - 1;
+                                    let to = Output::get_pos(pos);
+                                    state.out.cursor_to(from, to)?;
+                                    state.out.pos -= 1;
+                                    state.completion.update(&mut state.out, pos);
                                 }
                             }
                             KeyCode::Right if key.modifiers.contains(KeyModifiers::SHIFT) => {
-                                if !input.is_at_end() {
-                                    if !input.selection.is_active() {
-                                        let current_pos = input.pos;
-                                        input.selection.start_at(current_pos);
+                                if !state.out.is_at_end() {
+                                    if !state.selection.is_active() {
+                                        let current_pos = state.out.pos;
+                                        state.selection.start_at(current_pos);
                                     }
-                                    let from = input.get_current_pos();
-                                    let to = Input::get_pos(input.pos + 1);
-                                    input.cursor_to(from, to)?;
-                                    input.pos += 1;
-                                    let new_pos = input.pos;
-                                    input.selection.extend(new_pos);
-                                    let length = input.length;
-                                    input.update_suggestion_list(new_pos);
-                                    input.rewrite_input(length, new_pos)?;
+                                    let from = state.out.get_current_pos();
+                                    let to = Output::get_pos(state.out.pos + 1);
+                                    state.out.cursor_to(from, to)?;
+                                    state.out.pos += 1;
+                                    let new_pos = state.out.pos;
+                                    state.selection.extend(new_pos);
+                                    let length = state.out.length;
+                                    state.completion.update(&mut state.out, new_pos);
+                                    state.rewrite_input(length, new_pos)?;
                                 }
                             }
                             KeyCode::Right => {
-                                if input.selection.is_active() {
-                                    let length = input.length;
-                                    let pos = input.selection.get_range().end;
-                                    input.selection.clear();
-                                    input.update_suggestion_list(pos);
-                                    input.rewrite_input(length, pos)?;
+                                if state.selection.is_active() {
+                                    let length = state.out.length;
+                                    let pos = state.selection.get_range().end;
+                                    state.selection.clear();
+                                    state.completion.update(&mut state.out, pos);
+                                    state.rewrite_input(length, pos)?;
                                     continue;
                                 }
-                                if !input.is_at_end() {
-                                    let from = input.get_current_pos();
-                                    let pos = input.pos + 1;
-                                    let to = Input::get_pos(pos);
-                                    input.cursor_to(from, to)?;
-                                    input.pos += 1;
-                                    input.update_suggestion_list(pos);
+                                if !state.out.is_at_end() {
+                                    let from = state.out.get_current_pos();
+                                    let pos = state.out.pos + 1;
+                                    let to = Output::get_pos(pos);
+                                    state.out.cursor_to(from, to)?;
+                                    state.out.pos += 1;
+                                    state.completion.update(&mut state.out, pos);
                                 }
                             }
                             KeyCode::Up => {
-                                previous(&mut input)?;
+                                previous(&mut state)?;
                                 continue;
                             }
                             KeyCode::Down => {
-                                next(&mut input)?;
+                                next(&mut state)?;
                                 continue;
                             }
                             KeyCode::End if key.modifiers.contains(KeyModifiers::SHIFT) => {
                                 // Select all text next
-                                if !input.is_at_end() {
-                                    let len = input.length;
-                                    let start = if input.selection.is_active() {
-                                        input.selection.get_range().start
-                                    } else {
-                                        input.pos
-                                    };
-                                    input.selection.set(start, len);
-                                    input.update_suggestion_list(len);
-                                    input.rewrite_input(len, len)?;
+                                if state.out.is_at_end() {
                                     continue;
                                 }
+                                let len = state.out.length;
+                                let start = if state.selection.is_active() {
+                                    state.selection.get_range().start
+                                } else {
+                                    state.out.pos
+                                };
+                                state.selection.set(start, len);
+                                state.completion.update(&mut state.out, len);
+                                state.rewrite_input(len, len)?;
+                                continue;
                             }
                             KeyCode::End => {
-                                if input.selection.is_active() {
-                                    let length = input.length;
-                                    input.selection.clear();
-                                    input.update_suggestion_list(length);
-                                    input.rewrite_input(length, length)?;
+                                if state.selection.is_active() {
+                                    let length = state.out.length;
+                                    state.selection.clear();
+                                    state.completion.update(&mut state.out, length);
+                                    state.rewrite_input(length, length)?;
                                     continue;
                                 }
-                                if !input.is_at_end() {
-                                    let from = input.get_current_pos();
-                                    let to = input.get_end();
-                                    input.cursor_to(from, to)?;
-                                    input.pos = input.length;
-                                    let pos = input.length;
-                                    input.update_suggestion_list(pos);
+                                if !state.out.is_at_end() {
+                                    let from = state.out.get_current_pos();
+                                    let to = state.out.get_end();
+                                    state.out.cursor_to(from, to)?;
+                                    state.out.pos = state.out.length;
+                                    let pos = state.out.length;
+                                    state.completion.update(&mut state.out, pos);
                                 }
                             }
                             KeyCode::Home if key.modifiers.contains(KeyModifiers::SHIFT) =>{
                                 // Select all previous text
-                                if !input.is_at_start() {
-                                    let len = input.length;
-                                    let end = if input.selection.is_active() {
-                                        input.selection.get_range().end
-                                    } else {
-                                        input.pos
-                                    };
-                                    input.selection.set(0, end + 1);
-                                    input.update_suggestion_list(0);
-                                    input.rewrite_input(len, 0)?;
+                                if state.out.is_at_start() {
                                     continue;
                                 }
+                                let len = state.out.length;
+                                let end = if state.selection.is_active() {
+                                    state.selection.get_range().end
+                                } else {
+                                    state.out.pos
+                                };
+                                state.selection.set(0, end + 1);
+                                state.completion.update(&mut state.out, 0);
+                                state.rewrite_input(len, 0)?;
+                                continue;
                             }
                             KeyCode::Home => {
-                                if input.selection.is_active() {
-                                    let length = input.length;
-                                    input.selection.clear();
-                                    input.update_suggestion_list(0);
-                                    input.rewrite_input(length, 0)?;
+                                if state.selection.is_active() {
+                                    let length = state.out.length;
+                                    state.selection.clear();
+                                    state.completion.update(&mut state.out, 0);
+                                    state.rewrite_input(length, 0)?;
                                     continue;
                                 }
-                                if !input.is_at_start() {
-                                    let from = input.get_current_pos();
-                                    input.cursor_to(from, (0, 2))?;
-                                    input.pos = 0;
-                                    input.update_suggestion_list(0);
+                                if !state.out.is_at_start() {
+                                    let from = state.out.get_current_pos();
+                                    state.out.cursor_to(from, (0, 2))?;
+                                    state.out.pos = 0;
+                                    state.completion.update(&mut state.out, 0);
                                 }
                             }
                             KeyCode::Insert => {
-                                input.replace = !input.replace;
-                                if input.replace {
-                                    write!(input.out, "{BlinkingBlock}")?;
+                                state.out.replace = !state.out.replace;
+                                if state.out.replace {
+                                    write!(state.out, "{BlinkingBlock}")?;
                                 } else {
-                                    write!(input.out, "{BlinkingBar}")?;
+                                    write!(state.out, "{BlinkingBar}")?;
                                 }
+                                continue;
                             }
                             _ => (),
                         },
                         ExtendedKey::Ctrl(char) => {
                             match char {
                                 'c' => {
-                                    if input.selection.is_active() {
-                                        copy_to_clipboard(&mut input);
+                                    if state.selection.is_active() {
+                                        copy_to_clipboard(&mut state);
                                         continue;
                                     }
-                                    input.cancel_token.cancel();
+                                    state.cancel_token.cancel();
                                 }
                                 'q' => {
-                                    input.cancel_token.cancel();
+                                    state.cancel_token.cancel();
                                 }
                                 'x' => {
-                                    if input.selection.is_active() {
-                                        copy_to_clipboard(&mut input);
-                                        input.delete_selection()?;
+                                    if state.selection.is_active() {
+                                        copy_to_clipboard(&mut state);
+                                        state.delete_selection()?;
                                     }
                                     continue;
                                 }
                                 'a' => {
                                     // Select all text
-                                    if input.length > 0 {
-                                        let len = input.length;
-                                        input.selection.set(0, len);
-                                        input.update_suggestion_list(len);
-                                        input.rewrite_input(len, len)?;
+                                    if state.out.length > 0 {
+                                        let len = state.out.length;
+                                        state.selection.set(0, len);
+                                        state.completion.update(&mut state.out, len);
+                                        state.rewrite_input(len, len)?;
                                     }
+                                    continue;
                                 }
                                 'p' => {
-                                    previous(&mut input)?;
+                                    previous(&mut state)?;
                                     continue;
                                 }
                                 'n' => {
-                                    next(&mut input)?;
+                                    next(&mut state)?;
                                     continue;
                                 }
                                 _ => ()
@@ -320,36 +327,36 @@ impl CommandLogger {
                         }
                         ExtendedKey::String(string) => {
                             if string.chars().any(|c| c == ' ') {
-                                input.completion.selected = 0;
+                                state.completion.selected = 0;
                             }
                             // Delete selection if active
-                            if input.selection.is_active() {
-                                input.delete_selection()?;
+                            if state.selection.is_active() {
+                                state.delete_selection()?;
                             }
-                            if input.replace {
-                                input.replace(string)?;
+                            if state.out.replace {
+                                state.replace(string)?;
                             } else {
-                                input.push(string)?;
+                                state.push(string)?;
                             }
                             continue;
                         }
                     }
-                    if input.completion.enabled {
-                        input.update_completion(0)?;
+                    if state.completion.enabled {
+                        state.completion.rewrite(&mut state.out, 0)?;
                     }
-                    input.out.flush()?;
+                    state.out.flush()?;
                 }
                 () = token.cancelled() => {
-                    let mut input = self.input.write().await;
-                    input.completion.enabled = false;
-                    if !input.is_at_end() {
-                        let from = input.get_current_pos();
-                        let to = input.get_end();
-                        input.cursor_to(from, to)?;
+                    let mut state = self.input.write().await;
+                    state.completion.enabled = false;
+                    if !state.out.is_at_end() {
+                        let from = state.out.get_current_pos();
+                        let to = state.out.get_end();
+                        state.out.cursor_to(from, to)?;
                     }
-                    write!(input.out, "\x1b[J{DefaultUserShape}")?;
-                    input.save_history().await?;
-                    input.out.flush()?;
+                    write!(state.out, "{}{DefaultUserShape}", Clear(ClearType::FromCursorDown))?;
+                    state.history.save().await?;
+                    state.out.flush()?;
                     disable_raw_mode()?;
                     break;
                 },
@@ -359,21 +366,21 @@ impl CommandLogger {
     }
 }
 
-fn copy_to_clipboard(input: &mut Input) -> Option<()> {
+fn copy_to_clipboard(input: &mut LogState) -> Option<()> {
     let range = input.selection.get_range();
     let start = range.start;
     let end = range.end;
 
     // Find byte positions for the character indices
-    let char_indices: Vec<(usize, char)> = input.text.char_indices().collect();
+    let char_indices: Vec<(usize, char)> = input.out.text.char_indices().collect();
 
     let byte_start = char_indices[start].0;
     let byte_end = if end < char_indices.len() {
         char_indices[end].0
     } else {
-        input.text.len()
+        input.out.text.len()
     };
-    let text = &input.text[byte_start..byte_end];
+    let text = input.out.text[byte_start..byte_end].to_string();
     if let Err(err) = execute!(input.out, CopyToClipboard::to_clipboard_from(text)) {
         log::error!("{err}");
         return None;
@@ -381,21 +388,21 @@ fn copy_to_clipboard(input: &mut Input) -> Option<()> {
     Some(())
 }
 
-fn previous(input: &mut Input) -> Result<()> {
-    if input.completion.enabled {
-        input.update_completion(-1)?;
+fn previous(state: &mut LogState) -> Result<()> {
+    if state.completion.enabled {
+        state.completion.rewrite(&mut state.out, -1)?;
     } else {
-        input.selection.clear();
-        input.move_history(1)?;
+        state.selection.clear();
+        History::update(state, 1)?;
     }
     Ok(())
 }
-fn next(input: &mut Input) -> Result<()> {
-    if input.completion.enabled {
-        input.update_completion(1)?;
-    } else if input.history.pos != 0 {
-        input.selection.clear();
-        input.move_history(-1)?;
+fn next(state: &mut LogState) -> Result<()> {
+    if state.completion.enabled {
+        state.completion.rewrite(&mut state.out, 1)?;
+    } else if state.history.pos != 0 {
+        state.selection.clear();
+        History::update(state, -1)?;
     }
     Ok(())
 }
