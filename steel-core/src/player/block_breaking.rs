@@ -4,12 +4,14 @@
 //! block breaking, including progress tracking and validation.
 
 use steel_protocol::packets::game::CBlockUpdate;
+use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::{REGISTRY, blocks::properties::Direction, vanilla_blocks};
 use steel_utils::{
     BlockPos, BlockStateId,
     types::{GameType, InteractionHand, UpdateFlags},
 };
 
+use crate::behavior::BLOCK_BEHAVIORS;
 use crate::player::Player;
 use crate::world::World;
 
@@ -272,18 +274,20 @@ impl BlockBreakingManager {
         // TODO: Check for GameMasterBlock (command blocks, etc.)
         // TODO: Check blockActionRestricted
 
+        // Call player_will_destroy before removing the block
+        // This lets blocks play custom effects (e.g., fire plays extinguish sound)
+        let block = state.get_block();
+        let behavior = BLOCK_BEHAVIORS.get_behavior(block);
+        let handled_effect = behavior.player_will_destroy(state, world, pos, player);
+
         // Remove the block
         let air_state = REGISTRY.blocks.get_base_state_id(vanilla_blocks::AIR);
         let changed = world.set_block(pos, air_state, UpdateFlags::UPDATE_ALL);
 
         if changed {
-            // Play block destruction particles and sound (skip for fire blocks like vanilla)
+            // Play block destruction particles and sound if not already handled
             // Exclude the breaking player as they see the effect client-side
-            let block = REGISTRY.blocks.by_state_id(state);
-            let is_fire = block.is_some_and(|b| {
-                b.key == vanilla_blocks::FIRE.key || b.key == vanilla_blocks::SOUL_FIRE.key
-            });
-            if !is_fire {
+            if !handled_effect {
                 world.destroy_block_effect(pos, u32::from(state.0), Some(player.id));
             }
 

@@ -398,6 +398,16 @@ impl Direction {
         }
     }
 
+    /// All direction values.
+    pub const VALUES: [Direction; 6] = [
+        Direction::Down,
+        Direction::Up,
+        Direction::North,
+        Direction::South,
+        Direction::West,
+        Direction::East,
+    ];
+
     /// The order in which neighbor shape updates are processed.
     /// This matches vanilla's `BlockBehaviour.UPDATE_SHAPE_ORDER`.
     pub const UPDATE_SHAPE_ORDER: [Direction; 6] = [

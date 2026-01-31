@@ -160,6 +160,12 @@ impl ChunkStatusTasks {
         //panic!("Full task");
         //log::info!("Chunk {:?} upgraded to full", holder.get_pos());
         holder.upgrade_to_full(context.weak_world());
+
+        // Register tick container for this chunk
+        let world = context.world();
+        let chunk_pos = holder.get_pos();
+        world.register_chunk_ticks(chunk_pos);
+
         Ok(())
     }
 }

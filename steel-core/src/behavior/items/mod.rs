@@ -7,10 +7,12 @@ mod block_item;
 mod bucket;
 mod default;
 mod ender_eye;
+mod flint_and_steel;
 mod sign_item;
 
 pub use block_item::BlockItemBehavior;
 pub use bucket::FilledBucketBehavior;
 pub use default::DefaultItemBehavior;
 pub use ender_eye::EnderEyeBehavior;
+pub use flint_and_steel::FlintAndSteelBehavior;
 pub use sign_item::{HangingSignItemBehavior, SignItemBehavior};

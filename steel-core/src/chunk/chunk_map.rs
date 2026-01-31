@@ -533,6 +533,12 @@ impl ChunkMap {
                 } else {
                     // Clean and no refs - release region handle and remove
                     let pos = *pos;
+
+                    // Unregister tick container for this chunk
+                    if let Some(world) = self.world_gen_context.weak_world().upgrade() {
+                        world.unregister_chunk_ticks(pos);
+                    }
+
                     let map_clone = self.clone();
                     self.task_tracker.spawn(async move {
                         if let Err(e) = map_clone.region_manager.release_chunk(pos).await {

@@ -3,7 +3,7 @@ use std::{
     io,
     sync::{
         Arc, Weak,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
     time::Duration,
 };
@@ -29,6 +29,7 @@ use steel_registry::level_events;
 use steel_registry::vanilla_blocks;
 use steel_registry::vanilla_game_rules::RANDOM_TICK_SPEED;
 use steel_registry::{REGISTRY, dimension_type::DimensionTypeRef};
+use steel_utils::locks::SyncMutex;
 
 use steel_registry::blocks::shapes::{AABBd, VoxelShape};
 use steel_utils::locks::SyncRwLock;
@@ -42,6 +43,7 @@ use crate::{
     config::STEEL_CONFIG,
     level_data::LevelDataManager,
     player::{LastSeen, Player},
+    ticks::{LevelTicks, TickPriority},
 };
 
 mod player_area_map;
@@ -79,6 +81,11 @@ pub struct World {
     /// Whether the tick rate is running normally (not frozen/paused).
     /// When false, movement validation checks are skipped.
     tick_runs_normally: AtomicBool,
+    /// Scheduled block ticks (fire, redstone, etc.).
+    /// The type parameter is the block ID (index into block registry).
+    block_ticks: SyncMutex<LevelTicks<u16>>,
+    /// The current game tick count (used for scheduling).
+    current_tick: AtomicU64,
 }
 
 impl World {
@@ -102,6 +109,8 @@ impl World {
             dimension,
             level_data: SyncRwLock::new(level_data),
             tick_runs_normally: AtomicBool::new(true),
+            block_ticks: SyncMutex::new(LevelTicks::new()),
+            current_tick: AtomicU64::new(0),
         }))
     }
 
@@ -483,8 +492,16 @@ impl World {
     ///
     /// Returns timing information for the world tick.
     #[tracing::instrument(level = "trace", skip(self), name = "world_tick")]
-    pub fn tick_b(&self, tick_count: u64, runs_normally: bool) -> WorldTickTimings {
+    pub fn tick_b(self: &Arc<Self>, tick_count: u64, runs_normally: bool) -> WorldTickTimings {
+        // Update current tick counter
+        self.current_tick.store(tick_count, Ordering::Relaxed);
+
         let random_tick_speed = self.get_game_rule(RANDOM_TICK_SPEED).as_int().unwrap_or(3) as u32;
+
+        // Process scheduled block ticks (fire, redstone, etc.) before chunk ticks
+        if runs_normally {
+            self.process_scheduled_ticks(tick_count);
+        }
 
         let chunk_map_timings = self
             .chunk_map
@@ -511,6 +528,100 @@ impl World {
             chunk_map: chunk_map_timings,
             player_tick,
         }
+    }
+
+    /// Maximum number of scheduled ticks to process per world tick.
+    /// Matches vanilla's `ServerLevel.MAX_BLOCK_TICKS_PER_TICK`.
+    const MAX_SCHEDULED_TICKS_PER_TICK: usize = 65536;
+
+    /// Processes all scheduled block ticks that are due.
+    fn process_scheduled_ticks(self: &Arc<Self>, current_tick: u64) {
+        let _span = tracing::trace_span!("scheduled_ticks").entered();
+
+        // Collect ticks to process
+        let ticks_to_run = {
+            let mut block_ticks = self.block_ticks.lock();
+            block_ticks.tick(
+                current_tick,
+                Self::MAX_SCHEDULED_TICKS_PER_TICK,
+                |chunk_pos| {
+                    // Only tick chunks that are loaded as full chunks
+                    self.chunk_map
+                        .with_full_chunk(chunk_pos, |chunk| chunk.as_full().is_some())
+                        .unwrap_or(false)
+                },
+            )
+        };
+
+        // Process each tick by calling the block's scheduled_tick behavior
+        let block_behaviors = &*BLOCK_BEHAVIORS;
+        for (pos, block_id) in ticks_to_run {
+            let state = self.get_block_state(&pos);
+            let block = state.get_block();
+
+            // Verify the block at this position is still the same type
+            if *REGISTRY.blocks.get_id(block) as u16 == block_id {
+                let behavior = block_behaviors.get_behavior(block);
+                behavior.scheduled_tick(state, self, pos);
+            }
+        }
+    }
+
+    /// Schedules a block tick to fire after the given delay.
+    ///
+    /// If a tick is already scheduled for this position and block, the new tick
+    /// is ignored and the existing timing is kept.
+    ///
+    /// # Arguments
+    /// * `pos` - The block position
+    /// * `block` - The block to tick
+    /// * `delay` - Delay in game ticks before the tick fires
+    pub fn schedule_tick(&self, pos: BlockPos, block: BlockRef, delay: u32) {
+        self.schedule_tick_with_priority(pos, block, delay, TickPriority::Normal);
+    }
+
+    /// Schedules a block tick with a specific priority.
+    ///
+    /// # Arguments
+    /// * `pos` - The block position
+    /// * `block` - The block to tick
+    /// * `delay` - Delay in game ticks before the tick fires
+    /// * `priority` - Priority for ordering within the same game tick
+    pub fn schedule_tick_with_priority(
+        &self,
+        pos: BlockPos,
+        block: BlockRef,
+        delay: u32,
+        priority: TickPriority,
+    ) {
+        let block_id = *REGISTRY.blocks.get_id(block) as u16;
+        let current_tick = self.current_tick.load(Ordering::Relaxed);
+        let mut block_ticks = self.block_ticks.lock();
+        block_ticks.schedule(pos, block_id, current_tick, delay, priority);
+    }
+
+    /// Checks if a tick is already scheduled for the given position and block.
+    pub fn has_scheduled_tick(&self, pos: BlockPos, block: BlockRef) -> bool {
+        let block_id = *REGISTRY.blocks.get_id(block) as u16;
+        self.block_ticks.lock().has_scheduled_tick(pos, block_id)
+    }
+
+    /// Returns the current game tick count.
+    pub fn get_current_tick(&self) -> u64 {
+        self.current_tick.load(Ordering::Relaxed)
+    }
+
+    /// Registers a tick container for a chunk when it becomes full.
+    pub fn register_chunk_ticks(&self, chunk_pos: ChunkPos) {
+        use crate::ticks::LevelChunkTicks;
+        self.block_ticks
+            .lock()
+            .add_container(chunk_pos, LevelChunkTicks::new());
+    }
+
+    /// Unregisters a tick container for a chunk when it's unloaded.
+    pub fn unregister_chunk_ticks(&self, chunk_pos: ChunkPos) {
+        self.block_ticks.lock().remove_container(&chunk_pos);
     }
 
     /// Broadcasts latency updates for all players to all players.
