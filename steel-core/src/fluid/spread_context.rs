@@ -1,0 +1,175 @@
+//! Spread calculation context for fluid flow optimization.
+//!
+//! Based on vanilla's FlowingFluid.SpreadContext, this provides local caching
+//! of block states and hole checks during fluid spread calculations.
+//!
+//! This avoids repeatedly querying the world for the same positions during
+//! the recursive slope-finding algorithm.
+
+use rustc_hash::FxHashMap;
+use steel_registry::blocks::BlockRef;
+use steel_registry::blocks::block_state_ext::BlockStateExt;
+use steel_registry::blocks::shapes::is_shape_full_block;
+use steel_utils::BlockPos;
+use steel_utils::BlockStateId;
+
+use crate::fluid::get_fluid_state_from_block;
+use crate::world::World;
+
+/// Context for fluid spread calculations with local caching.
+///
+/// This is created fresh for each `get_spread()` call and caches:
+/// - `BlockState` lookups by relative position
+/// - Hole check results by relative position
+///
+/// # Performance
+/// Reduces world lookups from ~20-30 to ~6 per spread calculation by caching
+/// repeated accesses to the same positions during slope finding.
+pub struct SpreadContext<'a> {
+    /// Cache for block states by encoded relative position
+    state_cache: FxHashMap<i16, BlockStateId>,
+    /// Cache for hole check results by encoded relative position
+    hole_cache: FxHashMap<i16, bool>,
+    /// Reference to world for cache misses
+    world: &'a World,
+}
+
+impl<'a> SpreadContext<'a> {
+    /// Creates a new `SpreadContext` for the given world.
+    #[must_use]
+    pub fn new(world: &'a World) -> Self {
+        Self {
+            state_cache: FxHashMap::default(),
+            hole_cache: FxHashMap::default(),
+            world,
+        }
+    }
+
+    /// Encodes relative x, z coordinates into a short key.
+    ///
+    /// Uses vanilla's encoding: `(dx + 128) << 8 | (dz + 128)`
+    /// This allows encoding positions from -128 to +127 in each axis.
+    fn encode_key(dx: i8, dz: i8) -> i16 {
+        ((i16::from(dx) + 128) << 8) | (i16::from(dz) + 128)
+    }
+
+    /// Gets the cached block state at the given position, querying the world if not cached.
+    #[must_use]
+    pub fn get_block_state(&mut self, pos: BlockPos) -> BlockStateId {
+        let dx = pos.0.x as i8;
+        let dz = pos.0.z as i8;
+        let key = Self::encode_key(dx, dz);
+
+        *self
+            .state_cache
+            .entry(key)
+            .or_insert_with(|| self.world.get_block_state(&pos))
+    }
+
+    /// Gets the cached block reference at the given position.
+    #[must_use]
+    pub fn get_block(&mut self, pos: BlockPos) -> BlockRef {
+        self.get_block_state(pos).get_block()
+    }
+
+    /// Checks if the position is a hole (can fluid flow down into it?), with caching.
+    #[must_use]
+    pub fn is_hole(&mut self, pos: BlockPos, fluid_id: u8) -> bool {
+        let dx = pos.0.x as i8;
+        let dz = pos.0.z as i8;
+        let key = Self::encode_key(dx, dz);
+
+        *self
+            .hole_cache
+            .entry(key)
+            .or_insert_with(|| is_hole_internal(self.world, pos, fluid_id))
+    }
+
+    /// Checks if fluid can pass horizontally to the given position.
+    ///
+    /// This uses the cached block state for efficiency.
+    #[must_use]
+    pub fn can_pass_horizontally(&mut self, pos: BlockPos, fluid_id: u8) -> bool {
+        let state = self.get_block_state(pos);
+        let block = state.get_block();
+
+        // Can always pass through air and replaceable blocks
+        if block.config.is_air || block.config.replaceable {
+            return true;
+        }
+
+        // Check collision shape
+        let shape = state.get_collision_shape();
+
+        // If shape is a full block, can't pass through (unless same fluid)
+        if is_shape_full_block(shape) {
+            let fluid_state = get_fluid_state_from_block(state);
+            if fluid_state.fluid_id == fluid_id && !fluid_state.is_source() {
+                return true;
+            }
+            return false;
+        }
+
+        // If shape is empty, can pass through
+        if shape.is_empty() {
+            return true;
+        }
+
+        // Can flow into same fluid type if not source
+        let fluid_state = get_fluid_state_from_block(state);
+        if fluid_state.fluid_id == fluid_id && !fluid_state.is_source() {
+            return true;
+        }
+
+        false
+    }
+
+    /// Returns a reference to the world.
+    #[must_use]
+    pub fn world(&self) -> &'a World {
+        self.world
+    }
+}
+
+/// Internal helper for hole check that doesn't use caching.
+/// This is used by `SpreadContext` for cache misses.
+pub fn is_hole_internal(world: &World, pos: BlockPos, fluid_id: u8) -> bool {
+    let below_pos = pos.offset(0, -1, 0);
+
+    if !world.is_in_valid_bounds(&below_pos) {
+        return false;
+    }
+
+    let below_state = world.get_block_state(&below_pos);
+    let below_block = below_state.get_block();
+
+    // Air/replaceable below = hole (can flow down)
+    if below_block.config.is_air || below_block.config.replaceable {
+        return true;
+    }
+
+    // Check if we can pass through the block below
+    // This is similar to can_pass_horizontally but for downward flow
+    let below_shape = below_state.get_collision_shape();
+    if is_shape_full_block(below_shape) {
+        // Full block below - check if it's the same fluid type
+        let below_fluid = get_fluid_state_from_block(below_state);
+        if below_fluid.fluid_id == fluid_id && !below_fluid.is_source() {
+            return true;
+        }
+        return false;
+    }
+
+    // Empty or non-full shape = can flow into it
+    if below_shape.is_empty() {
+        return true;
+    }
+
+    // Can flow into same fluid type
+    let below_fluid = get_fluid_state_from_block(below_state);
+    if below_fluid.fluid_id == fluid_id && !below_fluid.is_source() {
+        return true;
+    }
+
+    false
+}

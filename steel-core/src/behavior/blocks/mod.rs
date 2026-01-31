@@ -9,6 +9,7 @@ mod crop_block;
 mod end_portal_frame_block;
 mod farmland_block;
 mod fence_block;
+mod liquid_block;
 mod rotated_pillar_block;
 mod sign_block;
 
@@ -18,6 +19,7 @@ pub use crop_block::CropBlock;
 pub use end_portal_frame_block::EndPortalFrameBlock;
 pub use farmland_block::FarmlandBlock;
 pub use fence_block::FenceBlock;
+pub use liquid_block::LiquidBlockBehavior;
 pub use rotated_pillar_block::RotatedPillarBlock;
 pub use sign_block::{
     CeilingHangingSignBlock, StandingSignBlock, WallHangingSignBlock, WallSignBlock,

@@ -42,10 +42,15 @@ pub mod item_behaviours;
 
 pub use block::{BlockBehaviorRegistry, BlockBehaviour, DefaultBlockBehaviour};
 use block_behaviours::register_block_behaviors;
-pub use context::{BlockHitResult, BlockPlaceContext, InteractionResult, UseOnContext};
+pub use context::{
+    BlockHitResult, BlockPlaceContext, InteractionResult, UseItemContext, UseOnContext,
+};
 pub use item::{ItemBehavior, ItemBehaviorRegistry};
 use item_behaviours::register_item_behaviors;
-pub use items::{BlockItemBehavior, DefaultItemBehavior, EnderEyeBehavior, FilledBucketBehavior};
+pub use items::{
+    BlockItemBehavior, DefaultItemBehavior, EmptyBucketBehavior, EnderEyeBehavior,
+    FilledBucketBehavior,
+};
 use std::ops::Deref;
 use std::sync::OnceLock;
 use steel_registry::{vanilla_blocks, vanilla_items};
@@ -93,6 +98,18 @@ pub fn init_behaviors() {
     let mut block_behaviors = BlockBehaviorRegistry::new();
     register_block_behaviors(&mut block_behaviors);
 
+    // Register liquid block behaviors for proper de-propagation
+    // When a neighbor changes, these blocks schedule a tick for themselves
+    // Water tick delay = 5, Lava tick delay = 30 (vanilla values)
+    block_behaviors.set_behavior(
+        vanilla_blocks::WATER,
+        Box::new(blocks::LiquidBlockBehavior::new(vanilla_blocks::WATER, 5)),
+    );
+    block_behaviors.set_behavior(
+        vanilla_blocks::LAVA,
+        Box::new(blocks::LiquidBlockBehavior::new(vanilla_blocks::LAVA, 30)),
+    );
+
     assert!(
         BLOCK_BEHAVIORS.0.set(block_behaviors).is_ok(),
         "Block behavior registry already initialized"
@@ -102,6 +119,10 @@ pub fn init_behaviors() {
     register_item_behaviors(&mut item_behaviors);
 
     // Register bucket behaviors (not auto-generated since they're not block items)
+    item_behaviors.set_behavior(
+        &vanilla_items::ITEMS.bucket,
+        Box::new(EmptyBucketBehavior::new()),
+    );
     item_behaviors.set_behavior(
         &vanilla_items::ITEMS.water_bucket,
         Box::new(FilledBucketBehavior::new(

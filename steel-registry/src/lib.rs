@@ -131,6 +131,7 @@ pub mod vanilla_wolf_variants;
 #[path = "generated/vanilla_wolf_sound_variants.rs"]
 pub mod vanilla_wolf_sound_variants;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_pig_variants.rs"]
 pub mod vanilla_pig_variants;
@@ -165,6 +166,7 @@ pub mod vanilla_painting_variants;
 #[path = "generated/vanilla_dimension_types.rs"]
 pub mod vanilla_dimension_types;
 
+#[allow(warnings)]
 #[rustfmt::skip]
 #[path = "generated/vanilla_damage_types.rs"]
 pub mod vanilla_damage_types;
@@ -269,6 +271,9 @@ pub mod sound_types;
 #[path = "generated/vanilla_packets.rs"]
 pub mod packets;
 
+// Re-export fluid types for convenience
+pub use fluid::fluid_tags;
+pub use fluid::{Fluid, FluidState};
 
 pub struct RegistryLock(OnceLock<Registry>);
 

@@ -57,6 +57,12 @@ pub trait LivingEntity: Entity {
     /// Gets the entity's position.
     fn get_position(&self) -> Vector3<f64>;
 
+    /// Gets the position of the entity's eyes.
+    fn eye_position(&self) -> Vector3<f64>;
+
+    /// Gets the entity's rotation as (yaw, pitch).
+    fn rotation(&self) -> (f32, f32);
+
     /// Gets the absorption amount (extra health from effects like absorption).
     fn get_absorption_amount(&self) -> f32;
 

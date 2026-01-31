@@ -1,13 +1,13 @@
-use steel_utils::BlockStateId;
-
+use crate::vanilla_blocks;
 use crate::{
     REGISTRY,
     blocks::{
         self, BlockRef,
-        properties::{Direction, Property},
+        properties::{BlockStateProperties, Direction, Property},
         shapes::SupportType,
     },
 };
+use steel_utils::BlockStateId;
 
 pub trait BlockStateExt {
     fn get_block(&self) -> BlockRef;
@@ -102,5 +102,45 @@ impl BlockStateExt for BlockStateId {
         // Check if the collision shape is a full block
         let shape = self.get_collision_shape();
         blocks::shapes::is_shape_full_block(shape)
+    }
+}
+
+pub trait FluidReplaceableExt {
+    fn can_be_replaced_by_fluid(&self, fluid: BlockRef) -> bool;
+}
+
+impl FluidReplaceableExt for BlockStateId {
+    fn can_be_replaced_by_fluid(&self, fluid: BlockRef) -> bool {
+        let block = self.get_block();
+
+        if std::ptr::eq(block, vanilla_blocks::AIR) {
+            return true;
+        }
+
+        // Bloc contenant déjà un fluide
+        if self.contains_fluid() {
+            return false;
+        }
+
+        if std::ptr::eq(fluid, vanilla_blocks::WATER)
+            && let Some(false) = self.try_get_value(&BlockStateProperties::WATERLOGGED)
+        {
+            return true;
+        }
+
+        block.config.replaceable
+    }
+}
+
+pub trait FluidStateExt {
+    fn contains_fluid(&self) -> bool;
+}
+
+impl FluidStateExt for BlockStateId {
+    fn contains_fluid(&self) -> bool {
+        let block = self.get_block();
+
+        // Vanilla-like: water + lava are fluids
+        std::ptr::eq(block, vanilla_blocks::WATER) || std::ptr::eq(block, vanilla_blocks::LAVA)
     }
 }

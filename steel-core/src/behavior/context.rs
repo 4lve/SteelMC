@@ -6,11 +6,10 @@ use steel_utils::BlockPos;
 use steel_utils::math::Vector3;
 use steel_utils::types::InteractionHand;
 
-// Re-export BlockHitResult from steel-registry since it's also used by steel-protocol
-pub use steel_registry::items::item::BlockHitResult;
-
+use crate::fluid::is_water;
 use crate::player::Player;
 use crate::world::World;
+pub use steel_registry::items::item::BlockHitResult;
 
 /// Result of an interaction (item use, block use, etc.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -113,6 +112,16 @@ impl BlockPlaceContext<'_> {
     }
 }
 
+impl BlockPlaceContext<'_> {
+    /// Returns true if the block at the relative position is a water source
+    #[must_use]
+    pub fn is_water_source(&self) -> bool {
+        use crate::fluid::get_fluid_state;
+        let fluid_state = get_fluid_state(self.world, &self.relative_pos);
+        fluid_state.is_source() && is_water(fluid_state.fluid_id)
+    }
+}
+
 /// Context for using an item on a block.
 pub struct UseOnContext<'a> {
     /// The player using the item.
@@ -121,6 +130,18 @@ pub struct UseOnContext<'a> {
     pub hand: InteractionHand,
     /// Information about where the block was hit.
     pub hit_result: BlockHitResult,
+    /// The world where the interaction is happening.
+    pub world: &'a World,
+    /// The item stack being used (mutable for consumption).
+    pub item_stack: &'a mut ItemStack,
+}
+
+/// Context for using an item (general usage).
+pub struct UseItemContext<'a> {
+    /// The player using the item.
+    pub player: &'a Player,
+    /// Which hand the item is in.
+    pub hand: InteractionHand,
     /// The world where the interaction is happening.
     pub world: &'a World,
     /// The item stack being used (mutable for consumption).
