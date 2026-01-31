@@ -10,7 +10,7 @@ use crossterm::{
         SetCursorStyle::{BlinkingBar, BlinkingBlock},
     },
     style::{
-        Color::{Grey, Yellow},
+        Color::{DarkGrey, Yellow},
         ResetColor, SetForegroundColor,
     },
     terminal,
@@ -320,7 +320,7 @@ impl Input {
                     let color = if pos == self.completion.selected {
                         Yellow
                     } else {
-                        Grey
+                        DarkGrey
                     };
 
                     write!(
@@ -364,7 +364,7 @@ impl Input {
         write!(
             self.out,
             "\x1b[s{}{}\x1b[u",
-            SetForegroundColor(Grey),
+            SetForegroundColor(DarkGrey),
             &self.completion.completed
         )?;
         self.out.flush()?;
@@ -497,7 +497,7 @@ impl CommandLogger {
                         lvl,
                         if STEEL_CONFIG.log.as_ref().is_some_and(|l| l.module_path) {
                             format!(" {}{}{}",
-                                SetForegroundColor(Grey),
+                                SetForegroundColor(DarkGrey),
                                 data.module_path,
                                 ResetColor
                             )
@@ -507,7 +507,7 @@ impl CommandLogger {
                         data.message,
                         if STEEL_CONFIG.log.as_ref().is_some_and(|l| l.extra) {
                             format!("{}{}{}",
-                                SetForegroundColor(Grey),
+                                SetForegroundColor(DarkGrey),
                                 data.extra,
                                 ResetColor
                             )

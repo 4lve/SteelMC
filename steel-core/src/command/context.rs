@@ -42,14 +42,22 @@ impl CommandContext {
     #[must_use]
     pub fn new(sender: CommandSender, server: Arc<Server>) -> Self {
         let player = sender.get_player().cloned();
-        let position = player
-            .as_ref()
-            // TODO: The default position is the surface of the world center
-            // (Where the compass should point to)
-            .map_or(Vector3::new(0., 63., 0.), |p| *p.position.lock());
         let world = player
             .as_ref()
             .map_or(server.worlds[0].clone(), |p| Arc::clone(&p.world));
+        let world_spawn = world.level_data.read().data().spawn.clone();
+        let position = player
+            .as_ref()
+            // TODO: Check this. The default position is the surface of the world center
+            // (Where the compass should point to)
+            .map_or(
+                Vector3::new(
+                    world_spawn.x as f64,
+                    world_spawn.y as f64,
+                    world_spawn.z as f64,
+                ),
+                |p| *p.position.lock(),
+            );
 
         Self {
             sender,
