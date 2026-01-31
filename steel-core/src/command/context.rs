@@ -52,9 +52,9 @@ impl CommandContext {
             // (Where the compass should point to)
             .map_or(
                 Vector3::new(
-                    world_spawn.x as f64,
-                    world_spawn.y as f64,
-                    world_spawn.z as f64,
+                    f64::from(world_spawn.x),
+                    f64::from(world_spawn.y),
+                    f64::from(world_spawn.z),
                 ),
                 |p| *p.position.lock(),
             );
