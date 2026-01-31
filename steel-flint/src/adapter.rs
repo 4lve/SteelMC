@@ -177,11 +177,8 @@ mod tests {
         let runner = TestRunner::new(&adapter);
 
         // Run the test
-        generate_output(runner.run_tests(&specs));
-        for res in runner.run_tests(&specs).results
-        {
-
-        }
+        let summary = runner.run_tests(&specs);
+        summary.print_concise_summary()
     }
 
     #[test]

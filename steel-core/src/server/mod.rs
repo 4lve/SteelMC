@@ -155,7 +155,7 @@ impl Server {
         let hashed_seed = world.obfuscated_seed();
         let dimension_key = world.dimension.key.clone();
 
-        player.connection.send_packet(CLogin {
+        player.send_packet(CLogin {
             player_id: player.id,
             hardcore: false,
             levels: vec![dimension_key.clone()],
@@ -190,7 +190,7 @@ impl Server {
         player.send_abilities();
 
         let commands = self.command_dispatcher.read().get_commands();
-        player.connection.send_packet(commands);
+        player.send_packet(commands);
 
         // Send current ticking state to the joining player
         self.send_ticking_state_to_player(&player);
@@ -420,7 +420,7 @@ impl Server {
         let step_packet = CTickingStep::new(tick_manager.frozen_ticks_to_run());
         drop(tick_manager);
 
-        player.connection.send_packet(state_packet);
-        player.connection.send_packet(step_packet);
+        player.send_packet(state_packet);
+        player.send_packet(step_packet);
     }
 }

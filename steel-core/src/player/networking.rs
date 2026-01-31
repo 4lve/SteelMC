@@ -34,6 +34,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::command::sender::CommandSender;
 use crate::player::Player;
+use crate::player::connection::PlayerConnection;
 use crate::server::Server;
 
 #[allow(clippy::struct_field_names)]
@@ -306,9 +307,7 @@ impl JavaConnection {
             }
             play::S_PING_REQUEST => {
                 let packet = SPingRequest::read_packet(data)?;
-                player
-                    .connection
-                    .send_packet(CPongResponse::new(packet.time));
+                player.send_packet(CPongResponse::new(packet.time));
             }
             id => log::info!("play packet id {id} is not known"),
         }
@@ -392,5 +391,35 @@ impl TextResolutor for JavaConnection {
 
     fn translate(&self, _key: &str) -> Option<String> {
         None
+    }
+}
+
+impl PlayerConnection for JavaConnection {
+    fn compression(&self) -> Option<CompressionInfo> {
+        self.compression
+    }
+
+    fn send_encoded(&self, packet: EncodedPacket) {
+        self.send_encoded_packet(packet);
+    }
+
+    fn disconnect_with_reason(&self, reason: TextComponent) {
+        self.disconnect(reason);
+    }
+
+    fn tick(&self) {
+        self.keep_connection_alive();
+    }
+
+    fn latency(&self) -> i32 {
+        *self.latency.lock() as i32
+    }
+
+    fn close(&self) {
+        self.cancel_token.cancel();
+    }
+
+    fn closed(&self) -> bool {
+        self.cancel_token.is_cancelled()
     }
 }

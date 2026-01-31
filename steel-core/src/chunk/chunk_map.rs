@@ -37,6 +37,7 @@ use crate::chunk::{
 };
 use crate::chunk_saver::{ChunkStorage, RegionManager};
 use crate::player::Player;
+use crate::player::connection::PlayerConnection;
 use crate::world::World;
 
 /// Timing information for chunk map tick operations.
@@ -289,7 +290,7 @@ impl ChunkMap {
 
                     for entity_id in &tracking_players {
                         if let Some(player) = world.players.get_by_entity_id(*entity_id) {
-                            player.connection.send_packet(update_packet.clone());
+                            player.send_packet(update_packet.clone());
                         }
                     }
                 } else {
@@ -320,7 +321,7 @@ impl ChunkMap {
 
                     for entity_id in &tracking_players {
                         if let Some(player) = world.players.get_by_entity_id(*entity_id) {
-                            player.connection.send_packet(packet.clone());
+                            player.send_packet(packet.clone());
                         }
                     }
                 }
@@ -636,7 +637,6 @@ impl ChunkMap {
         if last_view_guard.as_ref() != Some(&new_view) {
             let mut chunk_tickets = self.chunk_tickets.lock();
 
-            let connection = &player.connection;
             let world = self.world_gen_context.world();
 
             if let Some(last_view) = last_view_guard.as_ref() {
@@ -652,7 +652,7 @@ impl ChunkMap {
                         MAX_VIEW_DISTANCE.saturating_sub(new_view.view_distance),
                     );
 
-                    connection.send_packet(CSetChunkCenter {
+                    player.send_packet(CSetChunkCenter {
                         x: new_view.center.0.x,
                         y: new_view.center.0.y,
                     });
@@ -664,6 +664,7 @@ impl ChunkMap {
 
                 // We lock here to ensure we have unique access for the duration of the diff
                 let mut chunk_sender = player.chunk_sender.lock();
+                let connection: &dyn PlayerConnection = &*player.connection;
                 PlayerChunkView::difference(
                     last_view,
                     &new_view,

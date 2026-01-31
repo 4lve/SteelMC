@@ -118,7 +118,7 @@ impl FlintWorld for SteelTestWorld {
 
     fn set_block(&mut self, pos: FlintBlockPos, block: &FlintBlock) {
         let Some(state_id) = flint_block_to_state_id(block) else {
-            log::warn!("Unknown block: {} - skipping placement", block.id);
+            tracing::warn!("Unknown block: {} - skipping placement", block.id);
             return;
         };
 

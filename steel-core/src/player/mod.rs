@@ -2,7 +2,10 @@
 mod abilities;
 pub mod block_breaking;
 pub mod chunk_sender;
-mod game_mode;
+/// This module contains the `PlayerConnection` trait that abstracts network connections.
+pub mod connection;
+/// Game mode specific logic for player interactions.
+pub mod game_mode;
 mod game_profile;
 pub mod message_chain;
 mod message_validator;
@@ -29,12 +32,14 @@ use std::{
     },
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
+use steel_protocol::packet_traits::{ClientPacket, EncodedPacket};
 use steel_protocol::packets::game::CSystemChatMessage;
 use steel_protocol::packets::game::{
     AnimateAction, CAnimate, CEntityPositionSync, COpenSignEditor, CPlayerPosition, CSetEntityData,
     CSetHeldSlot, PlayerAction, SAcceptTeleportation, SPickItemFromBlock, SPlayerAbilities,
     SPlayerAction, SSetCarriedItem, SUseItem, SUseItemOn,
 };
+use steel_protocol::utils::ConnectionProtocol;
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::entity_data::EntityPose;
 use steel_registry::game_rules::GameRuleValue;
@@ -135,15 +140,16 @@ impl Default for ClientInformation {
 }
 
 use crate::chunk::player_chunk_view::PlayerChunkView;
-use crate::player::{chunk_sender::ChunkSender, networking::JavaConnection};
+use crate::player::chunk_sender::ChunkSender;
+use crate::player::connection::PlayerConnection;
 use crate::world::World;
 
 /// A struct representing a player.
 pub struct Player {
     /// The player's game profile.
     pub gameprofile: GameProfile,
-    /// The player's connection.
-    pub connection: Arc<JavaConnection>,
+    /// The player's connection (abstracted for testing).
+    pub connection: Arc<dyn PlayerConnection>,
 
     /// The world the player is in.
     pub world: Arc<World>,
@@ -281,7 +287,7 @@ impl Player {
     /// Creates a new player.
     pub fn new(
         gameprofile: GameProfile,
-        connection: Arc<JavaConnection>,
+        connection: Arc<dyn PlayerConnection>,
         world: Arc<World>,
         entity_id: i32,
         player: &Weak<Player>,
@@ -341,6 +347,29 @@ impl Player {
             position_sync_delay: AtomicI32::new(0),
             last_sent_on_ground: AtomicBool::new(false),
         }
+    }
+
+    /// Sends a packet to the player's connection.
+    ///
+    /// This is a generic helper that encodes the packet and delegates to the
+    /// connection's `send_encoded` method, enabling object-safe packet sending.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the packet fails to encode.
+    pub fn send_packet<P: ClientPacket>(&self, packet: P) {
+        let encoded = EncodedPacket::from_bare(
+            packet,
+            self.connection.compression(),
+            ConnectionProtocol::Play,
+        )
+        .expect("Failed to encode packet");
+        self.connection.send_encoded(encoded);
+    }
+
+    /// Disconnects the player with a reason message.
+    pub fn disconnect(&self, reason: impl Into<TextComponent>) {
+        self.connection.disconnect_with_reason(reason.into());
     }
 
     /// Ticks the player.
@@ -533,12 +562,11 @@ impl Player {
             match &verification_result {
                 Some(Ok(_)) => {}
                 Some(Err(err)) => {
-                    self.connection
-                        .disconnect(format!("Chat message validation failed: {err}"));
+                    self.disconnect(format!("Chat message validation failed: {err}"));
                     return;
                 }
                 None => {
-                    self.connection.disconnect(
+                    self.disconnect(
                         "Secure chat is enforced on this server, but your message was not signed",
                     );
                     return;
@@ -620,8 +648,7 @@ impl Player {
 
     /// Sends a system message to the player.
     pub fn send_message(&self, text: &TextComponent) {
-        self.connection
-            .send_packet(CSystemChatMessage::new(text, self, false));
+        self.send_packet(CSystemChatMessage::new(text, self, false));
     }
 
     fn is_invalid_position(x: f64, y: f64, z: f64, rot_x: f32, rot_y: f32) -> bool {
@@ -655,7 +682,7 @@ impl Player {
                 // Resend the teleport packet
                 let (yaw, pitch) = self.rotation.load();
                 let teleport_id = self.awaiting_teleport_id.load(Ordering::Relaxed);
-                self.connection.send_packet(CPlayerPosition::absolute(
+                self.send_packet(CPlayerPosition::absolute(
                     teleport_id,
                     pos.x,
                     pos.y,
@@ -725,8 +752,7 @@ impl Player {
             packet.get_x_rot(0.0),
             packet.get_y_rot(0.0),
         ) {
-            self.connection
-                .disconnect(translations::MULTIPLAYER_DISCONNECT_INVALID_PLAYER_MOVEMENT.msg());
+            self.disconnect(translations::MULTIPLAYER_DISCONNECT_INVALID_PLAYER_MOVEMENT.msg());
             return;
         }
 
@@ -1034,7 +1060,7 @@ impl Player {
                         "Player {} kicked for invalid public key",
                         self.gameprofile.name
                     );
-                    self.connection.disconnect("Invalid profile public key");
+                    self.disconnect("Invalid profile public key");
                 }
                 return;
             }
@@ -1060,8 +1086,7 @@ impl Player {
                     self.gameprofile.name
                 );
                 if STEEL_CONFIG.enforce_secure_chat {
-                    self.connection
-                        .disconnect(format!("Chat session validation failed: {err}"));
+                    self.disconnect(format!("Chat session validation failed: {err}"));
                 }
             }
         }
@@ -1096,7 +1121,7 @@ impl Player {
 
         let new_view_distance = self.view_distance();
         if old_view_distance != new_view_distance {
-            self.connection.send_packet(CSetChunkCacheRadius {
+            self.send_packet(CSetChunkCacheRadius {
                 radius: i32::from(new_view_distance),
             });
         }
@@ -1119,7 +1144,7 @@ impl Player {
         // Send abilities first (vanilla sends this before game event)
         self.send_abilities();
 
-        self.connection.send_packet(CGameEvent {
+        self.send_packet(CGameEvent {
             event: GameEventType::ChangeGameMode,
             data: gamemode.into(),
         });
@@ -1137,7 +1162,7 @@ impl Player {
     /// This tells the client about flight, invulnerability, speeds, etc.
     pub fn send_abilities(&self) {
         let packet = self.abilities.lock().to_packet();
-        self.connection.send_packet(packet);
+        self.send_packet(packet);
     }
 
     /// Handles a container button click packet (e.g., enchanting table buttons).
@@ -1342,7 +1367,7 @@ impl Player {
     fn tick_ack_block_changes(&self) {
         let sequence = self.ack_block_changes_up_to.swap(-1, Ordering::Relaxed);
         if sequence > -1 {
-            self.connection.send_packet(CBlockChangedAck { sequence });
+            self.send_packet(CBlockChangedAck { sequence });
         }
     }
 
@@ -1571,8 +1596,7 @@ impl Player {
         *self.awaiting_position_from_client.lock() = Some(Vector3::new(x, y, z));
 
         // Send the teleport packet with the new ID
-        self.connection
-            .send_packet(CPlayerPosition::absolute(new_id, x, y, z, yaw, pitch));
+        self.send_packet(CPlayerPosition::absolute(new_id, x, y, z, yaw, pitch));
     }
 
     /// Handles a teleport acknowledgment from the client.
@@ -1585,8 +1609,7 @@ impl Player {
             let mut awaiting = self.awaiting_position_from_client.lock();
             if awaiting.is_none() {
                 // Client sent confirmation without server sending teleport
-                self.connection
-                    .disconnect(translations::MULTIPLAYER_DISCONNECT_INVALID_PLAYER_MOVEMENT.msg());
+                self.disconnect(translations::MULTIPLAYER_DISCONNECT_INVALID_PLAYER_MOVEMENT.msg());
                 return;
             }
 
@@ -1605,14 +1628,14 @@ impl Player {
     /// Sends block update packets for a position and its neighbor.
     fn send_block_updates(&self, pos: &BlockPos, direction: Direction) {
         let state = self.world.get_block_state(pos);
-        self.connection.send_packet(CBlockUpdate {
+        self.send_packet(CBlockUpdate {
             pos: *pos,
             block_state: state,
         });
 
         let neighbor_pos = direction.relative(pos);
         let neighbor_state = self.world.get_block_state(&neighbor_pos);
-        self.connection.send_packet(CBlockUpdate {
+        self.send_packet(CBlockUpdate {
             pos: neighbor_pos,
             block_state: neighbor_state,
         });
@@ -1849,7 +1872,7 @@ impl Player {
         }
 
         // Send updated held slot to client
-        self.connection.send_packet(CSetHeldSlot {
+        self.send_packet(CSetHeldSlot {
             slot: i32::from(inventory.get_selected_slot()),
         });
 
@@ -1947,14 +1970,13 @@ impl Player {
 
         // Send the block update first to ensure client has latest state
         let state = self.world.get_block_state(&pos);
-        self.connection.send_packet(CBlockUpdate {
+        self.send_packet(CBlockUpdate {
             pos,
             block_state: state,
         });
 
         // Then open the sign editor
-        self.connection
-            .send_packet(COpenSignEditor { pos, is_front_text });
+        self.send_packet(COpenSignEditor { pos, is_front_text });
     }
 
     /// Sends all inventory slots to the client (full sync).
@@ -1993,7 +2015,7 @@ impl Player {
         let mut menu = provider.create(container_id);
 
         // Send the open screen packet to the client
-        self.connection.send_packet(COpenScreen {
+        self.send_packet(COpenScreen {
             container_id: i32::from(menu.container_id()),
             menu_type: menu.menu_type(),
             title: provider.title(),
@@ -2014,7 +2036,7 @@ impl Player {
     pub fn close_container(&self) {
         let open_menu = self.open_menu.lock();
         if let Some(ref menu) = *open_menu {
-            self.connection.send_packet(CContainerClose {
+            self.send_packet(CContainerClose {
                 container_id: i32::from(menu.container_id()),
             });
         }

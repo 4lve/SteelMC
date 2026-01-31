@@ -35,6 +35,8 @@
 mod adapter;
 mod convert;
 mod player;
+/// Test connection implementation for Flint tests.
+pub mod test_connection;
 mod world;
 
 pub use adapter::SteelAdapter;

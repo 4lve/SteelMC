@@ -626,7 +626,7 @@ impl World {
             packet.previous_messages.clone_from(&previous_messages);
 
             // Send the packet
-            recipient.connection.send_packet(packet.clone());
+            recipient.send_packet(packet.clone());
 
             // AFTER sending, update the recipient's cache using vanilla's push algorithm
             // This adds all lastSeen signatures + current signature to the cache
@@ -683,7 +683,7 @@ impl World {
             ) else {
                 return false;
             };
-            player.connection.send_encoded_packet(encoded);
+            player.connection.send_encoded(encoded);
             true
         });
     }
@@ -693,7 +693,7 @@ impl World {
     /// Use this when you have a pre-encoded packet to avoid re-encoding.
     pub fn broadcast_to_all_encoded(&self, packet: EncodedPacket) {
         self.players.iter_players(|_, player| {
-            player.connection.send_encoded_packet(packet.clone());
+            player.connection.send_encoded(packet.clone());
             true
         });
     }
@@ -711,7 +711,7 @@ impl World {
             let messages_received = recipient.get_and_increment_messages_received();
             packet.global_index = messages_received;
 
-            recipient.connection.send_packet(packet.clone());
+            recipient.send_packet(packet.clone());
             true
         });
     }
@@ -749,7 +749,7 @@ impl World {
                 continue;
             }
             if let Some(player) = self.players.get_by_entity_id(entity_id) {
-                player.connection.send_encoded_packet(packet.clone());
+                player.connection.send_encoded(packet.clone());
             }
         }
     }
@@ -886,7 +886,7 @@ impl World {
                 let dist_sq = dx * dx + dy * dy + dz * dz;
 
                 if dist_sq <= MAX_DISTANCE_SQ {
-                    player.connection.send_encoded_packet(encoded.clone());
+                    player.connection.send_encoded(encoded.clone());
                 }
             }
         }
@@ -904,7 +904,7 @@ impl World {
     pub fn global_level_event(&self, event_type: i32, pos: BlockPos, data: i32) {
         let packet = CLevelEvent::new(event_type, pos, data, true);
         self.players.iter_players(|_, player| {
-            player.connection.send_packet(packet.clone());
+            player.send_packet(packet.clone());
             true
         });
     }
@@ -969,7 +969,7 @@ impl World {
                 let dist_sq = dx * dx + dy * dy + dz * dz;
 
                 if dist_sq <= MAX_DISTANCE_SQ {
-                    player.connection.send_encoded_packet(encoded.clone());
+                    player.connection.send_encoded(encoded.clone());
                 }
             }
         }
@@ -1044,7 +1044,7 @@ impl World {
                 let dist_sq = dx * dx + dy * dy + dz * dz;
 
                 if dist_sq <= MAX_DISTANCE_SQ {
-                    player.connection.send_encoded_packet(encoded.clone());
+                    player.connection.send_encoded(encoded.clone());
                 }
             }
         }

@@ -2675,9 +2675,16 @@ dependencies = [
  "rustc-hash 2.1.1",
  "serde_json",
  "steel-core",
+ "steel-protocol",
  "steel-registry",
  "steel-utils",
+ "text_components",
  "tokio",
+ "tracing",
+ "tracing-log",
+ "tracing-opentelemetry",
+ "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
