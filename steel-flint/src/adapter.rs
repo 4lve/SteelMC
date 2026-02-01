@@ -166,8 +166,7 @@ mod tests {
         // Load the fence test
         let test_path = PathBuf::from(get_test_path());
         let Ok(loader) = TestLoader::new(&test_path, true) else {
-            println!("error while loading test files");
-            return;
+            panic!("error while loading test files");
         };
         let paths = collect_filtered_paths(&loader);
         let specs: Vec<TestSpec> = generate_test_specs(paths);
