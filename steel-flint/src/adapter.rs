@@ -129,35 +129,6 @@ mod tests {
             .collect()
     }
 
-    fn generate_output(summary: TestSummary) {
-        println!("\n=== Flint Benchmark Results ===");
-        println!(
-            "Total: {}, Passed: {}, Failed: {}",
-            summary.total_tests, summary.passed_tests, summary.failed_tests
-        );
-
-        for result in &summary.results {
-            let status = if result.success { "PASS" } else { "FAIL" };
-            println!(
-                "  [{}] {} ({}ms)",
-                status, result.test_name, result.execution_time_ms
-            );
-
-            if !result.success {
-                for assertion in &result.assertions {
-                    if let AssertionResult::Failure(failure) = assertion {
-                        println!("    -> tick {}: {}", failure.tick, failure.error_message);
-                    }
-                }
-            }
-        }
-        assert_eq!(
-            summary.passed_tests, summary.total_tests,
-            "Not all flint tests passed! {} out of {}",
-            summary.passed_tests, summary.total_tests
-        );
-    }
-
     #[test]
     fn test_run_flint_selected() {
         init_test_registries();
