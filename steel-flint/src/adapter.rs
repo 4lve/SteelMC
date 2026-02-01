@@ -1,4 +1,8 @@
 //! Flint adapter implementation for `SteelMC`.
+//!
+//! This module provides the [`SteelAdapter`] which implements the `FlintAdapter` trait,
+//! allowing the Flint testing framework to create test worlds using the real steel-core
+//! World implementation.
 
 use flint_core::{FlintAdapter, FlintWorld, ServerInfo};
 

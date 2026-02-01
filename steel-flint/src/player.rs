@@ -90,7 +90,13 @@ impl SteelTestPlayer {
     }
 }
 
-/// Convert a Flint `PlayerSlot` to a Steel inventory slot index.
+/// Converts a Flint [`PlayerSlot`] to a Steel inventory slot index.
+///
+/// Flint uses semantic slot names (e.g., `Hotbar1`, `OffHand`, `Helmet`),
+/// while Steel uses numeric indices. This function maps between the two:
+/// - Hotbar slots 1-9 → indices 0-8
+/// - OffHand → `PlayerInventory::SLOT_OFFHAND`
+/// - Armor slots → indices 36-39 (boots to helmet)
 fn player_slot_to_index(slot: PlayerSlot) -> usize {
     match slot {
         PlayerSlot::Hotbar1 => 0,
@@ -110,7 +116,11 @@ fn player_slot_to_index(slot: PlayerSlot) -> usize {
     }
 }
 
-/// Convert a Flint `Item` to a Steel `ItemStack`.
+/// Converts a Flint [`Item`] to a Steel [`ItemStack`].
+///
+/// Handles the `minecraft:` namespace prefix (strips it if present) and
+/// looks up the item in the registry. Returns an empty stack if the item
+/// is not found.
 fn flint_item_to_stack(item: &Item) -> ItemStack {
     // Parse the item ID - may have "minecraft:" prefix
     let item_id = if item.id.starts_with("minecraft:") {
@@ -130,7 +140,10 @@ fn flint_item_to_stack(item: &Item) -> ItemStack {
     }
 }
 
-/// Convert a Steel `ItemStack` to a Flint `Item`.
+/// Converts a Steel [`ItemStack`] to a Flint [`Item`].
+///
+/// Returns `None` for empty stacks. Adds the `minecraft:` namespace prefix
+/// to the item ID for consistency with Flint's expected format.
 fn stack_to_flint_item(stack: &ItemStack) -> Option<Item> {
     if stack.is_empty() {
         return None;
