@@ -193,7 +193,8 @@ mod tests {
 
         let loader = TestLoader::new(&test_dir, true)
             .unwrap_or_else(|e| panic!("error while loading test files: {e}"));
-        let paths = loader.collect_all_test_files()
+        let paths = loader
+            .collect_all_test_files()
             .unwrap_or_else(|e| panic!("error while loading test files: {e}"));
 
         if paths.is_empty() {
