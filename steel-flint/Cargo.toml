@@ -18,18 +18,13 @@ uuid = { workspace = true }
 text_components = { workspace = true }
 
 # Flint testing framework
-flint-steel = { path = "../../../flint/flint-steel/flint-steel" }
 flint-core = { path = "../../../flint/flint-core" }
 
 # Async
 tokio = { workspace = true }
 
 # Logging
-log = { workspace = true }
 tracing.workspace = true
-tracing-subscriber.workspace = true
-tracing-log.workspace = true
-tracing-opentelemetry = { workspace = true, optional = true }
 
 # Hash maps
 rustc-hash = { workspace = true }

@@ -16,7 +16,7 @@
 //!
 //! ```ignore
 //! use steel_flint::SteelAdapter;
-//! use flint_steel::{TestRunner, TestSelector, TestFilter};
+//! use flint_core::{TestRunner, TestSelector, TestFilter};
 //!
 //! // Initialize registry and behaviors (required before creating adapter)
 //! steel_flint::init();
@@ -44,7 +44,7 @@ pub use player::SteelTestPlayer;
 pub use world::SteelTestWorld;
 
 /// Re-export flint types for convenience
-pub use flint_steel::{TestFilter, TestLoader, TestRunner, TestSelector};
+pub use flint_core::{TestFilter, TestLoader, TestRunner, TestSelector};
 
 use std::sync::{Arc, LazyLock, OnceLock};
 use steel_core::config::WordGeneratorTypes;

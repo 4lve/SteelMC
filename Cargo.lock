@@ -732,18 +732,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "flint-steel"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "dotenvy",
- "flint-core",
- "rustc-hash 2.1.1",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2670,8 +2658,6 @@ version = "0.0.0"
 dependencies = [
  "dotenvy",
  "flint-core",
- "flint-steel",
- "log",
  "rustc-hash 2.1.1",
  "serde_json",
  "steel-core",
@@ -2681,9 +2667,6 @@ dependencies = [
  "text_components",
  "tokio",
  "tracing",
- "tracing-log",
- "tracing-opentelemetry",
- "tracing-subscriber",
  "uuid",
 ]
 

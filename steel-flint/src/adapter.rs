@@ -1,6 +1,6 @@
 //! Flint adapter implementation for `SteelMC`.
 
-use flint_steel::{FlintAdapter, FlintWorld, ServerInfo};
+use flint_core::{FlintAdapter, FlintWorld, ServerInfo};
 
 use crate::world::SteelTestWorld;
 
@@ -49,7 +49,6 @@ mod tests {
     use crate::init_test_registries;
     use crate::{TestLoader, TestRunner};
     use dotenvy::dotenv;
-    use flint_core::results::{AssertionResult, TestSummary};
     use flint_core::test_spec;
     use flint_core::utils::get_test_path;
     use std::env::var;

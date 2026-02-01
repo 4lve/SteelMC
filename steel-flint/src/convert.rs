@@ -1,7 +1,7 @@
 //! Conversion utilities between Flint types and `SteelMC` types.
 
 use flint_core::test_spec::{Block as FlintBlock, BlockFace};
-use flint_steel::traits::BlockData;
+use flint_core::traits::BlockData;
 use rustc_hash::FxHashMap;
 use steel_registry::REGISTRY;
 use steel_registry::blocks::properties::Direction;
@@ -80,13 +80,13 @@ pub fn state_id_to_block_data(state_id: BlockStateId) -> BlockData {
 
 /// Convert Flint `BlockPos` to `SteelMC` `BlockPos`.
 #[allow(dead_code)]
-pub fn flint_pos_to_steel(pos: flint_steel::BlockPos) -> SteelBlockPos {
+pub fn flint_pos_to_steel(pos: flint_core::BlockPos) -> SteelBlockPos {
     SteelBlockPos::new(pos[0], pos[1], pos[2])
 }
 
 /// Convert `SteelMC` `BlockPos` to Flint `BlockPos`.
 #[allow(dead_code)]
-pub fn steel_pos_to_flint(pos: &SteelBlockPos) -> flint_steel::BlockPos {
+pub fn steel_pos_to_flint(pos: &SteelBlockPos) -> flint_core::BlockPos {
     [pos.x(), pos.y(), pos.z()]
 }
 

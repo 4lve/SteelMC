@@ -8,7 +8,7 @@ use std::sync;
 use std::sync::Arc;
 
 use flint_core::test_spec::{BlockFace, PlayerSlot};
-use flint_steel::{BlockPos, FlintPlayer, Item};
+use flint_core::{BlockPos, FlintPlayer, Item};
 use steel_core::behavior::BlockHitResult;
 use steel_core::inventory::container::Container;
 use steel_core::player::game_mode;
@@ -207,7 +207,7 @@ mod tests {
     use super::*;
     use crate::init_test_registries;
     use crate::world::SteelTestWorld;
-    use flint_steel::FlintWorld;
+    use flint_core::FlintWorld;
 
     #[test]
     fn test_inventory() {

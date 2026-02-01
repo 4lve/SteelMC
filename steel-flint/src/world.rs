@@ -9,8 +9,8 @@ use std::sync::{
 };
 
 use flint_core::test_spec::Block as FlintBlock;
-use flint_steel::traits::BlockData;
-use flint_steel::{BlockPos as FlintBlockPos, FlintPlayer, FlintWorld};
+use flint_core::traits::BlockData;
+use flint_core::{BlockPos as FlintBlockPos, FlintPlayer, FlintWorld};
 use steel_core::chunk::empty_chunk_generator::EmptyChunkGenerator;
 use steel_core::chunk::world_gen_context::ChunkGeneratorType;
 use steel_core::world::{World, WorldConfig, WorldStorageConfig};
