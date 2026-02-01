@@ -165,9 +165,8 @@ mod tests {
 
         // Load the fence test
         let test_path = PathBuf::from(get_test_path());
-        let Ok(loader) = TestLoader::new(&test_path, true) else {
-            panic!("error while loading test files");
-        };
+        let loader = TestLoader::new(&test_path, true)
+            .unwrap_or_else(|e| panic!("error while loading test files: {e}"));
         let paths = collect_filtered_paths(&loader);
         let specs: Vec<TestSpec> = generate_test_specs(paths);
 
@@ -192,14 +191,10 @@ mod tests {
             return;
         }
 
-        let Ok(loader) = TestLoader::new(&test_dir, true) else {
-            println!("error while loading test files");
-            return;
-        };
-        let Ok(paths) = loader.collect_all_test_files() else {
-            println!("error while loading test files");
-            return;
-        };
+        let loader = TestLoader::new(&test_dir, true)
+            .unwrap_or_else(|e| panic!("error while loading test files: {e}"));
+        let paths = loader.collect_all_test_files()
+            .unwrap_or_else(|e| panic!("error while loading test files: {e}"));
 
         if paths.is_empty() {
             println!("No test files matched the filter criteria");
@@ -213,6 +208,6 @@ mod tests {
 
         let adapter = SteelAdapter::new();
         let runner = TestRunner::new(&adapter);
-        generate_output(runner.run_tests(&specs));
+        runner.run_tests(&specs).print_concise_summary();
     }
 }
