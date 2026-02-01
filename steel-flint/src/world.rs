@@ -11,11 +11,17 @@ use std::sync::{
 use flint_core::test_spec::Block as FlintBlock;
 use flint_core::traits::BlockData;
 use flint_core::{BlockPos as FlintBlockPos, FlintPlayer, FlintWorld};
+use futures::executor;
+use steel_core::chunk::chunk_access::{ChunkAccess, ChunkStatus};
+use steel_core::chunk::chunk_generator::ChunkGenerator;
+use steel_core::chunk::chunk_holder::ChunkHolder;
 use steel_core::chunk::empty_chunk_generator::EmptyChunkGenerator;
+use steel_core::chunk::proto_chunk::ProtoChunk;
+use steel_core::chunk::section::{ChunkSection, Sections};
 use steel_core::chunk::world_gen_context::ChunkGeneratorType;
 use steel_core::world::{World, WorldConfig, WorldStorageConfig};
 use steel_registry::vanilla_dimension_types::OVERWORLD;
-use steel_utils::{BlockPos, types::UpdateFlags};
+use steel_utils::{BlockPos, ChunkPos, types::UpdateFlags};
 
 use crate::convert::{flint_block_to_state_id, flint_pos_to_steel, state_id_to_block_data};
 use crate::player::SteelTestPlayer;
@@ -76,14 +82,80 @@ impl SteelTestWorld {
     }
 
     /// Ensures the chunk containing the given block position is loaded.
+    ///
+    /// This is intended for testing only. It blocks until the chunk is loaded
+    /// from storage. For RAM-only storage, this creates empty chunks on-demand.
     fn ensure_chunk_at(&self, pos: &BlockPos) {
-        use steel_utils::ChunkPos;
-
         let chunk_x = pos.x() >> 4;
         let chunk_z = pos.z() >> 4;
         let chunk_pos = ChunkPos::new(chunk_x, chunk_z);
 
-        self.world.chunk_map.ensure_chunk_loaded(&chunk_pos);
+        let chunk_map = &self.world.chunk_map;
+
+        // Check if already loaded
+        if chunk_map.chunks.contains_sync(&chunk_pos) {
+            return;
+        }
+
+        // Get dimension info from world
+        let Some(world) = chunk_map.world_gen_context.weak_world().upgrade() else {
+            tracing::error!("World has been dropped, cannot load chunk");
+            return;
+        };
+        let dimension = &world.dimension;
+        let min_y = dimension.min_y;
+        let height = dimension.height;
+        let level = chunk_map.world_gen_context.weak_world();
+
+        // Block on async storage load
+        let storage = &chunk_map.storage;
+        let level_clone = level.clone();
+        let result = executor::block_on(async {
+            storage.load_chunk(chunk_pos, min_y, height, level_clone).await
+        });
+
+        match result {
+            Ok(Some((chunk, _status))) => {
+                // Insert the chunk into the map
+                // Use ticket level 0 (highest priority) for test chunks
+                let holder = ChunkHolder::new(chunk_pos, 0, min_y, height);
+                holder.insert_chunk(chunk, ChunkStatus::Full);
+
+                // Use insert_sync since we're already in a blocking context
+                // and the scc HashMap handles concurrent access
+                let _ = chunk_map.chunks.insert_sync(chunk_pos, Arc::new(holder));
+            }
+            Ok(None) => {
+                // Chunk doesn't exist in storage - generate it
+                let holder = Arc::new(ChunkHolder::new(chunk_pos, 0, min_y, height));
+
+                // Create empty sections (same as chunk_status_tasks::empty)
+                let sections = (0..chunk_map.world_gen_context.section_count())
+                    .map(|_| ChunkSection::new_empty())
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice();
+
+                let proto_chunk =
+                    ProtoChunk::new(Sections::from_owned(sections), chunk_pos, min_y, height);
+
+                // Insert with Empty status so try_chunk will work
+                holder.insert_chunk(ChunkAccess::Proto(proto_chunk), ChunkStatus::Empty);
+
+                // Run generator (fills blocks for flat world, no-op for empty world)
+                if let Some(chunk) = holder.try_chunk(ChunkStatus::Empty) {
+                    chunk_map.world_gen_context.generator.fill_from_noise(&chunk);
+                }
+
+                // Upgrade to full LevelChunk and notify Full status
+                holder.upgrade_to_full(level);
+                holder.notify_status(ChunkStatus::Full);
+
+                let _ = chunk_map.chunks.insert_sync(chunk_pos, holder);
+            }
+            Err(e) => {
+                tracing::error!("Failed to load chunk {chunk_pos:?}: {e}");
+            }
+        }
     }
 }
 

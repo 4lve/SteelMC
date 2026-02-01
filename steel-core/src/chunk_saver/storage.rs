@@ -1,9 +1,3 @@
-//! Chunk storage abstraction.
-//!
-//! This module provides the `ChunkStorage` enum which abstracts chunk persistence.
-//! Variants can store chunks on disk (via `RegionManager`) or in memory
-//! (via `RamOnlyStorage`) for testing and minigames.
-
 use std::{io, sync::Weak};
 
 use steel_utils::ChunkPos;

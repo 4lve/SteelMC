@@ -510,7 +510,7 @@ impl ChunkHolder {
 
     /// Notifies watchers that the chunk has reached a status.
     /// Called by the drainer task after `insert_chunk_no_notify`.
-    pub(crate) fn notify_status(&self, status: ChunkStatus) {
+    pub fn notify_status(&self, status: ChunkStatus) {
         self.sender.send_replace(ChunkResult::Ok(status));
     }
 

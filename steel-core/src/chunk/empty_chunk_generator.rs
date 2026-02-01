@@ -1,7 +1,6 @@
 use crate::chunk::{chunk_access::ChunkAccess, chunk_generator::ChunkGenerator};
 
 /// A chunk generator that generates an empty world.
-
 #[derive(Default)]
 pub struct EmptyChunkGenerator;
 

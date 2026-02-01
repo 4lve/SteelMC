@@ -1,11 +1,3 @@
-//! RAM-only chunk storage.
-//!
-//! This module provides an in-memory chunk storage implementation that
-//! doesn't persist chunks to disk. Useful for:
-//! - Testing frameworks (like Flint)
-//! - Minigame worlds
-//! - Temporary worlds that don't need persistence
-
 use std::{io, sync::Weak};
 
 use rustc_hash::FxHashMap;

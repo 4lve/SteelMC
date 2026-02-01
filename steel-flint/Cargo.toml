@@ -22,6 +22,7 @@ flint-core = { path = "../../../flint/flint-core" }
 
 # Async
 tokio = { workspace = true }
+futures = { workspace = true }
 
 # Logging
 tracing.workspace = true
