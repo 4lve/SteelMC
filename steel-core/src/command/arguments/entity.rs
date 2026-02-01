@@ -79,7 +79,7 @@ impl CommandArgument for EntityArgument {
                     Uuid::nil()
                 };
                 let player = players.into_iter().find_map(|p| {
-                    if p.gameprofile.name == name || p.get_uuid() == uuid {
+                    if p.gameprofile.name == name || p.uuid() == uuid {
                         Some(p)
                     } else {
                         None

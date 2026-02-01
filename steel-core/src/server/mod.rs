@@ -31,6 +31,7 @@ use crate::behavior::init_behaviors;
 use crate::block_entity::init_block_entities;
 use crate::command::CommandDispatcher;
 use crate::config::STEEL_CONFIG;
+use crate::entity::init_entities;
 use crate::player::Player;
 use crate::server::registry_cache::RegistryCache;
 use crate::world::{World, WorldTickTimings};
@@ -75,6 +76,7 @@ impl Server {
         // Initialize behavior registries after the main registry is frozen
         init_behaviors();
         init_block_entities();
+        init_entities();
         log::info!("Behavior registries initialized");
 
         let registry_cache = RegistryCache::new();

@@ -36,8 +36,11 @@ use steel_protocol::packets::game::{
     SPlayerAction, SSetCarriedItem, SUseItem, SUseItemOn,
 };
 use steel_registry::blocks::block_state_ext::BlockStateExt;
+use steel_registry::blocks::shapes::AABBd;
 use steel_registry::entity_data::EntityPose;
+use steel_registry::entity_types::EntityTypeRef;
 use steel_registry::game_rules::GameRuleValue;
+use steel_registry::vanilla_entities;
 use steel_registry::vanilla_entity_data::PlayerEntityData;
 use steel_registry::vanilla_game_rules::{ELYTRA_MOVEMENT_CHECK, PLAYER_MOVEMENT_CHECK};
 use steel_registry::{REGISTRY, vanilla_chat_types};
@@ -55,7 +58,10 @@ use uuid::Uuid;
 
 use crate::inventory::SyncPlayerInv;
 use crate::player::player_inventory::PlayerInventory;
-use crate::{config::STEEL_CONFIG, entity::Entity};
+use crate::{
+    config::STEEL_CONFIG,
+    entity::{Entity, EntityLevelCallback, NullEntityCallback, RemovalReason},
+};
 
 use steel_crypto::{SignatureValidator, public_key_from_bytes, signature::NoValidation};
 use steel_protocol::packets::{
@@ -275,6 +281,12 @@ pub struct Player {
 
     /// Last `on_ground` state sent to tracking players (for detecting changes).
     last_sent_on_ground: AtomicBool,
+
+    /// Whether the player has been removed from the world.
+    removed: AtomicBool,
+
+    /// Callback for entity lifecycle events (movement between chunks, removal).
+    level_callback: SyncMutex<Arc<dyn EntityLevelCallback>>,
 }
 
 impl Player {
@@ -340,6 +352,8 @@ impl Player {
             block_breaking: SyncMutex::new(BlockBreakingManager::new()),
             position_sync_delay: AtomicI32::new(0),
             last_sent_on_ground: AtomicBool::new(false),
+            removed: AtomicBool::new(false),
+            level_callback: SyncMutex::new(Arc::new(NullEntityCallback)),
         }
     }
 
@@ -577,7 +591,7 @@ impl Player {
                     )))
                     .hover_event(HoverEvent::show_entity(
                         "minecraft:player",
-                        self.get_uuid(),
+                        self.uuid(),
                         Some(player.gameprofile.name.clone()),
                     )),
                 target_name: None,
@@ -847,7 +861,11 @@ impl Player {
 
         // Update current state
         if packet.has_pos {
+            let old_pos = *self.position.lock();
             *self.position.lock() = packet.position;
+
+            // Notify callback of position change (updates entity cache section index)
+            self.level_callback.lock().on_move(old_pos, packet.position);
         }
         if packet.has_rot {
             self.rotation.store((packet.y_rot, packet.x_rot));
@@ -2138,8 +2156,56 @@ impl Player {
 }
 
 impl Entity for Player {
-    fn get_uuid(&self) -> Uuid {
+    fn entity_type(&self) -> EntityTypeRef {
+        vanilla_entities::PLAYER
+    }
+
+    fn id(&self) -> i32 {
+        self.id
+    }
+
+    fn uuid(&self) -> Uuid {
         self.gameprofile.id
+    }
+
+    fn position(&self) -> Vector3<f64> {
+        *self.position.lock()
+    }
+
+    fn bounding_box(&self) -> AABBd {
+        let pos = self.position();
+        // Player hitbox: 0.6 wide, 1.8 tall (standing)
+        // TODO: Adjust for pose (crouching, swimming, etc.)
+        let half_width = 0.3;
+        let height = 1.8;
+        AABBd {
+            min_x: pos.x - half_width,
+            min_y: pos.y,
+            min_z: pos.z - half_width,
+            max_x: pos.x + half_width,
+            max_y: pos.y + height,
+            max_z: pos.z + half_width,
+        }
+    }
+
+    fn tick(&self) {
+        // Player tick is handled separately by World::tick_b()
+        // This is here for Entity trait compliance
+    }
+
+    fn is_removed(&self) -> bool {
+        self.removed.load(Ordering::Relaxed)
+    }
+
+    fn set_removed(&self, reason: RemovalReason) {
+        if !self.removed.swap(true, Ordering::AcqRel) {
+            // First time being removed - notify callback
+            self.level_callback.lock().on_remove(reason);
+        }
+    }
+
+    fn set_level_callback(&self, callback: Arc<dyn EntityLevelCallback>) {
+        *self.level_callback.lock() = callback;
     }
 
     fn as_player(self: Arc<Self>) -> Option<Arc<Player>> {

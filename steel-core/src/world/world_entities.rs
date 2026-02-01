@@ -7,7 +7,11 @@ use steel_protocol::packets::game::{
 use steel_registry::{REGISTRY, vanilla_entities};
 use tokio::time::Instant;
 
-use crate::{player::Player, world::World};
+use crate::{
+    entity::{Entity, PlayerEntityCallback, SharedEntity},
+    player::Player,
+    world::World,
+};
 
 impl World {
     /// Removes a player from the world.
@@ -17,6 +21,18 @@ impl World {
 
         if self.players.remove(&uuid).await.is_some() {
             let start = Instant::now();
+
+            // Unregister from entity cache
+            let pos = player.position();
+            let section = steel_utils::SectionPos::new(
+                (pos.x as i32) >> 4,
+                (pos.y as i32) >> 4,
+                (pos.z as i32) >> 4,
+            );
+            self.entity_cache.unregister(entity_id, uuid, section);
+
+            // Remove player from entity tracking (stop tracking all entities for this player)
+            self.entity_tracker().on_player_leave(entity_id);
 
             self.player_area_map.on_player_leave(&player);
             self.broadcast_to_all(CRemoveEntities::single(entity_id));
@@ -34,6 +50,19 @@ impl World {
             player.connection.close();
             return;
         }
+
+        // Set up level callback for section tracking
+        let pos = player.position();
+        let callback = Arc::new(PlayerEntityCallback::new(
+            player.id,
+            pos,
+            Arc::downgrade(self),
+        ));
+        player.set_level_callback(callback);
+
+        // Register player in entity cache for unified entity lookups
+        self.entity_cache
+            .register(&(player.clone() as SharedEntity));
 
         // Note: player_area_map.on_player_join is called in chunk_map.update_player_status
         // when the player's view is first computed

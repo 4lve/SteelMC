@@ -1,22 +1,89 @@
 //! This module contains entity-related traits and types.
 
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 
+use steel_registry::blocks::shapes::AABBd;
+use steel_registry::entity_data::DataValue;
+use steel_registry::entity_types::EntityTypeRef;
 use steel_registry::item_stack::ItemStack;
 use steel_utils::math::Vector3;
 use uuid::Uuid;
 
 use crate::{inventory::equipment::EquipmentSlot, player::Player};
 
-/// A trait for  entities.
+mod cache;
+mod callback;
+pub mod entities;
+mod registry;
+mod storage;
+mod tracker;
+
+pub use cache::EntityCache;
+pub use callback::{
+    EntityChunkCallback, EntityLevelCallback, NullEntityCallback, PlayerEntityCallback,
+    RemovalReason,
+};
+pub use registry::{ENTITIES, EntityRegistry, init_entities};
+pub use storage::EntityStorage;
+pub use tracker::EntityTracker;
+
+/// Type alias for a shared entity reference.
+pub type SharedEntity = Arc<dyn Entity>;
+
+/// Type alias for a weak entity reference.
+pub type WeakEntity = Weak<dyn Entity>;
+
+/// A trait for entities.
 ///
 /// This trait provides the core functionality for entities.
 /// It's based on Minecraft's `Entity` class.
-pub trait Entity {
-    /// Gets the Uuid of the entity.
-    fn get_uuid(&self) -> Uuid;
+pub trait Entity: Send + Sync {
+    /// Gets the entity type containing tracking range, dimensions, etc.
+    fn entity_type(&self) -> EntityTypeRef;
 
-    /// Gets the entity as a Player
+    /// Gets the entity's unique network ID (session-local).
+    fn id(&self) -> i32;
+
+    /// Gets the UUID of the entity (persistent identifier).
+    fn uuid(&self) -> Uuid;
+
+    /// Gets the entity's current position.
+    fn position(&self) -> Vector3<f64>;
+
+    /// Gets the entity's bounding box for collision queries.
+    fn bounding_box(&self) -> AABBd;
+
+    /// Called every game tick when the entity is in a ticked chunk.
+    ///
+    /// Override this to add entity-specific tick behavior.
+    /// The caller (`EntityStorage`) handles base tick logic like dirty data sync.
+    fn tick(&self) {}
+
+    /// Packs dirty entity data for network synchronization.
+    ///
+    /// Returns `Some(values)` if there are dirty values to sync, `None` otherwise.
+    /// Clears the dirty flags after packing.
+    fn pack_dirty_entity_data(&self) -> Option<Vec<DataValue>> {
+        None
+    }
+
+    /// Packs all non-default entity data for initial spawn.
+    ///
+    /// Used when sending entity data to a player who just started tracking this entity.
+    fn pack_all_entity_data(&self) -> Vec<DataValue> {
+        Vec::new()
+    }
+
+    /// Returns true if the entity has been marked for removal.
+    fn is_removed(&self) -> bool;
+
+    /// Marks the entity as removed with the given reason.
+    fn set_removed(&self, reason: RemovalReason);
+
+    /// Sets the level callback for lifecycle events (movement, removal).
+    fn set_level_callback(&self, callback: Arc<dyn EntityLevelCallback>);
+
+    /// Gets the entity as a Player if it is one.
     fn as_player(self: Arc<Self>) -> Option<Arc<Player>> {
         None
     }

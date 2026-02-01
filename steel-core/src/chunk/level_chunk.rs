@@ -8,7 +8,7 @@ use std::{
     },
 };
 
-use rand::Rng;
+use rand::RngExt;
 use steel_protocol::packets::game::{
     BlockEntityInfo, ChunkPacketData, HeightmapType as ProtocolHeightmapType, Heightmaps,
     LightUpdatePacketData,
@@ -25,6 +25,7 @@ use crate::chunk::{
     proto_chunk::ProtoChunk,
     section::Sections,
 };
+use crate::entity::EntityStorage;
 use crate::world::World;
 
 /// A chunk that is ready to be sent to the client.
@@ -49,6 +50,8 @@ pub struct LevelChunk {
     level: Weak<World>,
     /// Block entities stored in this chunk.
     block_entities: BlockEntityStorage,
+    /// Entities stored in this chunk.
+    pub entities: EntityStorage,
 }
 
 impl LevelChunk {
@@ -67,6 +70,11 @@ impl LevelChunk {
     pub fn tick(&self, random_tick_speed: u32) {
         // Tick block entities regardless of random tick speed
         self.tick_block_entities();
+
+        // Tick entities in this chunk
+        if let Some(world) = self.get_level() {
+            self.entities.tick(&world, self.pos);
+        }
 
         if random_tick_speed == 0 {
             return;
@@ -175,6 +183,7 @@ impl LevelChunk {
             height,
             level,
             block_entities: BlockEntityStorage::new(),
+            entities: EntityStorage::new(),
         }
     }
 
@@ -213,6 +222,7 @@ impl LevelChunk {
             height,
             level,
             block_entities: BlockEntityStorage::new(),
+            entities: EntityStorage::new(),
         }
     }
 

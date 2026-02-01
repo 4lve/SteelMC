@@ -12,7 +12,7 @@ use std::{
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize, de::Error as _};
 use simdnbt::owned::{NbtCompound, NbtTag};
-use wincode::{SchemaRead, SchemaWrite, io::Reader, io::Writer};
+use wincode::{SchemaRead, SchemaWrite, config::Config, io::Reader, io::Writer};
 
 use crate::{
     codec::VarInt,
@@ -593,19 +593,26 @@ impl<'de> Deserialize<'de> for Identifier {
     }
 }
 
-impl SchemaWrite for Identifier {
+// SAFETY: This implementation delegates to the `str` and `String` implementations
+// which are already safe, and the Identifier type has the same serialized representation
+// as a String (length-prefixed UTF-8 bytes). The size_of method returns exactly the
+// number of bytes that write will produce.
+unsafe impl<C: Config> SchemaWrite<C> for Identifier {
     type Src = Identifier;
 
     fn size_of(src: &Self::Src) -> wincode::WriteResult<usize> {
-        <str>::size_of(&src.to_string())
+        <str as SchemaWrite<C>>::size_of(&src.to_string())
     }
 
     fn write(writer: &mut impl Writer, src: &Self::Src) -> wincode::WriteResult<()> {
-        <str>::write(writer, &src.to_string())
+        <str as SchemaWrite<C>>::write(writer, &src.to_string())
     }
 }
 
-impl<'de> SchemaRead<'de> for Identifier {
+// SAFETY: This implementation delegates to the `String` implementation which is
+// already safe, and then validates the result as a valid Identifier. The read
+// method initializes `dst` if and only if it returns Ok(()).
+unsafe impl<'de, C: Config> SchemaRead<'de, C> for Identifier {
     type Dst = Identifier;
 
     fn read(
@@ -613,8 +620,9 @@ impl<'de> SchemaRead<'de> for Identifier {
         dst: &mut MaybeUninit<Self::Dst>,
     ) -> wincode::ReadResult<()> {
         let mut s = MaybeUninit::<String>::uninit();
-        String::read(reader, &mut s)?;
+        <String as SchemaRead<'de, C>>::read(reader, &mut s)?;
 
+        // SAFETY: String::read succeeded, so s is initialized
         let s = unsafe { s.assume_init() };
 
         dst.write(Identifier::from_str(&s).map_err(wincode::ReadError::Custom)?);

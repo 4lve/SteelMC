@@ -40,6 +40,7 @@ use crate::{
     behavior::BLOCK_BEHAVIORS,
     block_entity::SharedBlockEntity,
     config::STEEL_CONFIG,
+    entity::{EntityCache, EntityTracker, RemovalReason, SharedEntity},
     level_data::LevelDataManager,
     player::{LastSeen, Player},
 };
@@ -79,6 +80,11 @@ pub struct World {
     /// Whether the tick rate is running normally (not frozen/paused).
     /// When false, movement validation checks are skipped.
     tick_runs_normally: AtomicBool,
+    /// Entity cache for fast entity lookups by ID, UUID, or spatial position.
+    /// Uses `Weak` references - entities are owned by chunks.
+    entity_cache: EntityCache,
+    /// Entity tracker for managing which players can see which entities.
+    entity_tracker: EntityTracker,
 }
 
 impl World {
@@ -102,6 +108,8 @@ impl World {
             dimension,
             level_data: SyncRwLock::new(level_data),
             tick_runs_normally: AtomicBool::new(true),
+            entity_cache: EntityCache::new(),
+            entity_tracker: EntityTracker::new(),
         }))
     }
 
@@ -1017,5 +1025,141 @@ impl World {
         exclude: Option<i32>,
     ) {
         self.play_sound(sound_id, SoundSource::Blocks, pos, volume, pitch, exclude);
+    }
+
+    // === Entity Methods ===
+
+    /// Returns a reference to the entity cache.
+    #[must_use]
+    pub fn entity_cache(&self) -> &EntityCache {
+        &self.entity_cache
+    }
+
+    /// Returns the entity tracker for managing player-entity visibility.
+    #[must_use]
+    pub fn entity_tracker(&self) -> &EntityTracker {
+        &self.entity_tracker
+    }
+
+    /// Adds an entity to the world.
+    ///
+    /// This registers the entity in the cache, adds it to the appropriate chunk,
+    /// sets up the level callback, and broadcasts the spawn packet to nearby players.
+    pub fn add_entity(self: &Arc<Self>, entity: SharedEntity) {
+        use crate::entity::EntityChunkCallback;
+
+        let pos = entity.position();
+        let chunk_pos = ChunkPos::new((pos.x as i32) >> 4, (pos.z as i32) >> 4);
+
+        // Set up callback for chunk/section tracking
+        let callback = Arc::new(EntityChunkCallback::new(&entity, Arc::downgrade(self)));
+        entity.set_level_callback(callback);
+
+        // Register in entity cache (for fast lookups)
+        self.entity_cache.register(&entity);
+
+        // Add to chunk storage (for ticking and persistence)
+        self.chunk_map.with_full_chunk(&chunk_pos, |chunk| {
+            if let Some(c) = chunk.as_full() {
+                c.entities.add(entity.clone());
+            }
+        });
+
+        // Add to entity tracker (registers in chunk index)
+        self.entity_tracker.add(&entity);
+
+        // Send spawn packets to players who can see this entity's chunk
+        let tracking_players = self.player_area_map.get_tracking_players(chunk_pos);
+        for player_id in tracking_players {
+            if player_id == entity.id() {
+                continue; // Don't send to self
+            }
+            if let Some(player) = self.players.get_by_entity_id(player_id) {
+                // The tracker's add() already registered the entity, so we just need
+                // to mark this player as tracking and send packets
+                self.entity_tracker.send_spawn_to_player(&entity, &player);
+            }
+        }
+    }
+
+    /// Gets an entity by its network ID.
+    ///
+    /// Returns `None` if the entity doesn't exist or its chunk was unloaded.
+    #[must_use]
+    pub fn get_entity_by_id(&self, id: i32) -> Option<SharedEntity> {
+        self.entity_cache.get_by_id(id)
+    }
+
+    /// Gets an entity by its UUID.
+    ///
+    /// Returns `None` if the entity doesn't exist or its chunk was unloaded.
+    #[must_use]
+    pub fn get_entity_by_uuid(&self, uuid: &uuid::Uuid) -> Option<SharedEntity> {
+        self.entity_cache.get_by_uuid(uuid)
+    }
+
+    /// Gets all entities intersecting the given bounding box.
+    ///
+    /// Only returns entities in loaded chunks.
+    #[must_use]
+    pub fn get_entities_in_aabb(&self, aabb: &AABBd) -> Vec<SharedEntity> {
+        self.entity_cache.get_entities_in_aabb(aabb)
+    }
+
+    /// Moves an entity's Arc between chunks when it crosses a chunk boundary.
+    ///
+    /// Called by `EntityChunkCallback` when an entity moves between chunks.
+    pub fn move_entity_between_chunks(&self, entity_id: i32, from: ChunkPos, to: ChunkPos) {
+        // Remove Arc from old chunk
+        let entity = self
+            .chunk_map
+            .with_full_chunk(&from, |chunk| {
+                chunk.as_full().and_then(|c| c.entities.remove(entity_id))
+            })
+            .flatten();
+
+        // Add Arc to new chunk
+        if let Some(entity) = entity {
+            self.chunk_map.with_full_chunk(&to, |chunk| {
+                if let Some(c) = chunk.as_full() {
+                    c.entities.add(entity);
+                }
+            });
+        }
+    }
+
+    /// Internal method to remove an entity from the world.
+    ///
+    /// Called by `EntityChunkCallback::on_remove`.
+    pub fn remove_entity_internal(
+        &self,
+        entity_id: i32,
+        chunk_pos: ChunkPos,
+        reason: RemovalReason,
+    ) {
+        // Remove from chunk storage
+        let entity: Option<SharedEntity> = self
+            .chunk_map
+            .with_full_chunk(&chunk_pos, |chunk| {
+                chunk.as_full().and_then(|c| c.entities.remove(entity_id))
+            })
+            .flatten();
+
+        // Unregister from cache
+        if let Some(entity) = entity {
+            let pos = entity.position();
+            let section = SectionPos::new(
+                (pos.x as i32) >> 4,
+                (pos.y as i32) >> 4,
+                (pos.z as i32) >> 4,
+            );
+            self.entity_cache
+                .unregister(entity_id, entity.uuid(), section);
+
+            // Broadcast remove packet if entity was destroyed
+            if reason.should_destroy() {
+                // TODO: Send CRemoveEntities packet to nearby players
+            }
+        }
     }
 }

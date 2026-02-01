@@ -1,0 +1,153 @@
+//! Block display entity implementation.
+//!
+//! Display entities render a block, item, or text without collision.
+//! They're commonly used for visual effects, holograms, and decorations.
+
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use steel_registry::blocks::shapes::AABBd;
+use steel_registry::entity_data::DataValue;
+use steel_registry::entity_types::EntityTypeRef;
+use steel_registry::vanilla_entities;
+use steel_registry::vanilla_entity_data::BlockDisplayEntityData;
+use steel_utils::BlockStateId;
+use steel_utils::locks::SyncMutex;
+use steel_utils::math::Vector3;
+use uuid::Uuid;
+
+use crate::entity::{Entity, EntityLevelCallback, NullEntityCallback, RemovalReason};
+
+/// A block display entity that renders a block state at its position.
+///
+/// Block displays are purely visual entities with no collision.
+/// They support transformation (translation, rotation, scale) and
+/// interpolation for smooth animations.
+pub struct BlockDisplayEntity {
+    /// Unique network ID for this entity.
+    id: i32,
+    /// Persistent UUID for this entity.
+    uuid: Uuid,
+    /// Current position in the world.
+    position: SyncMutex<Vector3<f64>>,
+    /// Synced entity data for network serialization.
+    entity_data: SyncMutex<BlockDisplayEntityData>,
+    /// Whether this entity has been removed.
+    removed: AtomicBool,
+    /// Callback for entity lifecycle events.
+    level_callback: SyncMutex<Arc<dyn EntityLevelCallback>>,
+}
+
+impl BlockDisplayEntity {
+    /// Creates a new block display entity.
+    ///
+    /// The `id` should be obtained from `Server::next_entity_id()`.
+    #[must_use]
+    pub fn new(id: i32, position: Vector3<f64>) -> Self {
+        Self {
+            id,
+            uuid: Uuid::new_v4(),
+            position: SyncMutex::new(position),
+            entity_data: SyncMutex::new(BlockDisplayEntityData::new()),
+            removed: AtomicBool::new(false),
+            level_callback: SyncMutex::new(Arc::new(NullEntityCallback)),
+        }
+    }
+
+    /// Creates a new block display entity with a specific UUID.
+    ///
+    /// The `id` should be obtained from `Server::next_entity_id()`.
+    #[must_use]
+    pub fn with_uuid(id: i32, position: Vector3<f64>, uuid: Uuid) -> Self {
+        Self {
+            id,
+            uuid,
+            position: SyncMutex::new(position),
+            entity_data: SyncMutex::new(BlockDisplayEntityData::new()),
+            removed: AtomicBool::new(false),
+            level_callback: SyncMutex::new(Arc::new(NullEntityCallback)),
+        }
+    }
+
+    /// Gets a reference to the entity data for reading/modifying synced state.
+    pub fn entity_data(&self) -> &SyncMutex<BlockDisplayEntityData> {
+        &self.entity_data
+    }
+
+    /// Sets the block state ID of this entity.
+    pub fn set_block_state_id(&self, id: BlockStateId) {
+        self.entity_data.lock().block_state.set(id);
+    }
+
+    /// Sets the position of this entity.
+    pub fn set_position(&self, pos: Vector3<f64>) {
+        let old_pos = {
+            let mut position = self.position.lock();
+            let old = *position;
+            *position = pos;
+            old
+        };
+
+        // Notify callback of movement
+        self.level_callback.lock().on_move(old_pos, pos);
+    }
+}
+
+impl Entity for BlockDisplayEntity {
+    fn entity_type(&self) -> EntityTypeRef {
+        vanilla_entities::BLOCK_DISPLAY
+    }
+
+    fn id(&self) -> i32 {
+        self.id
+    }
+
+    fn uuid(&self) -> Uuid {
+        self.uuid
+    }
+
+    fn position(&self) -> Vector3<f64> {
+        *self.position.lock()
+    }
+
+    fn bounding_box(&self) -> AABBd {
+        // Display entities have zero-size bounding boxes (no collision)
+        let pos = self.position();
+        AABBd {
+            min_x: pos.x,
+            min_y: pos.y,
+            min_z: pos.z,
+            max_x: pos.x,
+            max_y: pos.y,
+            max_z: pos.z,
+        }
+    }
+
+    fn tick(&self) {
+        // Block displays are static - no tick behavior needed
+        // Interpolation is handled client-side
+    }
+
+    fn pack_dirty_entity_data(&self) -> Option<Vec<DataValue>> {
+        self.entity_data.lock().pack_dirty()
+    }
+
+    fn pack_all_entity_data(&self) -> Vec<DataValue> {
+        self.entity_data.lock().pack_all()
+    }
+
+    fn is_removed(&self) -> bool {
+        self.removed.load(Ordering::Relaxed)
+    }
+
+    fn set_removed(&self, reason: RemovalReason) {
+        if !self.removed.swap(true, Ordering::AcqRel) {
+            // First time being removed - notify callback
+            self.level_callback.lock().on_remove(reason);
+        }
+    }
+
+    fn set_level_callback(&self, callback: Arc<dyn EntityLevelCallback>) {
+        *self.level_callback.lock() = callback;
+    }
+}
