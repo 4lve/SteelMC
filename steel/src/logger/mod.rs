@@ -16,6 +16,7 @@ use crossterm::{
 };
 use std::time;
 use std::{
+    fmt::Write as _,
     io::{Result, Write},
     sync::Arc,
 };
@@ -34,6 +35,12 @@ mod selection;
 #[cfg(feature = "spawn_chunk_display")]
 mod spawn_progress;
 mod suggestions;
+
+enum Move {
+    None,
+    Up,
+    Down,
+}
 
 struct LogState {
     pub out: Output,
@@ -61,41 +68,27 @@ impl LogState {
 /// Modify input
 impl LogState {
     fn push(&mut self, string: String) -> Result<()> {
-        let string_len = string.chars().count();
-        if self.out.pos == 0 {
+        if self.out.is_at_start() {
             self.out.text.insert_str(0, &string);
         } else {
-            let Some((pos, char)) = self.out.text.char_indices().nth(self.out.pos - 1) else {
-                return Ok(());
-            };
-            self.out.text.insert_str(pos + char.len_utf8(), &string);
+            let (pos, char) = self.out.char_pos(self.out.pos.saturating_sub(1));
+            self.out.text.insert_str(pos + char, &string);
         }
+        let string_len = string.chars().count();
         let length = self.out.length + string_len;
         let pos = self.out.pos + string_len;
         self.completion.update(&mut self.out, pos);
-        self.rewrite_input(length, pos)?;
-        Ok(())
+        self.rewrite_input(length, pos)
     }
-    fn replace(&mut self, string: String) -> Result<()> {
-        let string_len = string.chars().count();
-        if self.out.pos == 0 {
-            if self.out.is_empty() {
-                self.out.text = string;
-            } else {
-                self.out.text = format!("{}{}", string, &self.out.text[1..]);
-            }
+    fn replace_push(&mut self, string: String) -> Result<()> {
+        if self.out.is_at_end() {
+            let (pos, char) = self.out.char_pos(self.out.pos.saturating_sub(1));
+            self.out.text.insert_str(pos + char, &string);
         } else {
-            let Some((pos, char)) = self.out.text.char_indices().nth(self.out.pos - 1) else {
-                return Ok(());
-            };
-            if self.out.is_at_end() {
-                self.out.text.insert_str(pos + char.len_utf8(), &string);
-            } else {
-                self.out
-                    .text
-                    .replace_range(pos + char.len_utf8()..=pos + char.len_utf8(), &string);
-            }
+            let (pos, char) = self.out.char_pos(self.out.pos);
+            self.out.text.replace_range(pos..pos + char, &string);
         }
+        let string_len = string.chars().count();
         let length = if self.out.is_at_end() {
             self.out.length + string_len
         } else {
@@ -103,34 +96,25 @@ impl LogState {
         };
         let pos = self.out.pos + string_len;
         self.completion.update(&mut self.out, pos);
-        self.rewrite_input(length, pos)?;
-        Ok(())
+        self.rewrite_input(length, pos)
     }
-    fn pop_back(&mut self) -> Result<()> {
+    fn pop_before(&mut self) -> Result<()> {
         if self.out.is_at_start() {
             return Ok(());
         }
-        let Some((pos, _)) = self.out.text.char_indices().nth(self.out.pos - 1) else {
-            return Ok(());
-        };
+        let (pos, _) = self.out.char_pos(self.out.pos.saturating_sub(1));
         self.out.text.remove(pos);
         let length = self.out.length - 1;
         let pos = self.out.pos - 1;
         self.completion.update(&mut self.out, pos);
         self.rewrite_input(length, pos)
     }
-    fn pop_front(&mut self) -> Result<()> {
+    fn pop_after(&mut self) -> Result<()> {
         if self.out.is_at_end() {
             return Ok(());
         }
-        if self.out.pos == 0 {
-            self.out.text.remove(0);
-        } else {
-            let Some((pos, char)) = self.out.text.char_indices().nth(self.out.pos - 1) else {
-                return Ok(());
-            };
-            self.out.text.remove(pos + char.len_utf8());
-        }
+        let (pos, _) = self.out.char_pos(self.out.pos);
+        self.out.text.remove(pos);
         let length = self.out.length - 1;
         let pos = self.out.pos;
         self.completion.update(&mut self.out, pos);
@@ -145,14 +129,9 @@ impl LogState {
         let end = range.end;
 
         // Find byte positions for the character indices
-        let char_indices: Vec<(usize, char)> = self.out.text.char_indices().collect();
-
-        let byte_start = char_indices[start].0;
-        let byte_end = if end < char_indices.len() {
-            char_indices[end].0
-        } else {
-            self.out.text.len()
-        };
+        let byte_start = self.out.char_pos(start).0;
+        let char_end = self.out.char_pos(end.saturating_sub(1));
+        let byte_end = char_end.0 + char_end.1;
 
         // Remove the selected text
         self.out.text.replace_range(byte_start..byte_end, "");
@@ -160,26 +139,25 @@ impl LogState {
         // Update position and length
         let new_length = self.out.length - (end - start);
         let new_pos = start;
+        self.selection.clear();
 
         // Update suggestions
         self.completion.update(&mut self.out, new_pos);
-
-        self.selection.clear();
         self.rewrite_input(new_length, new_pos)
     }
     fn reset(&mut self) -> Result<()> {
         self.out.text = String::new();
         self.completion.enabled = false;
         self.completion.selected = 0;
+        self.completion.update(&mut self.out, 0);
+        self.history.pos = 0;
         self.rewrite_input(0, 0)
     }
 }
 
 impl LogState {
     pub fn rewrite_current_input(&mut self) -> Result<()> {
-        let length = self.out.length;
-        let pos = self.out.pos;
-        self.rewrite_input(length, pos)
+        self.rewrite_input(self.out.length, self.out.pos)
     }
     pub fn rewrite_input(&mut self, length: usize, pos: usize) -> Result<()> {
         self.out.cursor_to(self.out.get_current_pos(), (0, 0))?;
@@ -194,16 +172,16 @@ impl LogState {
             let mut ended = false;
             for (i, ch) in self.out.text.chars().enumerate() {
                 if i == start {
-                    result.push_str(&format!("{}", SetAttribute(Attribute::Reverse)));
+                    write!(result, "{}", SetAttribute(Attribute::Reverse)).ok();
                 }
                 if i == end {
                     ended = true;
-                    result.push_str(&format!("{}", SetAttribute(Attribute::NoReverse)));
+                    write!(result, "{}", SetAttribute(Attribute::NoReverse)).ok();
                 }
                 result.push(ch);
             }
             if !ended {
-                result.push_str(&format!("{}", SetAttribute(Attribute::NoReverse)));
+                write!(result, "{}", SetAttribute(Attribute::NoReverse)).ok();
             }
             result
         } else {
@@ -224,9 +202,8 @@ impl LogState {
         };
         write!(
             self.out,
-            "{}{}> {input_color}{}{end_correction}{ResetColor}",
+            "{}> {input_color}{}{end_correction}{ResetColor}",
             Clear(ClearType::FromCursorDown),
-            SetAttribute(Attribute::NoReverse),
             output,
         )?;
 
@@ -236,7 +213,7 @@ impl LogState {
             .cursor_to(self.out.get_end(), self.out.get_current_pos())?;
         self.out.flush()?;
         if self.completion.enabled {
-            self.completion.rewrite(&mut self.out, 0)?;
+            self.completion.rewrite(&mut self.out, Move::None)?;
         }
         Ok(())
     }
@@ -265,7 +242,7 @@ impl CommandLogger {
             cancel_token: log_cancel_token.clone(),
         });
         task::spawn(log.clone().log_loop(receiver));
-        task::spawn(log.clone().input_main(log_cancel_token));
+        task::spawn(log.clone().input_main());
         STEEL_LOGGER.set(log.clone()).ok()?;
         Some(log)
     }
@@ -275,27 +252,27 @@ impl CommandLogger {
     }
     async fn log_loop(self: Arc<Self>, mut receiver: mpsc::UnboundedReceiver<(Level, LogData)>) {
         loop {
+            #[cfg(feature = "spawn_chunk_display")]
+            if self.input.read().await.spawn_display.rendered {
+                continue;
+            }
             tokio::select! {
                 biased;
                 Some((lvl, data)) = receiver.recv() => {
-                    #[cfg(feature = "spawn_chunk_display")]
-                    if self.input.read().await.spawn_display.rendered {
-                        continue;
-                    }
                     let mut input = self.input.write().await;
                     let pos = input.out.get_current_pos();
                     if let Err(err) = input.out.cursor_to(pos, (0, 0)) {
                         log::error!("{err}");
                     }
-                    if let Err(err) = write!(input.out,
-                        "\x1b[J{}{} {}{}{}\n\r",
+                    if let Err(err) = writeln!(input.out,
+                        "{}{}{lvl} {}{}{}\r",
+                        Clear(ClearType::FromCursorDown),
                         if STEEL_CONFIG.log.as_ref().is_some_and(|l| l.time) {
                             let time: chrono::DateTime<Utc> = time::SystemTime::now().into();
                             format!("{} ", time.format("%T:%3f"))
                         } else {
                             String::new()
                         },
-                        lvl,
                         if STEEL_CONFIG.log.as_ref().is_some_and(|l| l.module_path) {
                             format!(" {}{}{}",
                                 SetForegroundColor(DarkGrey),
@@ -321,12 +298,9 @@ impl CommandLogger {
                     if let Err(err) = input.out.cursor_to((0, 0), pos) {
                         log::error!("{err}");
                     }
-                    let length = input.out.length;
-                    let pos = input.out.pos;
-                    if let Err(err) = input.rewrite_input(length, pos) {
+                    if let Err(err) = input.rewrite_current_input() {
                         log::error!("{err}");
                     }
-                    input.out.flush().ok();
                 }
                 () = self.cancel_token.cancelled() => break,
             }
@@ -359,7 +333,7 @@ impl CommandLogger {
         let pos = input.out.get_current_pos();
         input.out.cursor_to(pos, (0, 0))?;
         write!(input.out, "\r{}", Clear(ClearType::FromCursorDown))?;
-        for _ in 0..=DISPLAY_RADIUS {
+        for _ in 0..DISPLAY_RADIUS {
             writeln!(input.out)?;
         }
         input.out.cursor_to((0, 0), pos)?;

@@ -1,7 +1,7 @@
 use crate::SERVER;
 use crate::logger::history::History;
 use crate::logger::output::Output;
-use crate::logger::{CommandLogger, LogState};
+use crate::logger::{CommandLogger, LogState, Move};
 use crossterm::{
     clipboard::CopyToClipboard,
     cursor::SetCursorStyle::{BlinkingBar, BlinkingBlock, DefaultUserShape},
@@ -18,7 +18,6 @@ use std::{
 use steel_core::command::sender::CommandSender;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::task::spawn_blocking;
-use tokio_util::sync::CancellationToken;
 
 enum ExtendedKey {
     Generic(KeyEvent),
@@ -28,19 +27,19 @@ enum ExtendedKey {
 
 impl CommandLogger {
     /// Main entry of the input process
-    pub async fn input_main(self: Arc<Self>, token: CancellationToken) -> Result<()> {
+    pub async fn input_main(self: Arc<Self>) -> Result<()> {
         let (tx, rx) = mpsc::unbounded_channel();
         enable_raw_mode()?;
-        Self::input_receiver(tx, token.clone());
-        self.input_key(rx, token).await?;
+        self.clone().input_receiver(tx);
+        self.input_key(rx).await?;
         Ok(())
     }
 
-    fn input_receiver(tx: UnboundedSender<ExtendedKey>, token: CancellationToken) {
+    fn input_receiver(self: Arc<Self>, tx: UnboundedSender<ExtendedKey>) {
         spawn_blocking(move || {
             let mut string = String::new();
             loop {
-                if token.is_cancelled() {
+                if self.cancel_token.is_cancelled() {
                     break;
                 }
 
@@ -67,16 +66,12 @@ impl CommandLogger {
     }
 
     #[allow(clippy::too_many_lines)]
-    async fn input_key(
-        self: Arc<Self>,
-        mut rx: UnboundedReceiver<ExtendedKey>,
-        token: CancellationToken,
-    ) -> Result<()> {
+    async fn input_key(self: Arc<Self>, mut rx: UnboundedReceiver<ExtendedKey>) -> Result<()> {
         loop {
             tokio::select! {
                 Some(key) = rx.recv() => {
                     let mut lock = self.input.write().await;
-                    let mut state = &mut lock as &mut LogState;
+                    let state = &mut lock as &mut LogState;
                     match key {
                         ExtendedKey::Generic(key) => match key.code {
                             KeyCode::Enter => {
@@ -84,9 +79,8 @@ impl CommandLogger {
                                     continue;
                                 }
                                 let message = state.out.text.clone();
-                                state.history.push(&mut state.out);
+                                state.history.push(&state.out);
                                 state.reset()?;
-                                state.history.pos = 0;
                                 drop(lock);
                                 steel_utils::console!("{}", message);
                                 if let Some(server) = SERVER.get() {
@@ -102,12 +96,7 @@ impl CommandLogger {
                                 if state.completion.enabled {
                                     state.completion.enabled = false;
                                     state.completion.selected = 0;
-                                    let completion = state.completion.completed.clone();
-                                    if state.out.replace {
-                                        state.replace(completion)?;
-                                    } else {
-                                        state.push(completion)?;
-                                    }
+                                    state.push(state.completion.completed.clone())?;
                                     state.completion.completed = String::new();
                                 } else {
                                     state.completion.enabled = true;
@@ -122,20 +111,19 @@ impl CommandLogger {
                                     state.delete_selection()?;
                                     continue;
                                 }
-                                state.pop_back()?;
+                                state.pop_before()?;
                             }
                             KeyCode::Delete => {
                                 if state.selection.is_active() {
                                     state.delete_selection()?;
                                     continue;
                                 }
-                                state.pop_front()?;
+                                state.pop_after()?;
                             }
                             KeyCode::Left if key.modifiers.contains(KeyModifiers::SHIFT) => {
                                 if !state.out.is_at_start() {
                                     if !state.selection.is_active() {
-                                        let current_pos = state.out.pos;
-                                        state.selection.start_at(current_pos);
+                                        state.selection.start_at(state.out.pos);
                                     }
                                     let from = state.out.get_current_pos();
                                     let to = Output::get_pos(state.out.pos - 1);
@@ -143,26 +131,23 @@ impl CommandLogger {
                                     state.out.pos -= 1;
                                     let new_pos = state.out.pos;
                                     state.selection.extend(new_pos);
-                                    let length = state.out.length;
                                     state.completion.update(&mut state.out, new_pos);
-                                    state.rewrite_input(length, new_pos)?;
+                                    state.rewrite_input(state.out.length, new_pos)?;
                                 }
                                 continue;
                             }
                             KeyCode::Left => {
                                 if state.selection.is_active() {
-                                    let length = state.out.length;
                                     let pos = state.selection.get_range().start;
                                     state.selection.clear();
                                     state.completion.update(&mut state.out, pos);
-                                    state.rewrite_input(length, pos)?;
+                                    state.rewrite_input(state.out.length, pos)?;
                                     continue;
                                 }
                                 if !state.out.is_at_start() {
-                                    let from = state.out.get_current_pos();
                                     let pos = state.out.pos - 1;
                                     let to = Output::get_pos(pos);
-                                    state.out.cursor_to(from, to)?;
+                                    state.out.cursor_to(state.out.get_current_pos(), to)?;
                                     state.out.pos -= 1;
                                     state.completion.update(&mut state.out, pos);
                                 }
@@ -170,8 +155,7 @@ impl CommandLogger {
                             KeyCode::Right if key.modifiers.contains(KeyModifiers::SHIFT) => {
                                 if !state.out.is_at_end() {
                                     if !state.selection.is_active() {
-                                        let current_pos = state.out.pos;
-                                        state.selection.start_at(current_pos);
+                                        state.selection.start_at(state.out.pos);
                                     }
                                     let from = state.out.get_current_pos();
                                     let to = Output::get_pos(state.out.pos + 1);
@@ -179,35 +163,32 @@ impl CommandLogger {
                                     state.out.pos += 1;
                                     let new_pos = state.out.pos;
                                     state.selection.extend(new_pos);
-                                    let length = state.out.length;
                                     state.completion.update(&mut state.out, new_pos);
-                                    state.rewrite_input(length, new_pos)?;
+                                    state.rewrite_input(state.out.length, new_pos)?;
                                 }
                             }
                             KeyCode::Right => {
                                 if state.selection.is_active() {
-                                    let length = state.out.length;
                                     let pos = state.selection.get_range().end;
                                     state.selection.clear();
                                     state.completion.update(&mut state.out, pos);
-                                    state.rewrite_input(length, pos)?;
+                                    state.rewrite_input(state.out.length, pos)?;
                                     continue;
                                 }
                                 if !state.out.is_at_end() {
-                                    let from = state.out.get_current_pos();
                                     let pos = state.out.pos + 1;
                                     let to = Output::get_pos(pos);
-                                    state.out.cursor_to(from, to)?;
+                                    state.out.cursor_to(state.out.get_current_pos(), to)?;
                                     state.out.pos += 1;
                                     state.completion.update(&mut state.out, pos);
                                 }
                             }
                             KeyCode::Up => {
-                                previous(&mut state)?;
+                                previous(state)?;
                                 continue;
                             }
                             KeyCode::Down => {
-                                next(&mut state)?;
+                                next(state)?;
                                 continue;
                             }
                             KeyCode::End if key.modifiers.contains(KeyModifiers::SHIFT) => {
@@ -235,9 +216,7 @@ impl CommandLogger {
                                     continue;
                                 }
                                 if !state.out.is_at_end() {
-                                    let from = state.out.get_current_pos();
-                                    let to = state.out.get_end();
-                                    state.out.cursor_to(from, to)?;
+                                    state.out.cursor_to(state.out.get_current_pos(), state.out.get_end())?;
                                     state.out.pos = state.out.length;
                                     let pos = state.out.length;
                                     state.completion.update(&mut state.out, pos);
@@ -248,7 +227,6 @@ impl CommandLogger {
                                 if state.out.is_at_start() {
                                     continue;
                                 }
-                                let len = state.out.length;
                                 let end = if state.selection.is_active() {
                                     state.selection.get_range().end
                                 } else {
@@ -256,20 +234,18 @@ impl CommandLogger {
                                 };
                                 state.selection.set(0, end + 1);
                                 state.completion.update(&mut state.out, 0);
-                                state.rewrite_input(len, 0)?;
+                                state.rewrite_input(state.out.length, 0)?;
                                 continue;
                             }
                             KeyCode::Home => {
                                 if state.selection.is_active() {
-                                    let length = state.out.length;
                                     state.selection.clear();
                                     state.completion.update(&mut state.out, 0);
-                                    state.rewrite_input(length, 0)?;
+                                    state.rewrite_input(state.out.length, 0)?;
                                     continue;
                                 }
                                 if !state.out.is_at_start() {
-                                    let from = state.out.get_current_pos();
-                                    state.out.cursor_to(from, (0, 2))?;
+                                    state.out.cursor_to(state.out.get_current_pos(), Output::START_POS)?;
                                     state.out.pos = 0;
                                     state.completion.update(&mut state.out, 0);
                                 }
@@ -283,13 +259,13 @@ impl CommandLogger {
                                 }
                                 continue;
                             }
-                            _ => (),
+                            _ => continue,
                         },
                         ExtendedKey::Ctrl(char) => {
                             match char {
                                 'c' => {
                                     if state.selection.is_active() {
-                                        copy_to_clipboard(&mut state);
+                                        copy_to_clipboard(state);
                                         continue;
                                     }
                                     state.cancel_token.cancel();
@@ -299,42 +275,45 @@ impl CommandLogger {
                                 }
                                 'x' => {
                                     if state.selection.is_active() {
-                                        copy_to_clipboard(&mut state);
+                                        copy_to_clipboard(state);
                                         state.delete_selection()?;
                                     }
                                     continue;
                                 }
                                 'a' => {
                                     // Select all text
-                                    if state.out.length > 0 {
-                                        let len = state.out.length;
-                                        state.selection.set(0, len);
-                                        state.completion.update(&mut state.out, len);
-                                        state.rewrite_input(len, len)?;
+                                    if state.out.length == 0 {
+                                        continue;
                                     }
+                                    let len = state.out.length;
+                                    state.selection.set(0, len);
+                                    state.completion.update(&mut state.out, len);
+                                    state.rewrite_input(len, len)?;
                                     continue;
                                 }
                                 'p' => {
-                                    previous(&mut state)?;
+                                    previous(state)?;
                                     continue;
                                 }
                                 'n' => {
-                                    next(&mut state)?;
+                                    next(state)?;
                                     continue;
                                 }
-                                _ => ()
+                                _ => continue,
                             }
                         }
                         ExtendedKey::String(string) => {
-                            if string.chars().any(|c| c == ' ') {
+                            if string.chars().any(char::is_whitespace) {
                                 state.completion.selected = 0;
                             }
-                            // Delete selection if active
                             if state.selection.is_active() {
                                 state.delete_selection()?;
+                                state.push(string)?;
+                                continue;
                             }
+
                             if state.out.replace {
-                                state.replace(string)?;
+                                state.replace_push(string)?;
                             } else {
                                 state.push(string)?;
                             }
@@ -342,11 +321,11 @@ impl CommandLogger {
                         }
                     }
                     if state.completion.enabled {
-                        state.completion.rewrite(&mut state.out, 0)?;
+                        state.completion.rewrite(&mut state.out, Move::None)?;
                     }
                     state.out.flush()?;
                 }
-                () = token.cancelled() => {
+                () = self.cancel_token.cancelled() => {
                     let mut state = self.input.write().await;
                     state.completion.enabled = false;
                     if !state.out.is_at_end() {
@@ -371,15 +350,9 @@ fn copy_to_clipboard(input: &mut LogState) -> Option<()> {
     let start = range.start;
     let end = range.end;
 
-    // Find byte positions for the character indices
-    let char_indices: Vec<(usize, char)> = input.out.text.char_indices().collect();
-
-    let byte_start = char_indices[start].0;
-    let byte_end = if end < char_indices.len() {
-        char_indices[end].0
-    } else {
-        input.out.text.len()
-    };
+    let byte_start = input.out.char_pos(start).0;
+    let char_end = input.out.char_pos(end.saturating_sub(1));
+    let byte_end = char_end.0 + char_end.1;
     let text = input.out.text[byte_start..byte_end].to_string();
     if let Err(err) = execute!(input.out, CopyToClipboard::to_clipboard_from(text)) {
         log::error!("{err}");
@@ -390,19 +363,19 @@ fn copy_to_clipboard(input: &mut LogState) -> Option<()> {
 
 fn previous(state: &mut LogState) -> Result<()> {
     if state.completion.enabled {
-        state.completion.rewrite(&mut state.out, -1)?;
+        state.completion.rewrite(&mut state.out, Move::Up)?;
     } else {
         state.selection.clear();
-        History::update(state, 1)?;
+        History::update(state, Move::Up)?;
     }
     Ok(())
 }
 fn next(state: &mut LogState) -> Result<()> {
     if state.completion.enabled {
-        state.completion.rewrite(&mut state.out, 1)?;
-    } else if state.history.pos != 0 {
+        state.completion.rewrite(&mut state.out, Move::Down)?;
+    } else {
         state.selection.clear();
-        History::update(state, -1)?;
+        History::update(state, Move::Down)?;
     }
     Ok(())
 }

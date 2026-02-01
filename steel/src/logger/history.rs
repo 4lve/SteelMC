@@ -1,4 +1,4 @@
-use crate::logger::{LogState, output::Output};
+use crate::logger::{LogState, Move, output::Output};
 use std::{borrow::Cow, collections::VecDeque, io::Result};
 use tokio::{fs, io::AsyncWriteExt};
 
@@ -18,6 +18,7 @@ impl History {
             history
                 .split('\n')
                 .map(|str| Cow::Owned(str.to_string()))
+                .rev()
                 .collect()
         } else {
             VecDeque::new()
@@ -36,14 +37,12 @@ impl History {
         }
         self.values.push_front(Cow::Owned(out.text.clone()));
     }
-    pub fn update(state: &mut LogState, dir: i8) -> Result<()> {
-        state.history.pos = if dir < 0 && state.history.pos != 0 {
-            state.history.pos - (-dir as usize)
-        } else if dir > 0 && state.history.pos != state.history.values.len() {
-            state.history.pos + dir as usize
-        } else {
-            state.history.pos
-        };
+    pub fn update(state: &mut LogState, dir: Move) -> Result<()> {
+        match dir {
+            Move::Up => state.history.pos = (state.history.pos + 1) % state.history.values.len(),
+            Move::Down if state.history.pos != 0 => state.history.pos -= 1,
+            _ => (),
+        }
         if state.history.pos == 0 {
             state.reset()?;
             return Ok(());
@@ -62,7 +61,7 @@ impl History {
             fs::remove_file(&path).await?;
         }
         let mut file = fs::File::create_new(&path).await?;
-        for line in &self.values {
+        for line in self.values.iter().rev() {
             file.write_all(format!("{line}\n").as_bytes()).await?;
         }
         file.set_len(file.metadata().await?.len() - 1).await

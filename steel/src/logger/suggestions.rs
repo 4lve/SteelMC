@@ -1,4 +1,7 @@
-use crate::{SERVER, logger::output::Output};
+use crate::{
+    SERVER,
+    logger::{Move, output::Output},
+};
 use crossterm::{
     cursor::{MoveRight, MoveUp, RestorePosition, SavePosition},
     style::{
@@ -34,12 +37,8 @@ impl Completer {
         let char_start = if out.text.is_empty() {
             0
         } else {
-            let (start, size) = out
-                .text
-                .char_indices()
-                .nth(pos.saturating_sub(1))
-                .expect("LogState position out of range!");
-            start + size.len_utf8()
+            let (start, size) = out.char_pos(pos.saturating_sub(1));
+            start + size
         };
         // Gets the right chars
         let command = &out.text[..char_start];
@@ -67,79 +66,85 @@ impl Completer {
             self.error = false;
         }
     }
-    pub fn rewrite(&mut self, out: &mut Output, update: i8) -> Result<()> {
+    pub fn rewrite(&mut self, out: &mut Output, dir: Move) -> Result<()> {
         // Goes to the end
         out.cursor_to(out.get_current_pos(), out.get_end())?;
         // Clears
         write!(out, "{}", Clear(ClearType::FromCursorDown))?;
-        let text = if self.suggestions.is_empty() {
+        if self.suggestions.is_empty() {
             out.cursor_to(out.get_end(), out.get_current_pos())?;
             out.flush()?;
             return Ok(());
+        }
+
+        // Updates completion position
+        match dir {
+            Move::Up => self.selected = (self.selected - 1) % self.suggestions.len(),
+            Move::Down => self.selected = (self.selected + 1) % self.suggestions.len(),
+            Move::None => (),
+        }
+        // Updates the screen width
+        let width = if let Ok((width, _)) = terminal::size() {
+            width as usize / 20
         } else {
-            // Updates completion position
-            self.selected = if update < 0 {
-                (self.selected + self.suggestions.len() - (-update) as usize)
-                    % self.suggestions.len()
-            } else {
-                (self.selected + update as usize) % self.suggestions.len()
-            };
-            let width = if let Ok((width, _)) = terminal::size() {
-                width as usize / 20
-            } else {
-                1
-            };
-            let grid_size = width * 3;
-            let start = (self.selected / grid_size) * grid_size;
-            let mut height = 0u16;
-            'outer: for w in 0..width {
-                for h in 0..3 {
-                    let pos = start + w * 3 + h;
-                    if pos >= self.suggestions.len() {
-                        break 'outer;
-                    }
-
-                    write!(out, "\n\r")?;
-                    if w != 0 {
-                        write!(out, "{}", MoveRight(w as u16 * 20))?;
-                    }
-
-                    let color = if pos == self.selected {
-                        Yellow
-                    } else {
-                        DarkGrey
-                    };
-
-                    write!(
-                        out,
-                        "{}{:<20}{}",
-                        SetForegroundColor(color),
-                        if self.suggestions[pos].len() > 20 {
-                            format!("{}...", &self.suggestions[pos][..17])
-                        } else {
-                            self.suggestions[pos].clone()
-                        },
-                        ResetColor
-                    )?;
-                    height += 1;
+            1
+        };
+        let grid_size = width * 3;
+        let start = (self.selected / grid_size) * grid_size;
+        let mut height = 0u16;
+        'outer: for w in 0..width {
+            for h in 0..3 {
+                let pos = start + w * 3 + h;
+                if pos >= self.suggestions.len() {
+                    break 'outer;
                 }
-                write!(out, "{}", MoveUp(3))?;
-                height = 0;
-            }
-            let y = height + out.get_end().0 as u16;
-            let x = out.get_current_pos().1;
-            if y != 0 {
-                write!(out, "{}", MoveUp(y))?;
-            }
-            write!(out, "\r{}", MoveRight(x as u16))?;
 
-            if let Some(text) = out.text[..out.pos].split_whitespace().last()
-                && let Some(striped) = self.suggestions[self.selected].strip_prefix(text)
-            {
-                striped
-            } else {
-                &self.suggestions[self.selected]
+                writeln!(out, "\r")?;
+                if w != 0 {
+                    write!(out, "{}", MoveRight(w as u16 * 20))?;
+                }
+
+                let color = if pos == self.selected {
+                    Yellow
+                } else {
+                    DarkGrey
+                };
+
+                write!(
+                    out,
+                    "{}{:<20}{}",
+                    SetForegroundColor(color),
+                    if self.suggestions[pos].len() > 20 {
+                        format!("{}...", &self.suggestions[pos][..17])
+                    } else {
+                        self.suggestions[pos].clone()
+                    },
+                    ResetColor
+                )?;
+                height += 1;
             }
+            write!(out, "{}", MoveUp(3))?;
+            height = 0;
+        }
+        let y = height + out.get_end().1 as u16;
+        let x = out.get_current_pos().0;
+        if y != 0 {
+            write!(out, "{}", MoveUp(y))?;
+        }
+        write!(out, "\r{}", MoveRight(x as u16))?;
+
+        let char_pos = if out.is_at_start() {
+            0
+        } else {
+            let (pos, char) = out.char_pos(out.pos.saturating_sub(1));
+            pos + char
+        };
+        let text = if let Some(text) = out.text[..char_pos].split_whitespace().last()
+            && let Some(striped) = self.suggestions[self.selected].strip_prefix(text)
+        {
+            striped
+        } else {
+            &self.suggestions[self.selected]
         };
         self.completed = text.to_string();
         out.flush()?;

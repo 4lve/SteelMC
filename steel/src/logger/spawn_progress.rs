@@ -4,6 +4,7 @@
 
 use crate::logger::output::Output;
 use crate::spawn_progress::{DISPLAY_DIAMETER, DISPLAY_RADIUS};
+use crossterm::style::Color;
 use crossterm::{
     cursor::{MoveRight, MoveUp},
     style::{Color::Rgb, ResetColor, SetBackgroundColor, SetForegroundColor},
@@ -21,20 +22,68 @@ pub type Grid = [[Option<ChunkStatus>; DISPLAY_DIAMETER]; DISPLAY_DIAMETER];
 
 /// Returns the vanilla RGB color for a chunk status.
 /// Colors are taken from `LevelLoadingScreen.COLORS` in the vanilla client.
-const fn status_color(status: Option<ChunkStatus>) -> (u8, u8, u8) {
+const fn status_color(status: Option<ChunkStatus>) -> Color {
     match status {
-        None | Some(ChunkStatus::Empty) => (84, 84, 84),
-        Some(ChunkStatus::StructureStarts) => (153, 153, 153),
-        Some(ChunkStatus::StructureReferences) => (95, 97, 145),
-        Some(ChunkStatus::Biomes) => (128, 178, 82),
-        Some(ChunkStatus::Noise) => (209, 209, 209),
-        Some(ChunkStatus::Surface) => (114, 104, 9),
-        Some(ChunkStatus::Carvers) => (48, 53, 114),
-        Some(ChunkStatus::Features) => (33, 198, 0),
-        Some(ChunkStatus::InitializeLight) => (204, 204, 204),
-        Some(ChunkStatus::Light) => (255, 224, 160),
-        Some(ChunkStatus::Spawn) => (242, 96, 96),
-        Some(ChunkStatus::Full) => (255, 255, 255),
+        None | Some(ChunkStatus::Empty) => Rgb {
+            r: 84,
+            g: 84,
+            b: 84,
+        },
+        Some(ChunkStatus::StructureStarts) => Rgb {
+            r: 153,
+            g: 153,
+            b: 153,
+        },
+        Some(ChunkStatus::StructureReferences) => Rgb {
+            r: 95,
+            g: 97,
+            b: 145,
+        },
+        Some(ChunkStatus::Biomes) => Rgb {
+            r: 128,
+            g: 178,
+            b: 82,
+        },
+        Some(ChunkStatus::Noise) => Rgb {
+            r: 209,
+            g: 209,
+            b: 209,
+        },
+        Some(ChunkStatus::Surface) => Rgb {
+            r: 114,
+            g: 104,
+            b: 9,
+        },
+        Some(ChunkStatus::Carvers) => Rgb {
+            r: 48,
+            g: 53,
+            b: 114,
+        },
+        Some(ChunkStatus::Features) => Rgb {
+            r: 33,
+            g: 198,
+            b: 0,
+        },
+        Some(ChunkStatus::InitializeLight) => Rgb {
+            r: 204,
+            g: 204,
+            b: 204,
+        },
+        Some(ChunkStatus::Light) => Rgb {
+            r: 255,
+            g: 224,
+            b: 160,
+        },
+        Some(ChunkStatus::Spawn) => Rgb {
+            r: 242,
+            g: 96,
+            b: 96,
+        },
+        Some(ChunkStatus::Full) => Rgb {
+            r: 255,
+            g: 255,
+            b: 255,
+        },
     }
 }
 
@@ -77,40 +126,23 @@ impl SpawnProgressDisplay {
                 write!(out, "{}", MoveRight(w))?;
             }
             for x in 0..DISPLAY_DIAMETER {
-                let (tr, tg, tb) = status_color(self.grid[z][x]);
+                let front = status_color(self.grid[z][x]);
                 if z + 1 < DISPLAY_DIAMETER {
-                    let (br, bg, bb) = status_color(self.grid[z + 1][x]);
+                    let back = status_color(self.grid[z + 1][x]);
                     write!(
                         out,
                         "{}{}▀",
-                        SetForegroundColor(Rgb {
-                            r: tr,
-                            g: tg,
-                            b: tb
-                        }),
-                        SetBackgroundColor(Rgb {
-                            r: br,
-                            g: bg,
-                            b: bb
-                        })
+                        SetForegroundColor(front),
+                        SetBackgroundColor(back)
                     )?;
                 } else {
-                    write!(
-                        out,
-                        "{}▀",
-                        SetForegroundColor(Rgb {
-                            r: tr,
-                            g: tg,
-                            b: tb
-                        }),
-                    )?;
+                    write!(out, "{}▀", SetForegroundColor(front))?;
                 }
             }
             writeln!(out, "{ResetColor}")?;
             out.flush()?;
         }
         write!(out, "\r")?;
-        let pos = out.get_current_pos();
-        out.cursor_to((0, 0), pos)
+        out.cursor_to((0, 0), out.get_current_pos())
     }
 }

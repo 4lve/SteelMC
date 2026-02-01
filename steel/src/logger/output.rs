@@ -48,6 +48,15 @@ impl Output {
     pub fn is_at_end(&self) -> bool {
         self.pos == self.length
     }
+    pub fn char_pos(&self, pos: usize) -> (usize, usize) {
+        let (pos, char) = self
+            .text
+            .char_indices()
+            .nth(pos)
+            .expect("Character position out of range!");
+        (pos, char.len_utf8())
+    }
+    pub const START_POS: (usize, usize) = (2, 0);
     // TODO: Change the order to (x, y)
     pub fn get_pos(pos: usize) -> (usize, usize) {
         if let Ok((w, _)) = terminal::size() {
@@ -55,9 +64,9 @@ impl Output {
             let absolute_pos = pos + 2;
             let x = absolute_pos % w;
             let y = absolute_pos / w;
-            return (y, x);
+            return (x, y);
         }
-        (0, pos + 2)
+        (pos + 2, 0)
     }
     pub fn get_current_pos(&self) -> (usize, usize) {
         Self::get_pos(self.pos)
@@ -67,14 +76,14 @@ impl Output {
     }
     pub fn cursor_to(&mut self, from: (usize, usize), to: (usize, usize)) -> Result<()> {
         if from.0 > to.0 {
-            write!(self.out, "{}", MoveUp((from.0 - to.0) as u16))?;
+            write!(self.out, "{}", MoveLeft((from.0 - to.0) as u16))?;
         } else if to.0 > from.0 {
-            write!(self.out, "{}", MoveDown((to.0 - from.0) as u16))?;
+            write!(self.out, "{}", MoveRight((to.0 - from.0) as u16))?;
         }
         if from.1 > to.1 {
-            write!(self.out, "{}", MoveLeft((from.1 - to.1) as u16))?;
+            write!(self.out, "{}", MoveUp((from.1 - to.1) as u16))?;
         } else if to.1 > from.1 {
-            write!(self.out, "{}", MoveRight((to.1 - from.1) as u16))?;
+            write!(self.out, "{}", MoveDown((to.1 - from.1) as u16))?;
         }
         Ok(())
     }

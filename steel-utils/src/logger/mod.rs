@@ -137,6 +137,6 @@ impl Visit for LogData {
 
 /// A trait for Logging Steel data
 pub trait SteelLogger: Send + Sync {
-    /// Do the logging logic
+    /// Does the logging logic
     fn log(&self, level: Level, data: LogData);
 }
