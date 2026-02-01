@@ -37,7 +37,7 @@ use crate::chunk::{
 };
 use crate::chunk_saver::{ChunkStorage, RegionManager};
 use crate::player::Player;
-use crate::player::connection::PlayerConnection;
+use crate::player::connection::NetworkConnection;
 use crate::world::World;
 
 /// Timing information for chunk map tick operations.
@@ -664,7 +664,7 @@ impl ChunkMap {
 
                 // We lock here to ensure we have unique access for the duration of the diff
                 let mut chunk_sender = player.chunk_sender.lock();
-                let connection: &dyn PlayerConnection = &*player.connection;
+                let connection: &dyn NetworkConnection = &*player.connection;
                 PlayerChunkView::difference(
                     last_view,
                     &new_view,

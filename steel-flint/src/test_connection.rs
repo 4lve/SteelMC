@@ -5,7 +5,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use steel_core::player::connection::PlayerConnection;
+use steel_core::player::connection::NetworkConnection;
 use steel_protocol::packet_traits::{CompressionInfo, EncodedPacket};
 use steel_utils::locks::SyncMutex;
 use text_components::TextComponent;
@@ -68,7 +68,7 @@ impl Default for FlintConnection {
     }
 }
 
-impl PlayerConnection for FlintConnection {
+impl NetworkConnection for FlintConnection {
     fn compression(&self) -> Option<CompressionInfo> {
         // No compression for tests - simpler packet handling
         None

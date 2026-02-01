@@ -15,7 +15,7 @@ use crate::{
         chunk_access::{ChunkAccess, ChunkStatus},
         chunk_holder::ChunkHolder,
     },
-    player::connection::PlayerConnection,
+    player::connection::NetworkConnection,
     world::World,
 };
 
@@ -52,14 +52,14 @@ impl ChunkSender {
     }
 
     /// Drops a chunk from the client's view.
-    pub fn drop_chunk(&mut self, connection: &dyn PlayerConnection, pos: ChunkPos) {
+    pub fn drop_chunk(&mut self, connection: &dyn NetworkConnection, pos: ChunkPos) {
         if !self.pending_chunks.remove(&pos) && !connection.closed() {
             Self::send_packet(connection, CForgetLevelChunk { pos });
         }
     }
 
     /// Encodes and sends a packet through the connection.
-    fn send_packet<P: ClientPacket>(connection: &dyn PlayerConnection, packet: P) {
+    fn send_packet<P: ClientPacket>(connection: &dyn NetworkConnection, packet: P) {
         let encoded =
             EncodedPacket::from_bare(packet, connection.compression(), ConnectionProtocol::Play)
                 .expect("Failed to encode packet");
@@ -72,7 +72,7 @@ impl ChunkSender {
     /// Panics if a chunk is not at Full status when it should be.
     pub fn send_next_chunks(
         &mut self,
-        connection: Arc<dyn PlayerConnection>,
+        connection: Arc<dyn NetworkConnection>,
         world: &World,
         player_chunk_pos: ChunkPos,
     ) {

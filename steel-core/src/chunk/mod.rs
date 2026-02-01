@@ -14,7 +14,7 @@ pub mod heightmap;
 /// Tracks the chunks that are visible to a player.
 pub mod player_chunk_view;
 
-/// Generates an emtpy world which can be used for testing
+/// Generates an empty world which can be used for testing
 pub mod empty_chunk_generator;
 /// Generates flat worlds with configurable layers.
 pub mod flat_chunk_generator;

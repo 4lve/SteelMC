@@ -141,7 +141,7 @@ impl Default for ClientInformation {
 
 use crate::chunk::player_chunk_view::PlayerChunkView;
 use crate::player::chunk_sender::ChunkSender;
-use crate::player::connection::PlayerConnection;
+use crate::player::connection::NetworkConnection;
 use crate::world::World;
 
 /// A struct representing a player.
@@ -149,7 +149,7 @@ pub struct Player {
     /// The player's game profile.
     pub gameprofile: GameProfile,
     /// The player's connection (abstracted for testing).
-    pub connection: Arc<dyn PlayerConnection>,
+    pub connection: Arc<dyn NetworkConnection>,
 
     /// The world the player is in.
     pub world: Arc<World>,
@@ -287,7 +287,7 @@ impl Player {
     /// Creates a new player.
     pub fn new(
         gameprofile: GameProfile,
-        connection: Arc<dyn PlayerConnection>,
+        connection: Arc<dyn NetworkConnection>,
         world: Arc<World>,
         entity_id: i32,
         player: &Weak<Player>,

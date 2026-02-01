@@ -17,7 +17,7 @@ use text_components::TextComponent;
 /// This trait uses type erasure for packet sending - packets must be pre-encoded
 /// into `EncodedPacket` before being sent. The `Player` struct provides a generic
 /// `send_packet<P: ClientPacket>()` helper that handles encoding.
-pub trait PlayerConnection: Send + Sync {
+pub trait NetworkConnection: Send + Sync {
     /// Returns compression info for packet encoding.
     ///
     /// Returns `None` if compression is disabled (e.g., for test connections).

@@ -34,7 +34,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::command::sender::CommandSender;
 use crate::player::Player;
-use crate::player::connection::PlayerConnection;
+use crate::player::connection::NetworkConnection;
 use crate::server::Server;
 
 #[allow(clippy::struct_field_names)]
@@ -394,7 +394,7 @@ impl TextResolutor for JavaConnection {
     }
 }
 
-impl PlayerConnection for JavaConnection {
+impl NetworkConnection for JavaConnection {
     fn compression(&self) -> Option<CompressionInfo> {
         self.compression
     }
