@@ -10,6 +10,7 @@ members = [
     "steel-utils",
     "steel-core",
     "steel-crypto",
+    "steel-flint",
 ]
 
 [workspace.package]
@@ -141,6 +142,9 @@ panic = "abort"
 inherits = "release"
 debug = true
 
+[profile.flint]
+inherits = "dev"
+debug = true
 
 [profile.bench]
 debug = true

@@ -1,0 +1,46 @@
+//! This module contains the `PlayerConnection` trait that abstracts network connections.
+//!
+//! The trait is object-safe to allow using `dyn PlayerConnection` for both real network
+//! connections (`JavaConnection`) and test connections (`FlintConnection`).
+
+use steel_protocol::packet_traits::{CompressionInfo, EncodedPacket};
+use text_components::TextComponent;
+
+/// An object-safe trait for player connections.
+///
+/// This abstracts the connection layer so that:
+/// - `JavaConnection` can handle real network traffic
+/// - Test connections (like `FlintConnection`) can record events for assertions
+///
+/// # Object Safety
+///
+/// This trait uses type erasure for packet sending - packets must be pre-encoded
+/// into `EncodedPacket` before being sent. The `Player` struct provides a generic
+/// `send_packet<P: ClientPacket>()` helper that handles encoding.
+pub trait NetworkConnection: Send + Sync {
+    /// Returns compression info for packet encoding.
+    ///
+    /// Returns `None` if compression is disabled (e.g., for test connections).
+    fn compression(&self) -> Option<CompressionInfo>;
+
+    /// Sends a pre-encoded packet.
+    ///
+    /// This is the object-safe method that accepts already-encoded packets.
+    /// Use `Player::send_packet()` for the generic version that handles encoding.
+    fn send_encoded(&self, packet: EncodedPacket);
+
+    /// Disconnects the player with a reason.
+    fn disconnect_with_reason(&self, reason: TextComponent);
+
+    /// Performs per-tick connection maintenance (e.g., keep-alive).
+    fn tick(&self);
+
+    /// Returns the current latency in milliseconds.
+    fn latency(&self) -> i32;
+
+    /// Closes the connection.
+    fn close(&self);
+
+    /// Returns whether the connection is closed.
+    fn closed(&self) -> bool;
+}

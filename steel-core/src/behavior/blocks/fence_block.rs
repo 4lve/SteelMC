@@ -2,15 +2,14 @@
 //!
 //! Fences connect to adjacent fences, fence gates, and solid blocks.
 
+use crate::behavior::block::BlockBehaviour;
+use crate::behavior::context::BlockPlaceContext;
+use crate::world::World;
 use steel_registry::REGISTRY;
 use steel_registry::blocks::BlockRef;
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::{BlockStateProperties, BoolProperty, Direction};
 use steel_utils::{BlockPos, BlockStateId, Identifier};
-
-use crate::behavior::block::BlockBehaviour;
-use crate::behavior::context::BlockPlaceContext;
-use crate::world::World;
 
 /// Behavior for fence blocks.
 ///
@@ -121,15 +120,6 @@ impl FenceBlock {
 }
 
 impl BlockBehaviour for FenceBlock {
-    fn get_state_for_placement(&self, context: &BlockPlaceContext<'_>) -> Option<BlockStateId> {
-        log::debug!(
-            "FenceBlock::get_state_for_placement called for {:?} at {:?}",
-            self.block.key,
-            context.relative_pos
-        );
-        Some(self.get_connection_state(context.world, &context.relative_pos))
-    }
-
     fn update_shape(
         &self,
         state: BlockStateId,
@@ -160,5 +150,14 @@ impl BlockBehaviour for FenceBlock {
             // Vertical directions don't affect fence connections
             Direction::Up | Direction::Down => state,
         }
+    }
+
+    fn get_state_for_placement(&self, context: &BlockPlaceContext<'_>) -> Option<BlockStateId> {
+        log::debug!(
+            "FenceBlock::get_state_for_placement called for {:?} at {:?}",
+            self.block.key,
+            context.relative_pos
+        );
+        Some(self.get_connection_state(context.world, &context.relative_pos))
     }
 }

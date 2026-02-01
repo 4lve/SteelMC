@@ -193,7 +193,7 @@ impl CommandDispatcher {
             let prefix = parts.first().copied().unwrap_or("");
             let suggestions = self.get_command_suggestions(prefix);
             // Start position is 1 (after the slash)
-            player.connection.send_packet(CCommandSuggestions::new(
+            player.send_packet(CCommandSuggestions::new(
                 id,
                 1,
                 prefix.len() as i32,
@@ -206,9 +206,7 @@ impl CommandDispatcher {
         let command_name = parts[0];
         let Some(handler) = self.handlers.read_sync(command_name, |_, v| v.clone()) else {
             // Unknown command - no suggestions
-            player
-                .connection
-                .send_packet(CCommandSuggestions::new(id, 0, 0, vec![]));
+            player.send_packet(CCommandSuggestions::new(id, 0, 0, vec![]));
             return;
         };
 
@@ -224,7 +222,7 @@ impl CommandDispatcher {
         // Get suggestions from handler
         if let Some(result) = handler.suggest(args, args_start_pos, &mut context) {
             // Adjust start position to account for leading slash
-            player.connection.send_packet(CCommandSuggestions::new(
+            player.send_packet(CCommandSuggestions::new(
                 id,
                 result.start + 1, // +1 for leading slash
                 result.length,
@@ -232,9 +230,7 @@ impl CommandDispatcher {
             ));
         } else {
             // No suggestions
-            player
-                .connection
-                .send_packet(CCommandSuggestions::new(id, 0, 0, vec![]));
+            player.send_packet(CCommandSuggestions::new(id, 0, 0, vec![]));
         }
     }
 
