@@ -327,13 +327,17 @@ impl CommandLogger {
     /// Initializes the display of the spawn chunks
     pub async fn activate_spawn_display(&self) -> Result<()> {
         use crate::spawn_progress::DISPLAY_RADIUS;
+        use std::time::Duration;
+        use tokio::time::sleep;
 
+        // Extra time to let the logs appear correctly
+        sleep(Duration::from_millis(1)).await;
         let mut input = self.input.write().await;
         input.spawn_display.rendered = true;
         let pos = input.out.get_current_pos();
         input.out.cursor_to(pos, (0, 0))?;
         write!(input.out, "\r{}", Clear(ClearType::FromCursorDown))?;
-        for _ in 0..DISPLAY_RADIUS {
+        for _ in 0..=DISPLAY_RADIUS {
             writeln!(input.out)?;
         }
         input.out.cursor_to((0, 0), pos)?;
