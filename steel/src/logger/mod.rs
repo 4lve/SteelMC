@@ -6,7 +6,7 @@ use crate::logger::suggestions::Completer;
 use crate::{STEEL_CONFIG, logger::output::Output};
 use chrono::Utc;
 use crossterm::{
-    cursor::{MoveLeft, MoveUp},
+    cursor::MoveLeft,
     style::{
         Attribute,
         Color::{self, DarkGrey},
@@ -344,6 +344,7 @@ impl CommandLogger {
     /// Ends the spawn display cleaning the screen
     pub async fn deactivate_spawn_display(&self) {
         use crate::spawn_progress::DISPLAY_RADIUS;
+        use crossterm::cursor::MoveUp;
 
         let mut input = self.input.write().await;
         write!(
