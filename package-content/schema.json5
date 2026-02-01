@@ -96,6 +96,33 @@
             ],
             "additionalProperties": false
         },
+        "log": {
+            "type": "object",
+            "description": "Logging configuration",
+            "properties": {
+                "time": {
+                    "type": "boolean",
+                    "description": "Whether the time should be displayed",
+                    "default": true
+                },
+                "module_path": {
+                    "type": "boolean",
+                    "description": "Whether the module_path of the log should be displayed",
+                    "default": false
+                },
+                "extra": {
+                    "type": "boolean",
+                    "description": "Whether the extra data of the log should be displayed",
+                    "default": false
+                }
+            },
+            "required": [
+                "time",
+                "module_path",
+                "extra"
+            ],
+            "additionalProperties": false
+        },
         "server_links": {
             "type": "object",
             "description": "Server links configuration",
